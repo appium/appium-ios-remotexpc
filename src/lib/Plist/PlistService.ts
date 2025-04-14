@@ -46,7 +46,8 @@ export class PlistService {
      * Sets up the data pipeline between socket and transformers
      */
     private setupPipeline(): void {
-        this.socket.pipe(this.splitter).pipe(this.decoder);
+        this.socket.pipe(this.splitter);
+        this.splitter.pipe(this.decoder);
         this.encoder.pipe(this.socket);
     }
 

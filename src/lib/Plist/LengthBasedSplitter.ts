@@ -108,9 +108,7 @@ export class LengthBasedSplitter extends Transform {
                 this.isXmlMode = false;
             } else {
                 const remainingData = this.buffer.toString('utf8', 0, Math.min(100, this.buffer.length));
-                if (!remainingData.includes('<?xml') && !remainingData.includes('<plist')) {
-                    this.isXmlMode = false;
-                }
+                this.isXmlMode = remainingData.includes('<?xml') || remainingData.includes('<plist');
             }
         }
 
