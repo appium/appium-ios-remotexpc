@@ -87,7 +87,7 @@ export class LockdownService extends BasePlistService {
     async startSession(hostID: string, systemBUID: string, timeout: number = 5000): Promise<any> {
         console.log('Starting lockdown session with HostID:', hostID);
 
-        const data = await this._plistService.sendPlistAndReceive({
+        const data = await this.sendAndReceive({
             Label: LABEL,
             Request: 'StartSession',
             HostID: hostID,
