@@ -16,7 +16,8 @@
     "build": "run-s clean:* build:*",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix",
-    "test": "cd build/test && sudo node tunnel-test.js"
+    "test": "cd build/test && sudo node tunnel-test.js",
+    "pairRecordTest": "cd build/test && sudo node ReadPairRecord-test.js"
   },
   "keywords": [],
   "author": "",

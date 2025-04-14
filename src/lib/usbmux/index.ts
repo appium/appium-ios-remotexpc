@@ -176,7 +176,8 @@ export class Usbmux extends BaseServiceSocket {
             lengthFieldLength: 4,
             lengthAdjustment: 0,
         });
-        this._socketClient.pipe(this._splitter).pipe(this._decoder);
+
+        this._socketClient.pipe(this._decoder);
 
         this._encoder = new UsbmuxEncoder();
         this._encoder.pipe(this._socketClient);
