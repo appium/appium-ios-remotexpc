@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "target": "es2022",
+    "preserveSymlinks": true,
+    "rootDir": "./",
+
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "outDir": "./build",
+    "declaration": true,
+    "declarationMap": true,
+    "removeComments": false,
+    "lib": ["es2023"],
+    "types": ["node"],
+
+    "allowSyntheticDefaultImports": true,
+    "noImplicitAny": true,
+    "noImplicitThis": false,
+    "noUnusedParameters": false,
+    "verbatimModuleSyntax": true,
+  },
+
+  "include": [
+    "./src/**/*.ts",
+    "./test/**/*.ts"
+  ],
+
+  "exclude": [
+    "node_modules",
+  ]
+}

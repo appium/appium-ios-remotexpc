@@ -1,0 +1,41 @@
+{
+  "name": "appium-ios-remotexpc",
+  "version": "0.0.1",
+  "main": "build/src/index.js",
+  "types": "build/src/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./build/src/index.js",
+      "types": "./build/src/index.d.ts"
+    }
+  },
+  "scripts": {
+    "clean:build": "rimraf ./build",
+    "build:es": "tsc",
+    "build": "run-s clean:* build:*",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "test": "cd build/test && sudo node tunnel-test.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "devDependencies": {
+    "@appium/tsconfig": "^0.3.5",
+    "@eslint/js": "^9.23.0",
+    "appium": "^2.17.1",
+    "eslint": "^9.23.0",
+    "ts-node": "^10.9.2",
+    "tsx": "^4.7.0",
+    "tuntap-bridge": "^0.0.1",
+    "typescript": "^5.2.2",
+    "typescript-eslint": "^8.29.0"
+  },
+  "dependencies": {
+    "@types/node": "^22.14.0",
+    "@xmldom/xmldom": "^0.9.8",
+    "npm-run-all2": "^7.0.2"
+  }
+}
