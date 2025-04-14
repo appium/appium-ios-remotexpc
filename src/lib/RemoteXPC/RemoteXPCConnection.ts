@@ -55,7 +55,8 @@ class RemoteXPCConnection {
                 this.socket.on('data', (data) => {
                     // Process incoming frames
                     if (data.length > 100) {
-                        const message = Buffer.from(data.toString(), 'hex');
+                        // @ts-ignore
+                        const message = Buffer.from(data, 'hex');
                         const response = message.toString('utf8');
                         const servicesResponse = extractServices(response);
                         this._services = servicesResponse.services;
