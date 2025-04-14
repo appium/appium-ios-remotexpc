@@ -80,25 +80,33 @@ export class LengthBasedSplitter extends Transform {
     private processXmlData(callback: TransformCallback): void {
         const fullBufferString = this.buffer.toString('utf8');
 
-        // Look for a complete XML document
-        const plistEndIndex = fullBufferString.indexOf('</plist>');
+        let startIndex = 0;
+        if (!fullBufferString.startsWith('<?xml')) {
+            const declIndex = fullBufferString.indexOf('<?xml');
+            if (declIndex >= 0) {
+                startIndex = declIndex;
+            } else {
+                return callback();
+            }
+        }
 
+        // Now search for the closing tag in the string starting at startIndex.
+        const plistEndIndex = fullBufferString.indexOf('</plist>', startIndex);
         if (plistEndIndex >= 0) {
-            // Found the end of the plist
             const endPos = plistEndIndex + '</plist>'.length;
+
             const xmlData = this.buffer.slice(0, endPos);
 
-            // Push the complete XML data
+            // Push the complete XML document downstream.
             this.push(xmlData);
 
-            // Remove the processed data from buffer
+            // Remove the processed data from the buffer.
             this.buffer = this.buffer.slice(endPos);
 
-            // Check if there's more data in the buffer
+            // If there's remaining data, check if it still looks XML.
             if (this.buffer.length === 0) {
                 this.isXmlMode = false;
             } else {
-                // Check if the next chunk is also XML
                 const remainingData = this.buffer.toString('utf8', 0, Math.min(100, this.buffer.length));
                 if (!remainingData.includes('<?xml') && !remainingData.includes('<plist')) {
                     this.isXmlMode = false;

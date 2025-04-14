@@ -108,7 +108,7 @@ export function decodePlistPairRecord(base64PlistData: string): PairRecord {
  */
 async function ensureRecordsDirectoryExists(): Promise<void> {
   try {
-    await fs.promises.mkdir(RECORDS_DIR, { recursive: true, mode: 0o755 });
+    await fs.promises.mkdir(RECORDS_DIR, { recursive: true, mode: 0o777 });
   } catch (error) {
     console.error(`Failed to create directory ${RECORDS_DIR}:`, error);
     throw error;
