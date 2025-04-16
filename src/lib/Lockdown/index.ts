@@ -1,6 +1,6 @@
 import { Socket } from 'node:net';
 import tls, { TLSSocket, type ConnectionOptions } from 'tls';
-import { getPairRecord, type PairRecord } from '../PairRecord/index.js';
+import { type PairRecord } from '../PairRecord/index.js';
 import { BasePlistService } from '../../BasePlistService.js';
 import { PlistService } from '../Plist/PlistService.js';
 const { createUsbmux, connectAndRelay } = await import('../usbmux/index.js');
@@ -109,19 +109,14 @@ export class LockdownService extends BasePlistService {
      */
     private async getPairRecordForTLS(): Promise<PairRecord | null> {
         try {
-            let pairRecord = await getPairRecord(this.udid);
+            const usbmux = await createUsbmux();
+
+            // Retrieve the pair record from the device.
+            const pairRecord = await usbmux.readPairRecord(this.udid);
+
             if (!pairRecord) {
-                console.log('Cached pair record not found. Requesting it from usbmuxd...');
-
-                const usbmux = await createUsbmux();
-
-                // Retrieve the pair record from the device.
-                pairRecord = await usbmux.readPairRecord(this.udid);
-
-                if (!pairRecord) {
-                    console.error('Failed to retrieve pair record from usbmuxd');
-                    return null;
-                }
+                console.error('Failed to retrieve pair record from usbmuxd');
+                return null;
             }
 
             if (!pairRecord.HostCertificate || !pairRecord.HostPrivateKey) {

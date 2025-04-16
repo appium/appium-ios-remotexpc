@@ -1,17 +1,11 @@
-import net from 'net';
+import net, {Socket} from 'net';
 import os from 'os';
-import { Socket } from 'net';
-import { LengthBasedSplitter } from '../Plist/index.js';
-import { UsbmuxDecoder } from './usbmux-decoder.js';
-import { UsbmuxEncoder } from './usbmux-encoder.js';
-import { Transform } from 'stream';
-import {
-    type PairRecord,
-  savePairRecord,
-  getPairRecord,
-    processPlistResponse
-} from '../PairRecord/index.js';
-import { plist } from '@appium/support';
+import {LengthBasedSplitter} from '../Plist/index.js';
+import {UsbmuxDecoder} from './usbmux-decoder.js';
+import {UsbmuxEncoder} from './usbmux-encoder.js';
+import {Transform} from 'stream';
+import {type PairRecord, processPlistResponse} from '../PairRecord/index.js';
+import {plist} from '@appium/support';
 
 export const USBMUXD_PORT = 27015;
 export const LOCKDOWN_PORT = 62078;
@@ -289,17 +283,6 @@ export class Usbmux extends BaseServiceSocket {
      * @returns Promise that resolves with the pair record or null if not found
      */
     async readPairRecord(udid: string, timeout = 5000): Promise<PairRecord | null> {
-        // First try to get the cached pair record
-        try {
-            const cachedRecord = await getPairRecord(udid);
-            if (cachedRecord) {
-                return cachedRecord;
-            }
-        } catch (error) {
-            console.warn(`Error reading cached pair record for ${udid}:`, error);
-            // Continue to request from usbmuxd if cache failed
-        }
-
         // Request from usbmuxd if not found in cache
         const { tag, receivePromise } = this._receivePlistPromise(timeout, (data) => {
             if (!data.payload.PairRecordData) {
@@ -307,13 +290,7 @@ export class Usbmux extends BaseServiceSocket {
             }
             try {
                 // Parse the pair record
-                const pairRecord = processPlistResponse(plist.parsePlist(data.payload.PairRecordData));
-
-                // Save the record for future use
-                savePairRecord(udid, pairRecord)
-                    .catch(err => console.error(`Failed to save pair record for ${udid}:`, err));
-
-                return pairRecord;
+                return processPlistResponse(plist.parsePlist(data.payload.PairRecordData));
             } catch (e) {
                 throw new Error(`Failed to parse pair record data: ${e}`);
             }
