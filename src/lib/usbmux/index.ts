@@ -7,10 +7,12 @@ import { UsbmuxEncoder } from './usbmux-encoder.js';
 import { Transform } from 'stream';
 import {
     type PairRecord,
-  decodePlistPairRecord,
   savePairRecord,
-  getPairRecord
+  getPairRecord,
+    processPlistResponse
 } from '../PairRecord/index.js';
+import { plist } from '@appium/support';
+import js = require("@eslint/js");
 
 export const USBMUXD_PORT = 27015;
 export const LOCKDOWN_PORT = 62078;
@@ -306,7 +308,7 @@ export class Usbmux extends BaseServiceSocket {
             }
             try {
                 // Parse the pair record
-                const pairRecord = decodePlistPairRecord(data.payload.PairRecordData);
+                const pairRecord = processPlistResponse(plist.parsePlist(data.payload.PairRecordData));
 
                 // Save the record for future use
                 savePairRecord(udid, pairRecord)

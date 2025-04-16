@@ -1,17 +1,14 @@
 import {
     type PairRecord,
-  decodePlistPairRecord, 
-  parsePairRecord, 
-  decodeBase64,
   savePairRecord,
-  getPairRecord
+  getPairRecord,
+    processPlistResponse
 } from './pairRecord.js';
 
 export {
-    decodePlistPairRecord,
-    parsePairRecord,
-    decodeBase64,
     savePairRecord,
-    getPairRecord
-};    export type { PairRecord };
+    getPairRecord,
+    processPlistResponse,
+    type PairRecord
+};
 

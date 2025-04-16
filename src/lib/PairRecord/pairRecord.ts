@@ -17,112 +17,47 @@ export interface PairRecord {
 }
 
 /**
- * Decodes a base64 string to a Buffer.
- * @param base64String - Base64 encoded string.
- * @returns Decoded Buffer.
+ * Interface for the raw response from plist.parsePlist
  */
-export function decodeBase64(base64String: string): Buffer {
-    return Buffer.from(base64String, 'base64');
+export interface RawPairRecordResponse {
+    HostID: string;
+    SystemBUID: string;
+    HostCertificate: Buffer;
+    HostPrivateKey: Buffer;
+    DeviceCertificate: Buffer;
+    RootCertificate: Buffer;
+    RootPrivateKey: Buffer;
+    WiFiMACAddress: string;
+    EscrowBag: Buffer;
 }
 
 /**
- * Helper function to decode a value to PEM text.
- * If the value does not start with "-----BEGIN", it attempts a base64 decode.
- * @param value - The string to potentially decode.
- * @returns The decoded PEM string if successful, or the original value.
+ * Converts a buffer containing PEM data to a string
+ * @param buffer - Buffer containing PEM data
+ * @returns String representation of the PEM data
  */
-function decodePEMValue(value: string): string {
-    const trimmed = value.trim();
-    if (!trimmed.startsWith("-----BEGIN")) {
-        try {
-            const decoded = Buffer.from(trimmed, 'base64').toString('utf8');
-            if (decoded.trim().startsWith("-----BEGIN")) {
-                return decoded;
-            }
-        } catch (err) {
-            console.error("Error decoding PEM value:", err);
-        }
-    }
-    return value;
+function bufferToPEMString(buffer: Buffer): string {
+    return buffer.toString('utf8');
 }
 
 /**
- * Parses a plist XML buffer into a structured PairRecord object.
- * Uses a regex to extract key/value pairs from the plist and decodes PEM values.
- * @param data - Raw plist XML data as a Buffer.
- * @returns Parsed pair record object.
+ * Processes raw response from plist.parsePlist and formats it into a proper PairRecord
+ * @param response - Response from plist.parsePlist(data.payload.PairRecordData)
+ * @returns Formatted PairRecord object with properly structured data
  */
-export function parsePairRecord(data: Buffer): PairRecord {
-    const dataStr = data.toString('utf8');
-    const record: Partial<PairRecord> = {};
-
-    // Matches key/value pairs where the value is contained in a <string> or <data> element.
-    const regex = /<key>(.*?)<\/key>\s*<(string|data)>([\s\S]*?)<\/(?:string|data)>/g;
-    let match;
-    while ((match = regex.exec(dataStr)) !== null) {
-        const key = match[1];
-        const value = match[3].trim();
-        switch (key) {
-            case 'HostID':
-                record.HostID = value;
-                break;
-            case 'SystemBUID':
-                record.SystemBUID = value;
-                break;
-            case 'HostCertificate':
-                record.HostCertificate = decodePEMValue(value);
-                break;
-            case 'HostPrivateKey':
-                record.HostPrivateKey = decodePEMValue(value);
-                break;
-            case 'DeviceCertificate':
-                record.DeviceCertificate = decodePEMValue(value);
-                break;
-            case 'RootCertificate':
-                record.RootCertificate = decodePEMValue(value);
-                break;
-            case 'RootPrivateKey':
-                record.RootPrivateKey = decodePEMValue(value);
-                break;
-            case 'WiFiMACAddress':
-                record.WiFiMACAddress = value;
-                break;
-            case 'EscrowBag':
-                record.EscrowBag = value;
-                break;
-            // Ignore any keys we don't care about.
-            default:
-                break;
-        }
-    }
-
+export function processPlistResponse(response: RawPairRecordResponse): PairRecord {
     return {
-        HostID: record.HostID || null,
-        SystemBUID: record.SystemBUID || null,
-        HostCertificate: record.HostCertificate || null,
-        HostPrivateKey: record.HostPrivateKey || null,
-        DeviceCertificate: record.DeviceCertificate || null,
-        RootCertificate: record.RootCertificate || null,
-        RootPrivateKey: record.RootPrivateKey || null,
-        WiFiMACAddress: record.WiFiMACAddress || null,
-        EscrowBag: record.EscrowBag || null,
+        HostID: response.HostID || null,
+        SystemBUID: response.SystemBUID || null,
+        HostCertificate: response.HostCertificate ? bufferToPEMString(response.HostCertificate) : null,
+        HostPrivateKey: response.HostPrivateKey ? bufferToPEMString(response.HostPrivateKey) : null,
+        DeviceCertificate: response.DeviceCertificate ? bufferToPEMString(response.DeviceCertificate) : null,
+        RootCertificate: response.RootCertificate ? bufferToPEMString(response.RootCertificate) : null,
+        RootPrivateKey: response.RootPrivateKey ? bufferToPEMString(response.RootPrivateKey) : null,
+        WiFiMACAddress: response.WiFiMACAddress || null,
+        // For EscrowBag, we need it as a base64 string
+        EscrowBag: response.EscrowBag ? response.EscrowBag.toString('base64') : null
     };
-}
-
-/**
- * Decodes a base64 encoded plist pair record.
- * Accepts input as either a base64 string or a Buffer.
- * @param data - Base64 encoded plist data as a string or a Buffer.
- * @returns Parsed pair record object.
- */
-export function decodePlistPairRecord(data: Buffer | string): PairRecord {
-    try {
-        const binaryData: Buffer = typeof data === 'string' ? decodeBase64(data) : data;
-        return parsePairRecord(binaryData);
-    } catch (error) {
-        console.error('Error decoding pair record:', error);
-        throw error;
-    }
 }
 
 /* --- File storage functions remain unchanged --- */
@@ -152,7 +87,7 @@ export async function savePairRecord(udid: string, pairRecord: PairRecord): Prom
         await fs.promises.writeFile(
             recordPath,
             JSON.stringify(pairRecord, null, 2),
-            { mode: 0o644 }
+            { mode: 0o777 }
         );
         console.log(`Pair record saved: ${recordPath}`);
     } catch (error) {
