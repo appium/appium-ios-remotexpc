@@ -12,7 +12,6 @@ import {
     processPlistResponse
 } from '../PairRecord/index.js';
 import { plist } from '@appium/support';
-import js = require("@eslint/js");
 
 export const USBMUXD_PORT = 27015;
 export const LOCKDOWN_PORT = 62078;
