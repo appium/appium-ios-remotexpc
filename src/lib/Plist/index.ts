@@ -8,12 +8,12 @@ import { PlistService } from './PlistService.js';
 import { sendUsbmuxPlistRequest, byteSwap16 } from './UsbmuxRequest.js';
 
 export {
-    createPlist,
-    parsePlist,
-    PlistServiceEncoder,
-    PlistServiceDecoder,
-    LengthBasedSplitter,
-    PlistService,
-    sendUsbmuxPlistRequest,
-    byteSwap16
+  createPlist,
+  parsePlist,
+  PlistServiceEncoder,
+  PlistServiceDecoder,
+  LengthBasedSplitter,
+  PlistService,
+  sendUsbmuxPlistRequest,
+  byteSwap16,
 };

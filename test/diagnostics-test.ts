@@ -3,13 +3,14 @@ import { startCoreDeviceProxy } from '../src/Services/IOS/tunnelService/index.js
 import TunnelManager from '../src/lib/Tunnel/index.js';
 import RemoteXPCConnection from '../src/lib/RemoteXPC/RemoteXPCConnection.js';
 import type { TunnelConnection } from 'tuntap-bridge';
-import SyslogService from '../src/Services/IOS/syslogService/index.js';
+import DiagnosticsService from '../src/Services/IOS/diagnosticsService/index.js';
+import ServiceConnection from '../src/ServiceConnection.js';
 
 async function test() {
   const tunManager = TunnelManager;
   let tunnelResult: TunnelConnection;
   console.log('create connection....');
-  const udid = '00008130000474C114E1001C';
+  const udid = '00008120-000648161480201E';
   const { lockdownService, device } = await createLockdownServiceByUDID(udid);
   const { socket } = await startCoreDeviceProxy(
     lockdownService,
@@ -28,14 +29,30 @@ async function test() {
     await remoteXPC.connect();
     remoteXPC.listAllServices();
     // console.log(remoteXPC.getServices())
-    const service = remoteXPC.findService(
-      'com.apple.os_trace_relay.shim.remote'
-    );
-    // let restart = remoteXPC.findService('com.apple.mobile.diagnostics_relay.shim.remote')
 
-    const syslogService = new SyslogService([tunnelResult.Address, rsdPort]);
-    await syslogService.start(service, -1, tunnelResult.tunnelManager);
-    // await syslogService.restart(restart)
+    // Find the diagnostics service
+    const diagnosticsService = remoteXPC.findService(
+      DiagnosticsService.RSD_SERVICE_NAME
+    );
+
+    // Create diagnostics service with the address and port
+    const diagService = new DiagnosticsService([
+      tunnelResult.Address,
+      parseInt(diagnosticsService.port),
+    ]);
+
+    // Query some basic device information
+    console.log('Querying device information...');
+    const powerInfo = await diagService.ioregistry({
+      ioClass: 'IOPMPowerSource',
+    });
+    console.log('Device Information:');
+    console.log(powerInfo);
+    const wifiInfo = await diagService.ioregistry({
+      name: 'AppleBCMWLANSkywalkInterface',
+    });
+    console.log('wifiInfo Information:');
+    console.log(wifiInfo);
     await tunManager.closeTunnel();
   } catch (err) {
     console.error('Failed to establish tunnel:', err);

@@ -4,41 +4,48 @@
  * @returns - XML plist string
  */
 export function createPlist(obj: Record<string, any>): string {
-    function convert(value: any): string {
-        if (typeof value === 'number') return `<integer>${value}</integer>`;
-        if (typeof value === 'boolean') return value ? '<true/>' : '<false/>';
-        if (typeof value === 'string') return `<string>${escapeXml(value)}</string>`;
-        if (Array.isArray(value)) {
-            return `<array>${value.map(item => convert(item)).join('')}</array>`;
-        }
-        if (typeof value === 'object' && value !== null) {
-            const entries = Object.entries(value)
-                .map(([k, v]) => `<key>${escapeXml(k)}</key>${convert(v)}`)
-                .join('');
-            return `<dict>${entries}</dict>`;
-        }
-        return '<string></string>';
+  function convert(value: any): string {
+    if (typeof value === 'number') return `<integer>${value}</integer>`;
+    if (typeof value === 'boolean') return value ? '<true/>' : '<false/>';
+    if (typeof value === 'string')
+      return `<string>${escapeXml(value)}</string>`;
+    if (Array.isArray(value)) {
+      return `<array>${value.map((item) => convert(item)).join('')}</array>`;
     }
-
-    // XML escaping
-    function escapeXml(str: string): string {
-        return str.replace(/[<>&"']/g, function(c) {
-            switch (c) {
-                case '<': return '&lt;';
-                case '>': return '&gt;';
-                case '&': return '&amp;';
-                case '"': return '&quot;';
-                case '\'': return '&apos;';
-                default: return c;
-            }
-        });
-    }
-
-    const body = Object.entries(obj)
-        .map(([key, val]) => `<key>${escapeXml(key)}</key>${convert(val)}`)
+    if (typeof value === 'object' && value !== null) {
+      const entries = Object.entries(value)
+        .map(([k, v]) => `<key>${escapeXml(k)}</key>${convert(v)}`)
         .join('');
+      return `<dict>${entries}</dict>`;
+    }
+    return '<string></string>';
+  }
 
-    return `<?xml version="1.0" encoding="UTF-8"?>
+  // XML escaping
+  function escapeXml(str: string): string {
+    return str.replace(/[<>&"']/g, function (c) {
+      switch (c) {
+        case '<':
+          return '&lt;';
+        case '>':
+          return '&gt;';
+        case '&':
+          return '&amp;';
+        case '"':
+          return '&quot;';
+        case "'":
+          return '&apos;';
+        default:
+          return c;
+      }
+    });
+  }
+
+  const body = Object.entries(obj)
+    .map(([key, val]) => `<key>${escapeXml(key)}</key>${convert(val)}`)
+    .join('');
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" 
 "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
