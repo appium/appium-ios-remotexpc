@@ -1,4 +1,5 @@
 import { Transform, type TransformCallback } from 'stream';
+
 import createPlist from './PlistCreator.js';
 
 /**
@@ -12,7 +13,7 @@ export class PlistServiceEncoder extends Transform {
   _transform(
     data: Record<string, any>,
     encoding: BufferEncoding,
-    callback: TransformCallback
+    callback: TransformCallback,
   ): void {
     try {
       // Convert object to plist

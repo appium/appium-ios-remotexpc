@@ -250,7 +250,7 @@ class DiagnosticsService {
    * @param service
    */
   private async startLockdownWithoutCheckin(
-    service: Service
+    service: Service,
   ): Promise<ServiceConnection> {
     // Get the port for the requested service
     const port = service.port;
@@ -263,7 +263,7 @@ class DiagnosticsService {
    * @param service
    */
   private async startLockdownService(
-    service: Service
+    service: Service,
   ): Promise<ServiceConnection> {
     const connection = await this.startLockdownWithoutCheckin(service);
     const checkin = {

@@ -26,7 +26,7 @@ export class ServiceConnection {
   static createUsingTCP(
     hostname: string,
     port: string,
-    options?: ServiceConnectionOptions
+    options?: ServiceConnectionOptions,
   ): Promise<ServiceConnection> {
     const keepAlive = options?.keepAlive ?? true;
     const createConnectionTimeout = options?.createConnectionTimeout ?? 30000;
@@ -38,7 +38,7 @@ export class ServiceConnection {
           socket.setTimeout(0);
           if (keepAlive) socket.setKeepAlive(true);
           resolve(new ServiceConnection(socket));
-        }
+        },
       );
 
       socket.setTimeout(createConnectionTimeout, () => {
@@ -82,7 +82,7 @@ export class ServiceConnection {
    */
   static parsePlistResponse(
     payload: Buffer,
-    headerSize: number = 4
+    headerSize: number = 4,
   ): Record<string, any>[] | null {
     const xmlStr = payload.slice(headerSize).toString('utf8');
     try {
@@ -104,7 +104,7 @@ export class ServiceConnection {
         // Extract the complete plist document including XML declaration
         const xmlDeclStart = Math.max(
           0,
-          xmlStr.lastIndexOf('<?xml', plistStart)
+          xmlStr.lastIndexOf('<?xml', plistStart),
         );
         const fullPlist = xmlStr.substring(xmlDeclStart, plistEnd + 8); // 8 is the length of '</plist>'
         plists.push(fullPlist);
@@ -180,7 +180,7 @@ export class ServiceConnection {
    * Sends a plist request to the device and returns the response
    */
   sendPlistRequest(
-    requestObj: Record<string, any>
+    requestObj: Record<string, any>,
   ): Promise<Record<string, any>[] | null> {
     return new Promise((resolve, reject) => {
       const requestPlist = ServiceConnection.createPlist(requestObj);

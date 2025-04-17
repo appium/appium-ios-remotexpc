@@ -46,7 +46,7 @@ function bufferToPEMString(buffer: Buffer): string {
  * @returns Formatted PairRecord object with properly structured data
  */
 export function processPlistResponse(
-  response: RawPairRecordResponse
+  response: RawPairRecordResponse,
 ): PairRecord {
   return {
     HostID: response.HostID || null,
@@ -95,7 +95,7 @@ async function ensureRecordsDirectoryExists(): Promise<void> {
  */
 export async function savePairRecord(
   udid: string,
-  pairRecord: PairRecord
+  pairRecord: PairRecord,
 ): Promise<void> {
   await ensureRecordsDirectoryExists();
 
@@ -104,7 +104,7 @@ export async function savePairRecord(
     await fs.promises.writeFile(
       recordPath,
       JSON.stringify(pairRecord, null, 2),
-      { mode: 0o777 }
+      { mode: 0o777 },
     );
     console.log(`Pair record saved: ${recordPath}`);
   } catch (error) {

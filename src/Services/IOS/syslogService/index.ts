@@ -1,5 +1,6 @@
-import ServiceConnection from '../../../ServiceConnection.js';
 import { EventEmitter } from 'events';
+
+import ServiceConnection from '../../../ServiceConnection.js';
 
 // Define interfaces for clarity
 interface Packet {
@@ -45,7 +46,7 @@ class SyslogService {
   async start(
     Service: Service,
     pid: number = -1,
-    tunnelManager: TunnelManager
+    tunnelManager: TunnelManager,
   ): Promise<void> {
     // Attach listener to capture network packets
     this.attachPacketListener(tunnelManager);
@@ -96,7 +97,7 @@ class SyslogService {
           console.log('  Payload length:', packet.payload.length);
           console.log(
             '  Message:',
-            packet.payload.toString().replace(/[^\x20-\x7E]/g, '')
+            packet.payload.toString().replace(/[^\x20-\x7E]/g, ''),
           );
         } else {
           console.log('TCP packet not mostly printable, ignoring.');
@@ -140,7 +141,7 @@ class SyslogService {
    * @param service
    */
   private async startLockdownWithoutCheckin(
-    service: Service
+    service: Service,
   ): Promise<ServiceConnection> {
     // Get the port for the requested service
     const port = service.port;
@@ -153,7 +154,7 @@ class SyslogService {
    * @param service
    */
   private async startLockdownService(
-    service: Service
+    service: Service,
   ): Promise<ServiceConnection> {
     const connection = await this.startLockdownWithoutCheckin(service);
     const checkin = {

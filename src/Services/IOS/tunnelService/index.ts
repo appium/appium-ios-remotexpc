@@ -1,7 +1,11 @@
-
 import { TLSSocket } from 'tls';
-import { LockdownService, upgradeSocketToTLS } from '../../../lib/Lockdown/index.js';
+
+import {
+  LockdownService,
+  upgradeSocketToTLS,
+} from '../../../lib/Lockdown/index.js';
 import { PlistService } from '../../../lib/Plist/PlistService.js';
+
 const { createUsbmux } = await import('../../../lib/usbmux/index.js');
 
 const LABEL = 'appium-internal';
@@ -16,51 +20,61 @@ const LABEL = 'appium-internal';
  * @returns A promise that resolves with a TLS-upgraded socket and PlistService for communication with CoreDeviceProxy.
  */
 export async function startCoreDeviceProxy(
-    lockdownClient: LockdownService,
-    deviceID: number | string,
-    udid: string,
-    tlsOptions: Partial<import('tls').ConnectionOptions> = {}
-): Promise<{ socket: TLSSocket, plistService: PlistService }> {
+  lockdownClient: LockdownService,
+  deviceID: number | string,
+  udid: string,
+  tlsOptions: Partial<import('tls').ConnectionOptions> = {},
+): Promise<{ socket: TLSSocket; plistService: PlistService }> {
+  if (lockdownClient._tlsUpgrade) {
+    await lockdownClient._tlsUpgrade;
+  }
 
-    if (lockdownClient._tlsUpgrade) {
-        await lockdownClient._tlsUpgrade;
-    }
+  const response = await lockdownClient.sendAndReceive({
+    Label: LABEL,
+    Request: 'StartService',
+    Service: 'com.apple.internal.devicecompute.CoreDeviceProxy',
+    EscrowBag: null,
+  });
 
-    const response = await lockdownClient.sendAndReceive({
-        Label: LABEL,
-        Request: 'StartService',
-        Service: 'com.apple.internal.devicecompute.CoreDeviceProxy',
-        EscrowBag: null
-    });
+  lockdownClient.close();
 
-    lockdownClient.close();
+  if (!response.Port) {
+    throw new Error("Service didn't return a port");
+  }
 
-    if (!response.Port) {
-        throw new Error('Service didn\'t return a port');
-    }
+  console.log(
+    `Connecting to CoreDeviceProxy service on port: ${response.Port}`,
+  );
 
-    console.log(`Connecting to CoreDeviceProxy service on port: ${response.Port}`);
+  const usbmux = await createUsbmux();
 
-    const usbmux = await createUsbmux();
+  const pairRecord = await usbmux.readPairRecord(udid);
+  if (
+    !pairRecord ||
+    !pairRecord.HostCertificate ||
+    !pairRecord.HostPrivateKey
+  ) {
+    throw new Error(
+      'Missing required pair record or certificates for TLS upgrade',
+    );
+  }
 
-    const pairRecord = await usbmux.readPairRecord(udid);
-    if (!pairRecord || !pairRecord.HostCertificate || !pairRecord.HostPrivateKey) {
-        throw new Error('Missing required pair record or certificates for TLS upgrade');
-    }
+  const coreDeviceSocket = await usbmux.connect(
+    Number(deviceID),
+    Number(response.Port),
+  );
 
-    const coreDeviceSocket = await usbmux.connect(Number(deviceID), Number(response.Port));
+  console.log('Socket connected to CoreDeviceProxy, upgrading to TLS...');
 
-    console.log('Socket connected to CoreDeviceProxy, upgrading to TLS...');
+  const fullTlsOptions = {
+    ...tlsOptions,
+    cert: pairRecord.HostCertificate,
+    key: pairRecord.HostPrivateKey,
+  };
 
-    const fullTlsOptions = {
-        ...tlsOptions,
-        cert: pairRecord.HostCertificate,
-        key: pairRecord.HostPrivateKey
-    };
+  const tlsSocket = await upgradeSocketToTLS(coreDeviceSocket, fullTlsOptions);
 
-    const tlsSocket = await upgradeSocketToTLS(coreDeviceSocket, fullTlsOptions);
+  const plistService = new PlistService(tlsSocket);
 
-    const plistService = new PlistService(tlsSocket);
-
-    return { socket: tlsSocket, plistService };
+  return { socket: tlsSocket, plistService };
 }

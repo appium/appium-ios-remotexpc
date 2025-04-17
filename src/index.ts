@@ -1,20 +1,19 @@
 // Export USBMux
-import {
-  createUsbmux,
-  Usbmux,
-  byteSwap16,
-  USBMUXD_PORT,
-  LOCKDOWN_PORT,
-} from './lib/usbmux/index.js';
-
 // Export Services
 import * as Services from './Services/index.js';
-
-export {
-  createUsbmux,
+import {
+  LOCKDOWN_PORT,
+  USBMUXD_PORT,
   Usbmux,
   byteSwap16,
-  USBMUXD_PORT,
+  createUsbmux,
+} from './lib/usbmux/index.js';
+
+export {
+  byteSwap16,
+  createUsbmux,
   LOCKDOWN_PORT,
   Services,
+  Usbmux,
+  USBMUXD_PORT,
 };

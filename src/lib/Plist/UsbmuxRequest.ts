@@ -1,4 +1,5 @@
 import { Socket } from 'net';
+
 import createPlist from './PlistCreator.js';
 import parsePlist from './PlistParser.js';
 
@@ -14,7 +15,7 @@ export function sendUsbmuxPlistRequest(
   client: Socket,
   requestObj: Record<string, any>,
   type: string = 'Request',
-  timeout: number = 5000
+  timeout: number = 5000,
 ): Promise<Record<string, any>> {
   return new Promise((resolve, reject) => {
     const requestPlist = createPlist(requestObj);
@@ -41,8 +42,8 @@ export function sendUsbmuxPlistRequest(
         new Error(
           `Timeout waiting for response with tag ${
             requestObj.tag || 0
-          } after ${timeout}ms`
-        )
+          } after ${timeout}ms`,
+        ),
       );
     }, timeout);
 
@@ -64,7 +65,7 @@ export function sendUsbmuxPlistRequest(
             const result = parsePlist(xmlStr);
             console.log(
               `\n📩 Received ${type} PLIST Response:\n`,
-              JSON.stringify(result, null, 2)
+              JSON.stringify(result, null, 2),
             );
             resolve(result);
           } else {
@@ -73,7 +74,7 @@ export function sendUsbmuxPlistRequest(
             const result = parsePlist(xmlStr);
             console.log(
               `\n📩 Received ${type} PLIST Response:\n`,
-              JSON.stringify(result, null, 2)
+              JSON.stringify(result, null, 2),
             );
             resolve(result);
           }
@@ -81,7 +82,7 @@ export function sendUsbmuxPlistRequest(
       } catch (err) {
         console.warn(
           'Error processing usbmux data (will continue waiting for more data):',
-          err
+          err,
         );
         // Continue waiting for more data
       }

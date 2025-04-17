@@ -1,8 +1,9 @@
 import { Socket } from 'net';
 import { TLSSocket } from 'tls';
-import PlistServiceEncoder from './PlistEncoder.js';
-import PlistServiceDecoder from './PlistDecoder.js';
+
 import LengthBasedSplitter from './LengthBasedSplitter.js';
+import PlistServiceDecoder from './PlistDecoder.js';
+import PlistServiceEncoder from './PlistEncoder.js';
 
 /**
  * Message type for plist communications
@@ -37,7 +38,7 @@ export class PlistService {
     // Message queue for async receiving
     this.messageQueue = [];
     this.decoder.on('data', (data: PlistMessage) =>
-      this.messageQueue.push(data)
+      this.messageQueue.push(data),
     );
 
     // Handle errors
@@ -79,7 +80,7 @@ export class PlistService {
    */
   public async sendPlistAndReceive(
     data: PlistMessage,
-    timeout = 5000
+    timeout = 5000,
   ): Promise<PlistMessage> {
     this.sendPlist(data);
     return this.receivePlist(timeout);
@@ -125,7 +126,7 @@ export class PlistService {
       const timeoutId = setTimeout(() => {
         clearInterval(checkInterval);
         reject(
-          new Error(`Timed out waiting for plist response after ${timeout}ms`)
+          new Error(`Timed out waiting for plist response after ${timeout}ms`),
         );
       }, timeout);
     });
@@ -140,7 +141,7 @@ export class PlistService {
     } catch (error) {
       console.error(
         'Error closing socket:',
-        error instanceof Error ? error.message : String(error)
+        error instanceof Error ? error.message : String(error),
       );
     }
   }
