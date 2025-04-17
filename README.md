@@ -74,6 +74,7 @@ npm run build
 
 - `npm run build` - Clean and build the project
 - `npm run lint` - Run ESLint
+- `npm run format` - Run prettier
 - `npm run lint:fix` - Run ESLint with auto-fix
 - `npm test` - Run tests (requires sudo privileges for tunneling)
 
