@@ -145,7 +145,8 @@ class RemoteXPCConnection {
       (service) => service.serviceName === serviceName,
     );
     if (!service) {
-      throw new Error(`Service ${serviceName} not found`);
+      throw new Error(`Service ${serviceName} not found, 
+        Check if the device is locked.`);
     }
     return service;
   }
