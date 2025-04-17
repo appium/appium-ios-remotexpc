@@ -1,9 +1,10 @@
-import { createLockdownServiceByUDID } from '../src/lib/Lockdown/index.js';
-import { startCoreDeviceProxy } from '../src/Services/IOS/tunnelService/index.js';
-import TunnelManager from '../src/lib/Tunnel/index.js';
-import RemoteXPCConnection from '../src/lib/RemoteXPC/RemoteXPCConnection.js';
 import type { TunnelConnection } from 'tuntap-bridge';
+
 import SyslogService from '../src/Services/IOS/syslogService/index.js';
+import { startCoreDeviceProxy } from '../src/Services/IOS/tunnelService/index.js';
+import { createLockdownServiceByUDID } from '../src/lib/Lockdown/index.js';
+import RemoteXPCConnection from '../src/lib/RemoteXPC/RemoteXPCConnection.js';
+import TunnelManager from '../src/lib/Tunnel/index.js';
 
 async function test() {
   const tunManager = TunnelManager;
@@ -15,7 +16,7 @@ async function test() {
     lockdownService,
     device.DeviceID,
     udid,
-    {}
+    {},
   );
   try {
     tunnelResult = await tunManager.getTunnel(socket);
@@ -29,7 +30,7 @@ async function test() {
     remoteXPC.listAllServices();
     // console.log(remoteXPC.getServices())
     const service = remoteXPC.findService(
-      'com.apple.os_trace_relay.shim.remote'
+      'com.apple.os_trace_relay.shim.remote',
     );
     // let restart = remoteXPC.findService('com.apple.mobile.diagnostics_relay.shim.remote')
 

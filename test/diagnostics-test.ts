@@ -1,10 +1,10 @@
-import { createLockdownServiceByUDID } from '../src/lib/Lockdown/index.js';
-import { startCoreDeviceProxy } from '../src/Services/IOS/tunnelService/index.js';
-import TunnelManager from '../src/lib/Tunnel/index.js';
-import RemoteXPCConnection from '../src/lib/RemoteXPC/RemoteXPCConnection.js';
 import type { TunnelConnection } from 'tuntap-bridge';
+
 import DiagnosticsService from '../src/Services/IOS/diagnosticsService/index.js';
-import ServiceConnection from '../src/ServiceConnection.js';
+import { startCoreDeviceProxy } from '../src/Services/IOS/tunnelService/index.js';
+import { createLockdownServiceByUDID } from '../src/lib/Lockdown/index.js';
+import RemoteXPCConnection from '../src/lib/RemoteXPC/RemoteXPCConnection.js';
+import TunnelManager from '../src/lib/Tunnel/index.js';
 
 async function test() {
   const tunManager = TunnelManager;
@@ -16,7 +16,7 @@ async function test() {
     lockdownService,
     device.DeviceID,
     udid,
-    {}
+    {},
   );
   try {
     tunnelResult = await tunManager.getTunnel(socket);
@@ -32,7 +32,7 @@ async function test() {
 
     // Find the diagnostics service
     const diagnosticsService = remoteXPC.findService(
-      DiagnosticsService.RSD_SERVICE_NAME
+      DiagnosticsService.RSD_SERVICE_NAME,
     );
 
     // Create diagnostics service with the address and port
