@@ -56,8 +56,7 @@ class RemoteXPCConnection {
         this.socket.on('data', (data) => {
           // Process incoming frames
           if (data.length > 100) {
-            // @ts-ignore
-            const message = Buffer.from(data, 'hex');
+            const message = Buffer.from(data.toString(), 'hex');
             const response = message.toString('utf8');
             const servicesResponse = extractServices(response);
             this._services = servicesResponse.services;
@@ -73,12 +72,12 @@ class RemoteXPCConnection {
         this.socket.once('connect', async () => {
           try {
             this._isConnected = true;
-            // @ts-ignore
-            this.handshake = new Handshake(this.socket);
-
-            // Once handshake is successful we can get
-            // peerinfo and get ports for lockdown in RSD
-            await this.handshake.perform();
+            if (this.socket) {
+              this.handshake = new Handshake(this.socket);
+              // Once handshake is successful we can get
+              // peer-info and get ports for lockdown in RSD
+              await this.handshake.perform();
+            }
           } catch (error) {
             console.error('Handshake failed:', error);
             await this.close();
