@@ -39,7 +39,7 @@ export async function startCoreDeviceProxy(
   lockdownClient.close();
 
   if (!response.Port) {
-    throw new Error('Service didn\'t return a port');
+    throw new Error("Service didn't return a port");
   }
 
   console.log(

@@ -11,15 +11,12 @@ type PlistMessage = Record<string, unknown>;
  * Base class for services that use PlistService for communication
  */
 export abstract class BasePlistService {
-
-
   /**
    * Closes the underlying connection
    */
   public close(): void {
     this._plistService.close();
   }
-
 
   /**
    * The underlying PlistService instance

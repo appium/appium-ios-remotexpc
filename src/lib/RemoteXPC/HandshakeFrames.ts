@@ -59,7 +59,6 @@ const STRUCT_LB = new Struct('>LB');
 const STRUCT_L = new Struct('>L');
 const STRUCT_B = new Struct('>B');
 
-
 // Stream association types
 type StreamAssociation = 'has-stream' | 'no-stream' | 'either';
 const STREAM_ASSOC_HAS_STREAM: StreamAssociation = 'has-stream';
@@ -313,7 +312,6 @@ export class HeadersFrame extends Frame {
     );
   }
 
-
   bodyRepr(): string {
     return `exclusive=${this.exclusive}, dependsOn=${this.dependsOn}, streamWeight=${this.streamWeight}, data=${rawDataRepr(this.data)}`;
   }
@@ -357,7 +355,4 @@ export class WindowUpdateFrame extends Frame {
 }
 
 // Exported constants and types
-export {
-  InvalidDataError,
-  STRUCT_HL,
-};
+export { InvalidDataError, STRUCT_HL };
