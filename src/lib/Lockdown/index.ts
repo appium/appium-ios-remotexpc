@@ -153,24 +153,6 @@ export class LockdownService extends BasePlistService {
     throw new Error(`Unexpected session data: ${JSON.stringify(res)}`);
   }
 
-  private async getPairRecord(): Promise<PairRecord | null> {
-    try {
-      console.log('Retrieving pair record for UDID:', this.udid);
-      const usbmux = await createUsbmux();
-      const record = await usbmux.readPairRecord(this.udid);
-      await usbmux.close();
-      if (!record?.HostCertificate || !record.HostPrivateKey) {
-        console.error('Pair record missing certificate or key');
-        return null;
-      }
-      console.log('Pair record retrieved successfully');
-      return record;
-    } catch (err) {
-      console.error('Error getting pair record for TLS:', err);
-      return null;
-    }
-  }
-
   async tryUpgradeToTLS(): Promise<void> {
     const pairRecord = await this.getPairRecord();
     if (
@@ -229,6 +211,24 @@ export class LockdownService extends BasePlistService {
       }
     } catch (err) {
       console.error('Error closing socket:', err);
+    }
+  }
+
+  private async getPairRecord(): Promise<PairRecord | null> {
+    try {
+      console.log('Retrieving pair record for UDID:', this.udid);
+      const usbmux = await createUsbmux();
+      const record = await usbmux.readPairRecord(this.udid);
+      await usbmux.close();
+      if (!record?.HostCertificate || !record.HostPrivateKey) {
+        console.error('Pair record missing certificate or key');
+        return null;
+      }
+      console.log('Pair record retrieved successfully');
+      return record;
+    } catch (err) {
+      console.error('Error getting pair record for TLS:', err);
+      return null;
     }
   }
 }

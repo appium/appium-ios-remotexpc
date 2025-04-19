@@ -9,7 +9,7 @@ export interface ServiceConnectionOptions {
  * ServiceConnection for communicating with Apple device services over TCP
  */
 export class ServiceConnection {
-  private socket: net.Socket;
+  private readonly socket: net.Socket;
   private buffer: Buffer;
 
   constructor(socket: net.Socket) {

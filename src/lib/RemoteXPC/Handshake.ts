@@ -11,7 +11,7 @@ import { type XPCMessage, encodeMessage } from './XPCProtocol.js';
 
 class Handshake {
   private _socket: Socket;
-  private nextMessageId: { [channel: number]: number };
+  private readonly nextMessageId: { [channel: number]: number };
 
   constructor(socket: Socket) {
     // Socket must be non-null here

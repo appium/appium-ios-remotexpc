@@ -169,11 +169,11 @@ export class BaseServiceSocket {
  * Usbmux class for communicating with usbmuxd
  */
 export class Usbmux extends BaseServiceSocket {
-  private _decoder: UsbmuxDecoder;
-  private _splitter: LengthBasedSplitter;
-  private _encoder: UsbmuxEncoder;
+  private readonly _decoder: UsbmuxDecoder;
+  private readonly _splitter: LengthBasedSplitter;
+  private readonly _encoder: UsbmuxEncoder;
   private _tag: number;
-  private _responseCallbacks: Record<number, (data: any) => void>;
+  private readonly _responseCallbacks: Record<number, (data: any) => void>;
 
   /**
    * Creates a new Usbmux instance
@@ -201,88 +201,6 @@ export class Usbmux extends BaseServiceSocket {
     this._tag = 0;
     this._responseCallbacks = {};
     this._decoder.on('data', this._handleData.bind(this));
-  }
-
-  /**
-   * Handles incoming data from the decoder
-   * @param data - Decoded data
-   * @private
-   */
-  private _handleData(data: any): void {
-    const cb = this._responseCallbacks[data.header.tag];
-    if (cb) {
-      cb(data);
-    }
-  }
-
-  /**
-   * Sends a plist to usbmuxd
-   * @param json - JSON object with tag and payload
-   * @private
-   */
-  private _sendPlist(json: {
-    tag: number;
-    payload: Record<string, any>;
-  }): void {
-    this._encoder.write(json);
-  }
-
-  /**
-   * Sets up a promise to receive and process a plist response
-   * @param timeout - Timeout in milliseconds
-   * @param responseCallback - Callback to process the response
-   * @returns Object with tag and promise
-   * @private
-   */
-  private _receivePlistPromise(
-    timeout = 5000,
-    responseCallback: (data: any) => any,
-  ): { tag: number; receivePromise: Promise<any> } {
-    const tag = this._tag++;
-    let timeoutId: NodeJS.Timeout;
-    const receivePromise = new Promise<any>((resolve, reject) => {
-      this._responseCallbacks[tag] = (data) => {
-        try {
-          // Clear the timeout to prevent it from triggering
-          if (timeoutId) {
-            clearTimeout(timeoutId);
-          }
-
-          // Process the response
-          resolve(responseCallback(data));
-        } catch (e) {
-          reject(e);
-        } finally {
-          delete this._responseCallbacks[tag];
-        }
-      };
-
-      // Set the timeout handler
-      timeoutId = setTimeout(() => {
-        if (this._responseCallbacks[tag]) {
-          delete this._responseCallbacks[tag];
-          console.warn(
-            `Timeout waiting for response with tag ${tag} after ${timeout}ms`,
-          );
-          reject(
-            new Error(
-              `Failed to receive any data within the timeout: ${timeout}ms - The device might be busy or unresponsive`,
-            ),
-          );
-        }
-      }, timeout);
-    });
-
-    // Add cleanup handler when promise is settled
-    receivePromise
-      .catch(() => {})
-      .finally(() => {
-        if (this._responseCallbacks[tag]) {
-          delete this._responseCallbacks[tag];
-        }
-      });
-
-    return { tag, receivePromise };
   }
 
   /**
@@ -461,6 +379,88 @@ export class Usbmux extends BaseServiceSocket {
       }
     });
   }
+
+  /**
+   * Handles incoming data from the decoder
+   * @param data - Decoded data
+   * @private
+   */
+  private _handleData(data: any): void {
+    const cb = this._responseCallbacks[data.header.tag];
+    if (cb) {
+      cb(data);
+    }
+  }
+
+  /**
+   * Sends a plist to usbmuxd
+   * @param json - JSON object with tag and payload
+   * @private
+   */
+  private _sendPlist(json: {
+    tag: number;
+    payload: Record<string, any>;
+  }): void {
+    this._encoder.write(json);
+  }
+
+  /**
+   * Sets up a promise to receive and process a plist response
+   * @param timeout - Timeout in milliseconds
+   * @param responseCallback - Callback to process the response
+   * @returns Object with tag and promise
+   * @private
+   */
+  private _receivePlistPromise(
+    timeout = 5000,
+    responseCallback: (data: any) => any,
+  ): { tag: number; receivePromise: Promise<any> } {
+    const tag = this._tag++;
+    let timeoutId: NodeJS.Timeout;
+    const receivePromise = new Promise<any>((resolve, reject) => {
+      this._responseCallbacks[tag] = (data) => {
+        try {
+          // Clear the timeout to prevent it from triggering
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+          }
+
+          // Process the response
+          resolve(responseCallback(data));
+        } catch (e) {
+          reject(e);
+        } finally {
+          delete this._responseCallbacks[tag];
+        }
+      };
+
+      // Set the timeout handler
+      timeoutId = setTimeout(() => {
+        if (this._responseCallbacks[tag]) {
+          delete this._responseCallbacks[tag];
+          console.warn(
+            `Timeout waiting for response with tag ${tag} after ${timeout}ms`,
+          );
+          reject(
+            new Error(
+              `Failed to receive any data within the timeout: ${timeout}ms - The device might be busy or unresponsive`,
+            ),
+          );
+        }
+      }, timeout);
+    });
+
+    // Add cleanup handler when promise is settled
+    receivePromise
+      .catch(() => {})
+      .finally(() => {
+        if (this._responseCallbacks[tag]) {
+          delete this._responseCallbacks[tag];
+        }
+      });
+
+    return { tag, receivePromise };
+  }
 }
 
 /**
@@ -479,9 +479,9 @@ export async function createUsbmux(
  * RelayService class for tunneling connections through a local TCP server
  */
 export class RelayService {
-  private deviceID: string | number;
-  private devicePort: number;
-  private relayPort: number;
+  private readonly deviceID: string | number;
+  private readonly devicePort: number;
+  private readonly relayPort: number;
   private usbmuxClient: Socket | null;
   private server: net.Server | null;
 

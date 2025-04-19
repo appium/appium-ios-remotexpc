@@ -200,10 +200,8 @@ class DiagnosticsService {
 
   /**
    * Query IORegistry
-   * @param plane The IORegistry plane to query
-   * @param name The name to query
-   * @param ioClass The class to query
    * @returns Object containing the IORegistry information
+   * @param options
    */
   async ioregistry(options?: {
     plane?: string;

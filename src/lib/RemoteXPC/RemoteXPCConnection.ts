@@ -12,7 +12,7 @@ interface ServicesResponse {
 }
 
 class RemoteXPCConnection {
-  private address: [string, number];
+  private readonly address: [string, number];
   private socket: net.Socket | undefined;
   private handshake: Handshake | undefined;
   private _isConnected: boolean;
@@ -110,13 +110,6 @@ class RemoteXPCConnection {
   }
 
   /**
-   * Check if connected to the remote device
-   */
-  isConnected(): boolean {
-    return this._isConnected;
-  }
-
-  /**
    * Get the list of available services
    */
   getServices(): Service[] {
@@ -148,16 +141,6 @@ class RemoteXPCConnection {
         Check if the device is locked.`);
     }
     return service;
-  }
-
-  /**
-   * Get the port for a specific service
-   * @param serviceName The name of the service to get the port for
-   * @returns The port number as a string
-   */
-  getServicePort(serviceName: string): string {
-    const service = this.findService(serviceName);
-    return service.port;
   }
 }
 

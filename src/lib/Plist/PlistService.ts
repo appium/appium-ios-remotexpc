@@ -14,9 +14,9 @@ type PlistMessage = Record<string, unknown>;
  * Service for communication using plist protocol
  */
 export class PlistService {
-  private socket: Socket | TLSSocket;
-  private splitter: LengthBasedSplitter;
-  private decoder: PlistServiceDecoder;
+  private readonly socket: Socket | TLSSocket;
+  private readonly splitter: LengthBasedSplitter;
+  private readonly decoder: PlistServiceDecoder;
   private encoder: PlistServiceEncoder;
   private messageQueue: PlistMessage[];
 
@@ -43,33 +43,6 @@ export class PlistService {
 
     // Handle errors
     this.setupErrorHandlers();
-  }
-
-  /**
-   * Sets up the data pipeline between socket and transformers
-   */
-  private setupPipeline(): void {
-    this.socket.pipe(this.splitter);
-    this.splitter.pipe(this.decoder);
-    this.encoder.pipe(this.socket);
-  }
-
-  /**
-   * Sets up error handlers for socket and transformers
-   */
-  private setupErrorHandlers(): void {
-    this.socket.on('error', this.handleError.bind(this));
-    this.encoder.on('error', this.handleError.bind(this));
-    this.decoder.on('error', this.handleError.bind(this));
-    this.splitter.on('error', this.handleError.bind(this));
-  }
-
-  /**
-   * Handles errors from any component
-   * @param error The error that occurred
-   */
-  private handleError(error: Error): void {
-    console.error(`PlistService Error: ${error.message}`);
   }
 
   /**
@@ -145,6 +118,31 @@ export class PlistService {
       );
     }
   }
-}
 
-export default PlistService;
+  /**
+   * Sets up the data pipeline between socket and transformers
+   */
+  private setupPipeline(): void {
+    this.socket.pipe(this.splitter);
+    this.splitter.pipe(this.decoder);
+    this.encoder.pipe(this.socket);
+  }
+
+  /**
+   * Sets up error handlers for socket and transformers
+   */
+  private setupErrorHandlers(): void {
+    this.socket.on('error', this.handleError.bind(this));
+    this.encoder.on('error', this.handleError.bind(this));
+    this.decoder.on('error', this.handleError.bind(this));
+    this.splitter.on('error', this.handleError.bind(this));
+  }
+
+  /**
+   * Handles errors from any component
+   * @param error The error that occurred
+   */
+  private handleError(error: Error): void {
+    console.error(`PlistService Error: ${error.message}`);
+  }
+}

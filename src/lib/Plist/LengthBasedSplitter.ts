@@ -17,11 +17,11 @@ export interface LengthBasedSplitterOptions {
  */
 export class LengthBasedSplitter extends Transform {
   private buffer: Buffer;
-  private littleEndian: boolean;
-  private maxFrameLength: number;
-  private lengthFieldOffset: number;
-  private lengthFieldLength: number;
-  private lengthAdjustment: number;
+  private readonly littleEndian: boolean;
+  private readonly maxFrameLength: number;
+  private readonly lengthFieldOffset: number;
+  private readonly lengthFieldLength: number;
+  private readonly lengthAdjustment: number;
   private isXmlMode: boolean = false;
   private xmlBuffer: Buffer = Buffer.alloc(0);
 

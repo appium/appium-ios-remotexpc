@@ -26,7 +26,7 @@ interface Service {
  * from a remote device using Apple's XPC services.
  */
 class SyslogService {
-  private address: [string, number]; // [host, port]
+  private readonly address: [string, number]; // [host, port]
 
   /**
    * Creates a new SyslogService instance

@@ -25,6 +25,24 @@ export default tseslint.config(
           varsIgnorePattern: '^_',
         },
       ],
+      '@typescript-eslint/member-ordering': [
+        'error',
+        {
+          default: [
+            // ─── PUBLIC METHODS ─────────────────────────────────────────────────────
+            'public-static-method',
+            'public-instance-method',
+
+            // ─── PROTECTED METHODS ──────────────────────────────────────────────────
+            'protected-static-method',
+            'protected-instance-method',
+
+            // ─── PRIVATE METHODS ────────────────────────────────────────────────────
+            'private-static-method',
+            'private-instance-method',
+          ],
+        },
+      ],
     },
     ignores: ['**/build/**', '**/node_modules/**'],
   }

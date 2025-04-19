@@ -33,7 +33,7 @@ export function createPlist(obj: Record<string, any>): string {
           return '&amp;';
         case '"':
           return '&quot;';
-        case "'":
+        case '\'':
           return '&apos;';
         default:
           return c;

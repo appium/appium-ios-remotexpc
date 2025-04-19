@@ -11,7 +11,6 @@ class TunnelManager {
   /**
    * Establishes a tunnel connection if not already connected.
    *
-   * @param ctx - Context or configuration for the tunnel (if needed).
    * @param secureServiceSocket - The secure service socket used to create the tunnel.
    * @returns A promise that resolves to the tunnel connection instance.
    */

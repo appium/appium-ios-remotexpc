@@ -18,15 +18,6 @@ export const XPC_TYPES: { [key: string]: number } = {
   fileTransfer: 0x0001a000,
 };
 
-export const FLAGS: { [key: string]: number } = {
-  AlwaysSet: 0x00000001,
-  Data: 0x00000100,
-  HeartbeatRequest: 0x00010000,
-  HeartbeatReply: 0x00020000,
-  FileOpen: 0x00100000,
-  InitHandshake: 0x00400000,
-};
-
 // Helper: calculates padding bytes needed to align a length to a multiple of 4.
 function calcPadding(len: number): number {
   return (4 - (len % 4)) % 4;
@@ -69,11 +60,6 @@ class Writer {
   writeByte(value: number): void {
     const buf = Buffer.alloc(1);
     buf.writeUInt8(value, 0);
-    this.writeBuffer(buf);
-  }
-
-  writeString(str: string): void {
-    const buf = Buffer.from(str, 'utf8');
     this.writeBuffer(buf);
   }
 
