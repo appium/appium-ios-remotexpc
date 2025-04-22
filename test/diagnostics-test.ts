@@ -1,7 +1,7 @@
 import type { TunnelConnection } from 'tuntap-bridge';
 
-import DiagnosticsService from '../src/Services/IOS/diagnosticsService/index.js';
-import { startCoreDeviceProxy } from '../src/Services/IOS/tunnelService/index.js';
+import DiagnosticsService from '../src/Services/IOS/DiagnosticService/index.js';
+import { startCoreDeviceProxy } from '../src/Services/IOS/TunnelService/index.js';
 import { createLockdownServiceByUDID } from '../src/lib/Lockdown/index.js';
 import RemoteXpcConnection from '../src/lib/RemoteXPC/remote-xpc-connection.js';
 import TunnelManager from '../src/lib/Tunnel/index.js';
