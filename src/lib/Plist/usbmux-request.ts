@@ -1,7 +1,7 @@
 import { Socket } from 'net';
 
-import createPlist from './PlistCreator.js';
-import parsePlist from './PlistParser.js';
+import createPlist from './plist-creator.js';
+import parsePlist from './plist-parser.js';
 
 /**
  * Send a plist request to usbmuxd and receive response

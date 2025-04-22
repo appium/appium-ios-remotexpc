@@ -1,13 +1,13 @@
 import { Socket } from 'net';
 
-import { Http2Constants, XpcConstants } from './Constants.js';
+import { Http2Constants, XpcConstants } from './constants.js';
 import {
   DataFrame,
   HeadersFrame,
   SettingsFrame,
   WindowUpdateFrame,
-} from './HandshakeFrames.js';
-import { type XPCMessage, encodeMessage } from './XPCProtocol.js';
+} from './handshake-frames.js';
+import { type XPCMessage, encodeMessage } from './xpc-protocol.js';
 
 class Handshake {
   private _socket: Socket;

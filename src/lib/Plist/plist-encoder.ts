@@ -1,6 +1,6 @@
 import { Transform, type TransformCallback } from 'stream';
 
-import createPlist from './PlistCreator.js';
+import createPlist from './plist-creator.js';
 
 /**
  * Encodes JavaScript objects to plist format with length prefix

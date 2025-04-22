@@ -3,6 +3,6 @@ import {
   getPairRecord,
   processPlistResponse,
   savePairRecord,
-} from './pairRecord.js';
+} from './pair-record.js';
 
 export { getPairRecord, processPlistResponse, savePairRecord, type PairRecord };

@@ -1,5 +1,6 @@
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
+import unicorn from 'eslint-plugin-unicorn';
 
 export default tseslint.config(
   eslint.configs.recommended,
@@ -13,6 +14,9 @@ export default tseslint.config(
       parserOptions: {
         project: './tsconfig.json',
       },
+    },
+    plugins: {
+      unicorn: unicorn,
     },
     rules: {
       quotes: ['error', 'single'],
@@ -42,6 +46,12 @@ export default tseslint.config(
             'private-instance-method',
           ],
         },
+      ],
+      'unicorn/filename-case': [
+        'error',
+        {
+          'case': 'kebabCase'
+        }
       ],
     },
     ignores: ['**/build/**', '**/node_modules/**'],

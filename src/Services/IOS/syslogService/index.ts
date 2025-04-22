@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 
-import ServiceConnection from '../../../ServiceConnection.js';
+import ServiceConnection from '../../../service-connection.js';
 
 // Define interfaces for clarity
 interface Packet {

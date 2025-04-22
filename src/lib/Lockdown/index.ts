@@ -1,11 +1,11 @@
 import { Socket } from 'node:net';
 import tls, { type ConnectionOptions, TLSSocket } from 'tls';
 
-import { BasePlistService } from '../../BasePlistService.js';
+import { BasePlistService } from '../../base-plist-service.js';
 import { type PairRecord } from '../PairRecord/index.js';
-import { PlistService } from '../Plist/PlistService.js';
+import { PlistService } from '../Plist/plist-service.js';
 
-const { createUsbmux, connectAndRelay } = await import('../usbmux/index.js');
+const { createUsbmux, connectAndRelay } = await import('../Usbmux/index.js');
 const LABEL = 'appium-internal';
 
 interface Device {

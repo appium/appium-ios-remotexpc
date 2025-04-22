@@ -4,9 +4,9 @@ import {
   LockdownService,
   upgradeSocketToTLS,
 } from '../../../lib/Lockdown/index.js';
-import { PlistService } from '../../../lib/Plist/PlistService.js';
+import { PlistService } from '../../../lib/Plist/plist-service.js';
 
-const { createUsbmux } = await import('../../../lib/usbmux/index.js');
+const { createUsbmux } = await import('../../../lib/Usbmux/index.js');
 
 const LABEL = 'appium-internal';
 
@@ -39,7 +39,7 @@ export async function startCoreDeviceProxy(
   lockdownClient.close();
 
   if (!response.Port) {
-    throw new Error("Service didn't return a port");
+    throw new Error('Service didn\'t return a port');
   }
 
   console.log(

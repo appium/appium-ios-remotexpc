@@ -1,6 +1,6 @@
 import { Transform, type TransformCallback } from 'stream';
 
-import parsePlist from './PlistParser.js';
+import parsePlist from './plist-parser.js';
 
 /**
  * Decodes plist format data with length prefix to JavaScript objects

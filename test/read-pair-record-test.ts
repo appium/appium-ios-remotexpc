@@ -1,4 +1,4 @@
-import { createUsbmux } from '../src/lib/usbmux/index.js';
+import { createUsbmux } from '../src/lib/Usbmux/index.js';
 
 async function test() {
   try {

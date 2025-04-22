@@ -1,4 +1,4 @@
-import ServiceConnection from '../../../ServiceConnection.js';
+import ServiceConnection from '../../../service-connection.js';
 // Import MobileGestaltKeys directly to avoid module resolution issues
 import { MobileGestaltKeys } from './keys.js';
 

@@ -1,6 +1,6 @@
 import { Socket } from 'node:net';
 
-import { PlistService } from './lib/Plist/PlistService.js';
+import { PlistService } from './lib/Plist/plist-service.js';
 
 /**
  * Message type for plist communications

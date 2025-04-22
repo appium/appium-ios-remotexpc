@@ -1,6 +1,6 @@
 import net from 'node:net';
 
-import Handshake from './Handshake.js';
+import Handshake from './handshake.js';
 
 interface Service {
   serviceName: string;
@@ -11,7 +11,7 @@ interface ServicesResponse {
   services: Service[];
 }
 
-class RemoteXPCConnection {
+class RemoteXpcConnection {
   private readonly address: [string, number];
   private socket: net.Socket | undefined;
   private handshake: Handshake | undefined;
@@ -54,14 +54,17 @@ class RemoteXPCConnection {
 
         // Handle incoming data
         this.socket.on('data', (data) => {
-          // Process incoming frames
-          if (data.length > 100) {
-            // @ts-ignore
-            const message = Buffer.from(data, 'hex');
-            const response = message.toString('utf8');
-            const servicesResponse = extractServices(response);
-            this._services = servicesResponse.services;
-            resolve(servicesResponse);
+          if (Buffer.isBuffer(data) || typeof data === 'string') {
+            const buffer = Buffer.isBuffer(data)
+              ? data
+              : Buffer.from(data, 'hex');
+
+            if (buffer.length > 100) {
+              const response = buffer.toString('utf8');
+              const servicesResponse = extractServices(response);
+              this._services = servicesResponse.services;
+              resolve(servicesResponse);
+            }
           }
         });
 
@@ -184,5 +187,5 @@ function extractServices(response: string): ServicesResponse {
   return { services };
 }
 
-export default RemoteXPCConnection;
+export default RemoteXpcConnection;
 export { type Service, type ServicesResponse };

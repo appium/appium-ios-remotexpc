@@ -3,7 +3,7 @@ import type { TunnelConnection } from 'tuntap-bridge';
 import DiagnosticsService from '../src/Services/IOS/diagnosticsService/index.js';
 import { startCoreDeviceProxy } from '../src/Services/IOS/tunnelService/index.js';
 import { createLockdownServiceByUDID } from '../src/lib/Lockdown/index.js';
-import RemoteXPCConnection from '../src/lib/RemoteXPC/RemoteXPCConnection.js';
+import RemoteXpcConnection from '../src/lib/RemoteXPC/remote-xpc-connection.js';
 import TunnelManager from '../src/lib/Tunnel/index.js';
 
 async function test() {
@@ -25,7 +25,7 @@ async function test() {
     // Fix: Check if RsdPort is defined and provide a fallback value if it's undefined
     const rsdPort = tunnelResult.RsdPort ?? 0; // Using nullish coalescing operator
 
-    const remoteXPC = new RemoteXPCConnection([tunnelResult.Address, rsdPort]);
+    const remoteXPC = new RemoteXpcConnection([tunnelResult.Address, rsdPort]);
     await remoteXPC.connect();
     remoteXPC.listAllServices();
     // console.log(remoteXPC.getServices())
