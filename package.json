@@ -51,14 +51,14 @@
     "rimraf": "^6.0.1",
     "ts-node": "^10.9.2",
     "tsx": "^4.7.0",
-    "tuntap-bridge": "^0.0.1",
+    "tuntap-bridge": "^0.0.2",
     "typescript": "^5.2.2",
     "typescript-eslint": "^8.29.0"
   },
   "dependencies": {
+    "@appium/support": "^6.1.0",
     "@types/node": "^22.14.0",
     "@xmldom/xmldom": "^0.9.8",
-    "npm-run-all2": "^7.0.2",
-    "@appium/support": "^6.1.0"
+    "npm-run-all2": "^7.0.2"
   }
 }
