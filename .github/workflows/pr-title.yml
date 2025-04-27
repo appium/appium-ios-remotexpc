@@ -2,15 +2,13 @@ name: Conventional Commits
 on:
   pull_request:
     types: [opened, edited, synchronize, reopened]
-
-
 jobs:
-  lint:
-    name: https://www.conventionalcommits.org
+  conventional:
+    name: Conventional PR
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
       - uses: beemojs/conventional-pr-action@v3
-        with:
-          config-preset: angular
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN  }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
