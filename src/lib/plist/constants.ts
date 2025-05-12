@@ -12,6 +12,9 @@ export const BPLIST_MAGIC_AND_VERSION = Buffer.from(
 // Apple epoch offset (seconds between Unix epoch 1970-01-01 and Apple epoch 2001-01-01)
 export const APPLE_EPOCH_OFFSET = 978307200;
 
+// Binary plist trailer size (last 32 bytes of the file)
+export const BPLIST_TRAILER_SIZE = 32;
+
 // Object types in binary plist
 export const BPLIST_TYPE = {
   NULL: 0x00,

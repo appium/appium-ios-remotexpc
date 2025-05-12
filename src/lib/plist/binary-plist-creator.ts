@@ -8,6 +8,7 @@ import type { PlistDictionary, PlistValue } from '../types.js';
 import {
   APPLE_EPOCH_OFFSET,
   BPLIST_MAGIC_AND_VERSION,
+  BPLIST_TRAILER_SIZE,
   BPLIST_TYPE,
 } from './constants.js';
 
@@ -229,11 +230,9 @@ class BinaryPlistCreator {
       buffer = Buffer.alloc(9);
       buffer.writeUInt8(BPLIST_TYPE.INT | 3, 0);
       buffer.writeBigInt64BE(value, 1);
-      return buffer;
     }
-
     // For number values, determine the smallest representation
-    if (value >= 0 && value <= 255) {
+    else if (value >= 0 && value <= 255) {
       buffer = Buffer.alloc(2);
       buffer.writeUInt8(BPLIST_TYPE.INT | 0, 0);
       buffer.writeUInt8(value, 1);
@@ -291,22 +290,23 @@ class BinaryPlistCreator {
    * @returns Buffer containing the integer header
    */
   private _createIntHeader(value: number): Buffer {
+    let buffer: Buffer;
+
     if (value < 256) {
-      const buffer = Buffer.alloc(2);
+      buffer = Buffer.alloc(2);
       buffer.writeUInt8(BPLIST_TYPE.INT | 0, 0);
       buffer.writeUInt8(value, 1);
-      return buffer;
     } else if (value < 65536) {
-      const buffer = Buffer.alloc(3);
+      buffer = Buffer.alloc(3);
       buffer.writeUInt8(BPLIST_TYPE.INT | 1, 0);
       buffer.writeUInt16BE(value, 1);
-      return buffer;
     } else {
-      const buffer = Buffer.alloc(5);
+      buffer = Buffer.alloc(5);
       buffer.writeUInt8(BPLIST_TYPE.INT | 2, 0);
       buffer.writeUInt32BE(value, 1);
-      return buffer;
     }
+
+    return buffer;
   }
 
   /**
@@ -542,7 +542,7 @@ class BinaryPlistCreator {
     numObjects: number,
     offsetTableOffset: number,
   ): Buffer {
-    const trailer = Buffer.alloc(32);
+    const trailer = Buffer.alloc(BPLIST_TRAILER_SIZE);
     // 6 unused bytes
     trailer.fill(0, 0, 6);
     // offset size (1 byte)

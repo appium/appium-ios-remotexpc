@@ -10,6 +10,7 @@ import type { PlistArray, PlistDictionary, PlistValue } from '../types.js';
 import {
   APPLE_EPOCH_OFFSET,
   BPLIST_MAGIC_AND_VERSION,
+  BPLIST_TRAILER_SIZE,
   BPLIST_TYPE,
 } from './constants.js';
 
@@ -88,12 +89,13 @@ class BinaryPlistParser {
    * @throws Error if the buffer is too small to contain a trailer
    */
   private _parseTrailer(): void {
-    const trailerSize = 32; // Last 32 bytes are the trailer
-    if (this._buffer.length < trailerSize) {
+    if (this._buffer.length < BPLIST_TRAILER_SIZE) {
       throw new Error('Binary plist is too small to contain a trailer.');
     }
 
-    const trailer = this._buffer.slice(this._buffer.length - trailerSize);
+    const trailer = this._buffer.slice(
+      this._buffer.length - BPLIST_TRAILER_SIZE,
+    );
 
     // Extract trailer information
     this._offsetSize = trailer.readUInt8(6);
