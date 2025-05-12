@@ -161,6 +161,7 @@ export class LockdownService extends BasePlistService {
       }
     } catch (err) {
       log.error(`Error on closing socket: ${err}`);
+      throw err;
     }
   }
 
@@ -171,13 +172,13 @@ export class LockdownService extends BasePlistService {
       const record = await usbmux.readPairRecord(this._udid);
       if (!record?.HostCertificate || !record.HostPrivateKey) {
         log.error('Pair record missing certificate or key');
-        return null;
+        throw new Error('Pair record missing certificate or key');
       }
       log.info('Pair record retrieved successfully');
       return record;
     } catch (err) {
       log.error(`Error getting pair record for TLS: ${err}`);
-      return null;
+      throw err;
     } finally {
       await usbmux
         .close()
