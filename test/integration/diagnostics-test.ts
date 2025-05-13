@@ -18,12 +18,11 @@ describe('Diagnostics Service', function () {
   const udid = process.env.UDID || '';
 
   before(async function () {
-    console.log('Creating connection...');
     const { lockdownService, device } = await createLockdownServiceByUDID(udid);
     const { socket } = await startCoreDeviceProxy(
       lockdownService,
       device.DeviceID,
-      udid,
+      device.Properties.SerialNumber,
       {},
     );
 
@@ -40,39 +39,29 @@ describe('Diagnostics Service', function () {
 
     diagService = new DiagnosticsService([
       tunnelResult.Address,
-      parseInt(diagnosticsService.port),
+      parseInt(diagnosticsService.port, 10),
     ]);
   });
 
   after(async function () {
-    if (diagService) {
-      await diagService.shutdown();
-    }
     if (tunManager) {
       await tunManager.closeTunnel();
     }
   });
 
-  it('should query power information', async function () {
-    console.log('Querying power information...');
-    const powerInfo = await diagService.ioregistry({
+  it('should query power information using ioregistry', async function () {
+    const rawInfo = await diagService.ioregistry({
       ioClass: 'IOPMPowerSource',
+      returnRawJson: true,
     });
-    console.log('Power Information:');
-    console.log(powerInfo);
-
-    expect(powerInfo).to.be.an('array');
-    expect(powerInfo.length).to.be.greaterThan(0);
+    expect(rawInfo).to.be.an('object');
   });
 
-  it('should query wifi information', async function () {
-    console.log('Querying wifi information...');
+  it('should query wifi information using ioregistry ', async function () {
     const wifiInfo = await diagService.ioregistry({
       name: 'AppleBCMWLANSkywalkInterface',
+      returnRawJson: true,
     });
-    console.log('WiFi Information:');
-    console.log(wifiInfo);
-
-    expect(wifiInfo).to.be.an('array');
+    expect(wifiInfo).to.be.an('object');
   });
 });

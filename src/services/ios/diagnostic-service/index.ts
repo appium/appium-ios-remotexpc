@@ -1,33 +1,29 @@
 import { logger } from '@appium/support';
 
+import { PlistServiceDecoder } from '../../../lib/plist/plist-decoder.js';
 import type { PlistDictionary } from '../../../lib/types.js';
-import { ServiceConnection } from '../../../service-connection.js';
+import BaseService, { type Service } from '../base-service.js';
 // Import MobileGestaltKeys directly to avoid module resolution issues
 import { MobileGestaltKeys } from './keys.js';
 
 const log = logger.getLogger('DiagnosticService');
-interface Service {
-  serviceName: string;
-  port: string;
-}
 
 /**
  * DiagnosticsService provides an API to:
  * - Query MobileGestalt & IORegistry keys
  * - Reboot, shutdown or put the device in sleep mode
+ * - Get WiFi information
  */
-class DiagnosticsService {
+class DiagnosticsService extends BaseService {
   static readonly RSD_SERVICE_NAME =
     'com.apple.mobile.diagnostics_relay.shim.remote';
-
-  private address: [string, number]; // [host, port]
 
   /**
    * Creates a new DiagnosticsService instance
    * @param address Tuple containing [host, port]
    */
   constructor(address: [string, number]) {
-    this.address = address;
+    super(address);
   }
 
   /**
@@ -211,7 +207,8 @@ class DiagnosticsService {
     plane?: string;
     name?: string;
     ioClass?: string;
-  }): Promise<PlistDictionary> {
+    returnRawJson?: boolean;
+  }): Promise<PlistDictionary[] | Record<string, any>> {
     try {
       // Create a connection to the diagnostics service
       const service = {
@@ -237,52 +234,78 @@ class DiagnosticsService {
         request.EntryClass = options.ioClass;
       }
 
+      // Reset the last decoded result
+      PlistServiceDecoder.lastDecodedResult = null;
+
       // Send the request
       const response = await conn.sendPlistRequest(request);
-      log.debug(`IORegistry response: ${response}`);
+
+      // Enhanced logging for debugging
+      log.debug(`IORegistry response: ${JSON.stringify(response)}`);
+
+      // If user wants raw JSON, return the response directly
+      if (options?.returnRawJson) {
+        return response as Record<string, any>;
+      }
+
+      // Check if we have a lastDecodedResult from the PlistServiceDecoder
+      if (PlistServiceDecoder.lastDecodedResult) {
+        // Return the lastDecodedResult directly if it's an array
+        if (Array.isArray(PlistServiceDecoder.lastDecodedResult)) {
+          return PlistServiceDecoder.lastDecodedResult as PlistDictionary[];
+        }
+
+        // If it's not an array, wrap it in an array
+        return [PlistServiceDecoder.lastDecodedResult as PlistDictionary];
+      }
+
+      // Fallback to the original response if lastDecodedResult is not available
       // Ensure we have a valid response
-      if (!response || !Array.isArray(response) || response.length === 0) {
+      if (!response) {
         throw new Error('Invalid response from IORegistry');
       }
 
-      return response || {};
+      // Return the response directly as it appears in the console log
+      // This ensures the user gets the same JSON structure they see in the logs
+      if (Array.isArray(response)) {
+        // If the array is empty, check if there's a response object we can use instead
+        if (response.length === 0 && typeof response === 'object') {
+          log.debug(
+            'Received empty array response, attempting to extract useful data',
+          );
+          // Try to extract any useful data from the response object itself
+          return [{ IORegistryResponse: 'No data found' } as PlistDictionary];
+        }
+        return response as PlistDictionary[];
+      }
+
+      // If it's not an array, convert it to the expected format
+      if (
+        typeof response === 'object' &&
+        !Buffer.isBuffer(response) &&
+        !(response instanceof Date)
+      ) {
+        const responseObj = response as Record<string, any>;
+
+        // Check if the response has the Diagnostics structure
+        if (
+          responseObj.Diagnostics &&
+          typeof responseObj.Diagnostics === 'object'
+        ) {
+          // Return the Diagnostics object directly
+          return [responseObj.Diagnostics as PlistDictionary];
+        }
+
+        // Return the whole response object
+        return [responseObj as PlistDictionary];
+      }
+
+      // If it's not an object, wrap it in an object and return as array
+      return [{ value: response } as PlistDictionary];
     } catch (error) {
       log.error(`Error querying IORegistry: ${error}`);
       throw error;
     }
-  }
-
-  /**
-   * Starts a lockdown service without sending a check-in message
-   * @returns Promise resolving to a ServiceConnection
-   * @param service
-   */
-  private async startLockdownWithoutCheckin(
-    service: Service,
-  ): Promise<ServiceConnection> {
-    // Get the port for the requested service
-    const port = service.port;
-    return ServiceConnection.createUsingTCP(this.address[0], port);
-  }
-
-  /**
-   * Starts a lockdown service with proper check-in
-   * @returns Promise resolving to a ServiceConnection
-   * @param service
-   */
-  private async startLockdownService(
-    service: Service,
-  ): Promise<ServiceConnection> {
-    const connection = await this.startLockdownWithoutCheckin(service);
-    const checkin = {
-      Label: 'appium-internal',
-      ProtocolVersion: '2',
-      Request: 'RSDCheckin',
-    };
-
-    const response = await connection.sendPlistRequest(checkin);
-    log.debug(`Service check-in response: ${response}`);
-    return connection;
   }
 }
 

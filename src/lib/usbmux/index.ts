@@ -37,7 +37,7 @@ const log = logger.getLogger('Usbmux');
 export const USBMUXD_PORT = 27015;
 export const DEFAULT_USBMUXD_SOCKET = '/var/run/usbmuxd';
 export const DEFAULT_USBMUXD_HOST = '127.0.0.1';
-export const MAX_FRAME_SIZE = 1 * 1024 * 1024; // 1MB
+export const MAX_FRAME_SIZE = 100 * 1024 * 1024; // 1MB
 
 // Result codes from usbmuxd
 export const USBMUX_RESULT = {

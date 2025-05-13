@@ -9,19 +9,15 @@ import { parsePlist as parseXmlPlist } from './plist-parser.js';
  */
 export function parsePlist(data: string | Buffer): PlistValue {
   try {
-    // Convert string to Buffer if needed
-    const buffer = typeof data === 'string' ? Buffer.from(data) : data;
-
-    // Check if it's a binary plist
-    if (isBinaryPlist(buffer)) {
-      return parseBinaryPlist(buffer);
+    // Check if it's a binary plist (only if data is a Buffer)
+    if (Buffer.isBuffer(data) && isBinaryPlist(data)) {
+      return parseBinaryPlist(data);
+    } else {
+      // Otherwise, assume it's an XML plist
+      const xmlStr = typeof data === 'string' ? data : data.toString('utf8');
+      return parseXmlPlist(xmlStr);
     }
-
-    // Otherwise, assume it's an XML plist
-    const xmlStr = buffer.toString('utf8');
-    return parseXmlPlist(xmlStr);
   } catch (error) {
-    // Add more context to the error
     throw new Error(
       `Failed to parse plist: ${error instanceof Error ? error.message : String(error)}`,
     );

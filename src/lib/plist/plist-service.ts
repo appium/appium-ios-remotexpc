@@ -47,7 +47,7 @@ export class PlistService {
 
     // Set up transformers
     this._splitter = new LengthBasedSplitter({
-      maxFrameLength: options.maxFrameLength ?? 10 * 1024 * 1024, // Default to 10MB
+      maxFrameLength: options.maxFrameLength ?? 100 * 1024 * 1024, // Default to 100MB
     });
     this._decoder = new PlistServiceDecoder();
     this._encoder = new PlistServiceEncoder();

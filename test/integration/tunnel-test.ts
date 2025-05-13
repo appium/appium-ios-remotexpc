@@ -16,9 +16,8 @@ describe('Tunnel and Syslog Service', function () {
   let remoteXPC: RemoteXpcConnection;
   let syslogService: SyslogService;
   let service: any;
-  const udid = '';
+  const udid = process.env.UDID || '';
   before(async function () {
-    console.log('Creating connection...');
     const { lockdownService, device } = await createLockdownServiceByUDID(udid);
     const { socket } = await startCoreDeviceProxy(
       lockdownService,
@@ -57,13 +56,31 @@ describe('Tunnel and Syslog Service', function () {
   });
 
   it('should start syslog service', async function () {
-    try {
-      await syslogService.start(service, -1, tunnelResult.tunnelManager);
-      // If no error is thrown, the test passes
-      expect(true).to.be.true;
-    } catch (err) {
-      console.error('Failed to start syslog service:', err);
-      throw err;
-    }
+    await syslogService.start(service, tunnelResult.tunnelManager, {
+      pid: -1,
+    });
+    // If no error is thrown, the test passes
+    expect(true).to.be.true;
+  });
+
+  it('should capture and emit syslog messages', async function () {
+    const messages: string[] = [];
+    syslogService.on('message', (message: string) => {
+      messages.push(message);
+    });
+
+    // Start capturing
+    await syslogService.start(service, tunnelResult.tunnelManager, {
+      pid: -1,
+    });
+
+    // Wait for a few seconds to collect messages
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+
+    // Stop capturing
+    await syslogService.stop();
+
+    // Verify that we captured some messages
+    expect(messages.length).to.be.greaterThan(0);
   });
 });

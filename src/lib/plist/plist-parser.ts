@@ -8,7 +8,32 @@ import type { PlistArray, PlistDictionary, PlistValue } from '../types.js';
  * @returns - Parsed JavaScript object
  */
 export function parsePlist(xmlData: string | Buffer): PlistDictionary {
-  const xmlStr = xmlData instanceof Buffer ? xmlData.toString('utf8') : xmlData;
+  let xmlStr = xmlData instanceof Buffer ? xmlData.toString('utf8') : xmlData;
+
+  // Find the XML declaration
+  const xmlDeclIndex = xmlStr.indexOf('<?xml');
+  if (xmlDeclIndex > 0) {
+    // There's content before the XML declaration, remove it
+    xmlStr = xmlStr.slice(xmlDeclIndex);
+  }
+
+  // Check for Unicode replacement characters which might indicate encoding issues
+  if (xmlStr.includes('�')) {
+    // Find the position of the first replacement character
+    const badCharPos = xmlStr.indexOf('�');
+    const startPos = Math.max(0, badCharPos - 20);
+    const endPos = Math.min(xmlStr.length, badCharPos + 20);
+    const problematicSection = xmlStr.slice(startPos, endPos);
+
+    // Remove the replacement character and anything before it if it's at the start
+    if (badCharPos < 10) {
+      // Use a regex to remove anything before the first '<' character
+      const firstTagIndex = xmlStr.indexOf('<');
+      if (firstTagIndex > 0) {
+        xmlStr = xmlStr.slice(firstTagIndex);
+      }
+    }
+  }
 
   // Check if the string is empty or not XML
   if (
