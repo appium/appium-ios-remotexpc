@@ -1,42 +1,33 @@
 import { expect } from 'chai';
 import type { TunnelConnection } from 'tuntap-bridge';
 
-import { createLockdownServiceByUDID } from '../../src/lib/lockdown/index.js';
-import RemoteXpcConnection from '../../src/lib/remote-xpc/remote-xpc-connection.js';
 import TunnelManager from '../../src/lib/tunnel/index.js';
 import DiagnosticsService from '../../src/services/ios/diagnostic-service/index.js';
-import { startCoreDeviceProxy } from '../../src/services/ios/tunnel-service/index.js';
 
 describe('Diagnostics Service', function () {
   // Increase timeout for integration tests
   this.timeout(60000);
 
-  const tunManager = TunnelManager;
   let tunnelResult: TunnelConnection;
-  let remoteXPC: RemoteXpcConnection;
+  let remoteXPC: any;
   let diagService: DiagnosticsService;
   const udid = process.env.UDID || '';
 
   before(async function () {
-    const { lockdownService, device } = await createLockdownServiceByUDID(udid);
-    const { socket } = await startCoreDeviceProxy(
-      lockdownService,
-      device.DeviceID,
-      device.Properties.SerialNumber,
-      {},
-    );
+    // Use TunnelManager to get or create a tunnel and RemoteXPC connection
+    const result = await TunnelManager.createDeviceConnectionPair(udid, {});
+    tunnelResult = result.tunnel;
+    remoteXPC = result.remoteXPC;
 
-    tunnelResult = await tunManager.getTunnel(socket);
-    const rsdPort = tunnelResult.RsdPort ?? 0;
-
-    remoteXPC = new RemoteXpcConnection([tunnelResult.Address, rsdPort]);
-    await remoteXPC.connect();
+    // List all services
     remoteXPC.listAllServices();
 
+    // Find the diagnostics service
     const diagnosticsService = remoteXPC.findService(
       DiagnosticsService.RSD_SERVICE_NAME,
     );
 
+    // Create the diagnostics service
     diagService = new DiagnosticsService([
       tunnelResult.Address,
       parseInt(diagnosticsService.port, 10),
@@ -44,9 +35,8 @@ describe('Diagnostics Service', function () {
   });
 
   after(async function () {
-    if (tunManager) {
-      await tunManager.closeTunnel();
-    }
+    // Close all tunnels when tests are done
+    await TunnelManager.closeAllTunnels();
   });
 
   it('should query power information using ioregistry', async function () {

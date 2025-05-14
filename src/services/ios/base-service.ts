@@ -63,7 +63,7 @@ export class BaseService {
       };
 
       const response = await connection.sendPlistRequest(checkin);
-      log.debug(`Service check-in response: ${response}`);
+      log.debug(`Service check-in response: ${JSON.stringify(response, null, 2)}`);
       return connection;
     } catch (error: unknown) {
       log.error('Error during check-in:', error);

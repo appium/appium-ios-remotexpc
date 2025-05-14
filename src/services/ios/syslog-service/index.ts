@@ -6,7 +6,6 @@ import BaseService, { type Service } from '../base-service.js';
 
 const log = logger.getLogger('Syslog');
 
-// Define interfaces for clarity
 interface Packet {
   protocol: 'TCP' | 'UDP';
   src: string;
@@ -26,12 +25,16 @@ interface SyslogOptions {
   pid?: number;
 }
 
+const MIN_PRINTABLE_RATIO = 0.5;
+const ASCII_PRINTABLE_MIN = 32;
+const ASCII_PRINTABLE_MAX = 126;
+
 /**
  * syslog-service provides functionality to capture and process syslog messages
  * from a remote device using Apple's XPC services.
  */
 class SyslogService extends EventEmitter {
-  private readonly address: [string, number]; // [host, port]
+  private readonly address: [string, number];
   private readonly baseService: BaseService;
   private connection: ServiceConnection | null = null;
   private tunnelManager: TunnelManager | null = null;
@@ -72,23 +75,29 @@ class SyslogService extends EventEmitter {
     this.tunnelManager = tunnelManager;
     this.isCapturing = true;
 
-    // Attach listener to capture network packets
     this.attachPacketListener(tunnelManager);
 
-    // Connect to the os_trace_relay service
-    this.connection = await this.baseService.startLockdownService(service);
+    try {
+      this.connection = await this.baseService.startLockdownService(service);
 
-    // Start the activity to receive syslog messages
-    const request = {
-      Request: 'StartActivity',
-      MessageFilter: 65535,
-      Pid: pid,
-      StreamFlags: 60,
-    };
+      const request = {
+        Request: 'StartActivity',
+        MessageFilter: 65535,
+        Pid: pid,
+        StreamFlags: 60,
+      };
 
-    const response = await this.connection.sendPlistRequest(request);
-    log.info(`Syslog capture started: ${response}`);
-    this.emit('start', response);
+      const response = await this.connection.sendPlistRequest(request);
+      log.info(`Syslog capture started: ${response}`);
+      this.emit('start', response);
+    } catch (error) {
+      this.isCapturing = false;
+      if (this.tunnelManager && this.packetListener) {
+        this.tunnelManager.removeListener('data', this.packetListener);
+        this.packetListener = null;
+      }
+      throw error;
+    }
   }
 
   /**
@@ -101,27 +110,37 @@ class SyslogService extends EventEmitter {
       return;
     }
 
-    // Remove packet listener
-    if (this.tunnelManager && this.packetListener) {
-      this.tunnelManager.removeListener('data', this.packetListener);
-      this.packetListener = null;
-    }
-
-    // Close connection
-    if (this.connection) {
-      try {
-        // Simply close the connection without sending StopActivity
-        this.connection.close();
-        this.connection = null;
-      } catch (error) {
-        log.debug(`Error closing connection: ${error}`);
-        this.connection = null;
-      }
-    }
+    this.detachPacketListener();
+    this.closeConnection();
 
     this.isCapturing = false;
     log.info('Syslog capture stopped');
     this.emit('stop');
+  }
+
+  /**
+   * Detaches the packet listener from the tunnel manager
+   */
+  private detachPacketListener(): void {
+    if (this.tunnelManager && this.packetListener) {
+      this.tunnelManager.removeListener('data', this.packetListener);
+      this.packetListener = null;
+    }
+  }
+
+  /**
+   * Closes the current connection
+   */
+  private closeConnection(): void {
+    if (this.connection) {
+      try {
+        this.connection.close();
+      } catch (error) {
+        log.debug(`Error closing connection: ${error}`);
+      } finally {
+        this.connection = null;
+      }
+    }
   }
 
   /**
@@ -131,15 +150,13 @@ class SyslogService extends EventEmitter {
    */
   async restart(service: Service): Promise<void> {
     try {
-      // Connect to the diagnostics service for restart.
       const conn = await this.baseService.startLockdownService(service);
-      // Create a plist request for restart.
       const request = { Request: 'Restart' };
-      // Send the restart request.
       const res = await conn.sendPlistRequest(request);
       log.info(`Restart response: ${res}`);
     } catch (error) {
       log.error(`Error during restart: ${error}`);
+      throw error;
     }
   }
 
@@ -148,39 +165,67 @@ class SyslogService extends EventEmitter {
    * @param tunnelManager Manager handling network packets
    */
   private attachPacketListener(tunnelManager: TunnelManager): void {
-    // Create the packet listener function
-    this.packetListener = (packet: Packet) => {
+    this.packetListener = this.createPacketListener();
+    tunnelManager.on('data', this.packetListener);
+  }
+
+  /**
+   * Creates a packet listener function
+   * @returns Packet listener function
+   */
+  private createPacketListener(): (packet: Packet) => void {
+    return (packet: Packet) => {
       if (packet.protocol === 'TCP') {
-        // Filter packets by checking if they contain printable text
-        if (this.isMostlyPrintable(packet.payload)) {
-          const message = packet.payload
-            .toString()
-            .replace(/[^\x20-\x7E]/g, '');
-
-          // Log to console
-          log.info(`[Syslog] ${message}`);
-
-          // Emit the message event
-          this.emit('message', message);
-
-          // Debug logging
-          log.debug('Received syslog-like TCP packet:');
-          log.debug(`  Source: ${packet.src}`);
-          log.debug(`  Destination: ${packet.dst}`);
-          log.debug(`  Source port: ${packet.sourcePort}`);
-          log.debug(`  Destination port: ${packet.destPort}`);
-          log.debug(`  Payload length: ${packet.payload.length}`);
-        } else {
-          log.debug('TCP packet not mostly printable, ignoring.');
-        }
+        this.processTcpPacket(packet);
       } else if (packet.protocol === 'UDP') {
-        // Process UDP packets if needed
-        log.debug(`Received UDP packet (not filtered here): ${packet}`);
+        this.processUdpPacket(packet);
       }
     };
+  }
 
-    // Attach the listener
-    tunnelManager.on('data', this.packetListener);
+  /**
+   * Processes a TCP packet
+   * @param packet TCP packet to process
+   */
+  private processTcpPacket(packet: Packet): void {
+    if (this.isMostlyPrintable(packet.payload)) {
+      const message = this.extractPrintableText(packet.payload);
+      log.info(`[Syslog] ${message}`);
+      this.emit('message', message);
+      this.logPacketDetails(packet);
+    } else {
+      log.debug('TCP packet not mostly printable, ignoring.');
+    }
+  }
+
+  /**
+   * Processes a UDP packet
+   * @param packet UDP packet to process
+   */
+  private processUdpPacket(packet: Packet): void {
+    log.debug(`Received UDP packet (not filtered here): ${packet}`);
+  }
+
+  /**
+   * Logs packet details for debugging
+   * @param packet Packet to log details for
+   */
+  private logPacketDetails(packet: Packet): void {
+    log.debug('Received syslog-like TCP packet:');
+    log.debug(`  Source: ${packet.src}`);
+    log.debug(`  Destination: ${packet.dst}`);
+    log.debug(`  Source port: ${packet.sourcePort}`);
+    log.debug(`  Destination port: ${packet.destPort}`);
+    log.debug(`  Payload length: ${packet.payload.length}`);
+  }
+
+  /**
+   * Extracts printable text from a buffer
+   * @param buffer Buffer to extract text from
+   * @returns Printable text
+   */
+  private extractPrintableText(buffer: Buffer): string {
+    return buffer.toString().replace(/[^\x20-\x7E]/g, '');
   }
 
   /**
@@ -195,16 +240,21 @@ class SyslogService extends EventEmitter {
         return false;
       }
 
+      const totalLength = str.length;
+      const threshold = totalLength * MIN_PRINTABLE_RATIO;
       let printableCount = 0;
-      for (let i = 0; i < str.length; i++) {
+      
+      for (let i = 0; i < totalLength; i++) {
         const code = str.charCodeAt(i);
-        // ASCII printable characters (space through ~)
-        if (code >= 32 && code <= 126) {
+        if (code >= ASCII_PRINTABLE_MIN && code <= ASCII_PRINTABLE_MAX) {
           printableCount++;
+          if (printableCount > threshold) {
+            return true;
+          }
         }
       }
 
-      return printableCount / str.length > 0.5;
+      return printableCount / totalLength > MIN_PRINTABLE_RATIO;
     } catch (error) {
       log.debug(error);
       return false;
