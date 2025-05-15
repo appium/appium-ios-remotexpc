@@ -60,7 +60,17 @@ export class LengthBasedSplitter extends Transform {
    * Shutdown the splitter and remove all listeners
    */
   shutdown(): void {
-    this.removeAllListeners();
+    try {
+      // Reset internal state
+      this.buffer = Buffer.alloc(0);
+      this.isXmlMode = false;
+      
+      // Remove all listeners
+      this.removeAllListeners();
+      log.debug('LengthBasedSplitter shutdown complete');
+    } catch (error) {
+      log.error(`Error during splitter shutdown: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 
   _transform(

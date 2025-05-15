@@ -1,6 +1,9 @@
 import { DOMParser, Element, Node } from '@xmldom/xmldom';
+import { logger } from '@appium/support';
 
 import type { PlistArray, PlistDictionary, PlistValue } from '../types.js';
+
+const log = logger.getLogger('Plist');
 
 /**
  * Parses an XML plist string into a JavaScript object
@@ -19,18 +22,39 @@ export function parsePlist(xmlData: string | Buffer): PlistDictionary {
 
   // Check for Unicode replacement characters which might indicate encoding issues
   if (xmlStr.includes('�')) {
+    log.debug('Unicode replacement character detected in XML data');
+    
+    // Ensure xmlStr is a string for string operations
+    const xmlString = typeof xmlStr === 'string' ? xmlStr : xmlStr.toString('utf8');
+    
     // Find the position of the first replacement character
-    const badCharPos = xmlStr.indexOf('�');
-    const startPos = Math.max(0, badCharPos - 20);
-    const endPos = Math.min(xmlStr.length, badCharPos + 20);
-    const problematicSection = xmlStr.slice(startPos, endPos);
-
-    // Remove the replacement character and anything before it if it's at the start
-    if (badCharPos < 10) {
-      // Use a regex to remove anything before the first '<' character
-      const firstTagIndex = xmlStr.indexOf('<');
+    const badCharPos = xmlString.indexOf('�');
+    
+    // Find the nearest XML tag before and after the bad character
+    const prevTagPos = xmlString.lastIndexOf('<', badCharPos);
+    const nextTagPos = xmlString.indexOf('<', badCharPos);
+    
+    if (prevTagPos >= 0 && nextTagPos > prevTagPos) {
+      // If we have tags on both sides, we can try to clean up just the problematic section
+      const cleanedXml = xmlString.substring(0, prevTagPos) + xmlString.substring(nextTagPos);
+      xmlStr = cleanedXml;
+    } else {
+      // Otherwise, find the first valid XML tag and start from there
+      const firstTagIndex = xmlString.indexOf('<?xml');
       if (firstTagIndex > 0) {
-        xmlStr = xmlStr.slice(firstTagIndex);
+        xmlStr = xmlString.slice(firstTagIndex);
+      } else {
+        // If no XML declaration, look for plist tag
+        const plistTagIndex = xmlString.indexOf('<plist');
+        if (plistTagIndex > 0) {
+          xmlStr = xmlString.slice(plistTagIndex);
+        } else {
+          // Last resort: find any tag
+          const anyTagIndex = xmlString.indexOf('<');
+          if (anyTagIndex > 0) {
+            xmlStr = xmlString.slice(anyTagIndex);
+          }
+        }
       }
     }
   }
@@ -44,14 +68,52 @@ export function parsePlist(xmlData: string | Buffer): PlistDictionary {
     throw new Error('Invalid XML: missing root element');
   }
 
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(xmlStr.toString(), 'text/xml');
-
-  if (!doc) {
-    throw new Error('Invalid XML response');
+  // Make sure we only have one XML declaration
+  const xmlString = typeof xmlStr === 'string' ? xmlStr : xmlStr.toString('utf8');
+  const xmlDeclMatches = xmlString.match(/(<\?xml[^>]*\?>)/g) || [];
+  const xmlDeclCount = xmlDeclMatches.length;
+  
+  if (xmlDeclCount > 1) {
+    log.debug(`Multiple XML declarations found (${xmlDeclCount}), fixing...`);
+    // Keep only the first XML declaration
+    const firstDeclEnd = xmlString.indexOf('?>') + 2;
+    const restOfXml = xmlString.substring(firstDeclEnd);
+    // Remove any additional XML declarations
+    const cleanedRest = restOfXml.replace(/<\?xml[^>]*\?>/g, '');
+    xmlStr = xmlString.substring(0, firstDeclEnd) + cleanedRest;
   }
 
-  function parseNode(node: Element): PlistValue {
+  try {
+    // Create a custom error handler that logs warnings and errors
+    const errorHandler = {
+      warning: function(msg: string) { 
+        log.debug(`XML parser warning: ${msg}`);
+      },
+      error: function(msg: string) { 
+        log.debug(`XML parser error: ${msg}`);
+      },
+      fatalError: function(msg: string) {
+        throw new Error(`XML parsing fatal error: ${msg}`);
+      }
+    };
+    
+    // Create the parser with the error handler
+    const parser = new DOMParser();
+    
+    // Parse the XML string
+    const doc = parser.parseFromString(xmlStr.toString(), 'text/xml');
+
+    if (!doc) {
+      throw new Error('Invalid XML response');
+    }
+    
+    // Verify we have a plist element
+    const plistElements = doc.getElementsByTagName('plist');
+    if (plistElements.length === 0) {
+      throw new Error('No plist element found in XML');
+    }
+
+    function parseNode(node: Element): PlistValue {
     if (!node) {
       return null;
     }
@@ -131,7 +193,11 @@ export function parsePlist(xmlData: string | Buffer): PlistDictionary {
     return parseDict(rootDict);
   }
 
-  throw new Error('Unable to find root dictionary in plist');
+    throw new Error('Unable to find root dictionary in plist');
+  } catch (error) {
+    log.error(`Error parsing plist: ${error instanceof Error ? error.message : String(error)}`);
+    throw error;
+  }
 }
 
 export default parsePlist;
