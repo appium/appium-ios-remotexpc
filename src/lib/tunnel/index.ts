@@ -1,5 +1,5 @@
 import { logger } from '@appium/support';
-import type { TLSSocket } from 'tls';
+import type { ConnectionOptions, TLSSocket } from 'tls';
 import { type TunnelConnection, connectToTunnelLockdown } from 'tuntap-bridge';
 
 import { startCoreDeviceProxy } from '../../services/ios/tunnel-service/index.js';
@@ -70,7 +70,7 @@ class TunnelManager {
    */
   async createDeviceConnectionPair(
     udid: string,
-    tlsOptions: Partial<import('tls').ConnectionOptions> = {},
+    tlsOptions: Partial<ConnectionOptions> = {},
   ): Promise<TunnelResult> {
     try {
       // Create lockdown service
