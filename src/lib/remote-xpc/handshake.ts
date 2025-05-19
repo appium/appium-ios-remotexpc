@@ -32,16 +32,11 @@ class Handshake {
         return;
       }
 
-      const writeTimeout = setTimeout(() => {
-        reject(new Error('Write operation timed out'));
-      }, 5000);
-
       this._socket.write(frame, (error: Error | null | undefined) => {
-        clearTimeout(writeTimeout);
         if (error) {
           reject(error);
         } else {
-          setTimeout(resolve, 10);
+          resolve();
         }
       });
     });
@@ -73,16 +68,11 @@ class Handshake {
           return;
         }
 
-        const writeTimeout = setTimeout(() => {
-          reject(new Error('HTTP/2 magic sequence write timed out'));
-        }, 5000);
-
         this._socket.write(Http2Constants.HTTP2_MAGIC, (err?: Error) => {
-          clearTimeout(writeTimeout);
           if (err) {
             reject(err);
           } else {
-            setTimeout(resolve, 10);
+            resolve();
           }
         });
       });
@@ -95,18 +85,12 @@ class Handshake {
       const settingsFrame: SettingsFrame = new SettingsFrame(0, settings, []);
       await this.sendFrame(settingsFrame.serialize());
 
-      // Add a small delay between frames to ensure proper processing
-      await new Promise((resolve) => setTimeout(resolve, 20));
-
       // Step 3: Send WINDOW_UPDATE frame on stream 0.
       const windowUpdateFrame: WindowUpdateFrame = new WindowUpdateFrame(
         0,
         983041,
       );
       await this.sendFrame(windowUpdateFrame.serialize());
-
-      // Add a small delay between frames to ensure proper processing
-      await new Promise((resolve) => setTimeout(resolve, 20));
 
       // Step 4: Send a HEADERS frame on stream 1.
       const headersFrameRoot: HeadersFrame = new HeadersFrame(
@@ -116,14 +100,8 @@ class Handshake {
       );
       await this.sendFrame(headersFrameRoot.serialize());
 
-      // Add a small delay between frames to ensure proper processing
-      await new Promise((resolve) => setTimeout(resolve, 20));
-
       // Step 5: Send first DataFrame on stream 1 (empty payload).
       await this.sendRequest({});
-
-      // Add a small delay between frames to ensure proper processing
-      await new Promise((resolve) => setTimeout(resolve, 20));
 
       // Step 6: Send second DataFrame on stream 1 with specific flags.
       const dataMessage: XPCMessage = {
@@ -140,9 +118,6 @@ class Handshake {
       await this.sendFrame(dataFrame.serialize());
       this._nextMessageId[Http2Constants.ROOT_CHANNEL]++;
 
-      // Add a small delay between frames to ensure proper processing
-      await new Promise((resolve) => setTimeout(resolve, 20));
-
       // Step 7: Send a HEADERS frame on stream 3.
       const headersFrameReply: HeadersFrame = new HeadersFrame(
         Http2Constants.REPLY_CHANNEL,
@@ -150,9 +125,6 @@ class Handshake {
         ['END_HEADERS'],
       );
       await this.sendFrame(headersFrameReply.serialize());
-
-      // Add a small delay between frames to ensure proper processing
-      await new Promise((resolve) => setTimeout(resolve, 20));
 
       // Step 8: Open REPLY_CHANNEL with INIT_HANDSHAKE flags.
       const replyMessage: XPCMessage = {
@@ -170,9 +142,6 @@ class Handshake {
       );
       await this.sendFrame(replyDataFrame.serialize());
       this._nextMessageId[Http2Constants.REPLY_CHANNEL]++;
-
-      // Add a small delay between frames to ensure proper processing
-      await new Promise((resolve) => setTimeout(resolve, 20));
 
       // Step 9: Send SETTINGS ACK frame.
       const ackFrame: SettingsFrame = new SettingsFrame(0, null, ['ACK']);

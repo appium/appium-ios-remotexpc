@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 import type { TunnelConnection } from 'tuntap-bridge';
 
-import TunnelManager from '../../src/lib/tunnel/index.js';
+import { TunnelManager } from '../../src/lib/tunnel/index.js';
 import SyslogService from '../../src/services/ios/syslog-service/index.js';
 
 describe('Tunnel and Syslog Service', function () {

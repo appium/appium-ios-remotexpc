@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 import type { TunnelConnection } from 'tuntap-bridge';
 
-import TunnelManager from '../../src/lib/tunnel/index.js';
+import { TunnelManager } from '../../src/lib/tunnel/index.js';
 import DiagnosticsService from '../../src/services/ios/diagnostic-service/index.js';
 
 describe('Diagnostics Service', function () {
