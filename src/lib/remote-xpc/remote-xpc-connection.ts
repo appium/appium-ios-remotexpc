@@ -5,6 +5,15 @@ import Handshake from './handshake.js';
 
 const log = logger.getLogger('RemoteXpcConnection');
 
+// Timeout constants
+const CONNECTION_TIMEOUT_MS = 30000; // 30 seconds
+const SERVICE_EXTRACTION_TIMEOUT_MS = 5000; // 5 seconds
+const HANDSHAKE_DELAY_MS = 100; // 100 milliseconds
+const SERVICE_AFTER_HANDSHAKE_TIMEOUT_MS = 10000; // 10 seconds
+const SOCKET_CLOSE_TIMEOUT_MS = 1000; // 1 second
+const SOCKET_END_TIMEOUT_MS = 500; // 0.5 seconds
+const SOCKET_WRITE_TIMEOUT_MS = 500; // 0.5 seconds
+
 interface Service {
   serviceName: string;
   port: string;
@@ -47,8 +56,12 @@ class RemoteXpcConnection {
         if (this._socket) {
           this._socket.destroy();
         }
-        reject(new Error('Connection timed out after 30 seconds'));
-      }, 30000);
+        reject(
+          new Error(
+            `Connection timed out after ${CONNECTION_TIMEOUT_MS / 1000} seconds`,
+          ),
+        );
+      }, CONNECTION_TIMEOUT_MS);
 
       // Set a timeout for service extraction
       let serviceExtractionTimeout: ServiceExtractionTimeout;
@@ -117,7 +130,7 @@ class RemoteXpcConnection {
                     this._services = finalResponse.services;
                     clearTimeouts();
                     resolve(finalResponse);
-                  }, 5000);
+                  }, SERVICE_EXTRACTION_TIMEOUT_MS);
                 }
               } catch (error) {
                 log.warn(
@@ -148,7 +161,9 @@ class RemoteXpcConnection {
               this._handshake = new Handshake(this._socket);
 
               // Add a small delay before performing handshake to ensure socket is ready
-              await new Promise<void>((resolve) => setTimeout(resolve, 100));
+              await new Promise<void>((resolve) =>
+                setTimeout(resolve, HANDSHAKE_DELAY_MS),
+              );
 
               // Once handshake is successful we can get
               // peer-info and get ports for lockdown in RSD
@@ -165,7 +180,7 @@ class RemoteXpcConnection {
                   );
                   reject(new Error('No services received after handshake'));
                 }
-              }, 10000);
+              }, SERVICE_AFTER_HANDSHAKE_TIMEOUT_MS);
             }
           } catch (error) {
             log.error(`Handshake failed: ${error}`);
@@ -199,7 +214,7 @@ class RemoteXpcConnection {
         log.warn('Socket close timed out, destroying socket');
         this.forceCleanup();
         resolve();
-      }, 1000); // Reduced from 5000ms to 1000ms
+      }, SOCKET_CLOSE_TIMEOUT_MS);
 
       // Listen for the close event
       if (this._socket) {
@@ -226,7 +241,7 @@ class RemoteXpcConnection {
 
         if (this._socket) {
           // Set a small write timeout to prevent hanging
-          this._socket.setTimeout(500);
+          this._socket.setTimeout(SOCKET_WRITE_TIMEOUT_MS);
 
           // End the socket with a small empty buffer to flush any pending data
           this._socket.end(Buffer.alloc(0), () => {
@@ -241,7 +256,7 @@ class RemoteXpcConnection {
                 this.forceCleanup();
                 resolve();
               }
-            }, 500);
+            }, SOCKET_END_TIMEOUT_MS);
           });
         } else {
           clearTimeout(closeTimeout);
