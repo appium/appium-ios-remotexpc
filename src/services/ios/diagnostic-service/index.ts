@@ -2,7 +2,7 @@ import { logger } from '@appium/support';
 
 import { PlistServiceDecoder } from '../../../lib/plist/plist-decoder.js';
 import type { PlistDictionary } from '../../../lib/types.js';
-import BaseService, { type Service } from '../base-service.js';
+import { BaseService } from '../base-service.js';
 // Import MobileGestaltKeys directly to avoid module resolution issues
 import { MobileGestaltKeys } from './keys.js';
 

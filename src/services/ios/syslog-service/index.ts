@@ -2,7 +2,7 @@ import { logger } from '@appium/support';
 import { EventEmitter } from 'events';
 
 import { ServiceConnection } from '../../../service-connection.js';
-import BaseService, { type Service } from '../base-service.js';
+import { BaseService, type Service } from '../base-service.js';
 
 const log = logger.getLogger('Syslog');
 
@@ -119,6 +119,23 @@ class SyslogService extends EventEmitter {
   }
 
   /**
+   * Restart the device
+   * @param service Service information
+   * @returns Promise that resolves when the restart request is sent
+   */
+  async restart(service: Service): Promise<void> {
+    try {
+      const conn = await this.baseService.startLockdownService(service);
+      const request = { Request: 'Restart' };
+      const res = await conn.sendPlistRequest(request);
+      log.info(`Restart response: ${res}`);
+    } catch (error) {
+      log.error(`Error during restart: ${error}`);
+      throw error;
+    }
+  }
+
+  /**
    * Detaches the packet listener from the tunnel manager
    */
   private detachPacketListener(): void {
@@ -140,23 +157,6 @@ class SyslogService extends EventEmitter {
       } finally {
         this.connection = null;
       }
-    }
-  }
-
-  /**
-   * Restart the device
-   * @param service Service information
-   * @returns Promise that resolves when the restart request is sent
-   */
-  async restart(service: Service): Promise<void> {
-    try {
-      const conn = await this.baseService.startLockdownService(service);
-      const request = { Request: 'Restart' };
-      const res = await conn.sendPlistRequest(request);
-      log.info(`Restart response: ${res}`);
-    } catch (error) {
-      log.error(`Error during restart: ${error}`);
-      throw error;
     }
   }
 
@@ -243,7 +243,7 @@ class SyslogService extends EventEmitter {
       const totalLength = str.length;
       const threshold = totalLength * MIN_PRINTABLE_RATIO;
       let printableCount = 0;
-      
+
       for (let i = 0; i < totalLength; i++) {
         const code = str.charCodeAt(i);
         if (code >= ASCII_PRINTABLE_MIN && code <= ASCII_PRINTABLE_MAX) {

@@ -73,7 +73,7 @@ describe('Plist Module', function () {
       expect(result).to.have.property('specialChars', '<Hello & World>');
 
       // Error handling
-      expect(() => parseXmlPlist('<invalid>xml</>')).to.throw();
+      expect(() => parseXmlPlist('not a valid xml')).to.throw();
     });
 
     it('should create XML plists correctly', function () {

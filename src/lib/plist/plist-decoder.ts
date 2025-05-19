@@ -1,5 +1,5 @@
-import { Transform, type TransformCallback } from 'stream';
 import { logger } from '@appium/support';
+import { Transform, type TransformCallback } from 'stream';
 
 import parsePlist from './plist-parser.js';
 
@@ -39,20 +39,26 @@ export class PlistServiceDecoder extends Transform {
 
       if (xmlIndex > 0) {
         // There's content before the XML declaration, remove it
-        log.debug(`Found XML declaration at position ${xmlIndex}, trimming preceding content`);
+        log.debug(
+          `Found XML declaration at position ${xmlIndex}, trimming preceding content`,
+        );
         plistData = plistData.slice(xmlIndex);
       }
 
       // Check for potential corruption indicators
       if (plistData.includes(Buffer.from('�'))) {
-        log.debug('Detected Unicode replacement characters in plist data, potential encoding issues');
+        log.debug(
+          'Detected Unicode replacement characters in plist data, potential encoding issues',
+        );
       }
 
       // Check for multiple XML declarations which can cause parsing errors
       const fullDataStr = plistData.toString('utf8');
       const xmlDeclMatches = fullDataStr.match(/(<\?xml[^>]*\?>)/g) || [];
       if (xmlDeclMatches.length > 1) {
-        log.debug(`Found ${xmlDeclMatches.length} XML declarations, which may cause parsing errors`);
+        log.debug(
+          `Found ${xmlDeclMatches.length} XML declarations, which may cause parsing errors`,
+        );
       }
 
       try {
@@ -69,19 +75,21 @@ export class PlistServiceDecoder extends Transform {
       } catch (error) {
         // If parsing fails, try to recover by cleaning up the data more aggressively
         const parseError = error as Error;
-        log.debug(`Initial parsing failed: ${parseError.message}, attempting recovery`);
-        
+        log.debug(
+          `Initial parsing failed: ${parseError.message}, attempting recovery`,
+        );
+
         try {
           // Find the first valid XML tag
           const firstTagIndex = fullDataStr.indexOf('<');
           if (firstTagIndex > 0) {
             const cleanedData = plistData.slice(firstTagIndex);
             const result = parsePlist(cleanedData);
-            
+
             if (typeof result === 'object' && result !== null) {
               PlistServiceDecoder.lastDecodedResult = result;
             }
-            
+
             this.push(result);
             callback();
           } else {
@@ -96,7 +104,9 @@ export class PlistServiceDecoder extends Transform {
         }
       }
     } catch (err) {
-      log.error(`Error in plist decoder: ${err instanceof Error ? err.message : String(err)}`);
+      log.error(
+        `Error in plist decoder: ${err instanceof Error ? err.message : String(err)}`,
+      );
       callback(err as Error);
     }
   }

@@ -64,12 +64,14 @@ export class LengthBasedSplitter extends Transform {
       // Reset internal state
       this.buffer = Buffer.alloc(0);
       this.isXmlMode = false;
-      
+
       // Remove all listeners
       this.removeAllListeners();
       log.debug('LengthBasedSplitter shutdown complete');
     } catch (error) {
-      log.error(`Error during splitter shutdown: ${error instanceof Error ? error.message : String(error)}`);
+      log.error(
+        `Error during splitter shutdown: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
   }
 

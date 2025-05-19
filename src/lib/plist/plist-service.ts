@@ -133,18 +133,20 @@ export class PlistService {
       // Remove all data listeners to prevent parsing during close
       this._splitter.removeAllListeners();
       this._decoder.removeAllListeners();
-      
+
       // Clear the message queue to prevent processing during close
       this._messageQueue = [];
-      
+
       // Unpipe the transformers to prevent data flow during close
       try {
         this._socket.unpipe(this._splitter);
         this._splitter.unpipe(this._decoder);
       } catch (unpipeError) {
-        log.debug(`Non-critical error during unpipe: ${unpipeError instanceof Error ? unpipeError.message : String(unpipeError)}`);
+        log.debug(
+          `Non-critical error during unpipe: ${unpipeError instanceof Error ? unpipeError.message : String(unpipeError)}`,
+        );
       }
-      
+
       // End the socket
       this._socket.end();
     } catch (error) {
@@ -152,7 +154,7 @@ export class PlistService {
       log.error(
         `Error closing socket: ${error instanceof Error ? error.message : String(error)}`,
       );
-      
+
       // If ending fails, try to destroy the socket
       try {
         this._socket.destroy();

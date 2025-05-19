@@ -189,10 +189,10 @@ class RemoteXpcConnection {
     if (!this._socket) {
       return Promise.resolve();
     }
-    
+
     // Immediately mark as disconnected to prevent further operations
     this._isConnected = false;
-    
+
     return new Promise<void>((resolve) => {
       // Set a shorter timeout for socket closing
       const closeTimeout = setTimeout(() => {
@@ -200,7 +200,7 @@ class RemoteXpcConnection {
         this.forceCleanup();
         resolve();
       }, 1000); // Reduced from 5000ms to 1000ms
-      
+
       // Listen for the close event
       if (this._socket) {
         this._socket.once('close', () => {
@@ -209,7 +209,7 @@ class RemoteXpcConnection {
           this.cleanupResources();
           resolve();
         });
-        
+
         // Add an error handler specifically for the close operation
         this._socket.once('error', (err) => {
           log.error(`Socket error during close: ${err.message}`);
@@ -219,22 +219,24 @@ class RemoteXpcConnection {
           resolve();
         });
       }
-      
+
       try {
         // First remove all data listeners to prevent parsing during close
         this.cleanupSocket();
-        
+
         if (this._socket) {
           // Set a small write timeout to prevent hanging
           this._socket.setTimeout(500);
-          
+
           // End the socket with a small empty buffer to flush any pending data
           this._socket.end(Buffer.alloc(0), () => {
             // If end completes successfully, the 'close' event will handle cleanup
             // But set a short timeout just in case 'close' doesn't fire
             setTimeout(() => {
               if (this._socket) {
-                log.debug('Socket end completed but close event not fired, forcing cleanup');
+                log.debug(
+                  'Socket end completed but close event not fired, forcing cleanup',
+                );
                 clearTimeout(closeTimeout);
                 this.forceCleanup();
                 resolve();
@@ -247,68 +249,14 @@ class RemoteXpcConnection {
           resolve();
         }
       } catch (error) {
-        log.error(`Unexpected error during close: ${error instanceof Error ? error.message : String(error)}`);
+        log.error(
+          `Unexpected error during close: ${error instanceof Error ? error.message : String(error)}`,
+        );
         clearTimeout(closeTimeout);
         this.forceCleanup();
         resolve();
       }
     });
-  }
-  
-  /**
-   * Remove all listeners from the socket to prevent memory leaks
-   */
-  private cleanupSocket(): void {
-    if (this._socket) {
-      try {
-        // Store references to the listeners we want to keep
-        const closeListeners = this._socket.listeners('close') as Array<(...args: any[]) => void>;
-        const errorListeners = this._socket.listeners('error') as Array<(...args: any[]) => void>;
-        
-        // Remove all listeners
-        this._socket.removeAllListeners();
-        
-        // Re-add only the close and error listeners we need for cleanup
-        for (const listener of closeListeners) {
-          this._socket.once('close', listener);
-        }
-        
-        for (const listener of errorListeners) {
-          this._socket.once('error', listener);
-        }
-        
-        log.debug('Successfully removed socket data listeners');
-      } catch (error) {
-        log.error(`Error removing socket listeners: ${error instanceof Error ? error.message : String(error)}`);
-      }
-    }
-  }
-  
-  /**
-   * Clean up all resources
-   */
-  private cleanupResources(): void {
-    this._socket = undefined;
-    this._isConnected = false;
-    this._handshake = undefined;
-    this._services = undefined;
-  }
-  
-  /**
-   * Force cleanup by destroying the socket and cleaning up resources
-   */
-  private forceCleanup(): void {
-    try {
-      if (this._socket) {
-        // Destroy the socket forcefully
-        this._socket.destroy();
-        log.debug('Socket forcefully destroyed');
-      }
-    } catch (error) {
-      log.error(`Error destroying socket: ${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      this.cleanupResources();
-    }
   }
 
   /**
@@ -345,6 +293,70 @@ class RemoteXpcConnection {
         Check if the device is locked.`);
     }
     return service;
+  }
+
+  /**
+   * Remove all listeners from the socket to prevent memory leaks
+   */
+  private cleanupSocket(): void {
+    if (this._socket) {
+      try {
+        // Store references to the listeners we want to keep
+        const closeListeners = this._socket.listeners('close') as Array<
+          (...args: any[]) => void
+        >;
+        const errorListeners = this._socket.listeners('error') as Array<
+          (...args: any[]) => void
+        >;
+
+        // Remove all listeners
+        this._socket.removeAllListeners();
+
+        // Re-add only the close and error listeners we need for cleanup
+        for (const listener of closeListeners) {
+          this._socket.once('close', listener);
+        }
+
+        for (const listener of errorListeners) {
+          this._socket.once('error', listener);
+        }
+
+        log.debug('Successfully removed socket data listeners');
+      } catch (error) {
+        log.error(
+          `Error removing socket listeners: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+  }
+
+  /**
+   * Clean up all resources
+   */
+  private cleanupResources(): void {
+    this._socket = undefined;
+    this._isConnected = false;
+    this._handshake = undefined;
+    this._services = undefined;
+  }
+
+  /**
+   * Force cleanup by destroying the socket and cleaning up resources
+   */
+  private forceCleanup(): void {
+    try {
+      if (this._socket) {
+        // Destroy the socket forcefully
+        this._socket.destroy();
+        log.debug('Socket forcefully destroyed');
+      }
+    } catch (error) {
+      log.error(
+        `Error destroying socket: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    } finally {
+      this.cleanupResources();
+    }
   }
 }
 

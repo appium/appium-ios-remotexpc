@@ -271,4 +271,4 @@ class TunnelManager {
 // Export the singleton instance
 const tunnelManager = new TunnelManager();
 
-export default tunnelManager;
+export { tunnelManager as TunnelManager };
