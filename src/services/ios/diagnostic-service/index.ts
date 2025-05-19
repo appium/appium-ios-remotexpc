@@ -208,6 +208,7 @@ class DiagnosticsService extends BaseService {
     name?: string;
     ioClass?: string;
     returnRawJson?: boolean;
+    timeout?: number;
   }): Promise<PlistDictionary[] | Record<string, any>> {
     try {
       // Create a connection to the diagnostics service
@@ -237,20 +238,101 @@ class DiagnosticsService extends BaseService {
       // Reset the last decoded result
       PlistServiceDecoder.lastDecodedResult = null;
 
-      // Send the request
-      const response = await conn.sendPlistRequest(request);
+      // Use a longer timeout for IORegistry requests, especially for large responses
+      // Default to 3 seconds if not specified
+      const timeout = options?.timeout || 3000;
+
+      log.debug('Sending IORegistry request...');
+
+      // Send the request with the specified timeout
+      let response = await conn.sendPlistRequest(request, timeout);
 
       // Enhanced logging for debugging
-      log.debug(`IORegistry response: ${JSON.stringify(response)}`);
+      log.debug(
+        `IORegistry initial response received, size: ${JSON.stringify(response).length} bytes`,
+      );
 
-      // If user wants raw JSON, return the response directly
+      // If returnRawJson is true, we need to handle the case where the response comes in multiple parts
       if (options?.returnRawJson) {
+        // Wait a bit to allow any pending data to be processed
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        try {
+          const emptyRequest: PlistDictionary = {
+            Request: 'Status',
+          };
+
+          log.debug(
+            'Sending follow-up request to check for additional data...',
+          );
+
+          // Send a follow-up request with a shorter timeout
+          const additionalResponse = await conn.sendPlistRequest(
+            emptyRequest,
+            timeout,
+          );
+
+          if (additionalResponse) {
+            log.debug(
+              `Received additional response, size: ${JSON.stringify(additionalResponse).length} bytes`,
+            );
+
+            // Check if additionalResponse is a valid object (not Buffer or Date)
+            if (
+              typeof additionalResponse === 'object' &&
+              !Buffer.isBuffer(additionalResponse) &&
+              !(additionalResponse instanceof Date)
+            ) {
+              const hasIORegistry = 'IORegistry' in additionalResponse;
+              const hasDiagnostics =
+                'Diagnostics' in additionalResponse &&
+                typeof additionalResponse.Diagnostics === 'object' &&
+                additionalResponse.Diagnostics !== null &&
+                'IORegistry' in additionalResponse.Diagnostics;
+
+              if (hasIORegistry || hasDiagnostics) {
+                // If the additional response contains IORegistry data, use it instead
+                // This is the case where the real data comes in the second response
+                log.debug(
+                  'Additional response contains IORegistry data, using it as the main response',
+                );
+                response = additionalResponse;
+              } else if (
+                typeof response === 'object' &&
+                !Buffer.isBuffer(response) &&
+                !(response instanceof Date) &&
+                Object.keys(additionalResponse).length > 0 &&
+                Object.keys(response).length > 0
+              ) {
+                // Try to merge the responses if both contain useful data
+                log.debug('Merging initial and additional responses');
+                // Cast both to Record<string, any> to ensure they're treated as objects
+                const responseObj = response as Record<string, any>;
+                const additionalResponseObj = additionalResponse as Record<
+                  string,
+                  any
+                >;
+
+                response = {
+                  ...responseObj,
+                  ...additionalResponseObj,
+                };
+              }
+            }
+          }
+        } catch (error) {
+          // If we timeout or get an error, just use the initial response
+          log.debug(
+            `Error or timeout getting additional data: ${error}, using initial response`,
+          );
+        }
+
+        // Return the raw response
         return response as Record<string, any>;
       }
 
       // Check if we have a lastDecodedResult from the PlistServiceDecoder
       if (PlistServiceDecoder.lastDecodedResult) {
-        // Return the lastDecodedResult directly if it's an array
         if (Array.isArray(PlistServiceDecoder.lastDecodedResult)) {
           return PlistServiceDecoder.lastDecodedResult as PlistDictionary[];
         }
@@ -259,27 +341,20 @@ class DiagnosticsService extends BaseService {
         return [PlistServiceDecoder.lastDecodedResult as PlistDictionary];
       }
 
-      // Fallback to the original response if lastDecodedResult is not available
-      // Ensure we have a valid response
       if (!response) {
         throw new Error('Invalid response from IORegistry');
       }
 
-      // Return the response directly as it appears in the console log
-      // This ensures the user gets the same JSON structure they see in the logs
       if (Array.isArray(response)) {
-        // If the array is empty, check if there's a response object we can use instead
         if (response.length === 0 && typeof response === 'object') {
           log.debug(
             'Received empty array response, attempting to extract useful data',
           );
-          // Try to extract any useful data from the response object itself
           return [{ IORegistryResponse: 'No data found' } as PlistDictionary];
         }
         return response as PlistDictionary[];
       }
 
-      // If it's not an array, convert it to the expected format
       if (
         typeof response === 'object' &&
         !Buffer.isBuffer(response) &&
@@ -292,15 +367,11 @@ class DiagnosticsService extends BaseService {
           responseObj.Diagnostics &&
           typeof responseObj.Diagnostics === 'object'
         ) {
-          // Return the Diagnostics object directly
           return [responseObj.Diagnostics as PlistDictionary];
         }
 
-        // Return the whole response object
         return [responseObj as PlistDictionary];
       }
-
-      // If it's not an object, wrap it in an object and return as array
       return [{ value: response } as PlistDictionary];
     } catch (error) {
       log.error(`Error querying IORegistry: ${error}`);

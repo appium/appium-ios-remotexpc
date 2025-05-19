@@ -375,10 +375,6 @@ function extractServices(response: string): ServicesResponse {
     index: number;
   }
 
-  interface Item extends Match {
-    type: 'service' | 'port';
-  }
-
   // First, collect all service names
   const serviceMatches: Match[] = [];
   let match: RegExpExecArray | null;
@@ -404,76 +400,41 @@ function extractServices(response: string): ServicesResponse {
     `Found ${serviceMatches.length} services and ${portMatches.length} ports`,
   );
 
-  type ItemType = { type: 'service' | 'port'; value: string; index: number };
-
-  // Create a combined array of items
-  const items: ItemType[] = [
-    ...serviceMatches.map((m) => ({
-      type: 'service' as const,
-      value: m.value,
-      index: m.index,
-    })),
-    ...portMatches.map((m) => ({
-      type: 'port' as const,
-      value: m.value,
-      index: m.index,
-    })),
-  ].sort((a, b) => a.index - b.index);
-
-  // Process the items to create service objects
+  // Create a mapping of services to ports
   const services: Service[] = [];
-  const processedServices = new Set<string>(); // Track processed services to avoid duplicates
 
-  for (let i = 0; i < items.length; i++) {
-    if (items[i].type === 'service') {
-      const serviceName = items[i].value;
+  // Assign a port to each service based on proximity in the response
+  for (let i = 0; i < serviceMatches.length; i++) {
+    const serviceName = serviceMatches[i].value;
+    const serviceIndex = serviceMatches[i].index;
 
-      // Skip if we've already processed this service
-      if (processedServices.has(serviceName)) {
-        continue;
-      }
+    // Find the closest port after this service
+    let closestPort = '';
+    let closestDistance = Number.MAX_SAFE_INTEGER;
 
-      // Look ahead for the next port occurrence
-      let port: string | undefined;
-      let portIndex = -1;
+    for (const portMatch of portMatches) {
+      // Only consider ports that come after the service in the response
+      if (portMatch.index > serviceIndex) {
+        const distance = portMatch.index - serviceIndex;
 
-      for (let j = i + 1; j < items.length; j++) {
-        if (items[j].type === 'port') {
-          port = items[j].value;
-          portIndex = j;
-          break;
-        }
-      }
+        // If this port is closer than the current closest, update
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestPort = portMatch.value;
 
-      // If no port is found, check if there are any ports available
-      if (!port && portMatches.length > 0) {
-        // As a fallback, use the nearest port by index
-        let nearestPort = portMatches[0];
-        let minDistance = Math.abs(nearestPort.index - items[i].index);
-
-        for (const portMatch of portMatches) {
-          const distance = Math.abs(portMatch.index - items[i].index);
-          if (distance < minDistance) {
-            minDistance = distance;
-            nearestPort = portMatch;
+          // If the port is very close (within 200 chars), we can be confident it's the right one
+          if (distance < 200) {
+            break;
           }
         }
-
-        // Only use the nearest port if it's reasonably close (within 500 characters)
-        if (minDistance < 500) {
-          port = nearestPort.value;
-        }
-      }
-
-      // Add the service with its port (or empty string if no port found)
-      services.push({ serviceName, port: port || '' });
-      processedServices.add(serviceName);
-
-      // If we found a port, skip all items up to and including that port
-      if (portIndex > i) {
-        i = portIndex;
       }
     }
+
+    // Add the service with its port (or empty string if no port found)
+    services.push({
+      serviceName,
+      port: closestPort || '',
+    });
   }
 
   return { services };
