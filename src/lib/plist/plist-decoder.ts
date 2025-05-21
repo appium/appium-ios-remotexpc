@@ -51,10 +51,7 @@ export class PlistServiceDecoder extends Transform {
       }
 
       // Check for potential corruption indicators
-      hasUnicodeReplacementCharacter(
-        plistData,
-        'Detected Unicode replacement characters in plist data, potential encoding issues',
-      );
+      hasUnicodeReplacementCharacter(plistData);
 
       // Check for multiple XML declarations which can cause parsing errors
       const fullDataStr = ensureString(plistData);

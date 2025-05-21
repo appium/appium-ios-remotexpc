@@ -98,8 +98,7 @@ export function parsePlist(xmlData: string | Buffer): PlistDictionary {
         if (node.textContent) {
           try {
             return Buffer.from(node.textContent, 'base64');
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          } catch (e) {
+          } catch {
             return node.textContent;
           }
         }

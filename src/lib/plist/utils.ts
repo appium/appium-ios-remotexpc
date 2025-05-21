@@ -19,24 +19,6 @@ export function ensureString(data: string | Buffer): string {
 }
 
 /**
- * Checks if the provided data contains Unicode replacement characters (�),
- * which might indicate encoding issues.
- *
- * @param data - The data to check, can be a string or Buffer
- * @param logMessage - Optional custom log message. If not provided, a default message will be used.
- * @returns True if replacement characters are found, false otherwise
- */
-export function hasUnicodeReplacementCharacter(data: string | Buffer): boolean {
-  // Convert to string if it's a Buffer
-  const strData = ensureString(data);
-
-  // Check for the replacement character
-  const hasReplacementChar = strData.includes('�');
-
-  return hasReplacementChar;
-}
-
-/**
  * Finds the position of the first Unicode replacement character in the data.
  *
  * @param data - The data to check, can be a string or Buffer
@@ -48,10 +30,24 @@ export function findFirstReplacementCharacter(data: string | Buffer): number {
 }
 
 /**
+ * Checks if the provided data contains Unicode replacement characters (�),
+ * which might indicate encoding issues.
+ *
+ * @param data - The data to check, can be a string or Buffer
+ * @returns True if replacement characters are found, false otherwise
+ */
+export function hasUnicodeReplacementCharacter(data: string | Buffer): boolean {
+  // Convert to string if it's a Buffer
+  const strData = ensureString(data);
+
+  // Check for the replacement character
+  return strData.includes('�');
+}
+
+/**
  * Finds the XML declaration and trims any preceding content
  *
  * @param data - The data to process, can be a string or Buffer
- * @param shouldLog - Whether to log when trimming is performed
  * @returns The trimmed data as a string
  */
 export function trimBeforeXmlDeclaration(data: string | Buffer): string {

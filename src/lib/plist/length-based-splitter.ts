@@ -279,8 +279,8 @@ export class LengthBasedSplitter extends Transform {
 
         // Remove the processed message from the buffer
         this.buffer = this.buffer.slice(totalLength);
-      } catch (extractError) {
-        // Skip this problematic message - move forward by 1 byte and try again
+      } catch {
+        // move forward by 1 byte and try again
         this.buffer = this.buffer.slice(1);
       }
     }
