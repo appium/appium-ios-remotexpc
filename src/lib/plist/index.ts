@@ -14,6 +14,17 @@ import { parsePlist as parseXmlPlist } from './plist-parser.js';
 import { PlistService } from './plist-service.js';
 import { createPlist } from './unified-plist-creator.js';
 import { parsePlist } from './unified-plist-parser.js';
+import {
+  bufferToString,
+  ensureString,
+  escapeXml,
+  findFirstReplacementCharacter,
+  fixMultipleXmlDeclarations,
+  hasUnicodeReplacementCharacter,
+  isValidXml,
+  isXmlPlistContent,
+  trimBeforeXmlDeclaration,
+} from './utils.js';
 
 export {
   createPlist,
@@ -30,4 +41,14 @@ export {
   APPLE_EPOCH_OFFSET,
   BPLIST_MAGIC_AND_VERSION,
   BPLIST_TYPE,
+  // Utility functions
+  hasUnicodeReplacementCharacter,
+  findFirstReplacementCharacter,
+  ensureString,
+  trimBeforeXmlDeclaration,
+  fixMultipleXmlDeclarations,
+  isValidXml,
+  escapeXml,
+  bufferToString,
+  isXmlPlistContent,
 };

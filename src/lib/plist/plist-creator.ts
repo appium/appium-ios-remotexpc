@@ -4,6 +4,7 @@
  * @returns - XML plist string
  */
 import type { PlistDictionary, PlistValue } from '../types.js';
+import { escapeXml } from './utils.js';
 
 export function createPlist(obj: PlistDictionary): string {
   function convert(value: PlistValue): string {
@@ -28,27 +29,6 @@ export function createPlist(obj: PlistDictionary): string {
     return '<string></string>';
   }
 
-  // XML escaping
-  function escapeXml(str: string): string {
-    return str.replace(/[<>&"']/g, function (c) {
-      switch (c) {
-        case '<':
-          return '&lt;';
-        case '>':
-          return '&gt;';
-        case '&':
-          return '&amp;';
-        case '"':
-          return '&quot;';
-        // eslint-disable-next-line quotes
-        case "'":
-          return '&apos;';
-        default:
-          return c;
-      }
-    });
-  }
-
   const body = Object.entries(obj)
     .map(([key, val]) => `<key>${escapeXml(key)}</key>${convert(val)}`)
     .join('');
@@ -60,5 +40,3 @@ export function createPlist(obj: PlistDictionary): string {
 <dict>${body}</dict>
 </plist>`;
 }
-
-export default createPlist;

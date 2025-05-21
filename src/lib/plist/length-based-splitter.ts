@@ -1,6 +1,8 @@
 import { logger } from '@appium/support';
 import { Transform, type TransformCallback } from 'stream';
 
+import { bufferToString, isXmlPlistContent } from './utils.js';
+
 const log = logger.getLogger('Plist');
 
 // Constants
@@ -79,18 +81,14 @@ export class LengthBasedSplitter extends Transform {
       this.buffer = Buffer.concat([this.buffer, chunk]);
 
       // Check if this is XML data or binary plist before doing any other processing
-      const bufferString = this.buffer.toString(
-        'utf8',
+      const bufferString = bufferToString(
+        this.buffer,
         0,
         Math.min(MAX_PREVIEW_LENGTH, this.buffer.length),
       );
 
       // Check for XML format
-      if (
-        bufferString.includes('<?xml') ||
-        bufferString.includes('<plist') ||
-        this.isXmlMode
-      ) {
+      if (isXmlPlistContent(bufferString) || this.isXmlMode) {
         // This is XML data, set XML mode
         this.isXmlMode = true;
         this.processXmlData(callback);
@@ -99,7 +97,7 @@ export class LengthBasedSplitter extends Transform {
 
       // Check for binary plist format (bplist00)
       if (this.buffer.length >= 8) {
-        const possibleBplistHeader = this.buffer.toString('utf8', 0, 8);
+        const possibleBplistHeader = bufferToString(this.buffer, 0, 8);
         if (possibleBplistHeader === 'bplist00') {
           // This is a binary plist without proper length framing
           // Push the entire buffer as a message
@@ -119,7 +117,7 @@ export class LengthBasedSplitter extends Transform {
    * Process data as XML
    */
   private processXmlData(callback: TransformCallback): void {
-    const fullBufferString = this.buffer.toString('utf8');
+    const fullBufferString = bufferToString(this.buffer);
 
     let startIndex = 0;
     if (!fullBufferString.startsWith('<?xml')) {
@@ -149,14 +147,13 @@ export class LengthBasedSplitter extends Transform {
       if (this.buffer.length === 0) {
         this.isXmlMode = false;
       } else {
-        const remainingData = this.buffer.toString(
-          'utf8',
+        const remainingData = bufferToString(
+          this.buffer,
           0,
           Math.min(MAX_PREVIEW_LENGTH, this.buffer.length),
         );
 
-        this.isXmlMode =
-          remainingData.includes('<?xml') || remainingData.includes('<plist');
+        this.isXmlMode = isXmlPlistContent(remainingData);
       }
     }
 
@@ -213,16 +210,13 @@ export class LengthBasedSplitter extends Transform {
             messageLength = alternateLength;
           } else {
             // If length is still invalid, check if this might actually be XML
-            const suspiciousData = this.buffer.toString(
-              'utf8',
+            const suspiciousData = bufferToString(
+              this.buffer,
               0,
               Math.min(MAX_PREVIEW_LENGTH, this.buffer.length),
             );
 
-            if (
-              suspiciousData.includes('<?xml') ||
-              suspiciousData.includes('<plist')
-            ) {
+            if (isXmlPlistContent(suspiciousData)) {
               this.isXmlMode = true;
               // Process as XML on next iteration
               return callback();
@@ -235,16 +229,13 @@ export class LengthBasedSplitter extends Transform {
         } else {
           // For non-4-byte length fields, just use the original approach
           // If length is invalid, check if this might actually be XML
-          const suspiciousData = this.buffer.toString(
-            'utf8',
+          const suspiciousData = bufferToString(
+            this.buffer,
             0,
             Math.min(MAX_PREVIEW_LENGTH, this.buffer.length),
           );
 
-          if (
-            suspiciousData.includes('<?xml') ||
-            suspiciousData.includes('<plist')
-          ) {
+          if (isXmlPlistContent(suspiciousData)) {
             this.isXmlMode = true;
             // Process as XML on next iteration
             return callback();
@@ -271,13 +262,13 @@ export class LengthBasedSplitter extends Transform {
         const message = this.buffer.slice(0, totalLength);
 
         // Check if this message is actually XML
-        const messageStart = message.toString(
-          'utf8',
+        const messageStart = bufferToString(
+          message,
           0,
           Math.min(MAX_PREVIEW_LENGTH, message.length),
         );
 
-        if (messageStart.includes('<?xml') || messageStart.includes('<plist')) {
+        if (isXmlPlistContent(messageStart)) {
           // Switch to XML mode
           this.isXmlMode = true;
           return callback();
@@ -296,5 +287,3 @@ export class LengthBasedSplitter extends Transform {
     callback();
   }
 }
-
-export default LengthBasedSplitter;

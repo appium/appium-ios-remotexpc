@@ -1,6 +1,7 @@
 import type { PlistValue } from '../types.js';
 import { isBinaryPlist, parseBinaryPlist } from './binary-plist-parser.js';
 import { parsePlist as parseXmlPlist } from './plist-parser.js';
+import { ensureString } from './utils.js';
 
 /**
  * Unified plist parser that can handle both XML and binary plists
@@ -14,8 +15,7 @@ export function parsePlist(data: string | Buffer): PlistValue {
       return parseBinaryPlist(data);
     } else {
       // Otherwise, assume it's an XML plist
-      const xmlStr = typeof data === 'string' ? data : data.toString('utf8');
-      return parseXmlPlist(xmlStr);
+      return parseXmlPlist(ensureString(data));
     }
   } catch (error) {
     throw new Error(

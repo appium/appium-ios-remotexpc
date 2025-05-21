@@ -170,14 +170,16 @@ class RemoteXpcConnection {
               await this._handshake.perform();
 
               // Set a timeout for service extraction
-              setTimeout(() => {
+              setTimeout(async () => {
                 if (this._services === undefined) {
                   log.warn(
                     'No services received after handshake, closing connection',
                   );
-                  this.close().catch((err: Error) =>
-                    log.error(`Error closing connection: ${err}`),
-                  );
+                  try {
+                    await this.close();
+                  } catch (err) {
+                    log.error(`Error closing connection: ${err}`);
+                  }
                   reject(new Error('No services received after handshake'));
                 }
               }, SERVICE_AFTER_HANDSHAKE_TIMEOUT_MS);

@@ -2,6 +2,14 @@ import { logger } from '@appium/support';
 import { DOMParser, Element, Node } from '@xmldom/xmldom';
 
 import type { PlistArray, PlistDictionary, PlistValue } from '../types.js';
+import {
+  ensureString,
+  findFirstReplacementCharacter,
+  fixMultipleXmlDeclarations,
+  hasUnicodeReplacementCharacter,
+  isValidXml,
+  trimBeforeXmlDeclaration,
+} from './utils.js';
 
 const log = logger.getLogger('Plist');
 
@@ -11,25 +19,23 @@ const log = logger.getLogger('Plist');
  * @returns - Parsed JavaScript object
  */
 export function parsePlist(xmlData: string | Buffer): PlistDictionary {
-  let xmlStr = xmlData instanceof Buffer ? xmlData.toString('utf8') : xmlData;
+  let xmlStr = ensureString(xmlData);
 
-  // Find the XML declaration
-  const xmlDeclIndex = xmlStr.indexOf('<?xml');
-  if (xmlDeclIndex > 0) {
-    // There's content before the XML declaration, remove it
-    xmlStr = xmlStr.slice(xmlDeclIndex);
-  }
+  // Find the XML declaration and trim any preceding content
+  xmlStr = trimBeforeXmlDeclaration(xmlStr);
 
   // Check for Unicode replacement characters which might indicate encoding issues
-  if (xmlStr.includes('�')) {
-    log.debug('Unicode replacement character detected in XML data');
-
+  if (
+    hasUnicodeReplacementCharacter(
+      xmlStr,
+      'Unicode replacement character detected in XML data',
+    )
+  ) {
     // Ensure xmlStr is a string for string operations
-    const xmlString =
-      typeof xmlStr === 'string' ? xmlStr : xmlStr.toString('utf8');
+    const xmlString = ensureString(xmlStr);
 
     // Find the position of the first replacement character
-    const badCharPos = xmlString.indexOf('�');
+    const badCharPos = findFirstReplacementCharacter(xmlString);
 
     // Find the nearest XML tag before and after the bad character
     const prevTagPos = xmlString.lastIndexOf('<', badCharPos);
@@ -62,29 +68,12 @@ export function parsePlist(xmlData: string | Buffer): PlistDictionary {
   }
 
   // Check if the string is empty or not XML
-  if (
-    !xmlStr ||
-    !xmlStr.toString().trim() ||
-    !xmlStr.toString().includes('<')
-  ) {
+  if (!isValidXml(xmlStr)) {
     throw new Error('Invalid XML: missing root element');
   }
 
   // Make sure we only have one XML declaration
-  const xmlString =
-    typeof xmlStr === 'string' ? xmlStr : xmlStr.toString('utf8');
-  const xmlDeclMatches = xmlString.match(/(<\?xml[^>]*\?>)/g) || [];
-  const xmlDeclCount = xmlDeclMatches.length;
-
-  if (xmlDeclCount > 1) {
-    log.debug(`Multiple XML declarations found (${xmlDeclCount}), fixing...`);
-    // Keep only the first XML declaration
-    const firstDeclEnd = xmlString.indexOf('?>') + 2;
-    const restOfXml = xmlString.substring(firstDeclEnd);
-    // Remove any additional XML declarations
-    const cleanedRest = restOfXml.replace(/<\?xml[^>]*\?>/g, '');
-    xmlStr = xmlString.substring(0, firstDeclEnd) + cleanedRest;
-  }
+  xmlStr = fixMultipleXmlDeclarations(xmlStr);
 
   try {
     // Create a custom error handler that logs warnings and errors
@@ -104,7 +93,7 @@ export function parsePlist(xmlData: string | Buffer): PlistDictionary {
     const parser = new DOMParser();
 
     // Parse the XML string
-    const doc = parser.parseFromString(xmlStr.toString(), 'text/xml');
+    const doc = parser.parseFromString(ensureString(xmlStr), 'text/xml');
 
     if (!doc) {
       throw new Error('Invalid XML response');
@@ -204,5 +193,3 @@ export function parsePlist(xmlData: string | Buffer): PlistDictionary {
     throw error;
   }
 }
-
-export default parsePlist;

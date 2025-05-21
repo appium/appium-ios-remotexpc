@@ -3,9 +3,9 @@ import { Socket } from 'net';
 import { TLSSocket } from 'tls';
 
 import type { PlistDictionary } from '../types.js';
-import LengthBasedSplitter from './length-based-splitter.js';
-import PlistServiceDecoder from './plist-decoder.js';
-import PlistServiceEncoder from './plist-encoder.js';
+import { LengthBasedSplitter } from './length-based-splitter.js';
+import { PlistServiceDecoder } from './plist-decoder.js';
+import { PlistServiceEncoder } from './plist-encoder.js';
 
 const log = logger.getLogger('Plist');
 /**

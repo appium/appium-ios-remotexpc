@@ -1,7 +1,12 @@
 import { logger } from '@appium/support';
 import { Transform, type TransformCallback } from 'stream';
 
-import parsePlist from './plist-parser.js';
+import { parsePlist } from './plist-parser.js';
+import {
+  ensureString,
+  fixMultipleXmlDeclarations,
+  hasUnicodeReplacementCharacter,
+} from './utils.js';
 
 const log = logger.getLogger('Plist');
 
@@ -29,7 +34,7 @@ export class PlistServiceDecoder extends Transform {
         return callback();
       }
 
-      // Check if this is XML data with potential binary header
+      // Check if this is XML data with potential binary header and trim content before XML declaration
       const dataStr = plistData.toString(
         'utf8',
         0,
@@ -46,19 +51,20 @@ export class PlistServiceDecoder extends Transform {
       }
 
       // Check for potential corruption indicators
-      if (plistData.includes(Buffer.from('�'))) {
-        log.debug(
-          'Detected Unicode replacement characters in plist data, potential encoding issues',
-        );
-      }
+      hasUnicodeReplacementCharacter(
+        plistData,
+        'Detected Unicode replacement characters in plist data, potential encoding issues',
+      );
 
       // Check for multiple XML declarations which can cause parsing errors
-      const fullDataStr = plistData.toString('utf8');
+      const fullDataStr = ensureString(plistData);
       const xmlDeclMatches = fullDataStr.match(/(<\?xml[^>]*\?>)/g) || [];
       if (xmlDeclMatches.length > 1) {
         log.debug(
           `Found ${xmlDeclMatches.length} XML declarations, which may cause parsing errors`,
         );
+        // Fix multiple XML declarations
+        plistData = Buffer.from(fixMultipleXmlDeclarations(plistData));
       }
 
       try {
@@ -116,5 +122,3 @@ export class PlistServiceDecoder extends Transform {
     callback();
   }
 }
-
-export default PlistServiceDecoder;
