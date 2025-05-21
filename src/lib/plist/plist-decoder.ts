@@ -86,7 +86,7 @@ export class PlistServiceDecoder extends Transform {
           }
         } catch (error) {
           // If recovery also fails, propagate the original error
-          callback(parseError);
+          callback(error as Error);
         }
       }
     } catch (err) {

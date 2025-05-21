@@ -109,7 +109,7 @@ export class LengthBasedSplitter extends Transform {
       // Process as many complete messages as possible for binary data
       this.processBinaryData(callback);
     } catch (err) {
-      callback();
+      callback(err as Error);
     }
   }
 
