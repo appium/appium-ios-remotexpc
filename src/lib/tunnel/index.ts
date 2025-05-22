@@ -30,7 +30,7 @@ interface TunnelResult {
  * A wrapper around the tunnel connection that
  * maintains a registry of active tunnels that can be reused.
  */
-class TunnelManager {
+class TunnelManagerService {
   // Map of tunnel address to tunnel registry entry
   private tunnelRegistry: Map<string, TunnelRegistryEntry> = new Map();
 
@@ -51,13 +51,9 @@ class TunnelManager {
    * @returns Array of active tunnel addresses
    */
   getActiveTunnels(): string[] {
-    const activeTunnels: string[] = [];
-    for (const [address, entry] of this.tunnelRegistry.entries()) {
-      if (entry.isActive) {
-        activeTunnels.push(address);
-      }
-    }
-    return activeTunnels;
+    return Array.from(this.tunnelRegistry.entries())
+      .filter(([, entry]) => entry.isActive)
+      .map(([address]) => address);
   }
 
   /**
@@ -247,13 +243,9 @@ class TunnelManager {
    * @returns A promise that resolves when all tunnels are closed.
    */
   async closeAllTunnels(): Promise<void> {
-    const closePromises: Promise<void>[] = [];
-
-    for (const [address, entry] of this.tunnelRegistry.entries()) {
-      if (entry.isActive) {
-        closePromises.push(this.closeTunnelByAddress(address));
-      }
-    }
+    const closePromises = Array.from(this.tunnelRegistry.entries())
+      .filter(([, entry]) => entry.isActive)
+      .map(([address]) => this.closeTunnelByAddress(address));
 
     await Promise.all(closePromises);
     this.tunnelRegistry.clear();
@@ -271,7 +263,5 @@ class TunnelManager {
   }
 }
 
-// Export the singleton instance
-const tunnelManager = new TunnelManager();
-
-export { tunnelManager as TunnelManager };
+// Create and export the singleton instance
+export const TunnelManager = new TunnelManagerService();
