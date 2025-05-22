@@ -226,9 +226,15 @@ class TunnelManager {
         }
 
         // Close the tunnel
-        await entry.tunnel.closer();
-        entry.isActive = false;
-        log.info(`Closed tunnel for address: ${address}`);
+        try {
+          await entry.tunnel.closer();
+          log.info(`Closed tunnel for address: ${address}`);
+        } catch (error) {
+          log.error(`Error closing tunnel for address ${address}: ${error}`);
+        } finally {
+          entry.isActive = false;
+          log.info(`Marked tunnel for address ${address} as inactive`);
+        }
       } catch (error) {
         log.error(`Error closing tunnel for address ${address}: ${error}`);
       }
