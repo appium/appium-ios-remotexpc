@@ -28,17 +28,12 @@ class Handshake {
   async sendFrame(frame: Buffer): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       if (!this._socket.writable) {
-        reject(new Error('Socket is not writable'));
-        return;
+        return reject(new Error('Socket is not writable'));
       }
 
-      this._socket.write(frame, (error: Error | null | undefined) => {
-        if (error) {
-          reject(error);
-        } else {
-          resolve();
-        }
-      });
+      this._socket.write(frame, (error: Error | null | undefined) =>
+        error ? reject(error) : resolve(),
+      );
     });
   }
 
@@ -64,17 +59,14 @@ class Handshake {
       // Step 1: Send HTTP/2 magic sequence with proper error handling
       await new Promise<void>((resolve, reject) => {
         if (!this._socket.writable) {
-          reject(new Error('Socket is not writable for HTTP/2 magic sequence'));
-          return;
+          return reject(
+            new Error('Socket is not writable for HTTP/2 magic sequence'),
+          );
         }
 
-        this._socket.write(Http2Constants.HTTP2_MAGIC, (err?: Error) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
-          }
-        });
+        this._socket.write(Http2Constants.HTTP2_MAGIC, (err?: Error) =>
+          err ? reject(err) : resolve(),
+        );
       });
 
       // Step 2: Send SETTINGS frame on stream 0.
@@ -148,11 +140,11 @@ class Handshake {
       await this.sendFrame(ackFrame.serialize());
     } catch (error) {
       // Provide detailed error information
-      const errorMessage =
+      throw new Error(
         error instanceof Error
           ? `Handshake failed at step: ${error.message}`
-          : 'Unknown handshake error';
-      throw new Error(errorMessage);
+          : 'Unknown handshake error',
+      );
     }
   }
 }

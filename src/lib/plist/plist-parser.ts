@@ -117,11 +117,11 @@ export function parsePlist(xmlData: string | Buffer): PlistDictionary {
       let valueNode = keys[i].nextSibling as Node | null;
 
       // Skip text nodes (whitespace)
-      while (valueNode && valueNode.nodeType !== 1) {
+      while (valueNode && valueNode.nodeType !== Node.ELEMENT_NODE) {
         valueNode = valueNode.nextSibling;
       }
 
-      if (valueNode?.nodeType === 1) {
+      if (valueNode?.nodeType === Node.ELEMENT_NODE) {
         obj[keyName] = parseNode(valueNode as Element);
       }
     }
@@ -134,7 +134,7 @@ export function parsePlist(xmlData: string | Buffer): PlistDictionary {
     let childNode = arrayNode.firstChild;
 
     while (childNode) {
-      if (childNode.nodeType === 1) {
+      if (childNode.nodeType === Node.ELEMENT_NODE) {
         // Element node
         result.push(parseNode(childNode as Element));
       }

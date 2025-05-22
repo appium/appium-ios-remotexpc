@@ -155,14 +155,8 @@ export class PlistService {
         `Error closing socket: ${error instanceof Error ? error.message : String(error)}`,
       );
 
-      // If ending fails, try to destroy the socket
-      try {
-        this._socket.destroy();
-      } catch (destroyError) {
-        log.error(
-          `Error destroying socket: ${destroyError instanceof Error ? destroyError.message : String(destroyError)}`,
-        );
-      }
+      // If ending fails, destroy the socket
+      this._socket.destroy();
     }
   }
 
