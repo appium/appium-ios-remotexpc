@@ -132,7 +132,7 @@ export function escapeXml(str: string): string {
         return '&amp;';
       case '"':
         return '&quot;';
-      case "'":
+      case '\'':
         return '&apos;';
       default:
         return c;

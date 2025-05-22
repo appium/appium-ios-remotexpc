@@ -121,7 +121,7 @@ export function parsePlist(xmlData: string | Buffer): PlistDictionary {
         valueNode = valueNode.nextSibling;
       }
 
-      if (valueNode && valueNode.nodeType === 1) {
+      if (valueNode?.nodeType === 1) {
         obj[keyName] = parseNode(valueNode as Element);
       }
     }

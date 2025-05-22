@@ -42,7 +42,7 @@ class TunnelManager {
    */
   isTunnelOpen(address: string): boolean {
     const entry = this.tunnelRegistry.get(address);
-    return !!entry && entry.isActive;
+    return !!entry?.isActive;
   }
 
   /**
@@ -143,16 +143,13 @@ class TunnelManager {
     // Check if we already have an active tunnel for this address
     const existingTunnel = this.tunnelRegistry.get(tunnel.Address);
 
-    if (existingTunnel && existingTunnel.isActive) {
+    if (existingTunnel?.isActive) {
       log.info(`Reusing existing tunnel for address: ${tunnel.Address}`);
 
       // Verify the tunnel is still functional
       try {
         // A simple check to see if the tunnel is still functional
-        if (
-          tunnel.tunnelManager &&
-          typeof tunnel.tunnelManager.emit === 'function'
-        ) {
+        if (tunnel.tunnelManager?.emit instanceof Function) {
           // Close the new tunnel since we're reusing an existing one
           try {
             await tunnel.closer();
@@ -198,7 +195,7 @@ class TunnelManager {
    */
   getTunnelByAddress(address: string): TunnelConnection | null {
     const entry = this.tunnelRegistry.get(address);
-    if (entry && entry.isActive) {
+    if (entry?.isActive) {
       // Update the last used timestamp
       entry.lastUsed = Date.now();
       return entry.tunnel;
@@ -214,7 +211,7 @@ class TunnelManager {
    */
   async closeTunnelByAddress(address: string): Promise<void> {
     const entry = this.tunnelRegistry.get(address);
-    if (entry && entry.isActive) {
+    if (entry?.isActive) {
       try {
         // Close RemoteXPC connection if it exists
         if (entry.remoteXPC) {
