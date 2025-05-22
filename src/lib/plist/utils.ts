@@ -112,7 +112,7 @@ export function removeExtraContentAfterPlist(data: string | Buffer): string {
  */
 export function isValidXml(data: string | Buffer): boolean {
   const strData = ensureString(data);
-  return !!strData && !!strData.trim() && strData.includes('<');
+  return Boolean(strData) && Boolean(strData.trim()) && strData.includes('<');
 }
 
 /**
@@ -132,7 +132,7 @@ export function escapeXml(str: string): string {
         return '&amp;';
       case '"':
         return '&quot;';
-      case "'":
+      case '\'':
         return '&apos;';
       default:
         return c;

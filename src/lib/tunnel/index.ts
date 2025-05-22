@@ -42,7 +42,7 @@ class TunnelManagerService {
    */
   isTunnelOpen(address: string): boolean {
     const entry = this.tunnelRegistry.get(address);
-    return !!entry?.isActive;
+    return Boolean(entry?.isActive);
   }
 
   /**

@@ -3,7 +3,6 @@ import { logger } from '@appium/support';
 import { PlistServiceDecoder } from '../../../lib/plist/plist-decoder.js';
 import type { PlistDictionary } from '../../../lib/types.js';
 import { BaseService } from '../base-service.js';
-// Import MobileGestaltKeys directly to avoid module resolution issues
 import { MobileGestaltKeys } from './keys.js';
 
 const log = logger.getLogger('DiagnosticService');
@@ -18,10 +17,6 @@ class DiagnosticsService extends BaseService {
   static readonly RSD_SERVICE_NAME =
     'com.apple.mobile.diagnostics_relay.shim.remote';
 
-  /**
-   * Creates a new DiagnosticsService instance
-   * @param address Tuple containing [host, port]
-   */
   constructor(address: [string, number]) {
     super(address);
   }
@@ -33,54 +28,53 @@ class DiagnosticsService extends BaseService {
    */
   async mobileGestalt(keys: string[] = []): Promise<PlistDictionary> {
     try {
-      // If no keys provided, use all available keys
       if (!keys || keys.length === 0) {
         keys = MobileGestaltKeys;
       }
 
-      // Create a connection to the diagnostics service
-      const service = {
-        serviceName: DiagnosticsService.RSD_SERVICE_NAME,
-        port: this.address[1].toString(),
-      };
-
-      // Connect to the diagnostics service
-      const conn = await this.startLockdownService(service);
-
-      // Create the request
       const request: PlistDictionary = {
         Request: 'MobileGestalt',
         MobileGestaltKeys: keys,
       };
 
-      // Send the request
-      const response = await conn.sendPlistRequest(request);
+      const responseObj = await this.sendRequest(request);
 
-      // Ensure we have a valid response
-      if (!response || !Array.isArray(response) || response.length === 0) {
+      if (!responseObj || typeof responseObj !== 'object') {
         throw new Error('Invalid response from MobileGestalt');
       }
-      log.debug(`MobileGestalt response: ${response}`);
-      const responseObj = response[0];
 
-      // Check if MobileGestalt is deprecated (iOS >= 17.4)
+      log.debug(`MobileGestalt response: ${JSON.stringify(responseObj)}`);
+
       if (
-        responseObj.Diagnostics?.MobileGestalt?.Status ===
-        'MobileGestaltDeprecated'
+        !responseObj.Diagnostics ||
+        typeof responseObj.Diagnostics !== 'object'
       ) {
+        throw new Error('Invalid Diagnostics in MobileGestalt response');
+      }
+
+      const diagnostics = responseObj.Diagnostics as PlistDictionary;
+
+      if (
+        !diagnostics.MobileGestalt ||
+        typeof diagnostics.MobileGestalt !== 'object'
+      ) {
+        throw new Error('Invalid MobileGestalt in Diagnostics response');
+      }
+
+      const mobileGestalt = diagnostics.MobileGestalt as PlistDictionary;
+
+      if (mobileGestalt.Status === 'MobileGestaltDeprecated') {
         throw new Error('MobileGestalt deprecated (iOS >= 17.4)');
       }
-      log.debug(`MobileGestalt response object: ${responseObj}`);
-      // Check for success
+
       if (
         responseObj.Status !== 'Success' ||
-        responseObj.Diagnostics?.MobileGestalt?.Status !== 'Success'
+        mobileGestalt.Status !== 'Success'
       ) {
         throw new Error('Failed to query MobileGestalt');
       }
 
-      // Create a copy of the result without the Status field
-      const result = { ...responseObj.Diagnostics.MobileGestalt };
+      const result = { ...mobileGestalt };
       delete result.Status;
 
       return result;
@@ -96,30 +90,11 @@ class DiagnosticsService extends BaseService {
    */
   async restart(): Promise<PlistDictionary> {
     try {
-      // Create a connection to the diagnostics service
-      const service = {
-        serviceName: DiagnosticsService.RSD_SERVICE_NAME,
-        port: this.address[1].toString(),
-      };
-
-      // Connect to the diagnostics service
-      const conn = await this.startLockdownService(service);
-
-      // Create the request
       const request: PlistDictionary = {
         Request: 'Restart',
       };
 
-      // Send the request
-      const response = await conn.sendPlistRequest(request);
-      log.debug(`Restart response: ${response}`);
-
-      // Ensure we return a non-null object
-      if (!response || !Array.isArray(response) || response.length === 0) {
-        return {};
-      }
-
-      return response[0] || {};
+      return await this.sendRequest(request);
     } catch (error) {
       log.error(`Error restarting device: ${error}`);
       throw error;
@@ -132,30 +107,11 @@ class DiagnosticsService extends BaseService {
    */
   async shutdown(): Promise<PlistDictionary> {
     try {
-      // Create a connection to the diagnostics service
-      const service = {
-        serviceName: DiagnosticsService.RSD_SERVICE_NAME,
-        port: this.address[1].toString(),
-      };
-
-      // Connect to the diagnostics service
-      const conn = await this.startLockdownService(service);
-
-      // Create the request
       const request: PlistDictionary = {
         Request: 'Shutdown',
       };
 
-      // Send the request
-      const response = await conn.sendPlistRequest(request);
-      log.debug(`Shutdown response: ${response}`);
-
-      // Ensure we return a non-null object
-      if (!response || !Array.isArray(response) || response.length === 0) {
-        return {};
-      }
-
-      return response[0] || {};
+      return await this.sendRequest(request);
     } catch (error) {
       log.error(`Error shutting down device: ${error}`);
       throw error;
@@ -168,30 +124,11 @@ class DiagnosticsService extends BaseService {
    */
   async sleep(): Promise<PlistDictionary> {
     try {
-      // Create a connection to the diagnostics service
-      const service = {
-        serviceName: DiagnosticsService.RSD_SERVICE_NAME,
-        port: this.address[1].toString(),
-      };
-
-      // Connect to the diagnostics service
-      const conn = await this.startLockdownService(service);
-
-      // Create the request
       const request: PlistDictionary = {
         Request: 'Sleep',
       };
 
-      // Send the request
-      const response = await conn.sendPlistRequest(request);
-      log.debug(`Sleep response: ${response}`);
-
-      // Ensure we return a non-null object
-      if (!response || !Array.isArray(response) || response.length === 0) {
-        return {};
-      }
-
-      return response[0] || {};
+      return await this.sendRequest(request);
     } catch (error) {
       log.error(`Error putting device to sleep: ${error}`);
       throw error;
@@ -211,16 +148,6 @@ class DiagnosticsService extends BaseService {
     timeout?: number;
   }): Promise<PlistDictionary[] | Record<string, any>> {
     try {
-      // Create a connection to the diagnostics service
-      const service = {
-        serviceName: DiagnosticsService.RSD_SERVICE_NAME,
-        port: this.address[1].toString(),
-      };
-
-      // Connect to the diagnostics service
-      const conn = await this.startLockdownService(service);
-
-      // Create the request
       const request: PlistDictionary = {
         Request: 'IORegistry',
       };
@@ -235,147 +162,176 @@ class DiagnosticsService extends BaseService {
         request.EntryClass = options.ioClass;
       }
 
-      // Reset the last decoded result
       PlistServiceDecoder.lastDecodedResult = null;
 
-      // Use a longer timeout for IORegistry requests, especially for large responses
-      // Default to 3 seconds if not specified
       const timeout = options?.timeout || 3000;
 
       log.debug('Sending IORegistry request...');
 
-      // Send the request with the specified timeout
-      let response = await conn.sendPlistRequest(request, timeout);
+      const conn = await this.connectToDiagnosticService();
+      const response = await conn.sendPlistRequest(request, timeout);
 
-      // Enhanced logging for debugging
       log.debug(
-        `IORegistry initial response received, size: ${JSON.stringify(response).length} bytes`,
+        `IORegistry response size: ${JSON.stringify(response).length} bytes`,
       );
 
-      // If returnRawJson is true, we need to handle the case where the response comes in multiple parts
       if (options?.returnRawJson) {
-        // Wait a bit to allow any pending data to be processed
-        await new Promise((resolve) => setTimeout(resolve, 500));
-
-        try {
-          const emptyRequest: PlistDictionary = {
-            Request: 'Status',
-          };
-
-          log.debug(
-            'Sending follow-up request to check for additional data...',
-          );
-
-          // Send a follow-up request with a shorter timeout
-          const additionalResponse = await conn.sendPlistRequest(
-            emptyRequest,
-            timeout,
-          );
-
-          if (additionalResponse) {
-            log.debug(
-              `Received additional response, size: ${JSON.stringify(additionalResponse).length} bytes`,
-            );
-
-            // Check if additionalResponse is a valid object (not Buffer or Date)
-            if (
-              typeof additionalResponse === 'object' &&
-              !Buffer.isBuffer(additionalResponse) &&
-              !(additionalResponse instanceof Date)
-            ) {
-              const hasIORegistry = 'IORegistry' in additionalResponse;
-              const hasDiagnostics =
-                'Diagnostics' in additionalResponse &&
-                typeof additionalResponse.Diagnostics === 'object' &&
-                additionalResponse.Diagnostics !== null &&
-                'IORegistry' in additionalResponse.Diagnostics;
-
-              if (hasIORegistry || hasDiagnostics) {
-                // If the additional response contains IORegistry data, use it instead
-                // This is the case where the real data comes in the second response
-                log.debug(
-                  'Additional response contains IORegistry data, using it as the main response',
-                );
-                response = additionalResponse;
-              } else if (
-                typeof response === 'object' &&
-                !Buffer.isBuffer(response) &&
-                !(response instanceof Date) &&
-                Object.keys(additionalResponse).length > 0 &&
-                Object.keys(response).length > 0
-              ) {
-                // Try to merge the responses if both contain useful data
-                log.debug('Merging initial and additional responses');
-                // Cast both to Record<string, any> to ensure they're treated as objects
-                const responseObj = response as Record<string, any>;
-                const additionalResponseObj = additionalResponse as Record<
-                  string,
-                  any
-                >;
-
-                response = {
-                  ...responseObj,
-                  ...additionalResponseObj,
-                };
-              }
-            }
-          }
-        } catch (error) {
-          // If we timeout or get an error, just use the initial response
-          log.debug(
-            `Error or timeout getting additional data: ${error}, using initial response`,
-          );
-        }
-
-        // Return the raw response
-        return response as Record<string, any>;
+        return await this.handleMultipartIORegistryResponse(
+          conn,
+          response,
+          timeout,
+        );
       }
 
-      // Check if we have a lastDecodedResult from the PlistServiceDecoder
-      if (PlistServiceDecoder.lastDecodedResult) {
-        if (Array.isArray(PlistServiceDecoder.lastDecodedResult)) {
-          return PlistServiceDecoder.lastDecodedResult as PlistDictionary[];
-        }
-
-        // If it's not an array, wrap it in an array
-        return [PlistServiceDecoder.lastDecodedResult as PlistDictionary];
-      }
-
-      if (!response) {
-        throw new Error('Invalid response from IORegistry');
-      }
-
-      if (Array.isArray(response)) {
-        if (response.length === 0 && typeof response === 'object') {
-          log.debug(
-            'Received empty array response, attempting to extract useful data',
-          );
-          return [{ IORegistryResponse: 'No data found' } as PlistDictionary];
-        }
-        return response as PlistDictionary[];
-      }
-
-      if (
-        typeof response === 'object' &&
-        !Buffer.isBuffer(response) &&
-        !(response instanceof Date)
-      ) {
-        const responseObj = response as Record<string, any>;
-
-        // Check if the response has the Diagnostics structure
-        if (
-          responseObj.Diagnostics &&
-          typeof responseObj.Diagnostics === 'object'
-        ) {
-          return [responseObj.Diagnostics as PlistDictionary];
-        }
-
-        return [responseObj as PlistDictionary];
-      }
-      return [{ value: response } as PlistDictionary];
+      return this.processIORegistryResponse(response);
     } catch (error) {
       log.error(`Error querying IORegistry: ${error}`);
       throw error;
+    }
+  }
+
+  private getServiceConfig() {
+    return {
+      serviceName: DiagnosticsService.RSD_SERVICE_NAME,
+      port: this.address[1].toString(),
+    };
+  }
+
+  private async connectToDiagnosticService() {
+    const service = this.getServiceConfig();
+    return await this.startLockdownService(service);
+  }
+
+  private async sendRequest(
+    request: PlistDictionary,
+    timeout?: number,
+  ): Promise<PlistDictionary> {
+    const conn = await this.connectToDiagnosticService();
+    const response = await conn.sendPlistRequest(request, timeout);
+
+    log.debug(`${request.Request} response received`);
+
+    if (!response) {
+      return {};
+    }
+
+    if (Array.isArray(response)) {
+      return response.length > 0 ? (response[0] as PlistDictionary) : {};
+    }
+
+    return response as PlistDictionary;
+  }
+
+  private processIORegistryResponse(
+    response: any,
+  ): PlistDictionary[] | Record<string, any> {
+    if (PlistServiceDecoder.lastDecodedResult) {
+      if (Array.isArray(PlistServiceDecoder.lastDecodedResult)) {
+        return PlistServiceDecoder.lastDecodedResult as PlistDictionary[];
+      }
+      return [PlistServiceDecoder.lastDecodedResult as PlistDictionary];
+    }
+
+    if (!response) {
+      throw new Error('Invalid response from IORegistry');
+    }
+
+    if (Array.isArray(response)) {
+      if (response.length === 0 && typeof response === 'object') {
+        log.debug('Received empty array response');
+        return [{ IORegistryResponse: 'No data found' } as PlistDictionary];
+      }
+      return response as PlistDictionary[];
+    }
+
+    if (
+      typeof response === 'object' &&
+      !Buffer.isBuffer(response) &&
+      !(response instanceof Date)
+    ) {
+      const responseObj = response as Record<string, any>;
+
+      if (
+        responseObj.Diagnostics &&
+        typeof responseObj.Diagnostics === 'object'
+      ) {
+        return [responseObj.Diagnostics as PlistDictionary];
+      }
+
+      return [responseObj as PlistDictionary];
+    }
+
+    return [{ value: response } as PlistDictionary];
+  }
+
+  private async handleMultipartIORegistryResponse(
+    conn: any,
+    initialResponse: any,
+    timeout: number,
+  ): Promise<Record<string, any>> {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    try {
+      const emptyRequest: PlistDictionary = {
+        Request: 'Status',
+      };
+
+      log.debug('Sending follow-up request for additional data');
+
+      const additionalResponse = await conn.sendPlistRequest(
+        emptyRequest,
+        timeout,
+      );
+
+      if (!additionalResponse) {
+        return initialResponse as Record<string, any>;
+      }
+
+      log.debug(
+        `Additional response size: ${JSON.stringify(additionalResponse).length} bytes`,
+      );
+
+      if (
+        typeof additionalResponse !== 'object' ||
+        Buffer.isBuffer(additionalResponse) ||
+        additionalResponse instanceof Date
+      ) {
+        return initialResponse as Record<string, any>;
+      }
+
+      const hasIORegistry = 'IORegistry' in additionalResponse;
+      const hasDiagnostics =
+        'Diagnostics' in additionalResponse &&
+        typeof additionalResponse.Diagnostics === 'object' &&
+        additionalResponse.Diagnostics !== null &&
+        'IORegistry' in additionalResponse.Diagnostics;
+
+      if (hasIORegistry || hasDiagnostics) {
+        log.debug('Using additional response with IORegistry data');
+        return additionalResponse as Record<string, any>;
+      }
+
+      if (
+        typeof initialResponse === 'object' &&
+        !Buffer.isBuffer(initialResponse) &&
+        !(initialResponse instanceof Date) &&
+        Object.keys(additionalResponse).length > 0 &&
+        Object.keys(initialResponse).length > 0
+      ) {
+        log.debug('Merging responses');
+        const responseObj = initialResponse as Record<string, any>;
+        const additionalResponseObj = additionalResponse as Record<string, any>;
+
+        return {
+          ...responseObj,
+          ...additionalResponseObj,
+        };
+      }
+
+      return initialResponse as Record<string, any>;
+    } catch (error) {
+      log.warn(`Error getting additional data: ${error}`);
+      return initialResponse as Record<string, any>;
     }
   }
 }

@@ -330,7 +330,7 @@ function decodeObject(reader: Reader): XPCValue {
     case XPC_TYPES.bool: {
       const b = reader.readByte();
       reader.skip(3);
-      return !!b;
+      return Boolean(b);
     }
     case XPC_TYPES.int64:
       return Number(reader.readBigInt64LE());
