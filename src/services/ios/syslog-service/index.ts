@@ -1,9 +1,12 @@
 import { logger } from '@appium/support';
 import { EventEmitter } from 'events';
 
+import { isBinaryPlist } from '../../../lib/plist/binary-plist-parser.js';
+import { parsePlist } from '../../../lib/plist/unified-plist-parser.js';
 import { ServiceConnection } from '../../../service-connection.js';
 import { BaseService, type Service } from '../base-service.js';
 
+const syslogLog = logger.getLogger('SyslogMessages');
 const log = logger.getLogger('Syslog');
 
 interface Packet {
@@ -20,9 +23,9 @@ interface TunnelManager extends EventEmitter {
   removeListener(event: 'data', listener: (packet: Packet) => void): this;
 }
 
-interface SyslogOptions {
-  /** Process ID to filter (-1 for all processes) */
+export interface SyslogOptions {
   pid?: number;
+  enableVerboseLogging?: boolean;
 }
 
 const MIN_PRINTABLE_RATIO = 0.5;
@@ -40,6 +43,7 @@ class SyslogService extends EventEmitter {
   private tunnelManager: TunnelManager | null = null;
   private packetListener: ((packet: Packet) => void) | null = null;
   private isCapturing: boolean = false;
+  private enableVerboseLogging: boolean = false;
 
   /**
    * Creates a new syslog-service instance
@@ -70,7 +74,8 @@ class SyslogService extends EventEmitter {
       await this.stop();
     }
 
-    const { pid = -1 } = options;
+    const { pid = -1, enableVerboseLogging = false } = options;
+    this.enableVerboseLogging = enableVerboseLogging;
 
     this.tunnelManager = tunnelManager;
     this.isCapturing = true;
@@ -188,13 +193,113 @@ class SyslogService extends EventEmitter {
    * @param packet TCP packet to process
    */
   private processTcpPacket(packet: Packet): void {
-    if (this.isMostlyPrintable(packet.payload)) {
+    try {
+      if (this.mightBePlist(packet.payload)) {
+        try {
+          const plistData = parsePlist(packet.payload);
+          log.debug('Successfully parsed packet as plist');
+          this.emit('plist', plistData);
+
+          const message = JSON.stringify(plistData);
+          if (this.enableVerboseLogging) {
+            syslogLog.info(`Plist: ${message}`);
+          }
+          this.emit('message', message);
+        } catch (error) {
+          log.debug(`Failed to parse as plist: ${error}`);
+          this.processAsText(packet);
+        }
+      } else {
+        this.processAsText(packet);
+      }
+    } catch (error) {
+      log.debug(`Error processing packet: ${error}`);
       const message = this.extractPrintableText(packet.payload);
-      log.info(`[Syslog] ${message}`);
-      this.emit('message', message);
-      this.logPacketDetails(packet);
-    } else {
-      log.debug('TCP packet not mostly printable, ignoring.');
+      if (message.trim()) {
+        if (this.enableVerboseLogging) {
+          syslogLog.info(message);
+        }
+        this.emit('message', message);
+      }
+    }
+
+    this.logPacketDetails(packet);
+  }
+
+  /**
+   * Process packet as text
+   * @param packet The packet to process
+   */
+  private processAsText(packet: Packet): void {
+    try {
+      if (this.isMostlyPrintable(packet.payload)) {
+        const message = this.extractPrintableText(packet.payload);
+        if (message.trim()) {
+          if (this.enableVerboseLogging) {
+            syslogLog.info(message);
+          }
+          this.emit('message', message);
+        }
+      } else {
+        const message = this.extractPrintableText(packet.payload);
+        if (message.trim()) {
+          log.debug(
+            `TCP packet not mostly printable, but contains text: ${message}`,
+          );
+          this.emit('message', message);
+        } else {
+          log.debug('TCP packet contains no printable text, ignoring.');
+        }
+      }
+    } catch (error) {
+      log.debug(`Error processing packet as text: ${error}`);
+      try {
+        const message = packet.payload.toString().replace(/[^\x20-\x7E]/g, '');
+        if (message.trim()) {
+          if (this.enableVerboseLogging) {
+            syslogLog.info(message);
+          }
+          this.emit('message', message);
+        }
+      } catch {
+        // If all else fails, just ignore this packet
+        log.debug('Failed to extract any text from packet, ignoring.');
+      }
+    }
+  }
+
+  /**
+   * Checks if the buffer might be a plist (XML or binary)
+   * @param buffer Buffer to check
+   * @returns True if the buffer might be a plist
+   */
+  private mightBePlist(buffer: Buffer): boolean {
+    try {
+      const str = buffer.toString('utf8', 0, Math.min(100, buffer.length));
+      if (str.includes('<?xml') && str.includes('<plist')) {
+        return true;
+      }
+
+      if (buffer.length >= 8) {
+        if (isBinaryPlist(buffer)) {
+          return true;
+        }
+
+        if (buffer.length >= 9) {
+          const firstNineChars = buffer.toString('ascii', 0, 9);
+          if (
+            firstNineChars === 'Ibplist00' ||
+            firstNineChars.includes('bplist')
+          ) {
+            return true;
+          }
+        }
+      }
+
+      return false;
+    } catch (error) {
+      log.debug(`Error checking if buffer is plist: ${error}`);
+      return false;
     }
   }
 

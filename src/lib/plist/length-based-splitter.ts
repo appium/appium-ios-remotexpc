@@ -95,12 +95,25 @@ export class LengthBasedSplitter extends Transform {
         return;
       }
 
-      // Check for binary plist format (bplist00)
-      if (this.buffer.length >= 8) {
-        const possibleBplistHeader = bufferToString(this.buffer, 0, 8);
-        if (possibleBplistHeader === 'bplist00') {
-          // This is a binary plist without proper length framing
-          // Push the entire buffer as a message
+      // Check for binary plist format (bplist00 or Ibplist00)
+      if (this.buffer.length >= 9) {
+        const possibleBplistHeader = bufferToString(this.buffer, 0, 9);
+
+        if (
+          possibleBplistHeader === 'bplist00' ||
+          possibleBplistHeader.includes('bplist00')
+        ) {
+          log.debug('Detected standard binary plist format');
+          this.push(this.buffer);
+          this.buffer = Buffer.alloc(0);
+          return callback();
+        }
+
+        if (
+          possibleBplistHeader === 'Ibplist00' ||
+          possibleBplistHeader.includes('Ibplist00')
+        ) {
+          log.debug('Detected non-standard Ibplist00 format');
           this.push(this.buffer);
           this.buffer = Buffer.alloc(0);
           return callback();

@@ -8,6 +8,12 @@ import { PlistServiceDecoder } from './plist-decoder.js';
 import { PlistServiceEncoder } from './plist-encoder.js';
 
 const log = logger.getLogger('Plist');
+const errorLog = logger.getLogger('PlistError');
+
+const config = {
+  verboseErrorLogging: false,
+};
+
 /**
  * Message type for plist communications
  */
@@ -24,6 +30,29 @@ export interface PlistServiceOptions {
  * Service for communication using plist protocol
  */
 export class PlistService {
+  /**
+   * Enable verbose error logging
+   */
+  static enableVerboseErrorLogging(): void {
+    config.verboseErrorLogging = true;
+    errorLog.debug('Verbose plist error logging enabled');
+  }
+
+  /**
+   * Disable verbose error logging
+   */
+  static disableVerboseErrorLogging(): void {
+    config.verboseErrorLogging = false;
+  }
+
+  /**
+   * Check if verbose error logging is enabled
+   * @returns True if verbose error logging is enabled
+   */
+  static isVerboseErrorLoggingEnabled(): boolean {
+    return config.verboseErrorLogging;
+  }
+
   /**
    * Gets the underlying socket
    * @returns The socket used by this service
@@ -184,6 +213,19 @@ export class PlistService {
    * @param error The error that occurred
    */
   private handleError(error: Error): void {
-    log.error(`PlistService Error: ${error.message}`);
+    // Only log detailed errors if verbose logging is enabled
+    if (config.verboseErrorLogging) {
+      errorLog.debug(`PlistService Error: ${error.message}`);
+
+      // If this is an XML parsing error, it might be a binary plist
+      if (
+        error.message.includes('Invalid XML') ||
+        error.message.includes('XML parsing')
+      ) {
+        errorLog.debug(
+          'This might be a binary plist with a non-standard format',
+        );
+      }
+    }
   }
 }
