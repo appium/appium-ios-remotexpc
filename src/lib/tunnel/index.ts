@@ -247,7 +247,10 @@ class TunnelManagerService {
       .filter(([, entry]) => entry.isActive)
       .map(([address]) => this.closeTunnelByAddress(address));
 
-    await Promise.all(closePromises);
+    if (closePromises.length > 0) {
+      await Promise.all(closePromises);
+    }
+
     this.tunnelRegistry.clear();
     log.info('All tunnels closed');
   }

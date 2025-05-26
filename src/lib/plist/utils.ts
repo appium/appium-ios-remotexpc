@@ -1,3 +1,5 @@
+import { UTF8_ENCODING } from './constants.js';
+
 /**
  * Represents a tag position in XML
  */
@@ -23,7 +25,7 @@ export interface TagsAroundPosition {
  * @returns The data as a string
  */
 export function ensureString(data: string | Buffer): string {
-  return typeof data === 'string' ? data : data.toString('utf8');
+  return typeof data === 'string' ? data : data.toString(UTF8_ENCODING);
 }
 
 /**
@@ -134,7 +136,7 @@ export function escapeXml(str: string): string {
         return '&amp;';
       case '"':
         return '&quot;';
-      case "'":
+      case '\'':
         return '&apos;';
       default:
         return c;
@@ -142,21 +144,6 @@ export function escapeXml(str: string): string {
   });
 }
 
-/**
- * Converts a buffer to a string with optional start and end positions
- *
- * @param buffer - The buffer to convert
- * @param start - The start position (default: 0)
- * @param end - The end position (default: buffer.length)
- * @returns The buffer as a string
- */
-export function bufferToString(
-  buffer: Buffer,
-  start: number = 0,
-  end: number = buffer.length,
-): string {
-  return buffer.toString('utf8', start, end);
-}
 
 /**
  * Checks if the data contains XML plist content by detecting XML declaration or plist tags
@@ -165,7 +152,7 @@ export function bufferToString(
  * @returns True if the data contains XML plist content, false otherwise
  */
 export function isXmlPlistContent(data: string | Buffer): boolean {
-  const strData = typeof data === 'string' ? data : bufferToString(data);
+  const strData = typeof data === 'string' ? data : data.toString(UTF8_ENCODING);
   return strData.includes('<?xml') || strData.includes('<plist');
 }
 

@@ -1,7 +1,6 @@
 import { expect } from 'chai';
 
 import {
-  bufferToString,
   ensureString,
   escapeXml,
   findFirstReplacementCharacter,
@@ -179,7 +178,7 @@ describe('Plist Utils', function () {
       expect(escapeXml('>')).to.equal('&gt;');
       expect(escapeXml('&')).to.equal('&amp;');
       expect(escapeXml('"')).to.equal('&quot;');
-      expect(escapeXml("'")).to.equal('&apos;');
+      expect(escapeXml('\'')).to.equal('&apos;');
     });
 
     it('should escape multiple special characters in a string', function () {
@@ -198,29 +197,6 @@ describe('Plist Utils', function () {
     });
   });
 
-  describe('bufferToString', function () {
-    it('should convert a buffer to a string', function () {
-      const buffer = Buffer.from('test buffer');
-      expect(bufferToString(buffer)).to.equal('test buffer');
-    });
-
-    it('should handle start and end positions', function () {
-      const buffer = Buffer.from('test buffer');
-      expect(bufferToString(buffer, 5)).to.equal('buffer');
-      expect(bufferToString(buffer, 0, 4)).to.equal('test');
-      expect(bufferToString(buffer, 5, 8)).to.equal('buf');
-    });
-
-    it('should handle empty buffers', function () {
-      expect(bufferToString(Buffer.alloc(0))).to.equal('');
-    });
-
-    it('should handle Unicode characters', function () {
-      const unicodeStr = 'こんにちは世界';
-      const buffer = Buffer.from(unicodeStr, 'utf8');
-      expect(bufferToString(buffer)).to.equal(unicodeStr);
-    });
-  });
 
   describe('isXmlPlistContent', function () {
     it('should return true for content with XML declaration', function () {

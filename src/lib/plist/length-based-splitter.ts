@@ -1,7 +1,7 @@
 import { logger } from '@appium/support';
 import { Transform, type TransformCallback } from 'stream';
 
-import { bufferToString, isXmlPlistContent } from './utils.js';
+import { isXmlPlistContent } from './utils.js';
 import {
   BINARY_PLIST_MAGIC,
   IBINARY_PLIST_MAGIC,
@@ -13,6 +13,7 @@ import {
   LENGTH_FIELD_4_BYTES,
   LENGTH_FIELD_8_BYTES,
   UINT32_HIGH_MULTIPLIER,
+  UTF8_ENCODING,
 } from './constants.js';
 
 const log = logger.getLogger('Plist');
@@ -93,8 +94,8 @@ export class LengthBasedSplitter extends Transform {
       this.buffer = Buffer.concat([this.buffer, chunk]);
 
       // Check if this is XML data or binary plist before doing any other processing
-      const bufferString = bufferToString(
-        this.buffer,
+      const bufferString = this.buffer.toString(
+        UTF8_ENCODING,
         0,
         Math.min(MAX_PREVIEW_LENGTH, this.buffer.length),
       );
@@ -109,7 +110,7 @@ export class LengthBasedSplitter extends Transform {
 
       // Check for binary plist format (bplist00 or Ibplist00)
       if (this.buffer.length >= BINARY_PLIST_HEADER_LENGTH) {
-        const possibleBplistHeader = bufferToString(this.buffer, 0, BINARY_PLIST_HEADER_LENGTH);
+        const possibleBplistHeader = this.buffer.toString(UTF8_ENCODING, 0, BINARY_PLIST_HEADER_LENGTH);
 
         if (
           possibleBplistHeader === BINARY_PLIST_MAGIC ||
@@ -142,7 +143,7 @@ export class LengthBasedSplitter extends Transform {
    * Process data as XML
    */
   private processXmlData(callback: TransformCallback): void {
-    const fullBufferString = bufferToString(this.buffer);
+    const fullBufferString = this.buffer.toString(UTF8_ENCODING);
 
     let startIndex = 0;
     if (!fullBufferString.startsWith(XML_DECLARATION)) {
@@ -172,8 +173,8 @@ export class LengthBasedSplitter extends Transform {
       if (this.buffer.length === 0) {
         this.isXmlMode = false;
       } else {
-        const remainingData = bufferToString(
-          this.buffer,
+        const remainingData = this.buffer.toString(
+          UTF8_ENCODING,
           0,
           Math.min(MAX_PREVIEW_LENGTH, this.buffer.length),
         );
@@ -235,8 +236,8 @@ export class LengthBasedSplitter extends Transform {
             messageLength = alternateLength;
           } else {
             // If length is still invalid, check if this might actually be XML
-            const suspiciousData = bufferToString(
-              this.buffer,
+            const suspiciousData = this.buffer.toString(
+              UTF8_ENCODING,
               0,
               Math.min(MAX_PREVIEW_LENGTH, this.buffer.length),
             );
@@ -254,8 +255,8 @@ export class LengthBasedSplitter extends Transform {
         } else {
           // For non-4-byte length fields, just use the original approach
           // If length is invalid, check if this might actually be XML
-          const suspiciousData = bufferToString(
-            this.buffer,
+          const suspiciousData = this.buffer.toString(
+            UTF8_ENCODING,
             0,
             Math.min(MAX_PREVIEW_LENGTH, this.buffer.length),
           );
@@ -287,8 +288,8 @@ export class LengthBasedSplitter extends Transform {
         const message = this.buffer.slice(0, totalLength);
 
         // Check if this message is actually XML
-        const messageStart = bufferToString(
-          message,
+        const messageStart = message.toString(
+          UTF8_ENCODING,
           0,
           Math.min(MAX_PREVIEW_LENGTH, message.length),
         );

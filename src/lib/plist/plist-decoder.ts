@@ -4,9 +4,11 @@ import { Transform, type TransformCallback } from 'stream';
 import { parsePlist } from './plist-parser.js';
 import {
   ensureString,
+  findFirstReplacementCharacter,
   fixMultipleXmlDeclarations,
   hasUnicodeReplacementCharacter,
 } from './utils.js';
+import { UTF8_ENCODING } from './constants.js';
 
 const log = logger.getLogger('Plist');
 
@@ -36,7 +38,7 @@ export class PlistServiceDecoder extends Transform {
 
       // Check if this is XML data with potential binary header and trim content before XML declaration
       const dataStr = plistData.toString(
-        'utf8',
+        UTF8_ENCODING,
         0,
         Math.min(100, plistData.length),
       );
@@ -50,11 +52,23 @@ export class PlistServiceDecoder extends Transform {
         plistData = plistData.slice(xmlIndex);
       }
 
-      // Check for potential corruption indicators
-      hasUnicodeReplacementCharacter(plistData);
-
       // Check for multiple XML declarations which can cause parsing errors
       const fullDataStr = ensureString(plistData);
+
+      // Check for potential corruption indicators and handle them
+      if (hasUnicodeReplacementCharacter(plistData)) {
+        log.debug(
+          'Detected Unicode replacement characters in plist data, which may indicate encoding issues',
+        );
+
+        // Try to find and clean the corrupted data
+        const firstReplacementPos = findFirstReplacementCharacter(fullDataStr);
+        if (firstReplacementPos >= 0) {
+          log.debug(
+            `Found replacement character at position ${firstReplacementPos}, attempting to clean data`,
+          );
+        }
+      }
       const xmlDeclMatches = fullDataStr.match(/(<\?xml[^>]*\?>)/g) || [];
       if (xmlDeclMatches.length > 1) {
         log.debug(

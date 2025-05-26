@@ -214,18 +214,20 @@ export class PlistService {
    */
   private handleError(error: Error): void {
     // Only log detailed errors if verbose logging is enabled
-    if (config.verboseErrorLogging) {
-      errorLog.debug(`PlistService Error: ${error.message}`);
+    if (!config.verboseErrorLogging) {
+      return;
+    }
 
-      // If this is an XML parsing error, it might be a binary plist
-      if (
-        error.message.includes('Invalid XML') ||
-        error.message.includes('XML parsing')
-      ) {
-        errorLog.debug(
-          'This might be a binary plist with a non-standard format',
-        );
-      }
+    errorLog.debug(`PlistService Error: ${error.message}`);
+
+    // If this is an XML parsing error, it might be a binary plist
+    if (
+      error.message.includes('Invalid XML') ||
+      error.message.includes('XML parsing')
+    ) {
+      errorLog.debug(
+        'This might be a binary plist with a non-standard format',
+      );
     }
   }
 }

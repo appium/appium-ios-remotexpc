@@ -31,6 +31,9 @@ export interface SyslogOptions {
 const MIN_PRINTABLE_RATIO = 0.5;
 const ASCII_PRINTABLE_MIN = 32;
 const ASCII_PRINTABLE_MAX = 126;
+// Regex to match non-printable ASCII characters (anything outside ASCII 32-126 range)
+// ASCII 32 = space, ASCII 126 = tilde (~)
+const NON_PRINTABLE_ASCII_REGEX = /[^\x20-\x7E]/g;
 
 /**
  * syslog-service provides functionality to capture and process syslog messages
@@ -154,14 +157,16 @@ class SyslogService extends EventEmitter {
    * Closes the current connection
    */
   private closeConnection(): void {
-    if (this.connection) {
-      try {
-        this.connection.close();
-      } catch (error) {
-        log.debug(`Error closing connection: ${error}`);
-      } finally {
-        this.connection = null;
-      }
+    if (!this.connection) {
+      return;
+    }
+
+    try {
+      this.connection.close();
+    } catch (error) {
+      log.debug(`Error closing connection: ${error}`);
+    } finally {
+      this.connection = null;
     }
   }
 
@@ -254,7 +259,7 @@ class SyslogService extends EventEmitter {
     } catch (error) {
       log.debug(`Error processing packet as text: ${error}`);
       try {
-        const message = packet.payload.toString().replace(/[^\x20-\x7E]/g, '');
+        const message = this.extractPrintableText(packet.payload);
         if (message.trim()) {
           if (this.enableVerboseLogging) {
             syslogLog.info(message);
@@ -330,7 +335,7 @@ class SyslogService extends EventEmitter {
    * @returns Printable text
    */
   private extractPrintableText(buffer: Buffer): string {
-    return buffer.toString().replace(/[^\x20-\x7E]/g, '');
+    return buffer.toString().replace(NON_PRINTABLE_ASCII_REGEX, '');
   }
 
   /**

@@ -5,6 +5,7 @@ import {
   APPLE_EPOCH_OFFSET,
   BPLIST_MAGIC_AND_VERSION,
   BPLIST_TYPE,
+  UTF8_ENCODING,
 } from './constants.js';
 import { LengthBasedSplitter } from './length-based-splitter.js';
 import { createPlist as createXmlPlist } from './plist-creator.js';
@@ -15,7 +16,6 @@ import { PlistService } from './plist-service.js';
 import { createPlist } from './unified-plist-creator.js';
 import { parsePlist } from './unified-plist-parser.js';
 import {
-  bufferToString,
   ensureString,
   escapeXml,
   findFirstReplacementCharacter,
@@ -41,6 +41,7 @@ export {
   APPLE_EPOCH_OFFSET,
   BPLIST_MAGIC_AND_VERSION,
   BPLIST_TYPE,
+  UTF8_ENCODING,
   // Utility functions
   hasUnicodeReplacementCharacter,
   findFirstReplacementCharacter,
@@ -49,6 +50,5 @@ export {
   fixMultipleXmlDeclarations,
   isValidXml,
   escapeXml,
-  bufferToString,
   isXmlPlistContent,
 };

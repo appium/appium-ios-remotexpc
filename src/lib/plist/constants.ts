@@ -25,6 +25,9 @@ export const LENGTH_FIELD_4_BYTES = 4;
 export const LENGTH_FIELD_8_BYTES = 8;
 export const UINT32_HIGH_MULTIPLIER = 0x100000000;
 
+// Encoding constants
+export const UTF8_ENCODING = 'utf8';
+
 // Apple epoch offset (seconds between Unix epoch 1970-01-01 and Apple epoch 2001-01-01)
 export const APPLE_EPOCH_OFFSET = 978307200;
 
