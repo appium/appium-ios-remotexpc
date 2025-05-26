@@ -9,6 +9,22 @@ export const BPLIST_MAGIC_AND_VERSION = Buffer.from(
   `${BPLIST_MAGIC}${BPLIST_VERSION}`,
 );
 
+// Binary plist header constants
+export const BINARY_PLIST_MAGIC = 'bplist00';
+export const IBINARY_PLIST_MAGIC = 'Ibplist00';
+export const BINARY_PLIST_HEADER_LENGTH = 9;
+
+// XML plist constants
+export const XML_DECLARATION = '<?xml';
+export const PLIST_CLOSING_TAG = '</plist>';
+
+// Length field constants
+export const LENGTH_FIELD_1_BYTE = 1;
+export const LENGTH_FIELD_2_BYTES = 2;
+export const LENGTH_FIELD_4_BYTES = 4;
+export const LENGTH_FIELD_8_BYTES = 8;
+export const UINT32_HIGH_MULTIPLIER = 0x100000000;
+
 // Apple epoch offset (seconds between Unix epoch 1970-01-01 and Apple epoch 2001-01-01)
 export const APPLE_EPOCH_OFFSET = 978307200;
 

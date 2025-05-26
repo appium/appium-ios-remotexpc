@@ -2,6 +2,18 @@ import { logger } from '@appium/support';
 import { Transform, type TransformCallback } from 'stream';
 
 import { bufferToString, isXmlPlistContent } from './utils.js';
+import {
+  BINARY_PLIST_MAGIC,
+  IBINARY_PLIST_MAGIC,
+  BINARY_PLIST_HEADER_LENGTH,
+  XML_DECLARATION,
+  PLIST_CLOSING_TAG,
+  LENGTH_FIELD_1_BYTE,
+  LENGTH_FIELD_2_BYTES,
+  LENGTH_FIELD_4_BYTES,
+  LENGTH_FIELD_8_BYTES,
+  UINT32_HIGH_MULTIPLIER,
+} from './constants.js';
 
 const log = logger.getLogger('Plist');
 
@@ -96,12 +108,12 @@ export class LengthBasedSplitter extends Transform {
       }
 
       // Check for binary plist format (bplist00 or Ibplist00)
-      if (this.buffer.length >= 9) {
-        const possibleBplistHeader = bufferToString(this.buffer, 0, 9);
+      if (this.buffer.length >= BINARY_PLIST_HEADER_LENGTH) {
+        const possibleBplistHeader = bufferToString(this.buffer, 0, BINARY_PLIST_HEADER_LENGTH);
 
         if (
-          possibleBplistHeader === 'bplist00' ||
-          possibleBplistHeader.includes('bplist00')
+          possibleBplistHeader === BINARY_PLIST_MAGIC ||
+          possibleBplistHeader.includes(BINARY_PLIST_MAGIC)
         ) {
           log.debug('Detected standard binary plist format');
           this.push(this.buffer);
@@ -110,8 +122,8 @@ export class LengthBasedSplitter extends Transform {
         }
 
         if (
-          possibleBplistHeader === 'Ibplist00' ||
-          possibleBplistHeader.includes('Ibplist00')
+          possibleBplistHeader === IBINARY_PLIST_MAGIC ||
+          possibleBplistHeader.includes(IBINARY_PLIST_MAGIC)
         ) {
           log.debug('Detected non-standard Ibplist00 format');
           this.push(this.buffer);
@@ -133,8 +145,8 @@ export class LengthBasedSplitter extends Transform {
     const fullBufferString = bufferToString(this.buffer);
 
     let startIndex = 0;
-    if (!fullBufferString.startsWith('<?xml')) {
-      const declIndex = fullBufferString.indexOf('<?xml');
+    if (!fullBufferString.startsWith(XML_DECLARATION)) {
+      const declIndex = fullBufferString.indexOf(XML_DECLARATION);
       if (declIndex >= 0) {
         startIndex = declIndex;
       } else {
@@ -143,10 +155,10 @@ export class LengthBasedSplitter extends Transform {
     }
 
     // Now search for the closing tag in the string starting at startIndex.
-    const plistEndIndex = fullBufferString.indexOf('</plist>', startIndex);
+    const plistEndIndex = fullBufferString.indexOf(PLIST_CLOSING_TAG, startIndex);
 
     if (plistEndIndex >= 0) {
-      const endPos = plistEndIndex + '</plist>'.length;
+      const endPos = plistEndIndex + PLIST_CLOSING_TAG.length;
 
       const xmlData = this.buffer.slice(0, endPos);
 
@@ -184,24 +196,24 @@ export class LengthBasedSplitter extends Transform {
       let messageLength: number;
 
       // Read the length prefix according to configuration
-      if (this.lengthFieldLength === 4) {
+      if (this.lengthFieldLength === LENGTH_FIELD_4_BYTES) {
         messageLength = this.littleEndian
           ? this.buffer.readUInt32LE(this.lengthFieldOffset)
           : this.buffer.readUInt32BE(this.lengthFieldOffset);
-      } else if (this.lengthFieldLength === 2) {
+      } else if (this.lengthFieldLength === LENGTH_FIELD_2_BYTES) {
         messageLength = this.littleEndian
           ? this.buffer.readUInt16LE(this.lengthFieldOffset)
           : this.buffer.readUInt16BE(this.lengthFieldOffset);
-      } else if (this.lengthFieldLength === 1) {
+      } else if (this.lengthFieldLength === LENGTH_FIELD_1_BYTE) {
         messageLength = this.buffer.readUInt8(this.lengthFieldOffset);
-      } else if (this.lengthFieldLength === 8) {
+      } else if (this.lengthFieldLength === LENGTH_FIELD_8_BYTES) {
         const high = this.littleEndian
-          ? this.buffer.readUInt32LE(this.lengthFieldOffset + 4)
+          ? this.buffer.readUInt32LE(this.lengthFieldOffset + LENGTH_FIELD_4_BYTES)
           : this.buffer.readUInt32BE(this.lengthFieldOffset);
         const low = this.littleEndian
           ? this.buffer.readUInt32LE(this.lengthFieldOffset)
-          : this.buffer.readUInt32BE(this.lengthFieldOffset + 4);
-        messageLength = high * 0x100000000 + low;
+          : this.buffer.readUInt32BE(this.lengthFieldOffset + LENGTH_FIELD_4_BYTES);
+        messageLength = high * UINT32_HIGH_MULTIPLIER + low;
       } else {
         throw new Error(
           `Unsupported lengthFieldLength: ${this.lengthFieldLength}`,
@@ -214,7 +226,7 @@ export class LengthBasedSplitter extends Transform {
       // Check if the extracted message length seems suspicious
       if (messageLength < 0 || messageLength > this.maxFrameLength) {
         let alternateLength: number;
-        if (this.lengthFieldLength === 4) {
+        if (this.lengthFieldLength === LENGTH_FIELD_4_BYTES) {
           alternateLength = this.littleEndian
             ? this.buffer.readUInt32BE(this.lengthFieldOffset)
             : this.buffer.readUInt32LE(this.lengthFieldOffset);
