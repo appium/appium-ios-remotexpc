@@ -497,7 +497,7 @@ export class RelayService {
   constructor(
     deviceID: string | number,
     devicePort: number,
-    relayPort: number = 2222,
+    relayPort: number,
   ) {
     this.deviceID = deviceID;
     this.devicePort = devicePort;
@@ -607,7 +607,7 @@ export class RelayService {
 export async function connectAndRelay(
   deviceID: string | number,
   port: number,
-  relayPort: number = 2222,
+  relayPort: number = Math.floor(Math.random() * (65535 - 1024) + 1024),
 ): Promise<Socket> {
   // Create and start the relay service
   const relay = new RelayService(deviceID, port, relayPort);
