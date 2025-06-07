@@ -1,32 +1,80 @@
+import { logger } from '@appium/support';
 import { expect } from 'chai';
-import type { TunnelConnection } from 'tuntap-bridge';
 
-import { TunnelManager } from '../../src/lib/tunnel/index.js';
+import {
+  PacketStreamClient,
+  TunnelManager,
+  getTunnelByUdid,
+  getTunnelConnection,
+  hasTunnel,
+} from '../../src/lib/tunnel/index.js';
 import SyslogService from '../../src/services/ios/syslog-service/index.js';
+
+const log = logger.getLogger('TunnelTest');
 
 describe('Tunnel and Syslog Service', function () {
   // Increase timeout for integration tests
   this.timeout(60000);
 
-  let tunnelResult: TunnelConnection;
   let remoteXPC: any;
   let syslogService: SyslogService;
   let service: any;
-  const udid = process.env.UDID || '00008110-001854423C3A801E';
+  let packetStreamClient: PacketStreamClient | null = null;
+  const udid = process.env.UDID || '';
 
   before(async function () {
-    // Use TunnelManager to get or create a tunnel and RemoteXPC connection
-    const result = await TunnelManager.createDeviceConnectionPair(udid, {});
-    tunnelResult = result.tunnel;
-    remoteXPC = result.remoteXPC;
+    const tunnelExists = await hasTunnel(udid);
+    if (!tunnelExists) {
+      throw new Error(
+        `No tunnel found for device ${udid}. Please run the tunnel creation script first: npm run test:tunnel-creation`,
+      );
+    }
 
-    // Initialize syslog service
-    const rsdPort = tunnelResult.RsdPort ?? 0;
-    syslogService = new SyslogService([tunnelResult.Address, rsdPort]);
+    const tunnelConnectionDetails = await getTunnelConnection(udid);
+    if (!tunnelConnectionDetails) {
+      throw new Error(
+        `Failed to get tunnel connection details for device ${udid}`,
+      );
+    }
+
+    remoteXPC = await TunnelManager.createRemoteXPCConnection(
+      tunnelConnectionDetails.host,
+      tunnelConnectionDetails.port,
+    );
+
+    syslogService = new SyslogService([
+      tunnelConnectionDetails.host,
+      tunnelConnectionDetails.port,
+    ]);
+
+    const registryEntry = await getTunnelByUdid(udid);
+    if (registryEntry?.packetStreamPort) {
+      log.info(
+        `Packet stream server available on port ${registryEntry.packetStreamPort}`,
+      );
+      packetStreamClient = new PacketStreamClient(
+        'localhost',
+        registryEntry.packetStreamPort,
+      );
+      try {
+        await packetStreamClient.connect();
+        log.info('Connected to packet stream server');
+      } catch (err) {
+        log.warn(`Failed to connect to packet stream server: ${err}`);
+        packetStreamClient = null;
+      }
+    } else {
+      log.info(
+        'No packet stream port found in registry. The tunnel creation script may need to be rerun.',
+      );
+    }
   });
 
   after(async function () {
-    // Close all tunnels when tests are done
+    if (packetStreamClient) {
+      await packetStreamClient.disconnect();
+    }
+
     await TunnelManager.closeAllTunnels();
   });
 
@@ -40,19 +88,28 @@ describe('Tunnel and Syslog Service', function () {
     expect(service).to.not.be.undefined;
   });
 
-  it('should start syslog service', async function () {
+  it('should start syslog service (requires active tunnel with packet source)', async function () {
+    if (!packetStreamClient) {
+      this.skip();
+      return;
+    }
+
     // Refresh the service object before using it
     service = remoteXPC.findService('com.apple.os_trace_relay.shim.remote');
     expect(service).to.not.be.undefined;
 
-    await syslogService.start(service, tunnelResult, {
+    await syslogService.start(service, packetStreamClient, {
       pid: -1,
     });
-    // If no error is thrown, the test passes
     expect(true).to.be.true;
   });
 
-  it('should capture and emit syslog messages', async function () {
+  it('should capture and emit syslog messages (requires active tunnel with packet source)', async function () {
+    if (!packetStreamClient) {
+      this.skip();
+      return;
+    }
+
     // Refresh the service object before using it again
     service = remoteXPC.findService('com.apple.os_trace_relay.shim.remote');
     expect(service).to.not.be.undefined;
@@ -62,18 +119,15 @@ describe('Tunnel and Syslog Service', function () {
       messages.push(message);
     });
 
-    // Start capturing
-    await syslogService.start(service, tunnelResult, {
+    await syslogService.start(service, packetStreamClient, {
       pid: -1,
     });
 
     // Wait for a few seconds to collect messages
     await new Promise((resolve) => setTimeout(resolve, 3000));
 
-    // Stop capturing
     await syslogService.stop();
 
-    // Verify that we captured some messages
     expect(messages.length).to.be.greaterThan(0);
   });
 });

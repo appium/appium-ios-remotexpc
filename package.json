@@ -20,12 +20,14 @@
     "lint": "eslint src --ext .ts --quiet",
     "format": "prettier --write \"{src,test}/**/*.{ts,tsx}\"",
     "lint:fix": "eslint src --ext .ts --fix",
-    "test": "sudo mocha test/integration/**/*.ts --exit",
-    "test:all": "sudo mocha -r tsx/cjs test/run-integration-tests.ts",
-    "test:tunnel": "sudo mocha test/integration/tunnel-test.ts --exit --timeout 1m",
-    "test:pair-record": "sudo mocha test/integration/read-pair-record-test.ts --exit --timeout 1m",
-    "test:diagnostics": "sudo mocha test/integration/diagnostics-test.ts --exit --timeout 1m",
-    "test:unit": "mocha test/unit/**/*.ts --exit --timeout 2m"
+    "test": "mocha test/integration/**/*.ts",
+    "test:all": "mocha -r tsx/cjs test/run-integration-tests.ts",
+    "test:tunnel": "mocha test/integration/tunnel-test.ts --exit --timeout 1m",
+    "test:pair-record": "mocha test/integration/read-pair-record-test.ts --exit --timeout 1m",
+    "test:diagnostics": "mocha test/integration/diagnostics-test.ts --exit --timeout 1m",
+    "test:unit": "mocha test/unit/**/*.ts --exit --timeout 2m",
+    "test:tunnel-creation": "sudo tsx scripts/test-tunnel-creation.ts",
+    "test:tunnel-creation:lsof": "sudo tsx scripts/test-tunnel-creation.ts --keep-open"
   },
   "keywords": [],
   "author": "",
@@ -43,22 +45,22 @@
     "chai": "^5.2.0",
     "chai-as-promised": "^8.0.1",
     "conventional-changelog-conventionalcommits": "^8.0.0",
-    "mocha": "^11.1.0",
     "eslint": "^9.23.0",
     "eslint-config-prettier": "^10.1.2",
     "eslint-plugin-unicorn": "^58.0.0",
+    "mocha": "^11.1.0",
     "prettier": "^3.5.3",
     "rimraf": "^6.0.1",
     "ts-node": "^10.9.2",
     "tsx": "^4.7.0",
-    "tuntap-bridge": "^0.0.1",
+    "tuntap-bridge": "^0.0.3",
     "typescript": "^5.2.2",
     "typescript-eslint": "^8.29.0"
   },
   "dependencies": {
+    "@appium/support": "^6.1.0",
     "@types/node": "^22.14.0",
     "@xmldom/xmldom": "^0.9.8",
-    "npm-run-all2": "^7.0.2",
-    "@appium/support": "^6.1.0"
+    "npm-run-all2": "^7.0.2"
   }
 }

@@ -1,9 +1,7 @@
 import { logger } from '@appium/support';
-import type { ConnectionOptions, TLSSocket } from 'tls';
+import type { TLSSocket } from 'tls';
 import { type TunnelConnection, connectToTunnelLockdown } from 'tuntap-bridge';
 
-import { startCoreDeviceProxy } from '../../services/ios/tunnel-service/index.js';
-import { createLockdownServiceByUDID } from '../lockdown/index.js';
 import RemoteXpcConnection from '../remote-xpc/remote-xpc-connection.js';
 
 const log = logger.getLogger('TunnelManager');
@@ -57,36 +55,18 @@ class TunnelManagerService {
   }
 
   /**
-   * Gets a tunnel connection and RemoteXPC connection for the specified device.
-   * Creates a new tunnel connection each time.
+   * Creates a RemoteXPC connection for the specified device.
    *
-   * @param udid - The device UDID (used only for creating the lockdown service)
-   * @param tlsOptions - TLS options for upgrading the usbmuxd socket
-   * @returns A promise that resolves to an object containing the tunnel connection and RemoteXPC connection
+   * @param address - The address of the tunnel
+   * @param rsdPort - The RSD port of the tunnel
+   * @returns A promise that resolves to the RemoteXPC connection
    */
-  async createDeviceConnectionPair(
-    udid: string,
-    tlsOptions: Partial<ConnectionOptions> = {},
-  ): Promise<TunnelResult> {
+  async createRemoteXPCConnection(
+    address: string,
+    rsdPort: number,
+  ): Promise<any> {
     try {
-      // Create lockdown service
-      const { lockdownService, device } =
-        await createLockdownServiceByUDID(udid);
-
-      // Start CoreDeviceProxy
-      const { socket } = await startCoreDeviceProxy(
-        lockdownService,
-        device.DeviceID,
-        device.Properties.SerialNumber,
-        tlsOptions,
-      );
-
-      // Create a new tunnel
-      const tunnel = await this.getTunnel(socket);
-
-      // Create RemoteXPC connection
-      const rsdPort = tunnel.RsdPort ?? 0;
-      const remoteXPC = new RemoteXpcConnection([tunnel.Address, rsdPort]);
+      const remoteXPC = new RemoteXpcConnection([address, rsdPort]);
 
       // Connect to RemoteXPC with delay between retries
       let retries = 3;
@@ -97,12 +77,12 @@ class TunnelManagerService {
           await remoteXPC.connect();
 
           // Update the registry entry with the RemoteXPC connection
-          const entry = this.tunnelRegistry.get(tunnel.Address);
+          const entry = this.tunnelRegistry.get(address);
           if (entry) {
             entry.remoteXPC = remoteXPC;
           }
 
-          return { tunnel, remoteXPC };
+          return remoteXPC;
         } catch (error) {
           lastError = error;
           log.warn(
@@ -120,7 +100,7 @@ class TunnelManagerService {
       // All retries failed
       throw lastError || new Error('Failed to connect to RemoteXPC');
     } catch (error) {
-      log.error(`Error getting tunnel for device ${udid}: ${error}`);
+      log.error(`Error for device ${address}: ${error}`);
       throw error;
     }
   }
@@ -268,3 +248,20 @@ class TunnelManagerService {
 
 // Create and export the singleton instance
 export const TunnelManager = new TunnelManagerService();
+
+// Export tunnel registry functionality
+export {
+  TunnelRegistryManager,
+  tunnelRegistry,
+  getTunnelByUdid,
+  getAllTunnels,
+  getTunnelConnection,
+  hasTunnel,
+  getAvailableDevices,
+  type TunnelRegistryEntry,
+  type TunnelRegistry,
+} from './tunnel-registry.js';
+
+// Export packet streaming IPC functionality
+export { PacketStreamServer } from './packet-stream-server.js';
+export { PacketStreamClient } from './packet-stream-client.js';

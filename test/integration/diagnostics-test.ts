@@ -1,23 +1,43 @@
 import { expect } from 'chai';
 import type { TunnelConnection } from 'tuntap-bridge';
 
-import { TunnelManager } from '../../src/lib/tunnel/index.js';
+import {
+  TunnelManager,
+  getTunnelConnection,
+  hasTunnel,
+} from '../../src/lib/tunnel/index.js';
 import DiagnosticsService from '../../src/services/ios/diagnostic-service/index.js';
 
 describe('Diagnostics Service', function () {
   // Increase timeout for integration tests
   this.timeout(60000);
 
-  let tunnelResult: TunnelConnection;
   let remoteXPC: any;
   let diagService: DiagnosticsService;
-  const udid = process.env.UDID || '00008110-001854423C3A801E';
+  const udid = process.env.UDID || '';
 
   before(async function () {
-    // Use TunnelManager to get or create a tunnel and RemoteXPC connection
-    const result = await TunnelManager.createDeviceConnectionPair(udid, {});
-    tunnelResult = result.tunnel;
-    remoteXPC = result.remoteXPC;
+    // Check if tunnel exists in registry for this device
+    const tunnelExists = await hasTunnel(udid);
+    if (!tunnelExists) {
+      throw new Error(
+        `No tunnel found for device ${udid}. Please run the tunnel creation script first: npm run test:tunnel-creation`,
+      );
+    }
+
+    // Get tunnel connection details from registry
+    const tunnelConnection = await getTunnelConnection(udid);
+    if (!tunnelConnection) {
+      throw new Error(
+        `Failed to get tunnel connection details for device ${udid}`,
+      );
+    }
+
+    // Create RemoteXPC connection using tunnel registry data
+    remoteXPC = await TunnelManager.createRemoteXPCConnection(
+      tunnelConnection.host,
+      tunnelConnection.port,
+    );
 
     // List all services
     remoteXPC.listAllServices();
@@ -28,15 +48,28 @@ describe('Diagnostics Service', function () {
     );
 
     // Create the diagnostics service
+    if (!diagnosticsService) {
+      throw new Error(
+        `Diagnostics service '${DiagnosticsService.RSD_SERVICE_NAME}' not found`,
+      );
+    }
+
+    // Create the diagnostics service
     diagService = new DiagnosticsService([
-      tunnelResult.Address,
+      tunnelConnection.host,
       parseInt(diagnosticsService.port, 10),
     ]);
   });
 
   after(async function () {
-    // Close all tunnels when tests are done
-    await TunnelManager.closeAllTunnels();
+    // Close RemoteXPC connection
+    if (remoteXPC) {
+      try {
+        await remoteXPC.close();
+      } catch (error) {
+        // Ignore cleanup errors in tests
+      }
+    }
   });
 
   it('should query power information using ioregistry', async function () {

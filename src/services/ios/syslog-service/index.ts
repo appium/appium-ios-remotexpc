@@ -1,6 +1,6 @@
 import { logger } from '@appium/support';
 import { EventEmitter } from 'events';
-import type { PacketData, PacketConsumer } from 'tuntap-bridge';
+import type { PacketConsumer, PacketData } from 'tuntap-bridge';
 
 import { isBinaryPlist } from '../../../lib/plist/binary-plist-parser.js';
 import { parsePlist } from '../../../lib/plist/unified-plist-parser.js';
@@ -70,7 +70,9 @@ class SyslogService extends EventEmitter {
     options: SyslogOptions = {},
   ): Promise<void> {
     if (this.isCapturing) {
-      log.info('Syslog capture already in progress. Stopping previous capture.');
+      log.info(
+        'Syslog capture already in progress. Stopping previous capture.',
+      );
       await this.stop();
     }
 
@@ -133,16 +135,18 @@ class SyslogService extends EventEmitter {
     }
   }
 
-  private attachPacketSource(packetSource: PacketSource | AsyncIterable<PacketData>): void {
+  private attachPacketSource(
+    packetSource: PacketSource | AsyncIterable<PacketData>,
+  ): void {
     if (this.isPacketSource(packetSource)) {
       this.packetConsumer = {
-        onPacket: (packet: PacketData) => this.processPacket(packet)
+        onPacket: (packet: PacketData) => this.processPacket(packet),
       };
       packetSource.addPacketConsumer(this.packetConsumer);
     } else {
       // Store the promise so we can handle it properly
       this.packetStreamPromise = this.processPacketStream(packetSource);
-      
+
       // Handle any errors from the stream processing
       this.packetStreamPromise.catch((error) => {
         log.error(`Packet stream processing failed: ${error}`);
@@ -160,10 +164,14 @@ class SyslogService extends EventEmitter {
     );
   }
 
-  private async processPacketStream(packetStream: AsyncIterable<PacketData>): Promise<void> {
+  private async processPacketStream(
+    packetStream: AsyncIterable<PacketData>,
+  ): Promise<void> {
     try {
       for await (const packet of packetStream) {
-        if (!this.isCapturing) {break;}
+        if (!this.isCapturing) {
+          break;
+        }
         this.processPacket(packet);
       }
     } catch (error) {
@@ -186,7 +194,7 @@ class SyslogService extends EventEmitter {
     if (this.packetConsumer) {
       this.packetConsumer = null;
     }
-    
+
     // Cancel the packet stream processing if it's running
     if (this.packetStreamPromise) {
       // Setting isCapturing to false will cause the stream loop to exit
@@ -253,7 +261,9 @@ class SyslogService extends EventEmitter {
 
     const isMostlyPrintable = this.isMostlyPrintable(packet.payload);
     if (!isMostlyPrintable) {
-      log.debug(`TCP packet not mostly printable, but contains text: ${message}`);
+      log.debug(
+        `TCP packet not mostly printable, but contains text: ${message}`,
+      );
     }
 
     this.emitMessage(message);
@@ -285,7 +295,11 @@ class SyslogService extends EventEmitter {
       }
 
       // Check for XML plist
-      const headerStr = buffer.toString('utf8', 0, Math.min(PLIST_HEADER_CHECK_SIZE, buffer.length));
+      const headerStr = buffer.toString(
+        'utf8',
+        0,
+        Math.min(PLIST_HEADER_CHECK_SIZE, buffer.length),
+      );
       if (PLIST_XML_MARKERS.every((marker) => headerStr.includes(marker))) {
         return true;
       }
@@ -296,8 +310,15 @@ class SyslogService extends EventEmitter {
       }
 
       // Check alternative binary plist markers
-      const firstNineChars = buffer.toString('ascii', 0, Math.min(9, buffer.length));
-      return firstNineChars === BINARY_PLIST_MARKER_ALT || firstNineChars.includes(BINARY_PLIST_MARKER);
+      const firstNineChars = buffer.toString(
+        'ascii',
+        0,
+        Math.min(9, buffer.length),
+      );
+      return (
+        firstNineChars === BINARY_PLIST_MARKER_ALT ||
+        firstNineChars.includes(BINARY_PLIST_MARKER)
+      );
     } catch (error) {
       log.debug(`Error checking if buffer is plist: ${error}`);
       return false;
