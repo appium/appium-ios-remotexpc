@@ -45,7 +45,7 @@ describe('Tunnel and Syslog Service', function () {
     service = remoteXPC.findService('com.apple.os_trace_relay.shim.remote');
     expect(service).to.not.be.undefined;
 
-    await syslogService.start(service, tunnelResult.tunnelManager, {
+    await syslogService.start(service, tunnelResult, {
       pid: -1,
     });
     // If no error is thrown, the test passes
@@ -63,7 +63,7 @@ describe('Tunnel and Syslog Service', function () {
     });
 
     // Start capturing
-    await syslogService.start(service, tunnelResult.tunnelManager, {
+    await syslogService.start(service, tunnelResult, {
       pid: -1,
     });
 

@@ -1,5 +1,6 @@
 import { logger } from '@appium/support';
 import { EventEmitter } from 'events';
+import type { PacketData, PacketConsumer } from 'tuntap-bridge';
 
 import { isBinaryPlist } from '../../../lib/plist/binary-plist-parser.js';
 import { parsePlist } from '../../../lib/plist/unified-plist-parser.js';
@@ -9,44 +10,43 @@ import { BaseService, type Service } from '../base-service.js';
 const syslogLog = logger.getLogger('SyslogMessages');
 const log = logger.getLogger('Syslog');
 
-interface Packet {
-  protocol: 'TCP' | 'UDP';
-  src: string;
-  dst: string;
-  sourcePort: number;
-  destPort: number;
-  payload: Buffer;
-}
-
-interface TunnelManager extends EventEmitter {
-  on(event: 'data', listener: (packet: Packet) => void): this;
-  removeListener(event: 'data', listener: (packet: Packet) => void): this;
-}
-
 export interface SyslogOptions {
   pid?: number;
   enableVerboseLogging?: boolean;
 }
 
+interface PacketSource {
+  addPacketConsumer: (consumer: PacketConsumer) => void;
+  removePacketConsumer: (consumer: PacketConsumer) => void;
+}
+
 const MIN_PRINTABLE_RATIO = 0.5;
 const ASCII_PRINTABLE_MIN = 32;
 const ASCII_PRINTABLE_MAX = 126;
-// Regex to match non-printable ASCII characters (anything outside ASCII 32-126 range)
-// ASCII 32 = space, ASCII 126 = tilde (~)
 const NON_PRINTABLE_ASCII_REGEX = /[^\x20-\x7E]/g;
+const PLIST_XML_MARKERS = ['<?xml', '<plist'];
+const BINARY_PLIST_MARKER = 'bplist';
+const BINARY_PLIST_MARKER_ALT = 'Ibplist00';
+const MIN_PLIST_SIZE = 8;
+const PLIST_HEADER_CHECK_SIZE = 100;
+
+const DEFAULT_SYSLOG_REQUEST = {
+  Request: 'StartActivity',
+  MessageFilter: 65535,
+  StreamFlags: 60,
+} as const;
 
 /**
  * syslog-service provides functionality to capture and process syslog messages
  * from a remote device using Apple's XPC services.
  */
 class SyslogService extends EventEmitter {
-  private readonly address: [string, number];
   private readonly baseService: BaseService;
   private connection: ServiceConnection | null = null;
-  private tunnelManager: TunnelManager | null = null;
-  private packetListener: ((packet: Packet) => void) | null = null;
-  private isCapturing: boolean = false;
-  private enableVerboseLogging: boolean = false;
+  private packetConsumer: PacketConsumer | null = null;
+  private packetStreamPromise: Promise<void> | null = null;
+  private isCapturing = false;
+  private enableVerboseLogging = false;
 
   /**
    * Creates a new syslog-service instance
@@ -54,45 +54,38 @@ class SyslogService extends EventEmitter {
    */
   constructor(address: [string, number]) {
     super();
-    this.address = address;
     this.baseService = new BaseService(address);
   }
 
   /**
    * Starts capturing syslog data from the device
    * @param service Service information
-   * @param tunnelManager tunnel manager to handle data packets
+   * @param packetSource Source of packet data (can be PacketConsumer or AsyncIterable)
    * @param options Configuration options for syslog capture
    * @returns Promise resolving to the initial response from the service
    */
   async start(
     service: Service,
-    tunnelManager: TunnelManager,
+    packetSource: PacketSource | AsyncIterable<PacketData>,
     options: SyslogOptions = {},
   ): Promise<void> {
     if (this.isCapturing) {
-      log.info(
-        'Syslog capture already in progress. Stopping previous capture.',
-      );
+      log.info('Syslog capture already in progress. Stopping previous capture.');
       await this.stop();
     }
 
     const { pid = -1, enableVerboseLogging = false } = options;
     this.enableVerboseLogging = enableVerboseLogging;
-
-    this.tunnelManager = tunnelManager;
     this.isCapturing = true;
 
-    this.attachPacketListener(tunnelManager);
+    this.attachPacketSource(packetSource);
 
     try {
       this.connection = await this.baseService.startLockdownService(service);
 
       const request = {
-        Request: 'StartActivity',
-        MessageFilter: 65535,
+        ...DEFAULT_SYSLOG_REQUEST,
         Pid: pid,
-        StreamFlags: 60,
       };
 
       const response = await this.connection.sendPlistRequest(request);
@@ -100,10 +93,7 @@ class SyslogService extends EventEmitter {
       this.emit('start', response);
     } catch (error) {
       this.isCapturing = false;
-      if (this.tunnelManager && this.packetListener) {
-        this.tunnelManager.removeListener('data', this.packetListener);
-        this.packetListener = null;
-      }
+      this.detachPacketSource();
       throw error;
     }
   }
@@ -118,7 +108,7 @@ class SyslogService extends EventEmitter {
       return;
     }
 
-    this.detachPacketListener();
+    this.detachPacketSource();
     this.closeConnection();
 
     this.isCapturing = false;
@@ -143,13 +133,64 @@ class SyslogService extends EventEmitter {
     }
   }
 
+  private attachPacketSource(packetSource: PacketSource | AsyncIterable<PacketData>): void {
+    if (this.isPacketSource(packetSource)) {
+      this.packetConsumer = {
+        onPacket: (packet: PacketData) => this.processPacket(packet)
+      };
+      packetSource.addPacketConsumer(this.packetConsumer);
+    } else {
+      // Store the promise so we can handle it properly
+      this.packetStreamPromise = this.processPacketStream(packetSource);
+      
+      // Handle any errors from the stream processing
+      this.packetStreamPromise.catch((error) => {
+        log.error(`Packet stream processing failed: ${error}`);
+        this.emit('error', error);
+      });
+    }
+  }
+
+  private isPacketSource(source: unknown): source is PacketSource {
+    return (
+      typeof source === 'object' &&
+      source !== null &&
+      'addPacketConsumer' in source &&
+      'removePacketConsumer' in source
+    );
+  }
+
+  private async processPacketStream(packetStream: AsyncIterable<PacketData>): Promise<void> {
+    try {
+      for await (const packet of packetStream) {
+        if (!this.isCapturing) {break;}
+        this.processPacket(packet);
+      }
+    } catch (error) {
+      log.error(`Error processing packet stream: ${error}`);
+    }
+  }
+
+  private processPacket(packet: PacketData): void {
+    if (packet.protocol === 'TCP') {
+      this.processTcpPacket(packet);
+    } else if (packet.protocol === 'UDP') {
+      this.processUdpPacket(packet);
+    }
+  }
+
   /**
-   * Detaches the packet listener from the tunnel manager
+   * Detaches the packet source
    */
-  private detachPacketListener(): void {
-    if (this.tunnelManager && this.packetListener) {
-      this.tunnelManager.removeListener('data', this.packetListener);
-      this.packetListener = null;
+  private detachPacketSource(): void {
+    if (this.packetConsumer) {
+      this.packetConsumer = null;
+    }
+    
+    // Cancel the packet stream processing if it's running
+    if (this.packetStreamPromise) {
+      // Setting isCapturing to false will cause the stream loop to exit
+      this.packetStreamPromise = null;
     }
   }
 
@@ -171,106 +212,65 @@ class SyslogService extends EventEmitter {
   }
 
   /**
-   * Attaches a listener to the tunnel manager to process incoming packets
-   * @param tunnelManager Manager handling network packets
-   */
-  private attachPacketListener(tunnelManager: TunnelManager): void {
-    this.packetListener = this.createPacketListener();
-    tunnelManager.on('data', this.packetListener);
-  }
-
-  /**
-   * Creates a packet listener function
-   * @returns Packet listener function
-   */
-  private createPacketListener(): (packet: Packet) => void {
-    return (packet: Packet) => {
-      if (packet.protocol === 'TCP') {
-        this.processTcpPacket(packet);
-      } else if (packet.protocol === 'UDP') {
-        this.processUdpPacket(packet);
-      }
-    };
-  }
-
-  /**
    * Processes a TCP packet
    * @param packet TCP packet to process
    */
-  private processTcpPacket(packet: Packet): void {
+  private processTcpPacket(packet: PacketData): void {
     try {
       if (this.mightBePlist(packet.payload)) {
-        try {
-          const plistData = parsePlist(packet.payload);
-          log.debug('Successfully parsed packet as plist');
-          this.emit('plist', plistData);
-
-          const message = JSON.stringify(plistData);
-          if (this.enableVerboseLogging) {
-            syslogLog.info(`Plist: ${message}`);
-          }
-          this.emit('message', message);
-        } catch (error) {
-          log.debug(`Failed to parse as plist: ${error}`);
-          this.processAsText(packet);
-        }
+        this.processPlistPacket(packet);
       } else {
-        this.processAsText(packet);
+        this.processTextPacket(packet);
       }
     } catch (error) {
       log.debug(`Error processing packet: ${error}`);
-      const message = this.extractPrintableText(packet.payload);
-      if (message.trim()) {
-        if (this.enableVerboseLogging) {
-          syslogLog.info(message);
-        }
-        this.emit('message', message);
-      }
+      this.emitTextMessage(packet.payload);
     }
 
     this.logPacketDetails(packet);
   }
 
-  /**
-   * Process packet as text
-   * @param packet The packet to process
-   */
-  private processAsText(packet: Packet): void {
+  private processPlistPacket(packet: PacketData): void {
     try {
-      if (this.isMostlyPrintable(packet.payload)) {
-        const message = this.extractPrintableText(packet.payload);
-        if (message.trim()) {
-          if (this.enableVerboseLogging) {
-            syslogLog.info(message);
-          }
-          this.emit('message', message);
-        }
-      } else {
-        const message = this.extractPrintableText(packet.payload);
-        if (message.trim()) {
-          log.debug(
-            `TCP packet not mostly printable, but contains text: ${message}`,
-          );
-          this.emit('message', message);
-        } else {
-          log.debug('TCP packet contains no printable text, ignoring.');
-        }
-      }
+      const plistData = parsePlist(packet.payload);
+      log.debug('Successfully parsed packet as plist');
+      this.emit('plist', plistData);
+
+      const message = JSON.stringify(plistData);
+      this.emitMessage(message);
     } catch (error) {
-      log.debug(`Error processing packet as text: ${error}`);
-      try {
-        const message = this.extractPrintableText(packet.payload);
-        if (message.trim()) {
-          if (this.enableVerboseLogging) {
-            syslogLog.info(message);
-          }
-          this.emit('message', message);
-        }
-      } catch {
-        // If all else fails, just ignore this packet
-        log.debug('Failed to extract any text from packet, ignoring.');
-      }
+      log.debug(`Failed to parse as plist: ${error}`);
+      this.processTextPacket(packet);
     }
+  }
+
+  private processTextPacket(packet: PacketData): void {
+    const message = this.extractPrintableText(packet.payload);
+    if (!message.trim()) {
+      log.debug('TCP packet contains no printable text, ignoring.');
+      return;
+    }
+
+    const isMostlyPrintable = this.isMostlyPrintable(packet.payload);
+    if (!isMostlyPrintable) {
+      log.debug(`TCP packet not mostly printable, but contains text: ${message}`);
+    }
+
+    this.emitMessage(message);
+  }
+
+  private emitTextMessage(buffer: Buffer): void {
+    const message = this.extractPrintableText(buffer);
+    if (message.trim()) {
+      this.emitMessage(message);
+    }
+  }
+
+  private emitMessage(message: string): void {
+    if (this.enableVerboseLogging) {
+      syslogLog.info(message);
+    }
+    this.emit('message', message);
   }
 
   /**
@@ -280,28 +280,24 @@ class SyslogService extends EventEmitter {
    */
   private mightBePlist(buffer: Buffer): boolean {
     try {
-      const str = buffer.toString('utf8', 0, Math.min(100, buffer.length));
-      if (str.includes('<?xml') && str.includes('<plist')) {
+      if (buffer.length < MIN_PLIST_SIZE) {
+        return false;
+      }
+
+      // Check for XML plist
+      const headerStr = buffer.toString('utf8', 0, Math.min(PLIST_HEADER_CHECK_SIZE, buffer.length));
+      if (PLIST_XML_MARKERS.every((marker) => headerStr.includes(marker))) {
         return true;
       }
 
-      if (buffer.length >= 8) {
-        if (isBinaryPlist(buffer)) {
-          return true;
-        }
-
-        if (buffer.length >= 9) {
-          const firstNineChars = buffer.toString('ascii', 0, 9);
-          if (
-            firstNineChars === 'Ibplist00' ||
-            firstNineChars.includes('bplist')
-          ) {
-            return true;
-          }
-        }
+      // Check for binary plist
+      if (isBinaryPlist(buffer)) {
+        return true;
       }
 
-      return false;
+      // Check alternative binary plist markers
+      const firstNineChars = buffer.toString('ascii', 0, Math.min(9, buffer.length));
+      return firstNineChars === BINARY_PLIST_MARKER_ALT || firstNineChars.includes(BINARY_PLIST_MARKER);
     } catch (error) {
       log.debug(`Error checking if buffer is plist: ${error}`);
       return false;
@@ -312,7 +308,7 @@ class SyslogService extends EventEmitter {
    * Processes a UDP packet
    * @param packet UDP packet to process
    */
-  private processUdpPacket(packet: Packet): void {
+  private processUdpPacket(packet: PacketData): void {
     log.debug(`Received UDP packet (not filtered here): ${packet}`);
   }
 
@@ -320,7 +316,7 @@ class SyslogService extends EventEmitter {
    * Logs packet details for debugging
    * @param packet Packet to log details for
    */
-  private logPacketDetails(packet: Packet): void {
+  private logPacketDetails(packet: PacketData): void {
     log.debug('Received syslog-like TCP packet:');
     log.debug(`  Source: ${packet.src}`);
     log.debug(`  Destination: ${packet.dst}`);
