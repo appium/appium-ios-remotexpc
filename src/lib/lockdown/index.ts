@@ -6,7 +6,7 @@ import { BasePlistService } from '../../base-plist-service.js';
 import { type PairRecord } from '../pair-record/index.js';
 import { PlistService } from '../plist/plist-service.js';
 import type { PlistMessage, PlistValue } from '../types.js';
-import { createUsbmux, RelayService } from '../usbmux/index.js';
+import { RelayService, createUsbmux } from '../usbmux/index.js';
 
 const log = logger.getLogger('Lockdown');
 
@@ -98,7 +98,7 @@ class TLSManager {
     return new Promise((resolve, reject) => {
       socket.pause();
       this.log.debug('Upgrading socket to TLS...');
-      
+
       const secure = tls.connect(
         {
           socket,
@@ -111,12 +111,12 @@ class TLSManager {
           resolve(secure);
         },
       );
-      
+
       secure.on('error', (err) => {
         this.log.error(`TLS socket error: ${err}`);
         reject(new TLSUpgradeError(`TLS socket error: ${err.message}`));
       });
-      
+
       socket.on('error', (err) => {
         this.log.error(`Underlying socket error during TLS: ${err}`);
         reject(new TLSUpgradeError(`Socket error during TLS: ${err.message}`));
@@ -151,7 +151,7 @@ class DeviceManager {
    */
   async findDeviceByUDID(udid: string): Promise<Device> {
     const devices = await this.listDevices();
-    
+
     if (!devices || devices.length === 0) {
       throw new LockdownError('No devices connected');
     }
@@ -164,7 +164,7 @@ class DeviceManager {
     this.log.info(
       `Found device: DeviceID=${device.DeviceID}, SerialNumber=${device.Properties.SerialNumber}, ConnectionType=${device.Properties.ConnectionType}`,
     );
-    
+
     return device;
   }
 
@@ -174,14 +174,14 @@ class DeviceManager {
   async readPairRecord(udid: string): Promise<PairRecord> {
     this.log.debug(`Retrieving pair record for UDID: ${udid}`);
     const usbmux = await createUsbmux();
-    
+
     try {
       const record = await usbmux.readPairRecord(udid);
-      
+
       if (!record?.HostCertificate || !record.HostPrivateKey) {
         throw new LockdownError('Pair record missing certificate or key');
       }
-      
+
       this.log.info('Pair record retrieved successfully');
       return record;
     } catch (err) {
@@ -215,7 +215,7 @@ export class LockdownService extends BasePlistService {
     super(socket);
     this.udid = udid;
     log.info(`LockdownService initialized for UDID: ${udid}`);
-    
+
     if (autoSecure) {
       this.tlsUpgradePromise = this.tryUpgradeToTLS().catch((err) =>
         log.warn(`Auto TLS upgrade failed: ${err.message}`),
@@ -232,27 +232,32 @@ export class LockdownService extends BasePlistService {
     timeout = DEFAULT_TIMEOUT,
   ): Promise<SessionInfo> {
     log.debug(`Starting lockdown session with HostID: ${hostID}`);
-    
+
     const request: Record<string, PlistValue> = {
       Label: LABEL,
       Request: 'StartSession',
       HostID: hostID,
       SystemBUID: systemBUID,
     };
-    
-    const response = await this.sendAndReceive(request, timeout) as StartSessionResponse;
-    
+
+    const response = (await this.sendAndReceive(
+      request,
+      timeout,
+    )) as StartSessionResponse;
+
     if (response.Request === 'StartSession' && response.SessionID) {
       const sessionInfo: SessionInfo = {
         sessionID: String(response.SessionID),
         enableSessionSSL: Boolean(response.EnableSessionSSL),
       };
-      
+
       log.info(`Lockdown session started, SessionID: ${sessionInfo.sessionID}`);
       return sessionInfo;
     }
-    
-    throw new LockdownError(`Unexpected session data: ${JSON.stringify(response)}`);
+
+    throw new LockdownError(
+      `Unexpected session data: ${JSON.stringify(response)}`,
+    );
   }
 
   /**
@@ -261,22 +266,22 @@ export class LockdownService extends BasePlistService {
   async tryUpgradeToTLS(): Promise<void> {
     try {
       const pairRecord = await this.deviceManager.readPairRecord(this.udid);
-      
+
       if (!this.validatePairRecord(pairRecord)) {
         log.warn('Invalid pair record for TLS upgrade');
         return;
       }
-      
+
       const sessionInfo = await this.startSession(
         pairRecord.HostID!,
         pairRecord.SystemBUID!,
       );
-      
+
       if (!sessionInfo.enableSessionSSL) {
         log.info('Device did not request TLS upgrade. Continuing unencrypted.');
         return;
       }
-      
+
       await this.performTLSUpgrade(pairRecord);
     } catch (err) {
       log.error(`TLS upgrade failed: ${err}`);
@@ -300,7 +305,8 @@ export class LockdownService extends BasePlistService {
     msg: Record<string, PlistValue>,
     timeout = DEFAULT_TIMEOUT,
   ): Promise<PlistMessage> {
-    const service = this.isTLS && this.tlsService ? this.tlsService : this._plistService;
+    const service =
+      this.isTLS && this.tlsService ? this.tlsService : this._plistService;
     return service.sendPlistAndReceive(msg, timeout);
   }
 
@@ -309,7 +315,7 @@ export class LockdownService extends BasePlistService {
    */
   public close(): void {
     log.info('Closing LockdownService connections');
-    
+
     try {
       this.closeSocket();
       this.stopRelayService();
@@ -338,9 +344,9 @@ export class LockdownService extends BasePlistService {
   private validatePairRecord(record: PairRecord): boolean {
     return Boolean(
       record?.HostCertificate &&
-      record.HostPrivateKey &&
-      record.HostID &&
-      record.SystemBUID
+        record.HostPrivateKey &&
+        record.HostID &&
+        record.SystemBUID,
     );
   }
 
@@ -349,12 +355,12 @@ export class LockdownService extends BasePlistService {
       cert: pairRecord.HostCertificate!,
       key: pairRecord.HostPrivateKey!,
     };
-    
+
     const tlsSocket = await this.tlsManager.upgradeSocketToTLS(
       this.getSocket() as Socket,
       tlsConfig,
     );
-    
+
     this.tlsService = new PlistService(tlsSocket);
     this.isTLS = true;
     log.info('Successfully upgraded connection to TLS');
@@ -371,9 +377,12 @@ export class LockdownService extends BasePlistService {
   private stopRelayService(): void {
     if (this.relayService) {
       log.info('Stopping relay server associated with LockdownService');
-      this.relayService.stop()
+      this.relayService
+        .stop()
         .then(() => log.info('Relay server stopped successfully'))
-        .catch((err: Error) => log.error(`Error stopping relay server: ${err}`));
+        .catch((err: Error) =>
+          log.error(`Error stopping relay server: ${err}`),
+        );
     }
   }
 }
@@ -391,35 +400,37 @@ export class LockdownServiceFactory {
     autoSecure = true,
   ): Promise<LockdownServiceInfo> {
     log.info(`Creating LockdownService for UDID: ${udid}`);
-    
+
     // Find the device
     const device = await this.deviceManager.findDeviceByUDID(udid);
-    
+
     // Create relay service
     const relay = new RelayService(device.DeviceID, port, DEFAULT_RELAY_PORT);
     await relay.start();
-    
+
     try {
       // Connect through the relay
       const socket = await relay.connect();
       log.debug('Socket connected, creating LockdownService');
-      
+
       // Create the lockdown service
       const service = new LockdownService(socket, udid, autoSecure);
       service.setRelayService(relay);
-      
+
       // Wait for TLS upgrade if enabled
       if (autoSecure) {
         log.debug('Waiting for TLS upgrade to complete...');
         await service.waitForTLSUpgrade();
       }
-      
+
       return { lockdownService: service, device };
     } catch (err) {
       // Clean up relay on error
-      await relay.stop().catch((stopErr) => 
-        log.error(`Error stopping relay after failure: ${stopErr}`)
-      );
+      await relay
+        .stop()
+        .catch((stopErr) =>
+          log.error(`Error stopping relay after failure: ${stopErr}`),
+        );
       throw err;
     }
   }

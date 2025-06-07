@@ -225,9 +225,7 @@ export class PlistService {
       error.message.includes('Invalid XML') ||
       error.message.includes('XML parsing')
     ) {
-      errorLog.debug(
-        'This might be a binary plist with a non-standard format',
-      );
+      errorLog.debug('This might be a binary plist with a non-standard format');
     }
   }
 }

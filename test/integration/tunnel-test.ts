@@ -12,7 +12,7 @@ describe('Tunnel and Syslog Service', function () {
   let remoteXPC: any;
   let syslogService: SyslogService;
   let service: any;
-  const udid = process.env.UDID || '';
+  const udid = process.env.UDID || '00008110-001854423C3A801E';
 
   before(async function () {
     // Use TunnelManager to get or create a tunnel and RemoteXPC connection

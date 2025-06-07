@@ -1,6 +1,7 @@
 import { logger } from '@appium/support';
 import { Transform, type TransformCallback } from 'stream';
 
+import { UTF8_ENCODING } from './constants.js';
 import { parsePlist } from './plist-parser.js';
 import {
   ensureString,
@@ -8,7 +9,6 @@ import {
   fixMultipleXmlDeclarations,
   hasUnicodeReplacementCharacter,
 } from './utils.js';
-import { UTF8_ENCODING } from './constants.js';
 
 const log = logger.getLogger('Plist');
 

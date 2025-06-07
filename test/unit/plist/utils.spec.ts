@@ -178,7 +178,7 @@ describe('Plist Utils', function () {
       expect(escapeXml('>')).to.equal('&gt;');
       expect(escapeXml('&')).to.equal('&amp;');
       expect(escapeXml('"')).to.equal('&quot;');
-      expect(escapeXml('\'')).to.equal('&apos;');
+      expect(escapeXml("'")).to.equal('&apos;');
     });
 
     it('should escape multiple special characters in a string', function () {
@@ -196,7 +196,6 @@ describe('Plist Utils', function () {
       expect(escapeXml('')).to.equal('');
     });
   });
-
 
   describe('isXmlPlistContent', function () {
     it('should return true for content with XML declaration', function () {

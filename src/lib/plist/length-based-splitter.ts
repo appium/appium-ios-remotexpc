@@ -1,20 +1,20 @@
 import { logger } from '@appium/support';
 import { Transform, type TransformCallback } from 'stream';
 
-import { isXmlPlistContent } from './utils.js';
 import {
+  BINARY_PLIST_HEADER_LENGTH,
   BINARY_PLIST_MAGIC,
   IBINARY_PLIST_MAGIC,
-  BINARY_PLIST_HEADER_LENGTH,
-  XML_DECLARATION,
-  PLIST_CLOSING_TAG,
   LENGTH_FIELD_1_BYTE,
   LENGTH_FIELD_2_BYTES,
   LENGTH_FIELD_4_BYTES,
   LENGTH_FIELD_8_BYTES,
+  PLIST_CLOSING_TAG,
   UINT32_HIGH_MULTIPLIER,
   UTF8_ENCODING,
+  XML_DECLARATION,
 } from './constants.js';
+import { isXmlPlistContent } from './utils.js';
 
 const log = logger.getLogger('Plist');
 
@@ -110,7 +110,11 @@ export class LengthBasedSplitter extends Transform {
 
       // Check for binary plist format (bplist00 or Ibplist00)
       if (this.buffer.length >= BINARY_PLIST_HEADER_LENGTH) {
-        const possibleBplistHeader = this.buffer.toString(UTF8_ENCODING, 0, BINARY_PLIST_HEADER_LENGTH);
+        const possibleBplistHeader = this.buffer.toString(
+          UTF8_ENCODING,
+          0,
+          BINARY_PLIST_HEADER_LENGTH,
+        );
 
         if (
           possibleBplistHeader === BINARY_PLIST_MAGIC ||
@@ -156,7 +160,10 @@ export class LengthBasedSplitter extends Transform {
     }
 
     // Now search for the closing tag in the string starting at startIndex.
-    const plistEndIndex = fullBufferString.indexOf(PLIST_CLOSING_TAG, startIndex);
+    const plistEndIndex = fullBufferString.indexOf(
+      PLIST_CLOSING_TAG,
+      startIndex,
+    );
 
     if (plistEndIndex >= 0) {
       const endPos = plistEndIndex + PLIST_CLOSING_TAG.length;
@@ -209,11 +216,15 @@ export class LengthBasedSplitter extends Transform {
         messageLength = this.buffer.readUInt8(this.lengthFieldOffset);
       } else if (this.lengthFieldLength === LENGTH_FIELD_8_BYTES) {
         const high = this.littleEndian
-          ? this.buffer.readUInt32LE(this.lengthFieldOffset + LENGTH_FIELD_4_BYTES)
+          ? this.buffer.readUInt32LE(
+              this.lengthFieldOffset + LENGTH_FIELD_4_BYTES,
+            )
           : this.buffer.readUInt32BE(this.lengthFieldOffset);
         const low = this.littleEndian
           ? this.buffer.readUInt32LE(this.lengthFieldOffset)
-          : this.buffer.readUInt32BE(this.lengthFieldOffset + LENGTH_FIELD_4_BYTES);
+          : this.buffer.readUInt32BE(
+              this.lengthFieldOffset + LENGTH_FIELD_4_BYTES,
+            );
         messageLength = high * UINT32_HIGH_MULTIPLIER + low;
       } else {
         throw new Error(
