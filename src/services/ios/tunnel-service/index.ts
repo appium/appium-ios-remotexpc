@@ -26,9 +26,8 @@ export async function startCoreDeviceProxy(
   udid: string,
   tlsOptions: Partial<import('tls').ConnectionOptions> = {},
 ): Promise<{ socket: TLSSocket; plistService: PlistService }> {
-  if (lockdownClient._tlsUpgrade) {
-    await lockdownClient._tlsUpgrade;
-  }
+  // Wait for TLS upgrade to complete if in progress
+  await lockdownClient.waitForTLSUpgrade();
 
   const response = await lockdownClient.sendAndReceive({
     Label: LABEL,

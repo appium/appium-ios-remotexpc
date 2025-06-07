@@ -20,7 +20,7 @@
     "lint": "eslint src --ext .ts --quiet",
     "format": "prettier --write \"{src,test}/**/*.{ts,tsx}\"",
     "lint:fix": "eslint src --ext .ts --fix",
-    "test": "sudo mocha test/integration/**/*.ts",
+    "test": "sudo mocha test/integration/**/*.ts --exit",
     "test:all": "sudo mocha -r tsx/cjs test/run-integration-tests.ts",
     "test:tunnel": "sudo mocha test/integration/tunnel-test.ts --exit --timeout 1m",
     "test:pair-record": "sudo mocha test/integration/read-pair-record-test.ts --exit --timeout 1m",
