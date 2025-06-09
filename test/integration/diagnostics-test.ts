@@ -1,11 +1,6 @@
 import { expect } from 'chai';
-import type { TunnelConnection } from 'tuntap-bridge';
 
-import {
-  TunnelManager,
-  getTunnelConnection,
-  hasTunnel,
-} from '../../src/lib/tunnel/index.js';
+import { TunnelManager, tunnelApiClient } from '../../src/lib/tunnel/index.js';
 import DiagnosticsService from '../../src/services/ios/diagnostic-service/index.js';
 
 describe('Diagnostics Service', function () {
@@ -18,7 +13,7 @@ describe('Diagnostics Service', function () {
 
   before(async function () {
     // Check if tunnel exists in registry for this device
-    const tunnelExists = await hasTunnel(udid);
+    const tunnelExists = await tunnelApiClient.hasTunnel(udid);
     if (!tunnelExists) {
       throw new Error(
         `No tunnel found for device ${udid}. Please run the tunnel creation script first: npm run test:tunnel-creation`,
@@ -26,7 +21,7 @@ describe('Diagnostics Service', function () {
     }
 
     // Get tunnel connection details from registry
-    const tunnelConnection = await getTunnelConnection(udid);
+    const tunnelConnection = await tunnelApiClient.getTunnelConnection(udid);
     if (!tunnelConnection) {
       throw new Error(
         `Failed to get tunnel connection details for device ${udid}`,

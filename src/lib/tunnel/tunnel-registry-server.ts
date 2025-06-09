@@ -1,15 +1,29 @@
 import { logger } from '@appium/support';
 import express from 'express';
 import type { NextFunction, Request, Response } from 'express';
-import { promises as fs } from 'node:fs';
-import { join } from 'node:path';
-
-import type {
-  TunnelRegistry,
-  TunnelRegistryEntry,
-} from '../lib/tunnel/tunnel-registry.js';
 
 const log = logger.getLogger('TunnelRegistryServer');
+
+export interface TunnelRegistryEntry {
+  udid: string;
+  deviceId: number;
+  address: string;
+  rsdPort: number;
+  packetStreamPort?: number;
+  connectionType: string;
+  productId: number;
+  createdAt: number;
+  lastUpdated: number;
+}
+
+export interface TunnelRegistry {
+  tunnels: Record<string, TunnelRegistryEntry>;
+  metadata: {
+    lastUpdated: string;
+    totalTunnels: number;
+    activeTunnels: number;
+  };
+}
 
 /**
  * Tunnel Registry Server - provides API endpoints for tunnel registry operations

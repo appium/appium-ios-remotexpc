@@ -1,6 +1,9 @@
 import { logger } from '@appium/support';
 
-import type { TunnelRegistry, TunnelRegistryEntry } from './tunnel-registry.js';
+import type {
+  TunnelRegistry,
+  TunnelRegistryEntry,
+} from './tunnel-registry-server.js';
 
 const log = logger.getLogger('TunnelApiClient');
 
@@ -15,7 +18,7 @@ export class TunnelApiClient {
    * Create a new TunnelApiClient
    * @param apiBaseUrl - Base URL for the API server
    */
-  constructor(apiBaseUrl: string = 'http://localhost:4723/remotexpc/tunnels') {
+  constructor(apiBaseUrl: string = 'http://localhost:42314/remotexpc/tunnels') {
     this.apiBaseUrl = apiBaseUrl;
   }
 

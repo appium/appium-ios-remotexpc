@@ -249,19 +249,6 @@ class TunnelManagerService {
 // Create and export the singleton instance
 export const TunnelManager = new TunnelManagerService();
 
-// Export tunnel registry functionality
-export {
-  TunnelRegistryManager,
-  tunnelRegistry,
-  getTunnelByUdid,
-  getAllTunnels,
-  getTunnelConnection,
-  hasTunnel,
-  getAvailableDevices,
-  type TunnelRegistryEntry,
-  type TunnelRegistry,
-} from './tunnel-registry.js';
-
 // Export tunnel API client
 export { tunnelApiClient } from './tunnel-api-client.js';
 

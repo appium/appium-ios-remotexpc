@@ -4,9 +4,7 @@ import { expect } from 'chai';
 import {
   PacketStreamClient,
   TunnelManager,
-  getTunnelByUdid,
-  getTunnelConnection,
-  hasTunnel,
+  tunnelApiClient,
 } from '../../src/lib/tunnel/index.js';
 import SyslogService from '../../src/services/ios/syslog-service/index.js';
 
@@ -23,14 +21,15 @@ describe('Tunnel and Syslog Service', function () {
   const udid = process.env.UDID || '';
 
   before(async function () {
-    const tunnelExists = await hasTunnel(udid);
+    const tunnelExists = await tunnelApiClient.hasTunnel(udid);
     if (!tunnelExists) {
       throw new Error(
         `No tunnel found for device ${udid}. Please run the tunnel creation script first: npm run test:tunnel-creation`,
       );
     }
 
-    const tunnelConnectionDetails = await getTunnelConnection(udid);
+    const tunnelConnectionDetails =
+      await tunnelApiClient.getTunnelConnection(udid);
     if (!tunnelConnectionDetails) {
       throw new Error(
         `Failed to get tunnel connection details for device ${udid}`,
@@ -47,7 +46,7 @@ describe('Tunnel and Syslog Service', function () {
       tunnelConnectionDetails.port,
     ]);
 
-    const registryEntry = await getTunnelByUdid(udid);
+    const registryEntry = await tunnelApiClient.getTunnelByUdid(udid);
     if (registryEntry?.packetStreamPort) {
       log.info(
         `Packet stream server available on port ${registryEntry.packetStreamPort}`,

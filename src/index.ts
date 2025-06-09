@@ -4,15 +4,14 @@ import {
   PacketStreamServer,
   TunnelManager,
   tunnelApiClient,
-  tunnelRegistry,
 } from './lib/tunnel/index.js';
-import { Usbmux, createUsbmux } from './lib/usbmux/index.js';
-import * as Services from './services/index.js';
-import { startCoreDeviceProxy } from './services/ios/tunnel-service/index.js';
 import {
   TunnelRegistryServer,
   startTunnelRegistryServer,
-} from './services/tunnel-registry-server.js';
+} from './lib/tunnel/tunnel-registry-server.js';
+import { Usbmux, createUsbmux } from './lib/usbmux/index.js';
+import * as Services from './services/index.js';
+import { startCoreDeviceProxy } from './services/ios/tunnel-service/index.js';
 
 export {
   createUsbmux,
@@ -25,6 +24,5 @@ export {
   startCoreDeviceProxy,
   TunnelRegistryServer,
   startTunnelRegistryServer,
-  tunnelRegistry,
   tunnelApiClient,
 };

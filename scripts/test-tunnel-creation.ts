@@ -15,8 +15,8 @@ import {
   createUsbmux,
   startCoreDeviceProxy,
 } from '../src/index.js';
+import { startTunnelRegistryServer } from '../src/lib/tunnel/tunnel-registry-server.js';
 import type { Device } from '../src/lib/usbmux/index.js';
-import { startTunnelRegistryServer } from '../src/services/tunnel-registry-server.js';
 
 const log = logger.getLogger('TunnelCreationTest');
 
