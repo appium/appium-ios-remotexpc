@@ -9,13 +9,14 @@ import { join } from 'node:path';
 import type { ConnectionOptions } from 'tls';
 
 import {
+  PacketStreamServer,
   TunnelManager,
   createLockdownServiceByUDID,
   createUsbmux,
   startCoreDeviceProxy,
-  PacketStreamServer,
 } from '../src/index.js';
 import type { Device } from '../src/lib/usbmux/index.js';
+import { startTunnelRegistryServer } from '../src/services/tunnel-registry-server.js';
 
 const log = logger.getLogger('TunnelCreationTest');
 
@@ -62,7 +63,9 @@ async function saveTunnelRegistry(registry: TunnelRegistry): Promise<void> {
 /**
  * Update tunnel registry with new tunnel information
  */
-async function updateTunnelRegistry(results: TunnelResult[]): Promise<void> {
+async function updateTunnelRegistry(
+  results: TunnelResult[],
+): Promise<TunnelRegistry> {
   const registry = await loadTunnelRegistry();
   const now = Date.now();
   const nowISOString = new Date().toISOString();
@@ -92,7 +95,7 @@ async function updateTunnelRegistry(results: TunnelResult[]): Promise<void> {
     activeTunnels: Object.keys(registry.tunnels).length, // Assuming all are active for now
   };
 
-  await saveTunnelRegistry(registry);
+  return registry;
 }
 
 /**
@@ -202,13 +205,17 @@ function setupCleanupHandlers(): void {
 
     // Close all packet stream servers
     if (packetStreamServers.size > 0) {
-      log.info(`Closing ${packetStreamServers.size} packet stream server(s)...`);
+      log.info(
+        `Closing ${packetStreamServers.size} packet stream server(s)...`,
+      );
       for (const [udid, server] of packetStreamServers) {
         try {
           await server.stop();
           log.info(`Closed packet stream server for device ${udid}`);
         } catch (err) {
-          log.warn(`Failed to close packet stream server for device ${udid}: ${err}`);
+          log.warn(
+            `Failed to close packet stream server for device ${udid}: ${err}`,
+          );
         }
       }
       packetStreamServers.clear();
@@ -321,7 +328,6 @@ async function createTunnelForDevice(
     log.info(`Connection Type: ${device.Properties.ConnectionType}`);
     log.info(`Product ID: ${device.Properties.ProductID}`);
 
-    // Create lockdown service
     log.info('Creating lockdown service...');
     const { lockdownService, device: lockdownDevice } =
       await createLockdownServiceByUDID(udid);
@@ -329,7 +335,6 @@ async function createTunnelForDevice(
       `Lockdown service created for device: ${lockdownDevice.Properties.SerialNumber}`,
     );
 
-    // Start CoreDeviceProxy
     log.info('Starting CoreDeviceProxy...');
     const { socket } = await startCoreDeviceProxy(
       lockdownService,
@@ -339,31 +344,28 @@ async function createTunnelForDevice(
     );
     log.info('CoreDeviceProxy started successfully');
 
-    // Create a new tunnel
     log.info('Creating tunnel...');
     const tunnel = await TunnelManager.getTunnel(socket);
     log.info(
       `Tunnel created for address: ${tunnel.Address} with RsdPort: ${tunnel.RsdPort}`,
     );
 
-    // Create packet stream server for this tunnel
     let packetStreamPort: number | undefined;
     try {
       packetStreamPort = PACKET_STREAM_BASE_PORT++;
       const packetStreamServer = new PacketStreamServer(packetStreamPort);
       await packetStreamServer.start();
-      
+
       const consumer = packetStreamServer.getPacketConsumer();
       if (consumer) {
         tunnel.addPacketConsumer(consumer);
       }
-      
+
       packetStreamServers.set(udid, packetStreamServer);
-      
+
       log.info(`Packet stream server started on port ${packetStreamPort}`);
     } catch (err) {
       log.warn(`Failed to start packet stream server: ${err}`);
-      // Continue without packet streaming
     }
 
     log.info(`✅ Tunnel creation completed successfully for device: ${udid}`);
@@ -388,7 +390,6 @@ async function createTunnelForDevice(
 
       deviceInfoMap.set(device.Properties.SerialNumber, deviceInfo);
 
-      // Get or create the info server
       const serverInfo = await getInfoServer();
 
       log.info(
@@ -438,13 +439,10 @@ async function createTunnelForDevice(
 }
 
 /**
- * Main function to test tunnel creation workflow for all devices
  */
 async function main(): Promise<void> {
-  // Setup cleanup handlers first
   setupCleanupHandlers();
 
-  // Parse command line arguments
   const args = process.argv.slice(2);
   const keepOpenFlag = args.includes('--keep-open') || args.includes('-k');
   const specificUdid = args.find((arg) => !arg.startsWith('-'));
@@ -462,21 +460,17 @@ async function main(): Promise<void> {
   }
 
   try {
-    // TLS options for the connection (can be customized as needed)
     const tlsOptions: Partial<ConnectionOptions> = {
       rejectUnauthorized: false,
       minVersion: 'TLSv1.2',
     };
 
-    // Create usbmux instance to list devices
     log.info('Connecting to usbmuxd...');
     const usbmux = await createUsbmux();
 
-    // List all connected devices
     log.info('Listing all connected devices...');
     const devices = await usbmux.listDevices();
 
-    // Close the usbmux connection as we don't need it anymore
     await usbmux.close();
 
     if (devices.length === 0) {
@@ -494,7 +488,6 @@ async function main(): Promise<void> {
       log.info(`     Product ID: ${device.Properties.ProductID}`);
     });
 
-    // Filter devices if specific UDID is provided
     let devicesToProcess = devices;
     if (specificUdid) {
       devicesToProcess = devices.filter(
@@ -515,20 +508,17 @@ async function main(): Promise<void> {
 
     log.info(`\nProcessing ${devicesToProcess.length} device(s)...`);
 
-    // Process each device and create tunnels
     const results: TunnelResult[] = [];
 
     for (const device of devicesToProcess) {
       const result = await createTunnelForDevice(device, tlsOptions);
       results.push(result);
 
-      // Add a small delay between devices to avoid overwhelming the system
       if (devicesToProcess.length > 1) {
         await new Promise((resolve) => setTimeout(resolve, 1000));
       }
     }
 
-    // Summary
     log.info('\n=== TUNNEL CREATION SUMMARY ===');
     const successful = results.filter((r) => r.success);
     const failed = results.filter((r) => !r.success);
@@ -539,118 +529,25 @@ async function main(): Promise<void> {
 
     if (successful.length > 0) {
       log.info('\n✅ Successful tunnels:');
-      successful.forEach((result, index) => {
-        const udid = result.device.Properties.SerialNumber;
+      const registry = await updateTunnelRegistry(results);
+      await startTunnelRegistryServer(registry);
 
-        log.info(`  ${index + 1}. Device: ${udid}`);
-        log.info(`     Address: ${result.tunnel.Address}`);
-        log.info(`     RSD Port: ${result.tunnel.RsdPort}`);
+      log.info('\n📁 Tunnel registry API:');
+      log.info('   The tunnel registry is now available through the API at:');
+      log.info('   http://localhost:42314/remotexpc/tunnels');
+      log.info('\n   Available endpoints:');
+      log.info('   - GET /remotexpc/tunnels - List all tunnels');
+      log.info('   - GET /remotexpc/tunnels/:udid - Get tunnel by UDID');
+      log.info('   - GET /remotexpc/tunnels/metadata - Get registry metadata');
+
+      log.info('\n💡 Example usage:');
+      log.info('   curl http://localhost:4723/remotexpc/tunnels');
+      log.info('   curl http://localhost:4723/remotexpc/tunnels/metadata');
+      if (successful.length > 0) {
+        const firstUdid = successful[0].device.Properties.SerialNumber;
         log.info(
-          `     Connection Type: ${result.device.Properties.ConnectionType}`,
+          `   curl http://localhost:4723/remotexpc/tunnels/${firstUdid}`,
         );
-        log.info(`     Product ID: ${result.device.Properties.ProductID}`);
-      });
-
-      await updateTunnelRegistry(results);
-
-      log.info('\n📁 Tunnel registry updated:');
-      log.info(`   Registry file: ${TUNNEL_REGISTRY_PATH}`);
-      log.info(
-        '   This file contains persistent tunnel information that can be',
-      );
-      log.info('   accessed by other Appium processes at any time.');
-
-      log.info('\n💡 How to access tunnel data from other processes:');
-      log.info('   1. Read the tunnel-registry.json file');
-      log.info('   2. Parse the JSON to get tunnel information for any device');
-      log.info('   3. Use the UDID as the key to find specific device tunnels');
-
-      const firstSuccess = successful[0];
-      process.env.TUNNEL_ADDRESS = firstSuccess.tunnel.Address;
-      process.env.TUNNEL_RSD_PORT =
-        firstSuccess.tunnel.RsdPort?.toString() ?? '0';
-      process.env.TUNNEL_UDID = firstSuccess.device.Properties.SerialNumber;
-      process.env.TUNNEL_REGISTRY_PATH = TUNNEL_REGISTRY_PATH;
-
-      log.info(
-        '\n🔄 Backward compatibility environment variables (first device only):',
-      );
-      log.info(`   TUNNEL_ADDRESS=${process.env.TUNNEL_ADDRESS}`);
-      log.info(`   TUNNEL_RSD_PORT=${process.env.TUNNEL_RSD_PORT}`);
-      log.info(`   TUNNEL_UDID=${process.env.TUNNEL_UDID}`);
-      log.info(`   TUNNEL_REGISTRY_PATH=${process.env.TUNNEL_REGISTRY_PATH}`);
-    }
-
-    if (failed.length > 0) {
-      log.info('\n❌ Failed tunnels:');
-      failed.forEach((result, index) => {
-        log.info(
-          `  ${index + 1}. Device: ${result.device.Properties.SerialNumber}`,
-        );
-        log.info(`     Error: ${result.error}`);
-      });
-    }
-
-    if (failed.length === results.length) {
-      log.error('\nAll tunnel creation attempts failed!');
-      process.exit(1);
-    } else {
-      log.info('\nTunnel creation process completed!');
-
-      if (keepOpenFlag) {
-        const successfulWithSockets = successful.filter(
-          (result) => 'socket' in result,
-        );
-
-        if (successfulWithSockets.length > 0) {
-          log.info(
-            '\n🔌 Keeping tunnel connections open for lsof inspection...',
-          );
-          log.info('You can now use lsof to inspect the open connections:');
-          log.info('  $ lsof -i -P | grep node');
-          log.info('  $ lsof -i -P | grep -i tcp');
-          log.info('  $ lsof -i -P | grep LISTEN');
-
-          // Print the tunnel information for each device
-          log.info('\n📊 Tunnel information for lsof inspection:');
-          successfulWithSockets.forEach((result, index) => {
-            const udid = result.device.Properties.SerialNumber;
-            log.info(`  ${index + 1}. Device: ${udid}`);
-            log.info(`     Address: ${result.tunnel.Address}`);
-            log.info(`     RSD Port: ${result.tunnel.RsdPort}`);
-          });
-
-          // Print info about the info server
-          log.info('\n🌐 Info Server:');
-          log.info(`  Port: ${INFO_SERVER_PORT}`);
-          log.info(
-            `  To get info for all devices: curl localhost:${INFO_SERVER_PORT}`,
-          );
-          log.info(
-            `  To find with lsof: lsof -i -P | grep ${INFO_SERVER_PORT}`,
-          );
-
-          log.info(
-            '\nPress Ctrl+C to terminate the process and close the connections.',
-          );
-
-          // Keep the process running indefinitely
-          // eslint-disable-next-line no-constant-condition
-          await new Promise(() => {
-            // This promise never resolves, keeping the process alive
-            // until the user terminates it with Ctrl+C
-          });
-        } else {
-          log.warn(
-            'No sockets available to keep open. Make sure tunnel creation was successful.',
-          );
-        }
-      } else {
-        log.info(
-          '\nTo keep connections open for lsof inspection, run with --keep-open or -k flag:',
-        );
-        log.info('  $ node scripts/test-tunnel-creation.ts --keep-open');
-        log.info('  $ node scripts/test-tunnel-creation.ts -k');
       }
     }
   } catch (error) {

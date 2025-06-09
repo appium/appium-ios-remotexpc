@@ -262,6 +262,9 @@ export {
   type TunnelRegistry,
 } from './tunnel-registry.js';
 
+// Export tunnel API client
+export { tunnelApiClient } from './tunnel-api-client.js';
+
 // Export packet streaming IPC functionality
 export { PacketStreamServer } from './packet-stream-server.js';
 export { PacketStreamClient } from './packet-stream-client.js';
