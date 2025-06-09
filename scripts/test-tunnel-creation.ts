@@ -5,6 +5,7 @@
  */
 import { logger } from '@appium/support';
 import { promises as fs } from 'node:fs';
+import net from 'node:net';
 import { join } from 'node:path';
 import type { ConnectionOptions } from 'tls';
 
@@ -154,7 +155,6 @@ async function getInfoServer(): Promise<{ server: any; port: number }> {
   }
 
   // Create a new server
-  const net = await import('node:net');
   const server = net.createServer();
 
   // Handle connections

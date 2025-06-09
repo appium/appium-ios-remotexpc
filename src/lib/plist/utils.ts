@@ -137,7 +137,7 @@ export function escapeXml(str: string): string {
       case '"':
         return '&quot;';
       // eslint-disable-next-line quotes -- Prettier uses double quotes here to avoid escaping the single quote character
-      case "'":
+      case `'`:
         return '&apos;';
       default:
         return c;
@@ -152,9 +152,10 @@ export function escapeXml(str: string): string {
  * @returns True if the data contains XML plist content, false otherwise
  */
 export function isXmlPlistContent(data: string | Buffer): boolean {
-  const strData =
-    typeof data === 'string' ? data : data.toString(UTF8_ENCODING);
-  return strData.includes('<?xml') || strData.includes('<plist');
+  return (
+    data.toString(UTF8_ENCODING).includes('<?xml') ||
+    data.toString(UTF8_ENCODING).includes('<plist')
+  );
 }
 
 /**

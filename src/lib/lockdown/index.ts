@@ -207,7 +207,7 @@ export class LockdownService extends BasePlistService {
   private tlsService?: PlistService;
   private isTLS = false;
   private tlsUpgradePromise?: Promise<void>;
-  private relayService?: RelayService;
+  private _relayService?: RelayService;
   private readonly tlsManager = new TLSManager();
   private readonly deviceManager = new DeviceManager();
 
@@ -328,8 +328,15 @@ export class LockdownService extends BasePlistService {
   /**
    * Sets the relay service for this lockdown instance
    */
-  public setRelayService(relay: RelayService): void {
-    this.relayService = relay;
+  public set relayService(relay: RelayService) {
+    this._relayService = relay;
+  }
+
+  /**
+   * Gets the relay service for this lockdown instance
+   */
+  public get relayService(): RelayService | undefined {
+    return this._relayService;
   }
 
   /**
@@ -338,6 +345,26 @@ export class LockdownService extends BasePlistService {
   public async waitForTLSUpgrade(): Promise<void> {
     if (this.tlsUpgradePromise) {
       await this.tlsUpgradePromise;
+    }
+  }
+
+  /**
+   * Stops the relay service with an optional custom message
+   */
+  public stopRelayService(
+    message = 'Stopping relay server associated with LockdownService',
+  ): void {
+    const relay = this.relayService;
+    if (relay) {
+      log.info(message);
+      (async () => {
+        try {
+          await relay.stop();
+          log.info('Relay server stopped successfully');
+        } catch (err) {
+          log.error(`Error stopping relay server: ${err}`);
+        }
+      })();
     }
   }
 
@@ -373,18 +400,6 @@ export class LockdownService extends BasePlistService {
       super.close();
     }
   }
-
-  private stopRelayService(): void {
-    if (this.relayService) {
-      log.info('Stopping relay server associated with LockdownService');
-      this.relayService
-        .stop()
-        .then(() => log.info('Relay server stopped successfully'))
-        .catch((err: Error) =>
-          log.error(`Error stopping relay server: ${err}`),
-        );
-    }
-  }
 }
 
 // Factory class for creating LockdownService instances
@@ -408,14 +423,15 @@ export class LockdownServiceFactory {
     const relay = new RelayService(device.DeviceID, port, DEFAULT_RELAY_PORT);
     await relay.start();
 
+    let service: LockdownService | undefined;
     try {
       // Connect through the relay
       const socket = await relay.connect();
       log.debug('Socket connected, creating LockdownService');
 
       // Create the lockdown service
-      const service = new LockdownService(socket, udid, autoSecure);
-      service.setRelayService(relay);
+      service = new LockdownService(socket, udid, autoSecure);
+      service.relayService = relay;
 
       // Wait for TLS upgrade if enabled
       if (autoSecure) {
@@ -426,11 +442,7 @@ export class LockdownServiceFactory {
       return { lockdownService: service, device };
     } catch (err) {
       // Clean up relay on error
-      await relay
-        .stop()
-        .catch((stopErr) =>
-          log.error(`Error stopping relay after failure: ${stopErr}`),
-        );
+      service?.stopRelayService('Stopping relay after failure');
       throw err;
     }
   }

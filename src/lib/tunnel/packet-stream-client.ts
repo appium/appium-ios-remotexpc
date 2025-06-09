@@ -29,7 +29,8 @@ export class PacketStreamClient extends EventEmitter {
 
   async connect(): Promise<void> {
     if (this.connected) {
-      throw new Error('Already connected');
+      log.info('Already connected');
+      return;
     }
 
     return new Promise((resolve, reject) => {
@@ -48,7 +49,7 @@ export class PacketStreamClient extends EventEmitter {
         this.handleData(data);
       });
 
-      this.socket.on('close', () => {
+      this.socket.once('close', () => {
         log.info('Disconnected from packet stream server');
         this.connected = false;
         this.emit('close');
