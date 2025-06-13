@@ -59,7 +59,7 @@
   },
   "dependencies": {
     "@appium/support": "^6.1.0",
-    "@types/node": "^22.14.0",
+    "@types/node": "^24.0.1",
     "@xmldom/xmldom": "^0.9.8",
     "npm-run-all2": "^7.0.2"
   }
