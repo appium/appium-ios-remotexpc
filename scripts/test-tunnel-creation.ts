@@ -20,56 +20,24 @@ import { startTunnelRegistryServer } from '../src/lib/tunnel/tunnel-registry-ser
 import type { Device } from '../src/lib/usbmux/index.js';
 
 const log = logger.getLogger('TunnelCreationTest');
-
-// Path to the tunnel registry file
-const TUNNEL_REGISTRY_PATH = join(process.cwd(), 'tunnel-registry.json');
-
-/**
- * Load existing tunnel registry from file
- */
-async function loadTunnelRegistry(): Promise<TunnelRegistry> {
-  try {
-    const data = await fs.readFile(TUNNEL_REGISTRY_PATH, 'utf-8');
-    return JSON.parse(data);
-  } catch (error) {
-    // Return empty registry if file doesn't exist or is invalid
-    return {
-      tunnels: {},
-      metadata: {
-        lastUpdated: new Date().toISOString(),
-        totalTunnels: 0,
-        activeTunnels: 0,
-      },
-    };
-  }
-}
-
-/**
- * Save tunnel registry to file
- */
-async function saveTunnelRegistry(registry: TunnelRegistry): Promise<void> {
-  try {
-    await fs.writeFile(
-      TUNNEL_REGISTRY_PATH,
-      JSON.stringify(registry, null, 2),
-      'utf-8',
-    );
-    log.info(`Tunnel registry saved to: ${TUNNEL_REGISTRY_PATH}`);
-  } catch (error) {
-    log.error(`Failed to save tunnel registry: ${error}`);
-    throw error;
-  }
-}
-
 /**
  * Update tunnel registry with new tunnel information
  */
 async function updateTunnelRegistry(
   results: TunnelResult[],
 ): Promise<TunnelRegistry> {
-  const registry = await loadTunnelRegistry();
   const now = Date.now();
   const nowISOString = new Date().toISOString();
+  
+  // Initialize registry if it doesn't exist
+  const registry: TunnelRegistry = {
+    tunnels: {},
+    metadata: {
+      lastUpdated: nowISOString,
+      totalTunnels: 0,
+      activeTunnels: 0,
+    }
+  };
 
   // Update tunnels
   for (const result of results) {
@@ -97,34 +65,6 @@ async function updateTunnelRegistry(
   };
 
   return registry;
-}
-
-/**
- * Clear tunnel registry (remove file or set empty state)
- */
-async function clearTunnelRegistry(): Promise<void> {
-  try {
-    const emptyRegistry: TunnelRegistry = {
-      tunnels: {},
-      metadata: {
-        lastUpdated: new Date().toISOString(),
-        totalTunnels: 0,
-        activeTunnels: 0,
-      },
-    };
-
-    await saveTunnelRegistry(emptyRegistry);
-    log.info('Tunnel registry cleared due to process interruption');
-  } catch (error) {
-    log.error(`Failed to clear tunnel registry: ${error}`);
-    // Try to delete the file as fallback
-    try {
-      await fs.unlink(TUNNEL_REGISTRY_PATH);
-      log.info('Tunnel registry file deleted as fallback cleanup');
-    } catch (deleteError) {
-      log.error(`Failed to delete tunnel registry file: ${deleteError}`);
-    }
-  }
 }
 
 const activeServers: Array<{ server: any; port: number }> = [];
@@ -234,8 +174,6 @@ function setupCleanupHandlers(): void {
       }
     }
 
-    // Clear the tunnel registry
-    await clearTunnelRegistry();
     log.info('Cleanup completed. Exiting...');
     process.exit(0);
   };
@@ -559,6 +497,5 @@ async function main(): Promise<void> {
 // Run the main function
 main().catch(async (error) => {
   log.error(`Fatal error: ${error}`);
-  await clearTunnelRegistry();
   process.exit(1);
 });
