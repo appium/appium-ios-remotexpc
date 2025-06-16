@@ -2,6 +2,8 @@ import { logger } from '@appium/support';
 import * as http from 'node:http';
 import { URL } from 'node:url';
 
+import type { TunnelRegistry, TunnelRegistryEntry } from '../types.js';
+
 // Constants
 const DEFAULT_TUNNEL_REGISTRY_PORT = 42314;
 const DEFAULT_SERVER_PORT = 4723;
@@ -14,42 +16,6 @@ const HTTP_STATUS = {
   NOT_FOUND: 404,
   INTERNAL_SERVER_ERROR: 500,
 } as const;
-
-// Interfaces
-export interface TunnelRegistryEntry {
-  /** Unique device identifier */
-  udid: string;
-  /** Numeric device ID */
-  deviceId: number;
-  /** IP address of the tunnel */
-  address: string;
-  /** Remote Service Discovery (RSD) port number */
-  rsdPort: number;
-  /** Optional packet stream port number */
-  packetStreamPort?: number;
-  /** Type of connection (e.g., 'USB', 'Network') */
-  connectionType: string;
-  /** Product identifier of the device */
-  productId: number;
-  /** Timestamp when the tunnel was created (milliseconds since epoch) */
-  createdAt: number;
-  /** Timestamp when the tunnel was last updated (milliseconds since epoch) */
-  lastUpdated: number;
-}
-
-export interface TunnelRegistry {
-  /** Map of UDID to tunnel registry entries */
-  tunnels: Record<string, TunnelRegistryEntry>;
-  /** Metadata about the registry */
-  metadata: {
-    /** ISO 8601 timestamp of last registry update */
-    lastUpdated: string;
-    /** Total number of tunnels in the registry */
-    totalTunnels: number;
-    /** Number of currently active tunnels */
-    activeTunnels: number;
-  };
-}
 
 // Logger instance
 const log = logger.getLogger('TunnelRegistryServer');
@@ -95,7 +61,7 @@ function sendJSON(
 export class TunnelRegistryServer {
   private server: http.Server | undefined;
   public port: number;
-  public tunnelsInfo: TunnelRegistry | string | undefined;
+  public tunnelsInfo: TunnelRegistry | undefined;
   private registry: TunnelRegistry = {
     tunnels: {},
     metadata: {
@@ -107,11 +73,11 @@ export class TunnelRegistryServer {
 
   /**
    * Create a new TunnelRegistryServer
-   * @param tunnelsInfo - Registry data or path to the registry file
+   * @param tunnelsInfo - Registry data object
    * @param port - Port to listen on
    */
   constructor(
-    tunnelsInfo: TunnelRegistry | string | undefined,
+    tunnelsInfo: TunnelRegistry | undefined,
     port: number = DEFAULT_SERVER_PORT,
   ) {
     this.port = port;
@@ -395,18 +361,17 @@ export class TunnelRegistryServer {
   }
 
   /**
-   * Load the registry from a file
+   * Load the registry from provided data
    */
   private async loadRegistry(): Promise<void> {
     try {
-      if (this.tunnelsInfo && typeof this.tunnelsInfo !== 'string') {
+      if (this.tunnelsInfo) {
         this.registry = this.tunnelsInfo;
       }
-      // If tunnelsInfo is a string (file path), we would load from a file here
-      // For now, we're just using the object directly
+      // Use the provided registry object or default empty registry
     } catch (error) {
       log.warn(`Failed to load registry: ${error}`);
-      // If the file doesn't exist or is invalid, use the default empty registry
+      // If there's an error, use the default empty registry
       this.registry = {
         tunnels: {},
         metadata: {
@@ -421,12 +386,12 @@ export class TunnelRegistryServer {
 
 /**
  * Create and start a TunnelRegistryServer instance
- * @param tunnelInfos - Registry data or path
+ * @param tunnelInfos - Registry data object
  * @param port - Port to listen on
  * @returns The started TunnelRegistryServer instance
  */
 export async function startTunnelRegistryServer(
-  tunnelInfos: TunnelRegistry | string | undefined,
+  tunnelInfos: TunnelRegistry | undefined,
   port: number = DEFAULT_TUNNEL_REGISTRY_PORT,
 ): Promise<TunnelRegistryServer> {
   const server = new TunnelRegistryServer(tunnelInfos, port);

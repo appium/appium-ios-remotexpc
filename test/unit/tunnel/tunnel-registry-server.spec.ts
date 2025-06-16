@@ -1,11 +1,13 @@
 import { expect } from 'chai';
 
 import {
-  type TunnelRegistry,
-  type TunnelRegistryEntry,
   TunnelRegistryServer,
   startTunnelRegistryServer,
 } from '../../../src/lib/tunnel/tunnel-registry-server.js';
+import type {
+  TunnelRegistry,
+  TunnelRegistryEntry,
+} from '../../../src/lib/types.js';
 
 describe('TunnelRegistryServer', function () {
   let server: TunnelRegistryServer;

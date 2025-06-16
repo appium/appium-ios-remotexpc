@@ -92,8 +92,8 @@ export interface TunnelRegistry {
   tunnels: Record<string, TunnelRegistryEntry>;
   /** Metadata about the registry */
   metadata: {
-    /** Timestamp of last registry update (milliseconds since epoch) */
-    lastUpdated: number;
+    /** ISO 8601 timestamp of last registry update */
+    lastUpdated: string;
     /** Total number of tunnels in the registry */
     totalTunnels: number;
     /** Number of currently active tunnels */

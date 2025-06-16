@@ -1,9 +1,6 @@
 import { logger } from '@appium/support';
 
-import type {
-  TunnelRegistry,
-  TunnelRegistryEntry,
-} from './tunnel-registry-server.js';
+import type { TunnelRegistry, TunnelRegistryEntry } from '../types.js';
 
 const log = logger.getLogger('TunnelApiClient');
 
