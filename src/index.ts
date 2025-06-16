@@ -18,7 +18,7 @@ export type {
   TunnelResult,
   TunnelRegistry,
   TunnelRegistryEntry,
-} from './lib/types';
+} from './lib/types.js';
 export {
   createUsbmux,
   Services,
