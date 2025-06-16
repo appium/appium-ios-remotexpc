@@ -81,7 +81,7 @@ export interface TunnelRegistryEntry {
 export interface TunnelRegistry {
   tunnels: Record<string, TunnelRegistryEntry>;
   metadata: {
-    lastUpdated: string;
+    lastUpdated: number;
     totalTunnels: number;
     activeTunnels: number;
   };
