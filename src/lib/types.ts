@@ -1,6 +1,7 @@
 /**
  * Common type definitions for the appium-ios-remotexpc library
  */
+import type { Device } from './usbmux/index.js';
 
 /**
  * Represents a value that can be stored in a plist
@@ -64,3 +65,45 @@ export interface XPCDictionary {
  * Represents a callback function for handling responses
  */
 export type ResponseCallback<T> = (data: T) => void;
+
+export interface TunnelRegistryEntry {
+  udid: string;
+  deviceId: number;
+  address: string;
+  rsdPort: number;
+  packetStreamPort?: number;
+  connectionType: string;
+  productId: number;
+  createdAt: number;
+  lastUpdated: number;
+}
+
+export interface TunnelRegistry {
+  tunnels: Record<string, TunnelRegistryEntry>;
+  metadata: {
+    lastUpdated: string;
+    totalTunnels: number;
+    activeTunnels: number;
+  };
+}
+
+export interface SocketInfo {
+  server: Device;
+  port: number;
+  deviceInfo: {
+    udid: string;
+    address: string;
+    rsdPort?: number;
+  };
+}
+
+export interface TunnelResult {
+  device: Device;
+  tunnel: {
+    Address: string;
+    RsdPort?: number;
+  };
+  packetStreamPort?: number;
+  success: boolean;
+  error?: string;
+}

@@ -13,6 +13,12 @@ import { Usbmux, createUsbmux } from './lib/usbmux/index.js';
 import * as Services from './services/index.js';
 import { startCoreDeviceProxy } from './services/ios/tunnel-service/index.js';
 
+export type {
+  SocketInfo,
+  TunnelResult,
+  TunnelRegistry,
+  TunnelRegistryEntry,
+} from './lib/types.ts';
 export {
   createUsbmux,
   Services,
