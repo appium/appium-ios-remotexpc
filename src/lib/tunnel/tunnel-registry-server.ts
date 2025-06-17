@@ -325,7 +325,16 @@ export class TunnelRegistryServer {
   ): Promise<void> {
     try {
       await this.loadRegistry();
-      const tunnelData = await parseJSONBody<TunnelRegistryEntry>(req);
+      let tunnelData: TunnelRegistryEntry | null = null;
+      try {
+        tunnelData = await parseJSONBody<TunnelRegistryEntry>(req);
+      } catch (parseError) {
+        log.error(`Failed to parse JSON body: ${parseError.message}`);
+        sendJSON(res, HTTP_STATUS.BAD_REQUEST, {
+          error: 'Malformed JSON in request body',
+        });
+        return;
+      }
 
       if (!tunnelData || typeof tunnelData !== 'object') {
         sendJSON(res, HTTP_STATUS.BAD_REQUEST, {
