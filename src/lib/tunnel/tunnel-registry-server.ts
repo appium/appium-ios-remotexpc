@@ -6,16 +6,7 @@ import type { TunnelRegistry, TunnelRegistryEntry } from '../types.js';
 
 // Constants
 const DEFAULT_TUNNEL_REGISTRY_PORT = 42314;
-const DEFAULT_SERVER_PORT = 4723;
 const API_BASE_PATH = '/remotexpc/tunnels';
-
-// HTTP Status Codes
-const HTTP_STATUS = {
-  OK: 200,
-  BAD_REQUEST: 400,
-  NOT_FOUND: 404,
-  INTERNAL_SERVER_ERROR: 500,
-} as const;
 
 // Logger instance
 const log = logger.getLogger('TunnelRegistryServer');
@@ -51,17 +42,28 @@ function sendJSON(
   statusCode: number,
   data: unknown,
 ): void {
+  const statusText = http.STATUS_CODES[statusCode] || '';
+  let responseBody;
+  if (data && typeof data === 'object' && data !== null) {
+    if ('error' in data) {
+      responseBody = { status: statusText, ...data };
+    } else {
+      responseBody = { status: statusText, ...data };
+    }
+  } else {
+    responseBody = { status: statusText, data };
+  }
   res.writeHead(statusCode, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify(data));
+  res.end(JSON.stringify(responseBody));
 }
 
 /**
  * Tunnel Registry Server - provides API endpoints for tunnel registry operations
  */
 export class TunnelRegistryServer {
-  private server: http.Server | undefined;
+  private server?: http.Server;
   public port: number;
-  public tunnelsInfo: TunnelRegistry | undefined;
+  public tunnelsInfo?: TunnelRegistry;
   private registry: TunnelRegistry = {
     tunnels: {},
     metadata: {
@@ -76,10 +78,7 @@ export class TunnelRegistryServer {
    * @param tunnelsInfo - Registry data object
    * @param port - Port to listen on
    */
-  constructor(
-    tunnelsInfo: TunnelRegistry | undefined,
-    port: number = DEFAULT_SERVER_PORT,
-  ) {
+  constructor(tunnelsInfo: TunnelRegistry | undefined, port: number) {
     this.port = port;
     this.tunnelsInfo = tunnelsInfo;
   }
@@ -229,10 +228,10 @@ export class TunnelRegistryServer {
       }
 
       // No route matched
-      sendJSON(res, HTTP_STATUS.NOT_FOUND, { error: 'Not found' });
+      sendJSON(res, 404, { error: 'Not found' });
     } catch (error) {
       log.error(`Request handling error: ${error}`);
-      sendJSON(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, {
+      sendJSON(res, 500, {
         error: 'Internal server error',
       });
     }
@@ -244,10 +243,10 @@ export class TunnelRegistryServer {
   private async getAllTunnels(res: http.ServerResponse): Promise<void> {
     try {
       await this.loadRegistry();
-      sendJSON(res, HTTP_STATUS.OK, this.fullRegistry);
+      sendJSON(res, 200, this.fullRegistry);
     } catch (error) {
       log.error(`Error getting all tunnels: ${error}`);
-      sendJSON(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, {
+      sendJSON(res, 500, {
         error: 'Failed to get tunnels',
       });
     }
@@ -265,16 +264,16 @@ export class TunnelRegistryServer {
       const tunnel = this.tunnels[udid];
 
       if (!tunnel) {
-        sendJSON(res, HTTP_STATUS.NOT_FOUND, {
+        sendJSON(res, 404, {
           error: `Tunnel not found for UDID: ${udid}`,
         });
         return;
       }
 
-      sendJSON(res, HTTP_STATUS.OK, tunnel);
+      sendJSON(res, 200, tunnel);
     } catch (error) {
       log.error(`Error getting tunnel by UDID: ${error}`);
-      sendJSON(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, {
+      sendJSON(res, 500, {
         error: 'Failed to get tunnel',
       });
     }
@@ -291,7 +290,7 @@ export class TunnelRegistryServer {
       await this.loadRegistry();
 
       if (isNaN(deviceId)) {
-        sendJSON(res, HTTP_STATUS.BAD_REQUEST, { error: 'Invalid device ID' });
+        sendJSON(res, 400, { error: 'Invalid device ID' });
         return;
       }
 
@@ -300,16 +299,16 @@ export class TunnelRegistryServer {
       );
 
       if (!tunnel) {
-        sendJSON(res, HTTP_STATUS.NOT_FOUND, {
+        sendJSON(res, 404, {
           error: `Tunnel not found for device ID: ${deviceId}`,
         });
         return;
       }
 
-      sendJSON(res, HTTP_STATUS.OK, tunnel);
+      sendJSON(res, 200, tunnel);
     } catch (error) {
       log.error(`Error getting tunnel by device ID: ${error}`);
-      sendJSON(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, {
+      sendJSON(res, 500, {
         error: 'Failed to get tunnel',
       });
     }
@@ -328,16 +327,18 @@ export class TunnelRegistryServer {
       let tunnelData: TunnelRegistryEntry | null = null;
       try {
         tunnelData = await parseJSONBody<TunnelRegistryEntry>(req);
-      } catch (parseError) {
-        log.error(`Failed to parse JSON body: ${parseError.message}`);
-        sendJSON(res, HTTP_STATUS.BAD_REQUEST, {
+      } catch (parseError: unknown) {
+        const errorMessage =
+          parseError instanceof Error ? parseError.message : String(parseError);
+        log.error(`Failed to parse JSON body: ${errorMessage}`);
+        sendJSON(res, 400, {
           error: 'Malformed JSON in request body',
         });
         return;
       }
 
       if (!tunnelData || typeof tunnelData !== 'object') {
-        sendJSON(res, HTTP_STATUS.BAD_REQUEST, {
+        sendJSON(res, 400, {
           error: 'Invalid tunnel data',
         });
         return;
@@ -345,7 +346,7 @@ export class TunnelRegistryServer {
 
       // Ensure the UDID in the path matches the one in the body
       if (tunnelData.udid !== udid) {
-        sendJSON(res, HTTP_STATUS.BAD_REQUEST, {
+        sendJSON(res, 400, {
           error: 'UDID mismatch between path and body',
         });
         return;
@@ -357,13 +358,13 @@ export class TunnelRegistryServer {
         lastUpdated: Date.now(),
       };
 
-      sendJSON(res, HTTP_STATUS.OK, {
+      sendJSON(res, 200, {
         success: true,
         tunnel: this.registry.tunnels[udid],
       });
     } catch (error) {
       log.error(`Error updating tunnel: ${error}`);
-      sendJSON(res, HTTP_STATUS.INTERNAL_SERVER_ERROR, {
+      sendJSON(res, 500, {
         error: 'Failed to update tunnel',
       });
     }

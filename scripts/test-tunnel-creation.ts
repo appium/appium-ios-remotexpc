@@ -4,22 +4,21 @@
  * This script demonstrates the tunnel creation workflow for all connected devices
  */
 import { logger } from '@appium/support';
-import { promises as fs } from 'node:fs';
-import net from 'node:net';
-import { join } from 'node:path';
 import type { ConnectionOptions } from 'tls';
 
 import {
   PacketStreamServer,
+  SocketInfo,
   TunnelManager,
   createLockdownServiceByUDID,
   createUsbmux,
   startCoreDeviceProxy,
+  TunnelRegistry,
 } from '../src/index.js';
 import { startTunnelRegistryServer } from '../src/lib/tunnel/tunnel-registry-server.js';
 import type { Device } from '../src/lib/usbmux/index.js';
 
-const log = logger.getLogger('TunnelCreationTest');
+const log = logger.getLogger('TunnelCreation');
 /**
  * Update tunnel registry with new tunnel information
  */
@@ -81,61 +80,7 @@ const deviceInfoMap: Map<
   }
 > = new Map();
 
-const INFO_SERVER_PORT = 49152;
 let PACKET_STREAM_BASE_PORT = 50000;
-
-/**
- * Create or get the info server that provides information about all devices
- */
-async function getInfoServer(): Promise<{ server: any; port: number }> {
-  // Check if we already have an active server
-  const existingServer = activeServers.find((s) => s.port === INFO_SERVER_PORT);
-  if (existingServer) {
-    return existingServer;
-  }
-
-  // Create a new server
-  const server = net.createServer();
-
-  // Handle connections
-  server.on('connection', (conn) => {
-    // Convert the device info map to an array
-    const devices = Array.from(deviceInfoMap.values());
-
-    // Create the response JSON
-    const responseJson = JSON.stringify({ devices }, null, 2);
-
-    // Send a proper HTTP response
-    const httpResponse = [
-      'HTTP/1.1 200 OK',
-      'Content-Type: application/json',
-      `Content-Length: ${Buffer.byteLength(responseJson)}`,
-      'Connection: close',
-      '',
-      responseJson,
-    ].join('\r\n');
-
-    conn.write(httpResponse);
-    conn.end();
-  });
-
-  // Start the server
-  await new Promise<void>((resolve, reject) => {
-    server.listen(INFO_SERVER_PORT, '127.0.0.1', () => {
-      resolve();
-    });
-    server.on('error', (err) => {
-      reject(err);
-    });
-  });
-
-  // Add to active servers
-  const serverInfo = { server, port: INFO_SERVER_PORT };
-  activeServers.push(serverInfo);
-
-  return serverInfo;
-}
-
 /**
  * Setup cleanup handlers for graceful shutdown
  */
@@ -159,19 +104,6 @@ function setupCleanupHandlers(): void {
         }
       }
       packetStreamServers.clear();
-    }
-
-    // Close all active servers
-    if (activeServers.length > 0) {
-      log.info(`Closing ${activeServers.length} active server(s)...`);
-      for (const serverInfo of activeServers) {
-        try {
-          serverInfo.server.close();
-          log.info(`Closed server on port ${serverInfo.port}`);
-        } catch (err) {
-          log.warn(`Failed to close server on port ${serverInfo.port}: ${err}`);
-        }
-      }
     }
 
     log.info('Cleanup completed. Exiting...');
@@ -211,49 +143,6 @@ interface TunnelResult {
   error?: string;
 }
 
-/**
- * Interface for tunnel registry entry
- */
-interface TunnelRegistryEntry {
-  udid: string;
-  deviceId: number;
-  address: string;
-  rsdPort: number;
-  packetStreamPort?: number;
-  connectionType: string;
-  productId: number;
-  createdAt: number;
-  lastUpdated: number;
-}
-
-/**
- * Interface for tunnel registry
- */
-interface TunnelRegistry {
-  tunnels: Record<string, TunnelRegistryEntry>;
-  metadata: {
-    lastUpdated: string;
-    totalTunnels: number;
-    activeTunnels: number;
-  };
-}
-
-/**
- * Interface for socket info
- */
-interface SocketInfo {
-  server: any;
-  port: number;
-  deviceInfo: {
-    udid: string;
-    address: string;
-    rsdPort?: number;
-  };
-}
-
-/**
- * Create tunnel for a single device
- */
 async function createTunnelForDevice(
   device: Device,
   tlsOptions: Partial<ConnectionOptions>,
@@ -328,13 +217,6 @@ async function createTunnelForDevice(
 
       deviceInfoMap.set(device.Properties.SerialNumber, deviceInfo);
 
-      const serverInfo = await getInfoServer();
-
-      log.info(
-        `Added device ${device.Properties.SerialNumber} to info server on port ${serverInfo.port}`,
-      );
-      log.info(`To get all device info: curl localhost:${serverInfo.port}`);
-
       return {
         device,
         tunnel: {
@@ -343,12 +225,7 @@ async function createTunnelForDevice(
         },
         packetStreamPort,
         success: true,
-        socket,
-        socketInfo: {
-          server: serverInfo.server,
-          port: serverInfo.port,
-          deviceInfo,
-        },
+        socket
       };
     } catch (err) {
       log.warn(`Could not add device to info server: ${err}`);
