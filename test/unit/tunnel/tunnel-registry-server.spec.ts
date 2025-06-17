@@ -174,7 +174,7 @@ describe('TunnelRegistryServer', function () {
       );
       const data = (await response.json()) as { error: string };
 
-      expect(response.status).to.equal(500);
+      expect(response.status).to.equal(400);
       expect(data).to.have.property('error');
     });
   });
