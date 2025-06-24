@@ -1,8 +1,15 @@
 import { logger } from '@appium/support';
 import { expect } from 'chai';
-import { PacketStreamClient, TunnelManager } from '../../src/lib/tunnel/index.js';
-import { createRemoteXPCConnection, startSyslogService } from '../../src/services.js';
-import type SyslogService from '../../src/services/ios/syslog-service/index.js';
+
+import {
+  PacketStreamClient,
+  TunnelManager,
+} from '../../src/lib/tunnel/index.js';
+import type { SyslogService } from '../../src/lib/types.js';
+import {
+  createRemoteXPCConnection,
+  startSyslogService,
+} from '../../src/services.js';
 
 const log = logger.getLogger('TunnelTest');
 

@@ -1,7 +1,10 @@
 import { logger } from '@appium/support';
 
 import { PlistServiceDecoder } from '../../../lib/plist/plist-decoder.js';
-import type { PlistDictionary } from '../../../lib/types.js';
+import type {
+  DiagnosticsService as DiagnosticsServiceInterface,
+  PlistDictionary,
+} from '../../../lib/types.js';
 import { BaseService } from '../base-service.js';
 import { MobileGestaltKeys } from './keys.js';
 
@@ -13,7 +16,10 @@ const log = logger.getLogger('DiagnosticService');
  * - Reboot, shutdown or put the device in sleep mode
  * - Get WiFi information
  */
-class DiagnosticsService extends BaseService {
+class DiagnosticsService
+  extends BaseService
+  implements DiagnosticsServiceInterface
+{
   static readonly RSD_SERVICE_NAME =
     'com.apple.mobile.diagnostics_relay.shim.remote';
 

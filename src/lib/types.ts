@@ -1,6 +1,10 @@
 /**
  * Common type definitions for the appium-ios-remotexpc library
  */
+import { EventEmitter } from 'events';
+import type { PacketData } from 'tuntap-bridge';
+
+import type { BaseService, Service } from '../services/ios/base-service.js';
 import type { Device } from './usbmux/index.js';
 
 /**
@@ -133,4 +137,162 @@ export interface TunnelResult {
   success: boolean;
   /** Error message if tunnel creation failed */
   error?: string;
+}
+
+/**
+ * Represents the instance side of DiagnosticsService
+ */
+export interface DiagnosticsService extends BaseService {
+  /**
+   * Query MobileGestalt keys
+   * @param keys Array of keys to query, if not provided all keys will be queried
+   * @returns Object containing the queried keys and their values
+   */
+  mobileGestalt(keys?: string[]): Promise<PlistDictionary>;
+
+  /**
+   * Restart the device
+   * @returns Promise that resolves when the restart request is sent
+   */
+  restart(): Promise<PlistDictionary>;
+
+  /**
+   * Shutdown the device
+   * @returns Promise that resolves when the shutdown request is sent
+   */
+  shutdown(): Promise<PlistDictionary>;
+
+  /**
+   * Put the device in sleep mode
+   * @returns Promise that resolves when the sleep request is sent
+   */
+  sleep(): Promise<PlistDictionary>;
+
+  /**
+   * Query IORegistry
+   * @param options Options for the IORegistry query
+   * @returns Object containing the IORegistry information
+   */
+  ioregistry(options?: {
+    plane?: string;
+    name?: string;
+    ioClass?: string;
+    returnRawJson?: boolean;
+    timeout?: number;
+  }): Promise<PlistDictionary[] | Record<string, any>>;
+}
+
+/**
+ * Represents the static side of DiagnosticsService
+ */
+export interface DiagnosticsServiceConstructor {
+  /**
+   * Service name for Remote Service Discovery
+   */
+  readonly RSD_SERVICE_NAME: string;
+  /**
+   * Creates a new DiagnosticsService instance
+   * @param address Tuple containing [host, port]
+   */
+  new (address: [string, number]): DiagnosticsService;
+}
+
+/**
+ * Options for configuring syslog capture
+ */
+export interface SyslogOptions {
+  /** Process ID to filter logs by */
+  pid?: number;
+  /** Whether to enable verbose logging */
+  enableVerboseLogging?: boolean;
+}
+
+/**
+ * Interface for a packet source that can provide packet data
+ */
+export interface PacketSource {
+  /** Add a packet consumer to receive packets */
+  addPacketConsumer: (consumer: PacketConsumer) => void;
+  /** Remove a packet consumer */
+  removePacketConsumer: (consumer: PacketConsumer) => void;
+}
+
+/**
+ * Interface for a packet consumer that can process packets
+ */
+export interface PacketConsumer {
+  /** Handler for received packets */
+  onPacket: (packet: PacketData) => void;
+}
+
+/**
+ * Represents the instance side of SyslogService
+ */
+export interface SyslogService extends EventEmitter {
+  /**
+   * Starts capturing syslog data from the device
+   * @param service Service information
+   * @param packetSource Source of packet data (can be PacketConsumer or AsyncIterable)
+   * @param options Configuration options for syslog capture
+   * @returns Promise resolving to the initial response from the service
+   */
+  start(
+    service: Service,
+    packetSource: PacketSource | AsyncIterable<PacketData>,
+    options?: SyslogOptions,
+  ): Promise<void>;
+
+  /**
+   * Stops capturing syslog data
+   * @returns Promise that resolves when capture is stopped
+   */
+  stop(): Promise<void>;
+
+  /**
+   * Restart the device
+   * @param service Service information
+   * @returns Promise that resolves when the restart request is sent
+   */
+  restart(service: Service): Promise<void>;
+
+  /**
+   * Event emitter for 'start' events
+   */
+  on(event: 'start', listener: (response: any) => void): this;
+
+  /**
+   * Event emitter for 'stop' events
+   */
+  on(event: 'stop', listener: () => void): this;
+
+  /**
+   * Event emitter for 'message' events
+   */
+  on(event: 'message', listener: (message: string) => void): this;
+
+  /**
+   * Event emitter for 'plist' events
+   */
+  on(event: 'plist', listener: (data: any) => void): this;
+
+  /**
+   * Event emitter for 'error' events
+   */
+  on(event: 'error', listener: (error: Error) => void): this;
+
+  /**
+   * Event emitter for any events
+   */
+  on(event: string, listener: (...args: any[]) => void): this;
+}
+
+/**
+ * Represents the static side of SyslogService
+ */
+export interface SyslogServiceConstructor {
+  /**
+   * Creates a new SyslogService instance
+   * @param address Tuple containing [host, port]
+   */
+  new (address: [string, number]): SyslogService;
 }

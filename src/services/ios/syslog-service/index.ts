@@ -4,21 +4,16 @@ import type { PacketConsumer, PacketData } from 'tuntap-bridge';
 
 import { isBinaryPlist } from '../../../lib/plist/binary-plist-parser.js';
 import { parsePlist } from '../../../lib/plist/unified-plist-parser.js';
+import type {
+  PacketSource,
+  SyslogOptions,
+  SyslogService as SyslogServiceInterface,
+} from '../../../lib/types.js';
 import { ServiceConnection } from '../../../service-connection.js';
 import { BaseService, type Service } from '../base-service.js';
 
 const syslogLog = logger.getLogger('SyslogMessages');
 const log = logger.getLogger('Syslog');
-
-export interface SyslogOptions {
-  pid?: number;
-  enableVerboseLogging?: boolean;
-}
-
-interface PacketSource {
-  addPacketConsumer: (consumer: PacketConsumer) => void;
-  removePacketConsumer: (consumer: PacketConsumer) => void;
-}
 
 const MIN_PRINTABLE_RATIO = 0.5;
 const ASCII_PRINTABLE_MIN = 32;
@@ -40,7 +35,7 @@ const DEFAULT_SYSLOG_REQUEST = {
  * syslog-service provides functionality to capture and process syslog messages
  * from a remote device using Apple's XPC services.
  */
-class SyslogService extends EventEmitter {
+class SyslogService extends EventEmitter implements SyslogServiceInterface {
   private readonly baseService: BaseService;
   private connection: ServiceConnection | null = null;
   private packetConsumer: PacketConsumer | null = null;

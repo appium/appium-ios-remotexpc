@@ -13,6 +13,8 @@ import * as Services from './services.js';
 import { startCoreDeviceProxy } from './services/ios/tunnel-service/index.js';
 
 export type {
+  DiagnosticsService,
+  SyslogService,
   SocketInfo,
   TunnelResult,
   TunnelRegistry,

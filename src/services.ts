@@ -1,6 +1,11 @@
 import { strongbox } from '@appium/strongbox';
+
 import { TunnelManager } from './lib/tunnel/index.js';
 import { TunnelApiClient } from './lib/tunnel/tunnel-api-client.js';
+import type {
+  DiagnosticsService as DiagnosticsServiceType,
+  SyslogService as SyslogServiceType,
+} from './lib/types.js';
 import DiagnosticsService from './services/ios/diagnostic-service/index.js';
 import SyslogService from './services/ios/syslog-service/index.js';
 
@@ -8,7 +13,9 @@ async function getTunnelInformation(udid: string) {
   const box = strongbox('appium-xcuitest-driver');
   const item = await box.createItem('tunnelRegistryPort');
   const tunnelRegistryPort = await item.read();
-  const tunnelApiClient = new TunnelApiClient(`http://localhost:${tunnelRegistryPort}/remotexpc/tunnels`);
+  const tunnelApiClient = new TunnelApiClient(
+    `http://localhost:${tunnelRegistryPort}/remotexpc/tunnels`,
+  );
   const tunnelExists = await tunnelApiClient.hasTunnel(udid);
   if (!tunnelExists) {
     throw new Error(
@@ -28,7 +35,9 @@ async function startService(host: string, port: number) {
   return await TunnelManager.createRemoteXPCConnection(host, port);
 }
 
-async function startDiagnosticsService(udid: string) {
+async function startDiagnosticsService(
+  udid: string,
+): Promise<DiagnosticsServiceType> {
   const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
   const diagnosticsService = remoteXPC.findService(
     DiagnosticsService.RSD_SERVICE_NAME,
@@ -39,7 +48,7 @@ async function startDiagnosticsService(udid: string) {
   ]);
 }
 
-async function startSyslogService(udid: string) {
+async function startSyslogService(udid: string): Promise<SyslogServiceType> {
   const { tunnelConnection } = await createRemoteXPCConnection(udid);
   return new SyslogService([tunnelConnection.host, tunnelConnection.port]);
 }
@@ -53,4 +62,8 @@ async function createRemoteXPCConnection(udid: string) {
   return { remoteXPC, tunnelConnection };
 }
 
-export { startDiagnosticsService, startSyslogService, createRemoteXPCConnection };
+export {
+  startDiagnosticsService,
+  startSyslogService,
+  createRemoteXPCConnection,
+};

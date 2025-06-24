@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 
 import { Services } from '../../src/index.js';
-import type DiagnosticsService from '../../src/services/ios/diagnostic-service/index.js';
+import type { DiagnosticsService } from '../../src/lib/types.js';
 
 describe('Diagnostics Service', function () {
   // Increase timeout for integration tests
@@ -12,7 +12,6 @@ describe('Diagnostics Service', function () {
   const udid = process.env.UDID || '';
 
   before(async function () {
-
     diagService = await Services.startDiagnosticsService(udid);
   });
 
