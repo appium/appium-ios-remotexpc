@@ -3,7 +3,6 @@ import {
   PacketStreamClient,
   PacketStreamServer,
   TunnelManager,
-  tunnelApiClient,
 } from './lib/tunnel/index.js';
 import {
   TunnelRegistryServer,
@@ -30,5 +29,4 @@ export {
   startCoreDeviceProxy,
   TunnelRegistryServer,
   startTunnelRegistryServer,
-  tunnelApiClient,
 };

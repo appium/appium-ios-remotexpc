@@ -1,12 +1,8 @@
 import { logger } from '@appium/support';
 import { expect } from 'chai';
-
-import {
-  PacketStreamClient,
-  TunnelManager,
-  tunnelApiClient,
-} from '../../src/lib/tunnel/index.js';
-import SyslogService from '../../src/services/ios/syslog-service/index.js';
+import { PacketStreamClient, TunnelManager } from '../../src/lib/tunnel/index.js';
+import { createRemoteXPCConnection, startSyslogService } from '../../src/services.js';
+import type SyslogService from '../../src/services/ios/syslog-service/index.js';
 
 const log = logger.getLogger('TunnelTest');
 
@@ -14,58 +10,26 @@ describe('Tunnel and Syslog Service', function () {
   // Increase timeout for integration tests
   this.timeout(60000);
 
-  let remoteXPC: any;
+  let remoteXpc: any;
   let syslogService: SyslogService;
   let service: any;
   let packetStreamClient: PacketStreamClient | null = null;
   const udid = process.env.UDID || '';
 
   before(async function () {
-    const tunnelExists = await tunnelApiClient.hasTunnel(udid);
-    if (!tunnelExists) {
-      throw new Error(
-        `No tunnel found for device ${udid}. Please run the tunnel creation script first: npm run test:tunnel-creation`,
-      );
-    }
-
-    const tunnelConnectionDetails =
-      await tunnelApiClient.getTunnelConnection(udid);
-    if (!tunnelConnectionDetails) {
-      throw new Error(
-        `Failed to get tunnel connection details for device ${udid}`,
-      );
-    }
-
-    remoteXPC = await TunnelManager.createRemoteXPCConnection(
-      tunnelConnectionDetails.host,
-      tunnelConnectionDetails.port,
+    const { remoteXPC, tunnelConnection } =
+      await createRemoteXPCConnection(udid);
+    remoteXpc = remoteXPC;
+    packetStreamClient = new PacketStreamClient(
+      'localhost',
+      tunnelConnection.packetStreamPort,
     );
-
-    syslogService = new SyslogService([
-      tunnelConnectionDetails.host,
-      tunnelConnectionDetails.port,
-    ]);
-
-    const registryEntry = await tunnelApiClient.getTunnelByUdid(udid);
-    if (registryEntry?.packetStreamPort) {
-      log.info(
-        `Packet stream server available on port ${registryEntry.packetStreamPort}`,
-      );
-      packetStreamClient = new PacketStreamClient(
-        'localhost',
-        registryEntry.packetStreamPort,
-      );
-      try {
-        await packetStreamClient.connect();
-        log.info('Connected to packet stream server');
-      } catch (err) {
-        log.warn(`Failed to connect to packet stream server: ${err}`);
-        packetStreamClient = null;
-      }
-    } else {
-      log.info(
-        'No packet stream port found in registry. The tunnel creation script may need to be rerun.',
-      );
+    try {
+      await packetStreamClient.connect();
+      log.info('Connected to packet stream server');
+    } catch (err) {
+      log.warn(`Failed to connect to packet stream server: ${err}`);
+      packetStreamClient = null;
     }
   });
 
@@ -78,23 +42,24 @@ describe('Tunnel and Syslog Service', function () {
   });
 
   it('should list all services', function () {
-    const services = remoteXPC.getServices();
+    const services = remoteXpc.getServices();
     expect(services).to.be.an('array');
   });
 
   it('should find os_trace_relay service', function () {
-    service = remoteXPC.findService('com.apple.os_trace_relay.shim.remote');
+    service = remoteXpc.findService('com.apple.os_trace_relay.shim.remote');
     expect(service).to.not.be.undefined;
   });
 
   it('should start syslog service (requires active tunnel with packet source)', async function () {
+    syslogService = await startSyslogService(udid);
     if (!packetStreamClient) {
       this.skip();
       return;
     }
 
     // Refresh the service object before using it
-    service = remoteXPC.findService('com.apple.os_trace_relay.shim.remote');
+    service = remoteXpc.findService('com.apple.os_trace_relay.shim.remote');
     expect(service).to.not.be.undefined;
 
     await syslogService.start(service, packetStreamClient, {
@@ -110,7 +75,7 @@ describe('Tunnel and Syslog Service', function () {
     }
 
     // Refresh the service object before using it again
-    service = remoteXPC.findService('com.apple.os_trace_relay.shim.remote');
+    service = remoteXpc.findService('com.apple.os_trace_relay.shim.remote');
     expect(service).to.not.be.undefined;
 
     const messages: string[] = [];

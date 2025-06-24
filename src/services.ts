@@ -1,7 +1,14 @@
-import { TunnelManager, tunnelApiClient } from './lib/tunnel/index.js';
+import { strongbox } from '@appium/strongbox';
+import { TunnelManager } from './lib/tunnel/index.js';
+import { TunnelApiClient } from './lib/tunnel/tunnel-api-client.js';
 import DiagnosticsService from './services/ios/diagnostic-service/index.js';
+import SyslogService from './services/ios/syslog-service/index.js';
 
 async function getTunnelInformation(udid: string) {
+  const box = strongbox('appium-xcuitest-driver');
+  const item = await box.createItem('tunnelRegistryPort');
+  const tunnelRegistryPort = await item.read();
+  const tunnelApiClient = new TunnelApiClient(`http://localhost:${tunnelRegistryPort}/remotexpc/tunnels`);
   const tunnelExists = await tunnelApiClient.hasTunnel(udid);
   if (!tunnelExists) {
     throw new Error(
@@ -22,11 +29,7 @@ async function startService(host: string, port: number) {
 }
 
 async function startDiagnosticsService(udid: string) {
-  const tunnelConnection = await getTunnelInformation(udid);
-  const remoteXPC = await startService(
-    tunnelConnection.host,
-    tunnelConnection.port,
-  );
+  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
   const diagnosticsService = remoteXPC.findService(
     DiagnosticsService.RSD_SERVICE_NAME,
   );
@@ -36,4 +39,18 @@ async function startDiagnosticsService(udid: string) {
   ]);
 }
 
-export { startDiagnosticsService };
+async function startSyslogService(udid: string) {
+  const { tunnelConnection } = await createRemoteXPCConnection(udid);
+  return new SyslogService([tunnelConnection.host, tunnelConnection.port]);
+}
+
+async function createRemoteXPCConnection(udid: string) {
+  const tunnelConnection = await getTunnelInformation(udid);
+  const remoteXPC = await startService(
+    tunnelConnection.host,
+    tunnelConnection.port,
+  );
+  return { remoteXPC, tunnelConnection };
+}
+
+export { startDiagnosticsService, startSyslogService, createRemoteXPCConnection };

@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 
-import { TunnelManager, tunnelApiClient } from '../../src/lib/tunnel/index.js';
-import DiagnosticsService from '../../src/services/ios/diagnostic-service/index.js';
+import { Services } from '../../src/index.js';
+import type DiagnosticsService from '../../src/services/ios/diagnostic-service/index.js';
 
 describe('Diagnostics Service', function () {
   // Increase timeout for integration tests
@@ -12,48 +12,8 @@ describe('Diagnostics Service', function () {
   const udid = process.env.UDID || '';
 
   before(async function () {
-    // Check if tunnel exists in registry for this device
-    const tunnelExists = await tunnelApiClient.hasTunnel(udid);
-    if (!tunnelExists) {
-      throw new Error(
-        `No tunnel found for device ${udid}. Please run the tunnel creation script first: npm run test:tunnel-creation`,
-      );
-    }
 
-    // Get tunnel connection details from registry
-    const tunnelConnection = await tunnelApiClient.getTunnelConnection(udid);
-    if (!tunnelConnection) {
-      throw new Error(
-        `Failed to get tunnel connection details for device ${udid}`,
-      );
-    }
-
-    // Create RemoteXPC connection using tunnel registry data
-    remoteXPC = await TunnelManager.createRemoteXPCConnection(
-      tunnelConnection.host,
-      tunnelConnection.port,
-    );
-
-    // List all services
-    remoteXPC.listAllServices();
-
-    // Find the diagnostics service
-    const diagnosticsService = remoteXPC.findService(
-      DiagnosticsService.RSD_SERVICE_NAME,
-    );
-
-    // Create the diagnostics service
-    if (!diagnosticsService) {
-      throw new Error(
-        `Diagnostics service '${DiagnosticsService.RSD_SERVICE_NAME}' not found`,
-      );
-    }
-
-    // Create the diagnostics service
-    diagService = new DiagnosticsService([
-      tunnelConnection.host,
-      parseInt(diagnosticsService.port, 10),
-    ]);
+    diagService = await Services.startDiagnosticsService(udid);
   });
 
   after(async function () {

@@ -163,6 +163,7 @@ export class TunnelApiClient {
     host: string;
     port: number;
     udid: string;
+    packetStreamPort: number;
   } | null> {
     const tunnel = await this.getTunnelByUdid(udid);
     if (!tunnel) {
@@ -173,6 +174,7 @@ export class TunnelApiClient {
       host: tunnel.address,
       port: tunnel.rsdPort,
       udid: tunnel.udid,
+      packetStreamPort: tunnel.packetStreamPort ?? 0,
     };
   }
 
@@ -230,6 +232,3 @@ export class TunnelApiClient {
     }
   }
 }
-
-// Create and export a default instance
-export const tunnelApiClient = new TunnelApiClient();

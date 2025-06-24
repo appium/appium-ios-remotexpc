@@ -61,6 +61,7 @@
     "@types/node": "^22.14.0",
     "@xmldom/xmldom": "^0.9.8",
     "npm-run-all2": "^7.0.2",
-    "tuntap-bridge": "^0.0.3"
+    "tuntap-bridge": "^0.0.3",
+    "@appium/strongbox": "^0.x"
   }
 }
