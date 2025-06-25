@@ -57,11 +57,11 @@
     "typescript-eslint": "^8.29.0"
   },
   "dependencies": {
+    "@appium/strongbox": "^0.x",
     "@appium/support": "^6.1.0",
     "@types/node": "^22.14.0",
     "@xmldom/xmldom": "^0.9.8",
     "npm-run-all2": "^7.0.2",
-    "tuntap-bridge": "^0.0.3",
-    "@appium/strongbox": "^0.x"
+    "tuntap-bridge": "^0.0.3"
   }
 }

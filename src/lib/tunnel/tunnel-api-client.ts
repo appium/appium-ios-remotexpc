@@ -174,7 +174,7 @@ export class TunnelApiClient {
       host: tunnel.address,
       port: tunnel.rsdPort,
       udid: tunnel.udid,
-      packetStreamPort: tunnel.packetStreamPort ?? 0,
+      packetStreamPort: tunnel.packetStreamPort,
     };
   }
 
