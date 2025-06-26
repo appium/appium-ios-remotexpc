@@ -42,6 +42,8 @@ export async function createRemoteXPCConnection(udid: string) {
   return { remoteXPC, tunnelConnection };
 }
 
+// #region Private Functions
+
 async function getTunnelInformation(udid: string) {
   const box = strongbox(APPIUM_XCUITEST_DRIVER_NAME);
   const item = await box.createItem(TUNNEL_REGISTRY_PORT);
@@ -75,3 +77,5 @@ async function startService(
 ): Promise<RemoteXpcConnection> {
   return await TunnelManager.createRemoteXPCConnection(host, port);
 }
+
+// #endregion

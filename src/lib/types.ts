@@ -143,12 +143,6 @@ export interface TunnelResult {
  * Represents the instance side of DiagnosticsService
  */
 export interface DiagnosticsService extends BaseService {
-  /**
-   * Query MobileGestalt keys
-   * @param keys Array of keys to query, if not provided all keys will be queried
-   * @returns Object containing the queried keys and their values
-   */
-  mobileGestalt(keys?: string[]): Promise<PlistDictionary>;
 
   /**
    * Restart the device
