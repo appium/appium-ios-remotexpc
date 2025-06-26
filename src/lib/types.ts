@@ -143,7 +143,6 @@ export interface TunnelResult {
  * Represents the instance side of DiagnosticsService
  */
 export interface DiagnosticsService extends BaseService {
-
   /**
    * Restart the device
    * @returns Promise that resolves when the restart request is sent
