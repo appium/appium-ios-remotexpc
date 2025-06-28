@@ -3,7 +3,7 @@ export interface AppleTVDeviceInfo {
   altIRK: Buffer;
   btAddr: string;
   mac: Buffer;
-  remotepairing_serial_number: string;
+  remotePairingSerialNumber: string;
   accountID: string;
   model: string;
   name: string;
