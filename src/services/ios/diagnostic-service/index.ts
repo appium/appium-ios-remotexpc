@@ -6,7 +6,6 @@ import type {
   PlistDictionary,
 } from '../../../lib/types.js';
 import { BaseService } from '../base-service.js';
-import { MobileGestaltKeys } from './keys.js';
 
 const log = logger.getLogger('DiagnosticService');
 
@@ -214,70 +213,29 @@ class DiagnosticsService
   ): Promise<Record<string, any>> {
     await new Promise((resolve) => setTimeout(resolve, 500));
 
-    try {
-      const emptyRequest: PlistDictionary = {
-        Request: 'Status',
-      };
+    const emptyRequest: PlistDictionary = {
+      Request: 'Status',
+    };
 
-      log.debug('Sending follow-up request for additional data');
+    log.debug('Sending follow-up request for additional data');
 
-      const additionalResponse = await conn.sendPlistRequest(
-        emptyRequest,
-        timeout,
-      );
-
-      if (!additionalResponse) {
-        return initialResponse as Record<string, any>;
-      }
-
-      log.debug(
-        `Additional response size: ${JSON.stringify(additionalResponse).length} bytes`,
-      );
-
-      if (
-        typeof additionalResponse !== 'object' ||
-        Buffer.isBuffer(additionalResponse) ||
-        additionalResponse instanceof Date
-      ) {
-        return initialResponse as Record<string, any>;
-      }
-
-      const hasIORegistry = 'IORegistry' in additionalResponse;
-      const hasDiagnostics =
-        'Diagnostics' in additionalResponse &&
-        typeof additionalResponse.Diagnostics === 'object' &&
-        additionalResponse.Diagnostics !== null &&
-        'IORegistry' in additionalResponse.Diagnostics;
-
-      if (hasIORegistry || hasDiagnostics) {
-        log.debug('Using additional response with IORegistry data');
-        return additionalResponse as Record<string, any>;
-      }
-
-      if (
-        typeof initialResponse === 'object' &&
-        !Buffer.isBuffer(initialResponse) &&
-        !(initialResponse instanceof Date) &&
-        Object.keys(additionalResponse).length > 0 &&
-        Object.keys(initialResponse).length > 0
-      ) {
-        log.debug('Merging responses');
-        const responseObj = initialResponse as Record<string, any>;
-        const additionalResponseObj = additionalResponse as Record<string, any>;
-
-        return {
-          ...responseObj,
-          ...additionalResponseObj,
-        };
-      }
-
-      return initialResponse as Record<string, any>;
-    } catch (error) {
-      log.warn(`Error getting additional data: ${error}`);
-      return initialResponse as Record<string, any>;
+    const additionalResponse = await conn.sendPlistRequest(
+      emptyRequest,
+      timeout,
+    );
+    log.debug('Additional response: ', additionalResponse);
+    const hasDiagnostics =
+      'Diagnostics' in additionalResponse &&
+      typeof additionalResponse.Diagnostics === 'object' &&
+      additionalResponse.Diagnostics !== null &&
+      'IORegistry' in additionalResponse.Diagnostics;
+    if (additionalResponse.Status !== 'Success' && hasDiagnostics) {
+      throw new Error(`Error getting diagnostic data: ${additionalResponse}`);
     }
+
+    log.debug('Using additional response with IORegistry data');
+    return additionalResponse.Diagnostics.IORegistry as Record<string, any>;
   }
 }
 
 export default DiagnosticsService;
-export { MobileGestaltKeys };
