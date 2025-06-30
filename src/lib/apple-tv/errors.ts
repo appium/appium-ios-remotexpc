@@ -2,7 +2,6 @@
 export class AppleTVError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'AppleTVError';
   }
 }
 
@@ -14,7 +13,6 @@ export class PairingError extends AppleTVError {
     public details?: any,
   ) {
     super(message);
-    this.name = 'PairingError';
   }
 }
 
@@ -22,7 +20,6 @@ export class PairingError extends AppleTVError {
 export class NetworkError extends AppleTVError {
   constructor(message: string) {
     super(message);
-    this.name = 'NetworkError';
   }
 }
 
@@ -30,7 +27,6 @@ export class NetworkError extends AppleTVError {
 export class CryptographyError extends AppleTVError {
   constructor(message: string) {
     super(message);
-    this.name = 'CryptographyError';
   }
 }
 
@@ -38,7 +34,6 @@ export class CryptographyError extends AppleTVError {
 export class SRPError extends AppleTVError {
   constructor(message: string) {
     super(message);
-    this.name = 'SRPError';
   }
 }
 
@@ -46,6 +41,5 @@ export class SRPError extends AppleTVError {
 export class TLV8Error extends AppleTVError {
   constructor(message: string) {
     super(message);
-    this.name = 'TLV8Error';
   }
 }
