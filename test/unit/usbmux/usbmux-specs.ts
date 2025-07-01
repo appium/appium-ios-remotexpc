@@ -1,17 +1,19 @@
-import { expect } from 'chai';
 import { Server, Socket } from 'node:net';
+import type { expect as expectType } from 'chai';
 
 import { Usbmux } from '../../../src/lib/usbmux/index.js';
 import { UDID, fixtures, getServerWithFixtures } from '../fixtures/index.js';
 
 let chai;
 let chaiAsPromised;
+let expect: typeof expectType;
 
 before(async function () {
   chai = await import('chai');
   chaiAsPromised = await import('chai-as-promised');
   chai.use(chaiAsPromised.default);
   chai.should();
+  expect = chai.expect;
 });
 
 describe('usbmux', function () {
@@ -53,7 +55,7 @@ describe('usbmux', function () {
     ({ server, socket } = await getServerWithFixtures());
     usbmux = new Usbmux(socket);
 
-    await usbmux.listDevices(-1).should.eventually.be.rejected;
+    await expect(usbmux.listDevices(-1)).to.be.rejected;
   });
 
   it('should find correct device', async function () {
@@ -63,7 +65,7 @@ describe('usbmux', function () {
     const device = await usbmux.findDevice(UDID);
     expect(device).to.not.be.undefined;
     if (device) {
-      device.Properties.SerialNumber.should.be.equal(UDID);
+      expect(device.Properties.SerialNumber).to.equal(UDID);
     }
   });
 });
