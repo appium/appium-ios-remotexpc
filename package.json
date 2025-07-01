@@ -31,8 +31,15 @@
     "test:tunnel-creation:lsof": "sudo tsx scripts/test-tunnel-creation.ts --keep-open"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Appium Contributors",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/appium/appium-ios-remotexpc.git"
+  },
+  "bugs": {
+    "url": "https://github.com/appium/appium-ios-remotexpc/issues"
+  },
   "description": "",
   "devDependencies": {
     "@appium/eslint-config-appium-ts": "^1.0.4",
