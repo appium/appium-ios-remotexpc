@@ -19,6 +19,7 @@
     "build": "run-s clean:* build:*",
     "lint": "eslint src --ext .ts --quiet",
     "format": "prettier --write \"{src,test}/**/*.{ts,tsx}\"",
+    "format:check": "prettier --check \"{src,test}/**/*.{ts,tsx}\"",
     "lint:fix": "eslint src --ext .ts --fix",
     "test": "mocha test/integration/**/*.ts",
     "test:all": "mocha -r tsx/cjs test/run-integration-tests.ts",

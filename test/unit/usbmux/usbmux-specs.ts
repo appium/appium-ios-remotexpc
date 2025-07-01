@@ -1,5 +1,5 @@
-import { Server, Socket } from 'node:net';
 import type { expect as expectType } from 'chai';
+import { Server, Socket } from 'node:net';
 
 import { Usbmux } from '../../../src/lib/usbmux/index.js';
 import { UDID, fixtures, getServerWithFixtures } from '../fixtures/index.js';
