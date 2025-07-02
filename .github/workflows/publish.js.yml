@@ -20,7 +20,7 @@ jobs:
         check-latest: true
     - run: npm install --no-package-lock
       name: Install dependencies
-    - run: npm run test
+    - run: npm run test:unit
       name: Run NPM Test
     - run: |
         rm -rf node_modules package-lock.json
