@@ -50,12 +50,19 @@ export function decodeTLV8ToDict(
   buffer: Buffer,
 ): Partial<Record<PairingDataComponentTypeValue, Buffer>> {
   const items = decodeTLV8(buffer);
-  const result: Partial<Record<PairingDataComponentTypeValue, Buffer>> = {};
+  const result: Partial<Record<PairingDataComponentTypeValue, Buffer[]>> = {};
 
   for (const { type, data } of items) {
-    const existing = result[type];
-    result[type] = existing ? Buffer.concat([existing, data]) : data;
+    if (!result[type]) {
+      result[type] = [];
+    }
+    result[type]!.push(data);
   }
 
-  return result;
+  return Object.fromEntries(
+    Object.entries(result).map(([type, buffers]) => [
+      type,
+      Buffer.concat(buffers as Buffer[]),
+    ]),
+  ) as Partial<Record<PairingDataComponentTypeValue, Buffer>>;
 }
