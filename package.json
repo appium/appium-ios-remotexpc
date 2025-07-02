@@ -70,7 +70,7 @@
   "dependencies": {
     "@appium/strongbox": "^0.x",
     "@appium/support": "^6.1.0",
-    "@types/node": "^22.14.0",
+    "@types/node": "^24.0.10",
     "@xmldom/xmldom": "^0.9.8",
     "npm-run-all2": "^7.0.2",
     "tuntap-bridge": "^0.x"
