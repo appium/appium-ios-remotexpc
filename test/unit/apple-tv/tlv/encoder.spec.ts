@@ -47,13 +47,13 @@ describe('TLV8 Encoder', function () {
 
       const result = encodeTLV8(items);
 
-      expect(result.length).to.equal(2 + 255 + 2 + 1);
+      expect(result.length).to.equal(2 + TLV8_MAX_FRAGMENT_SIZE + 2 + (256 - TLV8_MAX_FRAGMENT_SIZE));
       expect(result[0]).to.equal(0x05);
-      expect(result[1]).to.equal(255);
-      expect(result.subarray(2, 257)).to.deep.equal(Buffer.alloc(255, 0xab));
-      expect(result[257]).to.equal(0x05);
-      expect(result[258]).to.equal(1);
-      expect(result[259]).to.equal(0xab);
+      expect(result[1]).to.equal(TLV8_MAX_FRAGMENT_SIZE);
+      expect(result.subarray(2, 2 + TLV8_MAX_FRAGMENT_SIZE)).to.deep.equal(Buffer.alloc(TLV8_MAX_FRAGMENT_SIZE, 0xab));
+      expect(result[2 + TLV8_MAX_FRAGMENT_SIZE]).to.equal(0x05);
+      expect(result[3 + TLV8_MAX_FRAGMENT_SIZE]).to.equal(256 - TLV8_MAX_FRAGMENT_SIZE);
+      expect(result[4 + TLV8_MAX_FRAGMENT_SIZE]).to.equal(0xab);
     });
 
     it('should handle data exactly at TLV8_MAX_FRAGMENT_SIZE boundary', function () {
