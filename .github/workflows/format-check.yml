@@ -35,7 +35,7 @@ jobs:
     
     - name: Check formatting
       # Run prettier in check mode (doesn't modify files)
-      run: npx prettier --check "{src,test}/**/*.{ts,tsx}"
+      run: npm run format:check
       
     - name: Format instructions (if check fails)
       if: ${{ failure() }}

@@ -19,6 +19,7 @@
     "build": "run-s clean:* build:*",
     "lint": "eslint src --ext .ts --quiet",
     "format": "prettier --write \"{src,test}/**/*.{ts,tsx}\"",
+    "format:check": "prettier --check \"{src,test}/**/*.{ts,tsx}\"",
     "lint:fix": "eslint src --ext .ts --fix",
     "test": "mocha test/integration/**/*.ts",
     "test:all": "mocha -r tsx/cjs test/run-integration-tests.ts",
@@ -30,13 +31,22 @@
     "test:tunnel-creation:lsof": "sudo tsx scripts/test-tunnel-creation.ts --keep-open"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Appium Contributors",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/appium/appium-ios-remotexpc.git"
+  },
+  "bugs": {
+    "url": "https://github.com/appium/appium-ios-remotexpc/issues"
+  },
   "description": "",
   "devDependencies": {
     "@appium/eslint-config-appium-ts": "^1.0.4",
     "@appium/tsconfig": "^0.3.5",
     "@eslint/js": "^9.23.0",
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
     "@trivago/prettier-plugin-sort-imports": "^5.2.2",
     "@types/chai": "^5.2.1",
     "@types/chai-as-promised": "^8.0.2",
@@ -51,6 +61,7 @@
     "mocha": "^11.1.0",
     "prettier": "^3.5.3",
     "rimraf": "^6.0.1",
+    "semantic-release": "^24.0.0",
     "ts-node": "^10.9.2",
     "tsx": "^4.7.0",
     "typescript": "^5.2.2",
@@ -59,7 +70,7 @@
   "dependencies": {
     "@appium/strongbox": "^0.x",
     "@appium/support": "^6.1.0",
-    "@types/node": "^22.14.0",
+    "@types/node": "^24.0.10",
     "@xmldom/xmldom": "^0.9.8",
     "npm-run-all2": "^7.0.2",
     "tuntap-bridge": "^0.x"

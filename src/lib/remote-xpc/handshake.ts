@@ -64,7 +64,7 @@ class Handshake {
           );
         }
 
-        this._socket.write(Http2Constants.HTTP2_MAGIC, (err?: Error) =>
+        this._socket.write(Http2Constants.HTTP2_MAGIC, (err) =>
           err ? reject(err) : resolve(),
         );
       });
