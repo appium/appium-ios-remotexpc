@@ -81,3 +81,14 @@ export const HKDF_HASH_ALGORITHM = 'sha512';
 
 // Output length (in bytes) for HKDF key derivation
 export const HKDF_HASH_LENGTH = 64;
+
+// OPACK2 encoding constants
+export const OPACK2_NULL = 0x03;
+export const OPACK2_TRUE = 0x01;
+export const OPACK2_FALSE = 0x02;
+export const OPACK2_SMALL_INT_OFFSET = 8;
+export const OPACK2_SMALL_INT_MAX = 0x27;
+export const OPACK2_SMALL_STRING_MAX = 0x20;
+export const OPACK2_SMALL_BYTES_MAX = 0x20;
+export const OPACK2_SMALL_ARRAY_MAX = 15;
+export const OPACK2_SMALL_DICT_MAX = 15;
