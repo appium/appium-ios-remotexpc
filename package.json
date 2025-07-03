@@ -18,7 +18,7 @@
     "build:es": "tsc",
     "build": "run-s clean:* build:*",
     "lint": "eslint src --ext .ts --quiet",
-    "prepare": "npm run rebuild",
+    "prepare": "npm run build",
     "format": "prettier --write \"{src,test}/**/*.{ts,tsx}\"",
     "format:check": "prettier --check \"{src,test}/**/*.{ts,tsx}\"",
     "lint:fix": "eslint src --ext .ts --fix",
