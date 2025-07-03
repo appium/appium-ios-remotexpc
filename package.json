@@ -1,6 +1,6 @@
 {
   "name": "appium-ios-remotexpc",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "main": "build/src/index.js",
   "types": "build/src/index.d.ts",
   "type": "module",
@@ -18,6 +18,7 @@
     "build:es": "tsc",
     "build": "run-s clean:* build:*",
     "lint": "eslint src --ext .ts --quiet",
+    "prepare": "npm run build",
     "format": "prettier --write \"{src,test}/**/*.{ts,tsx}\"",
     "format:check": "prettier --check \"{src,test}/**/*.{ts,tsx}\"",
     "lint:fix": "eslint src --ext .ts --fix",
@@ -35,7 +36,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/appium/appium-ios-remotexpc.git"
+    "url": "git+https://github.com/appium/appium-ios-remotexpc.git"
   },
   "bugs": {
     "url": "https://github.com/appium/appium-ios-remotexpc/issues"
@@ -74,5 +75,13 @@
     "@xmldom/xmldom": "^0.9.8",
     "npm-run-all2": "^7.0.2",
     "tuntap-bridge": "^0.x"
-  }
+  },
+  "files": [
+    "src",
+    "scripts",
+    "build/src",
+    "!.DS_Store",
+    "CHANGELOG.md",
+    "LICENSE"
+  ]
 }

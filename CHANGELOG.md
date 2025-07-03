@@ -1,3 +1,9 @@
+## [0.0.4](https://github.com/appium/appium-ios-remotexpc/compare/v0.0.3...v0.0.4) (2025-07-03)
+
+### Miscellaneous Chores
+
+* Add build release to npm module ([#49](https://github.com/appium/appium-ios-remotexpc/issues/49)) ([77c7720](https://github.com/appium/appium-ios-remotexpc/commit/77c77201d730e8a501813fc39bf1a768de2bf497))
+
 ## [0.0.3](https://github.com/appium/appium-ios-remotexpc/compare/v0.0.2...v0.0.3) (2025-07-03)
 
 ### Miscellaneous Chores
