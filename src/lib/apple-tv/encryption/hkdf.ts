@@ -1,7 +1,10 @@
+import { logger } from '@appium/support';
 import { createHmac } from 'node:crypto';
 
 import { HKDF_HASH_ALGORITHM, HKDF_HASH_LENGTH } from '../constants.js';
 import { CryptographyError } from '../errors.js';
+
+const log = logger.getLogger('HKDF');
 
 export interface HKDFParams {
   ikm: Buffer;
@@ -47,6 +50,7 @@ export function hkdf(params: HKDFParams): Buffer {
     const extractedKey = hkdfExtract(ikm, salt);
     return hkdfExpand(extractedKey, info, length);
   } catch (error) {
+    log.error('HKDF derivation failed:', error);
     const message = error instanceof Error ? error.message : String(error);
     throw new CryptographyError(`HKDF derivation failed: ${message}`);
   }
@@ -73,7 +77,7 @@ function hkdfExtract(ikm: Buffer, salt: Buffer | null): Buffer {
 function hkdfExpand(prk: Buffer, info: Buffer, length: number): Buffer {
   const numberOfBlocks = Math.ceil(length / HKDF_HASH_LENGTH);
   const blocks: Buffer[] = [];
-  let previousBlock: Buffer<ArrayBufferLike> = Buffer.alloc(0);
+  let previousBlock: Buffer = Buffer.alloc(0);
 
   for (let blockIndex = 1; blockIndex <= numberOfBlocks; blockIndex++) {
     const hmac = createHmac(HKDF_HASH_ALGORITHM, prk);

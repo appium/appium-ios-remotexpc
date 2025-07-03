@@ -1,3 +1,4 @@
+import { logger } from '@appium/support';
 import {
   type KeyPairKeyObjectResult,
   generateKeyPairSync,
@@ -6,6 +7,8 @@ import {
 
 import { CryptographyError } from '../errors.js';
 import type { PairingKeys } from '../types.js';
+
+const log = logger.getLogger('Ed25519');
 
 const ED25519_PUBLIC_KEY_LENGTH = 32;
 const ED25519_PRIVATE_KEY_LENGTH = 32;
@@ -41,6 +44,7 @@ export function generateEd25519KeyPair(): PairingKeys {
       privateKey: privateKeyBuffer,
     };
   } catch (error) {
+    log.error('Failed to generate Ed25519 key pair:', error);
     const message = error instanceof Error ? error.message : String(error);
     throw new CryptographyError(
       `Failed to generate Ed25519 key pair: ${message}`,
@@ -78,6 +82,7 @@ export function createEd25519Signature(
       type: 'pkcs8',
     });
   } catch (error) {
+    log.error('Failed to create Ed25519 signature:', error);
     const message = error instanceof Error ? error.message : String(error);
     throw new CryptographyError(
       `Failed to create Ed25519 signature: ${message}`,

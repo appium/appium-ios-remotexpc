@@ -14,6 +14,11 @@ describe('Apple TV Encryption - ChaCha20-Poly1305', () => {
   const plaintext = Buffer.from('Hello, World!', 'utf8');
   const aad = Buffer.from('additional authenticated data', 'utf8');
 
+  const appleTVNonce = Buffer.concat([
+    Buffer.alloc(4),
+    Buffer.from('PS-Msg06'),
+  ]);
+
   describe('encryptChaCha20Poly1305', () => {
     it('should encrypt plaintext without AAD', () => {
       const params: ChaCha20Poly1305Params = {
@@ -146,6 +151,97 @@ describe('Apple TV Encryption - ChaCha20-Poly1305', () => {
         CryptographyError,
         'Ciphertext too short to contain authentication tag',
       );
+    });
+
+    it('should handle Apple TV pairing nonce pattern', () => {
+      const encrypted = encryptChaCha20Poly1305({
+        plaintext,
+        key: validKey,
+        nonce: appleTVNonce,
+      });
+
+      const decrypted = decryptChaCha20Poly1305({
+        ciphertext: encrypted,
+        key: validKey,
+        nonce: appleTVNonce,
+      });
+
+      expect(decrypted.equals(plaintext)).to.be.true;
+    });
+
+    it('should decrypt large ciphertext like Apple TV M6 message', () => {
+      const largePlaintext = Buffer.alloc(412, 0x01);
+
+      const encrypted = encryptChaCha20Poly1305({
+        plaintext: largePlaintext,
+        key: validKey,
+        nonce: appleTVNonce,
+      });
+
+      expect(encrypted.length).to.equal(428);
+
+      const decrypted = decryptChaCha20Poly1305({
+        ciphertext: encrypted,
+        key: validKey,
+        nonce: appleTVNonce,
+      });
+
+      expect(decrypted.equals(largePlaintext)).to.be.true;
+    });
+
+    it('should handle decryption with empty AAD when encrypted without AAD', () => {
+      const encrypted = encryptChaCha20Poly1305({
+        plaintext,
+        key: validKey,
+        nonce: validNonce,
+      });
+
+      const decrypted = decryptChaCha20Poly1305({
+        ciphertext: encrypted,
+        key: validKey,
+        nonce: validNonce,
+        aad: Buffer.alloc(0),
+      });
+
+      expect(decrypted.equals(plaintext)).to.be.true;
+    });
+
+    it('should fail to decrypt when AAD is missing but was used in encryption', () => {
+      const encrypted = encryptChaCha20Poly1305({
+        plaintext,
+        key: validKey,
+        nonce: validNonce,
+        aad,
+      });
+
+      expect(() =>
+        decryptChaCha20Poly1305({
+          ciphertext: encrypted,
+          key: validKey,
+          nonce: validNonce,
+        }),
+      ).to.throw(CryptographyError, 'ChaCha20-Poly1305 decryption failed');
+    });
+
+    it('should handle shared key scenario for encryption and decryption', () => {
+      const sharedKey = Buffer.from(
+        '79f81b432d16662d43bfe8f5af4ae27b79f81b432d16662d43bfe8f5af4ae27b',
+        'hex',
+      );
+
+      const encrypted = encryptChaCha20Poly1305({
+        plaintext,
+        key: sharedKey,
+        nonce: appleTVNonce,
+      });
+
+      const decrypted = decryptChaCha20Poly1305({
+        ciphertext: encrypted,
+        key: sharedKey,
+        nonce: appleTVNonce,
+      });
+
+      expect(decrypted.equals(plaintext)).to.be.true;
     });
   });
 });

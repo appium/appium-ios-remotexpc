@@ -1,14 +1,4 @@
-import {
-  OPACK2_FALSE,
-  OPACK2_NULL,
-  OPACK2_SMALL_ARRAY_MAX,
-  OPACK2_SMALL_BYTES_MAX,
-  OPACK2_SMALL_DICT_MAX,
-  OPACK2_SMALL_INT_MAX,
-  OPACK2_SMALL_INT_OFFSET,
-  OPACK2_SMALL_STRING_MAX,
-  OPACK2_TRUE,
-} from '../constants.js';
+import * as constants from '../constants.js';
 import { AppleTVError } from '../errors.js';
 
 interface SerializableArray extends Array<SerializableValue> {}
@@ -47,11 +37,13 @@ export class Opack2 {
    */
   private static encode(obj: SerializableValue): Buffer {
     if (obj === null || obj === undefined) {
-      return Buffer.from([OPACK2_NULL]);
+      return Buffer.from([constants.OPACK2_NULL]);
     }
 
     if (typeof obj === 'boolean') {
-      return Buffer.from([obj ? OPACK2_TRUE : OPACK2_FALSE]);
+      return Buffer.from([
+        obj ? constants.OPACK2_TRUE : constants.OPACK2_FALSE,
+      ]);
     }
 
     if (typeof obj === 'number') {
@@ -91,29 +83,29 @@ export class Opack2 {
   private static encodeNumber(num: number): Buffer {
     if (!Number.isInteger(num) || num < 0) {
       const buffer = Buffer.allocUnsafe(5);
-      buffer[0] = 0x35;
+      buffer[0] = constants.OPACK2_FLOAT_MARKER;
       buffer.writeFloatLE(num, 1);
       return buffer;
     }
 
-    if (num <= OPACK2_SMALL_INT_MAX) {
-      return Buffer.from([num + OPACK2_SMALL_INT_OFFSET]);
+    if (num <= constants.OPACK2_SMALL_INT_MAX) {
+      return Buffer.from([num + constants.OPACK2_SMALL_INT_OFFSET]);
     }
 
-    if (num <= 0xff) {
-      return Buffer.from([0x30, num]);
+    if (num <= constants.OPACK2_UINT8_MAX) {
+      return Buffer.from([constants.OPACK2_INT8_MARKER, num]);
     }
 
-    if (num <= 0xffffffff) {
+    if (num <= constants.OPACK2_UINT32_MAX) {
       const buffer = Buffer.allocUnsafe(5);
-      buffer[0] = 0x32;
+      buffer[0] = constants.OPACK2_INT32_MARKER;
       buffer.writeUInt32LE(num, 1);
       return buffer;
     }
 
     if (num <= Number.MAX_SAFE_INTEGER) {
       const buffer = Buffer.allocUnsafe(9);
-      buffer[0] = 0x33;
+      buffer[0] = constants.OPACK2_INT64_MARKER;
       buffer.writeBigUInt64LE(BigInt(num), 1);
       return buffer;
     }
@@ -130,24 +122,30 @@ export class Opack2 {
     const encoded = Buffer.from(str, 'utf8');
     const length = encoded.length;
 
-    if (length <= OPACK2_SMALL_STRING_MAX) {
-      return Buffer.concat([Buffer.from([0x40 + length]), encoded]);
+    if (length <= constants.OPACK2_SMALL_STRING_MAX) {
+      return Buffer.concat([
+        Buffer.from([constants.OPACK2_SMALL_STRING_BASE + length]),
+        encoded,
+      ]);
     }
 
-    if (length <= 0xff) {
-      return Buffer.concat([Buffer.from([0x61, length]), encoded]);
+    if (length <= constants.OPACK2_UINT8_MAX) {
+      return Buffer.concat([
+        Buffer.from([constants.OPACK2_STRING_8BIT_LEN_MARKER, length]),
+        encoded,
+      ]);
     }
 
-    if (length <= 0xffff) {
+    if (length <= constants.OPACK2_UINT16_MAX) {
       const header = Buffer.allocUnsafe(3);
-      header[0] = 0x62;
+      header[0] = constants.OPACK2_STRING_16BIT_LEN_MARKER;
       header.writeUInt16BE(length, 1);
       return Buffer.concat([header, encoded]);
     }
 
-    if (length <= 0xffffffff) {
+    if (length <= constants.OPACK2_UINT32_MAX) {
       const header = Buffer.allocUnsafe(5);
-      header[0] = 0x63;
+      header[0] = constants.OPACK2_STRING_32BIT_LEN_MARKER;
       header.writeUInt32BE(length, 1);
       return Buffer.concat([header, encoded]);
     }
@@ -165,24 +163,30 @@ export class Opack2 {
   private static encodeBytes(bytes: Buffer): Buffer {
     const length = bytes.length;
 
-    if (length <= OPACK2_SMALL_BYTES_MAX) {
-      return Buffer.concat([Buffer.from([0x70 + length]), bytes]);
+    if (length <= constants.OPACK2_SMALL_BYTES_MAX) {
+      return Buffer.concat([
+        Buffer.from([constants.OPACK2_SMALL_BYTES_BASE + length]),
+        bytes,
+      ]);
     }
 
-    if (length <= 0xff) {
-      return Buffer.concat([Buffer.from([0x91, length]), bytes]);
+    if (length <= constants.OPACK2_UINT8_MAX) {
+      return Buffer.concat([
+        Buffer.from([constants.OPACK2_BYTES_8BIT_LEN_MARKER, length]),
+        bytes,
+      ]);
     }
 
-    if (length <= 0xffff) {
+    if (length <= constants.OPACK2_UINT16_MAX) {
       const header = Buffer.allocUnsafe(3);
-      header[0] = 0x92;
+      header[0] = constants.OPACK2_BYTES_16BIT_LEN_MARKER;
       header.writeUInt16BE(length, 1);
       return Buffer.concat([header, bytes]);
     }
 
-    if (length <= 0xffffffff) {
+    if (length <= constants.OPACK2_UINT32_MAX) {
       const header = Buffer.allocUnsafe(5);
-      header[0] = 0x93;
+      header[0] = constants.OPACK2_BYTES_32BIT_LEN_MARKER;
       header.writeUInt32BE(length, 1);
       return Buffer.concat([header, bytes]);
     }
@@ -200,19 +204,23 @@ export class Opack2 {
   private static encodeArray(arr: SerializableValue[]): Buffer {
     const length = arr.length;
 
-    if (length < OPACK2_SMALL_ARRAY_MAX) {
-      const parts = [Buffer.from([0xd0 + length])];
+    if (length <= constants.OPACK2_SMALL_ARRAY_MAX) {
+      const parts: Buffer[] = [
+        Buffer.from([constants.OPACK2_SMALL_ARRAY_BASE + length]),
+      ];
       for (const item of arr) {
-        parts.push(Buffer.from(this.encode(item)));
+        parts.push(this.encode(item));
       }
       return Buffer.concat(parts);
     }
 
-    const parts = [Buffer.from([0xdf])];
+    const parts: Buffer[] = [
+      Buffer.from([constants.OPACK2_VARIABLE_ARRAY_MARKER]),
+    ];
     for (const item of arr) {
-      parts.push(Buffer.from(this.encode(item)));
+      parts.push(this.encode(item));
     }
-    parts.push(Buffer.from([OPACK2_NULL]));
+    parts.push(Buffer.from([constants.OPACK2_NULL]));
     return Buffer.concat(parts);
   }
 
@@ -225,21 +233,25 @@ export class Opack2 {
     const entries = Object.entries(dict);
     const length = entries.length;
 
-    if (length < OPACK2_SMALL_DICT_MAX) {
-      const parts = [Buffer.from([0xe0 + length])];
+    if (length < constants.OPACK2_SMALL_DICT_MAX) {
+      const parts: Buffer[] = [
+        Buffer.from([constants.OPACK2_SMALL_DICT_BASE + length]),
+      ];
       for (const [key, value] of entries) {
-        parts.push(Buffer.from(this.encode(key)));
-        parts.push(Buffer.from(this.encode(value)));
+        parts.push(this.encode(key));
+        parts.push(this.encode(value));
       }
       return Buffer.concat(parts);
     }
 
-    const parts = [Buffer.from([0xef])];
+    const parts: Buffer[] = [
+      Buffer.from([constants.OPACK2_VARIABLE_DICT_MARKER]),
+    ];
     for (const [key, value] of entries) {
-      parts.push(Buffer.from(this.encode(key)));
-      parts.push(Buffer.from(this.encode(value)));
+      parts.push(this.encode(key));
+      parts.push(this.encode(value));
     }
-    parts.push(Buffer.from([OPACK2_NULL, OPACK2_NULL]));
+    parts.push(Buffer.from([constants.OPACK2_NULL, constants.OPACK2_NULL]));
     return Buffer.concat(parts);
   }
 }

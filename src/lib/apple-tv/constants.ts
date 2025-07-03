@@ -92,3 +92,34 @@ export const OPACK2_SMALL_STRING_MAX = 0x20;
 export const OPACK2_SMALL_BYTES_MAX = 0x20;
 export const OPACK2_SMALL_ARRAY_MAX = 15;
 export const OPACK2_SMALL_DICT_MAX = 15;
+
+// OPACK2 number type markers
+export const OPACK2_INT8_MARKER = 0x30;
+export const OPACK2_INT32_MARKER = 0x32;
+export const OPACK2_INT64_MARKER = 0x33;
+export const OPACK2_FLOAT_MARKER = 0x35;
+
+// OPACK2 string type markers
+export const OPACK2_SMALL_STRING_BASE = 0x40;
+export const OPACK2_STRING_8BIT_LEN_MARKER = 0x61;
+export const OPACK2_STRING_16BIT_LEN_MARKER = 0x62;
+export const OPACK2_STRING_32BIT_LEN_MARKER = 0x63;
+
+// OPACK2 bytes type markers
+export const OPACK2_SMALL_BYTES_BASE = 0x70;
+export const OPACK2_BYTES_8BIT_LEN_MARKER = 0x91;
+export const OPACK2_BYTES_16BIT_LEN_MARKER = 0x92;
+export const OPACK2_BYTES_32BIT_LEN_MARKER = 0x93;
+
+// OPACK2 array type markers
+export const OPACK2_SMALL_ARRAY_BASE = 0xd0;
+export const OPACK2_VARIABLE_ARRAY_MARKER = 0xdf;
+
+// OPACK2 dictionary type markers
+export const OPACK2_SMALL_DICT_BASE = 0xe0;
+export const OPACK2_VARIABLE_DICT_MARKER = 0xef;
+
+// OPACK2 size limits
+export const OPACK2_UINT8_MAX = 0xff;
+export const OPACK2_UINT16_MAX = 0xffff;
+export const OPACK2_UINT32_MAX = 0xffffffff;

@@ -1,6 +1,9 @@
+import { logger } from '@appium/support';
 import { createCipheriv, createDecipheriv } from 'node:crypto';
 
 import { CryptographyError } from '../errors.js';
+
+const log = logger.getLogger('ChaCha20Poly1305');
 
 export interface ChaCha20Poly1305Params {
   plaintext?: Buffer;
@@ -50,6 +53,7 @@ export function encryptChaCha20Poly1305(
 
     return Buffer.concat([encrypted, authTag]);
   } catch (error) {
+    log.error('ChaCha20-Poly1305 encryption failed:', error);
     const message = error instanceof Error ? error.message : String(error);
     throw new CryptographyError(
       `ChaCha20-Poly1305 encryption failed: ${message}`,
@@ -86,13 +90,15 @@ export function decryptChaCha20Poly1305(
     );
   }
 
+  // ChaCha20-Poly1305 in Node.js only supports 16-byte authentication tags
+  const tagLength = 16;
   const decryptionAttempts: DecryptionAttempt[] = [
-    { tagLen: 16, aad },
-    { tagLen: 16, aad: Buffer.alloc(0) },
-    { tagLen: 16, aad: undefined },
-    { tagLen: 12, aad },
-    { tagLen: 12, aad: Buffer.alloc(0) },
+    { tagLen: tagLength, aad },
+    { tagLen: tagLength, aad: Buffer.alloc(0) },
+    { tagLen: tagLength, aad: undefined },
   ];
+
+  let lastError: Error | undefined;
 
   for (const attempt of decryptionAttempts) {
     try {
@@ -109,13 +115,33 @@ export function decryptChaCha20Poly1305(
         decipher.setAAD(attempt.aad, { plaintextLength: encrypted.length });
       }
 
-      return Buffer.concat([decipher.update(encrypted), decipher.final()]);
-    } catch {
-      // Continue to next decryption attempt
+      const decrypted = Buffer.concat([
+        decipher.update(encrypted),
+        decipher.final(),
+      ]);
+
+      log.debug(
+        'Decryption successful with AAD:',
+        attempt.aad ? 'provided' : 'none',
+      );
+      return decrypted;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
     }
   }
 
-  throw new CryptographyError(
-    'ChaCha20-Poly1305 decryption failed: invalid ciphertext or authentication tag',
-  );
+  const errorMessage = lastError
+    ? `ChaCha20-Poly1305 decryption failed: ${lastError.message}`
+    : 'ChaCha20-Poly1305 decryption failed: invalid ciphertext or authentication tag';
+
+  // Log the error with stack trace for debugging real failures
+  // Skip logging in test environment to avoid cluttering test output with expected failures
+  if (lastError && process.env.NODE_ENV !== 'test') {
+    log.error('All ChaCha20-Poly1305 decryption attempts failed:', {
+      message: lastError.message,
+      stack: lastError.stack,
+    });
+  }
+
+  throw new CryptographyError(errorMessage);
 }
