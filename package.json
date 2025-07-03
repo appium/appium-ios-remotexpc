@@ -74,5 +74,13 @@
     "@xmldom/xmldom": "^0.9.8",
     "npm-run-all2": "^7.0.2",
     "tuntap-bridge": "^0.x"
-  }
+  },
+  "files": [
+    "src",
+    "scripts",
+    "build/src",
+    "!.DS_Store",
+    "CHANGELOG.md",
+    "LICENSE"
+  ]
 }
