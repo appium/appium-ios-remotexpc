@@ -128,7 +128,7 @@ describe('Apple TV SRP - SRP Client', function () {
         client.publicKey;
       }).to.throw(
         SRPError,
-        'Client keys not generated yet. Call setSalt() and setServerPublicKey() first.',
+        'Client keys not generated yet. Set salt and serverPublicKey properties first.',
       );
     });
 

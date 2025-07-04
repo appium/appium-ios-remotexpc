@@ -89,48 +89,58 @@ export class SRPClient {
   }
 
   /**
+   * Gets the salt value received from the server.
+   *
+   * @returns The salt buffer or null if not set
+   */
+  get salt(): Buffer | null {
+    return this._salt;
+  }
+
+  /**
    * Sets the salt value received from the server.
    *
-   * @param salt - The salt buffer from the server
+   * @param value - The salt buffer from the server
    * @throws {SRPError} If salt is empty or client is disposed
    */
-  public setSalt(salt: Buffer): void {
+  set salt(value: Buffer) {
     this.throwIfDisposed();
 
-    if (!salt || salt.length === 0) {
+    if (!value || value.length === 0) {
       throw new SRPError('Salt cannot be empty');
     }
 
-    this._salt = salt;
+    this._salt = value;
     this.generateClientKeysIfReady();
 
     log.debug('Salt set successfully');
   }
 
-  get salt(): Buffer | null {
-    return this._salt;
-  }
-
-  set salt(value: Buffer) {
-    this.setSalt(value);
+  /**
+   * Gets the server's public key B.
+   *
+   * @returns The server's public key as a Buffer or null if not set
+   */
+  get serverPublicKey(): Buffer | null {
+    return this._B ? bigIntToBuffer(this._B, SRP_KEY_LENGTH_BYTES) : null;
   }
 
   /**
    * Sets the server's public key B.
    *
-   * @param B - The server's public key as a Buffer
+   * @param value - The server's public key as a Buffer
    * @throws {SRPError} If the server public key is invalid or client is disposed
    */
-  public setServerPublicKey(B: Buffer): void {
+  set serverPublicKey(value: Buffer) {
     this.throwIfDisposed();
 
-    if (!B || B.length !== SRP_KEY_LENGTH_BYTES) {
+    if (!value || value.length !== SRP_KEY_LENGTH_BYTES) {
       throw new SRPError(
-        `Server public key must be ${SRP_KEY_LENGTH_BYTES} bytes, got ${B?.length || 0}`,
+        `Server public key must be ${SRP_KEY_LENGTH_BYTES} bytes, got ${value?.length || 0}`,
       );
     }
 
-    this._B = bufferToBigInt(B);
+    this._B = bufferToBigInt(value);
 
     if (this._B <= SRPClient.ONE || this._B >= this.N_MINUS_ONE) {
       throw new SRPError(
@@ -147,34 +157,22 @@ export class SRPClient {
     log.debug('Server public key set successfully');
   }
 
-  get serverPublicKey(): Buffer | null {
-    return this._B ? bigIntToBuffer(this._B, SRP_KEY_LENGTH_BYTES) : null;
-  }
-
-  set serverPublicKey(value: Buffer) {
-    this.setServerPublicKey(value);
-  }
-
   /**
    * Gets the client's public key A.
    *
    * @returns The client's public key as a Buffer
    * @throws {SRPError} If keys are not generated yet or client is disposed
    */
-  public getPublicKey(): Buffer {
+  get publicKey(): Buffer {
     this.throwIfDisposed();
 
     if (this._A === SRPClient.ZERO) {
       throw new SRPError(
-        'Client keys not generated yet. Call setSalt() and setServerPublicKey() first.',
+        'Client keys not generated yet. Set salt and serverPublicKey properties first.',
       );
     }
 
     return bigIntToBuffer(this._A, SRP_KEY_LENGTH_BYTES);
-  }
-
-  get publicKey(): Buffer {
-    return this.getPublicKey();
   }
 
   /**
@@ -214,7 +212,7 @@ export class SRPClient {
    * @returns The session key as a Buffer
    * @throws {SRPError} If session key is not computed or client is disposed
    */
-  public getSessionKey(): Buffer {
+  get sessionKey(): Buffer {
     this.throwIfDisposed();
     this.validateIdentitySet();
 
@@ -227,10 +225,6 @@ export class SRPClient {
     }
 
     return this._K;
-  }
-
-  get sessionKey(): Buffer {
-    return this.getSessionKey();
   }
 
   /**
