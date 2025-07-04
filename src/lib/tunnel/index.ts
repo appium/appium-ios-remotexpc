@@ -64,9 +64,12 @@ class TunnelManagerService {
   async createRemoteXPCConnection(
     address: string,
     rsdPort: number,
-  ): Promise<any> {
+  ): Promise<RemoteXpcConnection> {
     try {
-      const remoteXPC = new RemoteXpcConnection([address, rsdPort]);
+      const remoteXPC: RemoteXpcConnection = new RemoteXpcConnection([
+        address,
+        rsdPort,
+      ]);
 
       // Connect to RemoteXPC with delay between retries
       let retries = 3;
@@ -75,7 +78,6 @@ class TunnelManagerService {
       while (retries > 0) {
         try {
           await remoteXPC.connect();
-
           // Update the registry entry with the RemoteXPC connection
           const entry = this.tunnelRegistry.get(address);
           if (entry) {

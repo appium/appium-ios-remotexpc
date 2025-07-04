@@ -223,7 +223,6 @@ class DiagnosticsService
       emptyRequest,
       timeout,
     );
-    log.debug('Additional response: ', additionalResponse);
     const hasDiagnostics =
       'Diagnostics' in additionalResponse &&
       typeof additionalResponse.Diagnostics === 'object' &&
