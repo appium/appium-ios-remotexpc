@@ -59,7 +59,7 @@ describe('Apple TV SRP - SRP Client', function () {
 
     it('should throw error for empty salt', function () {
       expect(function () {
-        client.setSalt(Buffer.alloc(0));
+        client.salt = Buffer.alloc(0);
       }).to.throw(SRPError, 'Salt cannot be empty');
     });
 
@@ -67,8 +67,8 @@ describe('Apple TV SRP - SRP Client', function () {
       const salt = randomBytes(16);
       const serverPublicKey = randomBytes(SRP_KEY_LENGTH_BYTES);
 
-      client.setSalt(salt);
-      client.setServerPublicKey(serverPublicKey);
+      client.salt = salt;
+      client.serverPublicKey = serverPublicKey;
 
       expect(client.isReady()).to.be.true;
     });
@@ -77,7 +77,7 @@ describe('Apple TV SRP - SRP Client', function () {
       client.dispose();
 
       expect(function () {
-        client.setSalt(randomBytes(16));
+        client.salt = randomBytes(16);
       }).to.throw(SRPError, 'SRP client has been disposed');
     });
   });
@@ -91,7 +91,7 @@ describe('Apple TV SRP - SRP Client', function () {
       const wrongSizeKey = randomBytes(100);
 
       expect(function () {
-        client.setServerPublicKey(wrongSizeKey);
+        client.serverPublicKey = wrongSizeKey;
       }).to.throw(
         SRPError,
         `Server public key must be ${SRP_KEY_LENGTH_BYTES} bytes, got 100`,
@@ -102,7 +102,7 @@ describe('Apple TV SRP - SRP Client', function () {
       const zeroB = Buffer.alloc(SRP_KEY_LENGTH_BYTES, 0);
 
       expect(function () {
-        client.setServerPublicKey(zeroB);
+        client.serverPublicKey = zeroB;
       }).to.throw(
         SRPError,
         'Invalid server public key B: must be in range (1, N-1)',
@@ -117,7 +117,7 @@ describe('Apple TV SRP - SRP Client', function () {
       validB[0] = 0x02;
 
       expect(function () {
-        client.setServerPublicKey(validB);
+        client.serverPublicKey = validB;
       }).to.throw(SRPError, 'SRP client has been disposed');
     });
   });
@@ -125,7 +125,7 @@ describe('Apple TV SRP - SRP Client', function () {
   describe('getPublicKey', function () {
     it('should throw error when keys not generated', function () {
       expect(function () {
-        client.getPublicKey();
+        client.publicKey;
       }).to.throw(
         SRPError,
         'Client keys not generated yet. Call setSalt() and setServerPublicKey() first.',
@@ -140,10 +140,10 @@ describe('Apple TV SRP - SRP Client', function () {
       validB.fill(0xff);
       validB[0] = 0x02;
 
-      client.setSalt(salt);
-      client.setServerPublicKey(validB);
+      client.salt = salt;
+      client.serverPublicKey = validB;
 
-      const publicKey = client.getPublicKey();
+      const publicKey = client.publicKey;
 
       expect(publicKey).to.be.instanceOf(Buffer);
       expect(publicKey.length).to.equal(SRP_KEY_LENGTH_BYTES);
@@ -157,12 +157,12 @@ describe('Apple TV SRP - SRP Client', function () {
       validB.fill(0xff);
       validB[0] = 0x02;
 
-      client.setSalt(salt);
-      client.setServerPublicKey(validB);
+      client.salt = salt;
+      client.serverPublicKey = validB;
       client.dispose();
 
       expect(function () {
-        client.getPublicKey();
+        client.publicKey;
       }).to.throw(SRPError, 'SRP client has been disposed');
     });
   });
@@ -195,8 +195,8 @@ describe('Apple TV SRP - SRP Client', function () {
       validB.fill(0xff);
       validB[0] = 0x02;
 
-      client.setSalt(salt);
-      client.setServerPublicKey(validB);
+      client.salt = salt;
+      client.serverPublicKey = validB;
 
       const proof = client.computeProof();
 
@@ -210,14 +210,14 @@ describe('Apple TV SRP - SRP Client', function () {
       validB.fill(0xff);
       validB[0] = 0x02;
 
-      client.setSalt(salt);
-      client.setServerPublicKey(validB);
+      client.salt = salt;
+      client.serverPublicKey = validB;
       const proof1 = client.computeProof();
 
       const client2 = new SRPClient();
       client2.setIdentity(SRP_USERNAME, 'differentpass');
-      client2.setSalt(salt);
-      client2.setServerPublicKey(validB);
+      client2.salt = salt;
+      client2.serverPublicKey = validB;
       const proof2 = client2.computeProof();
 
       expect(proof1.equals(proof2)).to.be.false;
@@ -231,8 +231,8 @@ describe('Apple TV SRP - SRP Client', function () {
       validB.fill(0xff);
       validB[0] = 0x02;
 
-      client.setSalt(salt);
-      client.setServerPublicKey(validB);
+      client.salt = salt;
+      client.serverPublicKey = validB;
       client.dispose();
 
       expect(function () {
@@ -250,7 +250,7 @@ describe('Apple TV SRP - SRP Client', function () {
       const newClient = new SRPClient();
 
       expect(function () {
-        newClient.getSessionKey();
+        newClient.sessionKey;
       }).to.throw(
         SRPError,
         'Password must be set before performing operations. Call setIdentity() first.',
@@ -259,7 +259,7 @@ describe('Apple TV SRP - SRP Client', function () {
 
     it('should throw error when session key not computed', function () {
       expect(function () {
-        client.getSessionKey();
+        client.sessionKey;
       }).to.throw(SRPError, 'Salt and server public key must be set first');
     });
 
@@ -269,10 +269,10 @@ describe('Apple TV SRP - SRP Client', function () {
       validB.fill(0xff);
       validB[0] = 0x02;
 
-      client.setSalt(salt);
-      client.setServerPublicKey(validB);
+      client.salt = salt;
+      client.serverPublicKey = validB;
 
-      const sessionKey = client.getSessionKey();
+      const sessionKey = client.sessionKey;
 
       expect(sessionKey).to.be.instanceOf(Buffer);
       expect(sessionKey.length).to.equal(64);
@@ -284,13 +284,13 @@ describe('Apple TV SRP - SRP Client', function () {
       validB.fill(0xff);
       validB[0] = 0x02;
 
-      client.setSalt(salt);
-      client.setServerPublicKey(validB);
-      client.getSessionKey();
+      client.salt = salt;
+      client.serverPublicKey = validB;
+      client.sessionKey;
       client.dispose();
 
       expect(function () {
-        client.getSessionKey();
+        client.sessionKey;
       }).to.throw(SRPError, 'SRP client has been disposed');
     });
   });
@@ -304,9 +304,9 @@ describe('Apple TV SRP - SRP Client', function () {
       validB.fill(0xff);
       validB[0] = 0x02;
 
-      client.setSalt(salt);
-      client.setServerPublicKey(validB);
-      client.getSessionKey();
+      client.salt = salt;
+      client.serverPublicKey = validB;
+      client.sessionKey;
 
       expect(client.isReady()).to.be.true;
       expect(client.hasSessionKey()).to.be.true;
@@ -325,11 +325,11 @@ describe('Apple TV SRP - SRP Client', function () {
       }).to.throw(SRPError, 'SRP client has been disposed');
 
       expect(function () {
-        client.setSalt(randomBytes(16));
+        client.salt = randomBytes(16);
       }).to.throw(SRPError, 'SRP client has been disposed');
 
       expect(function () {
-        client.getPublicKey();
+        client.publicKey;
       }).to.throw(SRPError, 'SRP client has been disposed');
     });
   });
@@ -344,10 +344,10 @@ describe('Apple TV SRP - SRP Client', function () {
       validB[1] = 0x34;
       validB[2] = 0x56;
 
-      client.setSalt(salt);
-      client.setServerPublicKey(validB);
+      client.salt = salt;
+      client.serverPublicKey = validB;
 
-      const sessionKey = client.getSessionKey();
+      const sessionKey = client.sessionKey;
       expect(sessionKey).to.be.instanceOf(Buffer);
       expect(sessionKey.length).to.equal(64);
     });

@@ -44,12 +44,12 @@ export class SRPClient {
 
   private username: string;
   private password: string;
-  private salt: Buffer | null = null;
-  private a: bigint = SRPClient.ZERO;
-  private A: bigint = SRPClient.ZERO;
-  private B: bigint | null = null;
-  private S: bigint | null = null;
-  private K: Buffer | null = null;
+  private _salt: Buffer | null = null;
+  private _a: bigint = SRPClient.ZERO;
+  private _A: bigint = SRPClient.ZERO;
+  private _B: bigint | null = null;
+  private _S: bigint | null = null;
+  private _K: Buffer | null = null;
 
   // State tracking
   private keysGenerated = false;
@@ -101,10 +101,18 @@ export class SRPClient {
       throw new SRPError('Salt cannot be empty');
     }
 
-    this.salt = salt;
+    this._salt = salt;
     this.generateClientKeysIfReady();
 
     log.debug('Salt set successfully');
+  }
+
+  get salt(): Buffer | null {
+    return this._salt;
+  }
+
+  set salt(value: Buffer) {
+    this.setSalt(value);
   }
 
   /**
@@ -122,21 +130,29 @@ export class SRPClient {
       );
     }
 
-    this.B = bufferToBigInt(B);
+    this._B = bufferToBigInt(B);
 
-    if (this.B <= SRPClient.ONE || this.B >= this.N_MINUS_ONE) {
+    if (this._B <= SRPClient.ONE || this._B >= this.N_MINUS_ONE) {
       throw new SRPError(
         'Invalid server public key B: must be in range (1, N-1)',
       );
     }
 
     // Additional security check
-    if (this.B % this.N === SRPClient.ZERO) {
+    if (this._B % this.N === SRPClient.ZERO) {
       throw new SRPError('Invalid server public key B: divisible by N');
     }
 
     this.generateClientKeysIfReady();
     log.debug('Server public key set successfully');
+  }
+
+  get serverPublicKey(): Buffer | null {
+    return this._B ? bigIntToBuffer(this._B, SRP_KEY_LENGTH_BYTES) : null;
+  }
+
+  set serverPublicKey(value: Buffer) {
+    this.setServerPublicKey(value);
   }
 
   /**
@@ -148,13 +164,17 @@ export class SRPClient {
   public getPublicKey(): Buffer {
     this.throwIfDisposed();
 
-    if (this.A === SRPClient.ZERO) {
+    if (this._A === SRPClient.ZERO) {
       throw new SRPError(
         'Client keys not generated yet. Call setSalt() and setServerPublicKey() first.',
       );
     }
 
-    return bigIntToBuffer(this.A, SRP_KEY_LENGTH_BYTES);
+    return bigIntToBuffer(this._A, SRP_KEY_LENGTH_BYTES);
+  }
+
+  get publicKey(): Buffer {
+    return this.getPublicKey();
   }
 
   /**
@@ -167,11 +187,11 @@ export class SRPClient {
     this.throwIfDisposed();
     this.validateIdentitySet();
 
-    if (!this.K) {
+    if (!this._K) {
       this.computeSharedSecret();
     }
 
-    if (!this.salt || !this.K || !this.B) {
+    if (!this._salt || !this._K || !this._B) {
       throw new SRPError(
         'Cannot compute proof: salt, session key, and server public key must be set',
       );
@@ -181,10 +201,10 @@ export class SRPClient {
       this.N,
       this.g,
       this.username,
-      this.salt,
-      this.A,
-      this.B,
-      this.K,
+      this._salt,
+      this._A,
+      this._B,
+      this._K,
     );
   }
 
@@ -198,15 +218,19 @@ export class SRPClient {
     this.throwIfDisposed();
     this.validateIdentitySet();
 
-    if (!this.K) {
+    if (!this._K) {
       this.computeSharedSecret();
     }
 
-    if (!this.K) {
+    if (!this._K) {
       throw new SRPError('Session key not computed');
     }
 
-    return this.K;
+    return this._K;
+  }
+
+  get sessionKey(): Buffer {
+    return this.getSessionKey();
   }
 
   /**
@@ -215,7 +239,7 @@ export class SRPClient {
    * @returns True if salt and server public key are set
    */
   public isReady(): boolean {
-    return !this.disposed && !!(this.salt && this.B && this.keysGenerated);
+    return !this.disposed && !!(this._salt && this._B && this.keysGenerated);
   }
 
   /**
@@ -224,7 +248,7 @@ export class SRPClient {
    * @returns True if a session key is available
    */
   public hasSessionKey(): boolean {
-    return !this.disposed && !!this.K;
+    return !this.disposed && !!this._K;
   }
 
   /**
@@ -238,15 +262,15 @@ export class SRPClient {
 
     // Clear sensitive data
     this.password = '';
-    this.a = SRPClient.ZERO;
+    this._a = SRPClient.ZERO;
 
-    if (this.K) {
-      this.K.fill(0);
+    if (this._K) {
+      this._K.fill(0);
     }
 
-    this.salt = null;
-    this.S = null;
-    this.B = null;
+    this._salt = null;
+    this._S = null;
+    this._B = null;
     this.disposed = true;
 
     log.debug('SRP client disposed and sensitive data cleared');
@@ -257,7 +281,7 @@ export class SRPClient {
    * This method ensures keys are generated only once.
    */
   private generateClientKeysIfReady(): void {
-    if (this.salt && this.B && !this.keysGenerated) {
+    if (this._salt && this._B && !this.keysGenerated) {
       this.generateClientKeys();
       this.keysGenerated = true;
     }
@@ -275,22 +299,22 @@ export class SRPClient {
 
     while (attempts < SRPClient.MAX_KEY_GENERATION_ATTEMPTS) {
       const randomBits = randomBytes(SRP_PRIVATE_KEY_BITS / 8);
-      this.a = bufferToBigInt(randomBits);
+      this._a = bufferToBigInt(randomBits);
 
       // Ensure key is in valid range without introducing bias
-      if (this.a >= this.N) {
+      if (this._a >= this.N) {
         attempts++;
         continue;
       }
 
-      if (this.a === SRPClient.ZERO) {
+      if (this._a === SRPClient.ZERO) {
         attempts++;
         continue;
       }
 
-      this.A = modPow(this.g, this.a, this.N);
+      this._A = modPow(this.g, this._a, this.N);
 
-      if (this.A <= SRPClient.ONE || this.A >= this.N_MINUS_ONE) {
+      if (this._A <= SRPClient.ONE || this._A >= this.N_MINUS_ONE) {
         attempts++;
         continue;
       }
@@ -313,33 +337,33 @@ export class SRPClient {
   private computeSharedSecret(): void {
     this.validateIdentitySet();
 
-    if (!this.salt || !this.B) {
+    if (!this._salt || !this._B) {
       throw new SRPError('Salt and server public key must be set first');
     }
 
-    if (this.A === SRPClient.ZERO) {
+    if (this._A === SRPClient.ZERO) {
       throw new SRPError('Client keys not generated');
     }
 
-    const u = calculateU(this.A, this.B, SRP_KEY_LENGTH_BYTES);
+    const u = calculateU(this._A, this._B, SRP_KEY_LENGTH_BYTES);
     log.debug('Calculated u value');
 
-    const x = calculateX(this.salt, this.username, this.password);
+    const x = calculateX(this._salt, this.username, this.password);
     log.debug('Calculated x value');
 
     const gx = modPow(this.g, x, this.N);
     const kgx = (this.k * gx) % this.N;
 
     // Fix negative modulo operation
-    let base = this.B - kgx;
+    let base = this._B - kgx;
     base = ((base % this.N) + this.N) % this.N;
 
-    const exponent = this.a + u * x;
-    this.S = modPow(base, exponent, this.N);
+    const exponent = this._a + u * x;
+    this._S = modPow(base, exponent, this.N);
     log.debug('Calculated shared secret S');
 
-    const SBuffer = bigIntToBuffer(this.S, SRP_KEY_LENGTH_BYTES);
-    this.K = hash(SBuffer);
+    const SBuffer = bigIntToBuffer(this._S, SRP_KEY_LENGTH_BYTES);
+    this._K = hash(SBuffer);
     log.debug('Calculated session key K');
   }
 
