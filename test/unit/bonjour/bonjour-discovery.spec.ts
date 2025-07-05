@@ -41,7 +41,7 @@ Timestamp     A/R    Flags  if Domain               Service Type         Instanc
         done();
       });
 
-      (discovery as any).processBrowseOutput(mockOutput);
+      discovery.processBrowseOutput(mockOutput);
     });
 
     it('should remove services', function (done) {
@@ -52,7 +52,7 @@ Timestamp     A/R    Flags  if Domain               Service Type         Instanc
 12:34:57.789  Rmv        3  4 local.               _remotepairing-manual-pairing._tcp.  Living Room
 `;
 
-      (discovery as any).processBrowseOutput(addOutput);
+      discovery.processBrowseOutput(addOutput);
 
       discovery.on('serviceRemoved', (serviceName) => {
         expect(serviceName).to.equal('Living Room');
@@ -60,7 +60,7 @@ Timestamp     A/R    Flags  if Domain               Service Type         Instanc
         done();
       });
 
-      (discovery as any).processBrowseOutput(removeOutput);
+      discovery.processBrowseOutput(removeOutput);
     });
 
     it('should handle multiple services in one output', function () {

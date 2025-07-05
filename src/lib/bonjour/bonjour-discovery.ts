@@ -490,6 +490,25 @@ export class BonjourDiscovery extends EventEmitter {
   }
 
   /**
+   * Process browse output using the parser
+   */
+  processBrowseOutput(output: string): void {
+    const results = DnssdOutputParser.parseBrowseOutput(output);
+
+    for (const { action, service } of results) {
+      if (action === 'Add') {
+        this.discoveredServices.set(service.name, service);
+        this.emit('serviceAdded', service);
+        log.info(`Discovered service: ${service.name}`);
+      } else if (action === 'Rmv') {
+        this.discoveredServices.delete(service.name);
+        this.emit('serviceRemoved', service.name);
+        log.info(`Service removed: ${service.name}`);
+      }
+    }
+  }
+
+  /**
    * Initialize a browsing process
    */
   private async initializeBrowsing(
@@ -544,25 +563,6 @@ export class BonjourDiscovery extends EventEmitter {
       }
       this._isDiscovering = false;
     });
-  }
-
-  /**
-   * Process browse output using the parser
-   */
-  private processBrowseOutput(output: string): void {
-    const results = DnssdOutputParser.parseBrowseOutput(output);
-
-    for (const { action, service } of results) {
-      if (action === 'Add') {
-        this.discoveredServices.set(service.name, service);
-        this.emit('serviceAdded', service);
-        log.info(`Discovered service: ${service.name}`);
-      } else if (action === 'Rmv') {
-        this.discoveredServices.delete(service.name);
-        this.emit('serviceRemoved', service.name);
-        log.info(`Service removed: ${service.name}`);
-      }
-    }
   }
 
   /**
