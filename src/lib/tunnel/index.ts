@@ -2,7 +2,7 @@ import { logger } from '@appium/support';
 import type { TLSSocket } from 'tls';
 import { type TunnelConnection, connectToTunnelLockdown } from 'tuntap-bridge';
 
-import RemoteXpcConnection from '../remote-xpc/remote-xpc-connection.js';
+import { RemoteXpcConnection } from '../remote-xpc/remote-xpc-connection.js';
 
 const log = logger.getLogger('TunnelManager');
 
@@ -64,9 +64,12 @@ class TunnelManagerService {
   async createRemoteXPCConnection(
     address: string,
     rsdPort: number,
-  ): Promise<any> {
+  ): Promise<RemoteXpcConnection> {
     try {
-      const remoteXPC = new RemoteXpcConnection([address, rsdPort]);
+      const remoteXPC: RemoteXpcConnection = new RemoteXpcConnection([
+        address,
+        rsdPort,
+      ]);
 
       // Connect to RemoteXPC with delay between retries
       let retries = 3;
@@ -75,7 +78,6 @@ class TunnelManagerService {
       while (retries > 0) {
         try {
           await remoteXPC.connect();
-
           // Update the registry entry with the RemoteXPC connection
           const entry = this.tunnelRegistry.get(address);
           if (entry) {
@@ -249,5 +251,5 @@ class TunnelManagerService {
 // Create and export the singleton instance
 export const TunnelManager = new TunnelManagerService();
 // Export packet streaming IPC functionality
-export { PacketStreamServer } from './packet-stream-server.js';
 export { PacketStreamClient } from './packet-stream-client.js';
+export { PacketStreamServer } from './packet-stream-server.js';

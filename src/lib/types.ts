@@ -5,6 +5,7 @@ import { EventEmitter } from 'events';
 import type { PacketData } from 'tuntap-bridge';
 
 import type { BaseService, Service } from '../services/ios/base-service.js';
+import type { RemoteXpcConnection } from './remote-xpc/remote-xpc-connection.js';
 import type { Device } from './usbmux/index.js';
 
 /**
@@ -188,6 +189,17 @@ export interface DiagnosticsServiceConstructor {
    * @param address Tuple containing [host, port]
    */
   new (address: [string, number]): DiagnosticsService;
+}
+
+/**
+ * Represents a DiagnosticsService instance with its associated RemoteXPC connection
+ * This allows callers to properly manage the connection lifecycle
+ */
+export interface DiagnosticsServiceWithConnection {
+  /** The DiagnosticsService instance */
+  diagnosticsService: DiagnosticsService;
+  /** The RemoteXPC connection that can be used to close the connection */
+  remoteXPC: RemoteXpcConnection;
 }
 
 /**

@@ -1,10 +1,10 @@
 import { strongbox } from '@appium/strongbox';
 
-import RemoteXpcConnection from './lib/remote-xpc/remote-xpc-connection.js';
+import { RemoteXpcConnection } from './lib/remote-xpc/remote-xpc-connection.js';
 import { TunnelManager } from './lib/tunnel/index.js';
 import { TunnelApiClient } from './lib/tunnel/tunnel-api-client.js';
 import type {
-  DiagnosticsService as DiagnosticsServiceType,
+  DiagnosticsServiceWithConnection,
   SyslogService as SyslogServiceType,
 } from './lib/types.js';
 import DiagnosticsService from './services/ios/diagnostic-service/index.js';
@@ -15,15 +15,18 @@ const TUNNEL_REGISTRY_PORT = 'tunnelRegistryPort';
 
 export async function startDiagnosticsService(
   udid: string,
-): Promise<DiagnosticsServiceType> {
+): Promise<DiagnosticsServiceWithConnection> {
   const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
   const diagnosticsService = remoteXPC.findService(
     DiagnosticsService.RSD_SERVICE_NAME,
   );
-  return new DiagnosticsService([
-    tunnelConnection.host,
-    parseInt(diagnosticsService.port, 10),
-  ]);
+  return {
+    remoteXPC: remoteXPC as RemoteXpcConnection,
+    diagnosticsService: new DiagnosticsService([
+      tunnelConnection.host,
+      parseInt(diagnosticsService.port, 10),
+    ]),
+  };
 }
 
 export async function startSyslogService(

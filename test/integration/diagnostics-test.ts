@@ -12,7 +12,10 @@ describe('Diagnostics Service', function () {
   const udid = process.env.UDID || '';
 
   before(async function () {
-    diagService = await Services.startDiagnosticsService(udid);
+    let { diagnosticsService, remoteXPC } =
+      await Services.startDiagnosticsService(udid);
+    diagService = diagnosticsService;
+    remoteXPC = remoteXPC;
   });
 
   after(async function () {

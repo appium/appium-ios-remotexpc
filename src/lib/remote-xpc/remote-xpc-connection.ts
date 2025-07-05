@@ -457,5 +457,4 @@ function extractServices(response: string): ServicesResponse {
   return { services };
 }
 
-export default RemoteXpcConnection;
-export { type Service, type ServicesResponse };
+export { RemoteXpcConnection, type Service, type ServicesResponse };
