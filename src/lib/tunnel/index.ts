@@ -2,7 +2,7 @@ import { logger } from '@appium/support';
 import type { TLSSocket } from 'tls';
 import { type TunnelConnection, connectToTunnelLockdown } from 'tuntap-bridge';
 
-import RemoteXpcConnection from '../remote-xpc/remote-xpc-connection.js';
+import { RemoteXpcConnection } from '../remote-xpc/remote-xpc-connection.js';
 
 const log = logger.getLogger('TunnelManager');
 
@@ -251,5 +251,5 @@ class TunnelManagerService {
 // Create and export the singleton instance
 export const TunnelManager = new TunnelManagerService();
 // Export packet streaming IPC functionality
-export { PacketStreamServer } from './packet-stream-server.js';
 export { PacketStreamClient } from './packet-stream-client.js';
+export { PacketStreamServer } from './packet-stream-server.js';

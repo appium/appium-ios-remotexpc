@@ -1,6 +1,6 @@
 import { strongbox } from '@appium/strongbox';
 
-import RemoteXpcConnection from './lib/remote-xpc/remote-xpc-connection.js';
+import { RemoteXpcConnection } from './lib/remote-xpc/remote-xpc-connection.js';
 import { TunnelManager } from './lib/tunnel/index.js';
 import { TunnelApiClient } from './lib/tunnel/tunnel-api-client.js';
 import type {

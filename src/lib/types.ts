@@ -5,7 +5,7 @@ import { EventEmitter } from 'events';
 import type { PacketData } from 'tuntap-bridge';
 
 import type { BaseService, Service } from '../services/ios/base-service.js';
-import type RemoteXpcConnection from './remote-xpc/remote-xpc-connection.js';
+import type { RemoteXpcConnection } from './remote-xpc/remote-xpc-connection.js';
 import type { Device } from './usbmux/index.js';
 
 /**
