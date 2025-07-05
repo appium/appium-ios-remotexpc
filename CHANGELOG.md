@@ -1,3 +1,9 @@
+## [0.0.6](https://github.com/appium/appium-ios-remotexpc/compare/v0.0.5...v0.0.6) (2025-07-05)
+
+### Bug Fixes
+
+* To close the connection on appium-xcuitest-driver we need to expose remoteXPC ([#52](https://github.com/appium/appium-ios-remotexpc/issues/52)) ([835c59d](https://github.com/appium/appium-ios-remotexpc/commit/835c59dcf203bb097d71a9c64e42d0888a45ec2a))
+
 ## [0.0.5](https://github.com/appium/appium-ios-remotexpc/compare/v0.0.4...v0.0.5) (2025-07-04)
 
 ### Miscellaneous Chores
