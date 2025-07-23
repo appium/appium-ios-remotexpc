@@ -74,7 +74,7 @@
     "@types/node": "^24.0.10",
     "@xmldom/xmldom": "^0.9.8",
     "npm-run-all2": "^7.0.2",
-    "tuntap-bridge": "^0.x"
+    "appium-ios-tuntap": "^0.x"
   },
   "files": [
     "src",
