@@ -1,8 +1,8 @@
 /**
  * Common type definitions for the appium-ios-remotexpc library
  */
+import type { PacketData } from 'appium-ios-tuntap';
 import { EventEmitter } from 'events';
-import type { PacketData } from 'tuntap-bridge';
 
 import type { BaseService, Service } from '../services/ios/base-service.js';
 import type { RemoteXpcConnection } from './remote-xpc/remote-xpc-connection.js';

@@ -1,3 +1,9 @@
+## [0.1.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.1.0...v0.1.1) (2025-07-23)
+
+### Bug Fixes
+
+* change tuntap dependency to appium-ios-tuntap ([#55](https://github.com/appium/appium-ios-remotexpc/issues/55)) ([dad93be](https://github.com/appium/appium-ios-remotexpc/commit/dad93be92c73ab67a028878777d42d31c799288c))
+
 ## [0.1.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.0.6...v0.1.0) (2025-07-05)
 
 ### Features

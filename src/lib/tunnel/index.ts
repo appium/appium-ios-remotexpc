@@ -1,6 +1,9 @@
 import { logger } from '@appium/support';
+import {
+  type TunnelConnection,
+  connectToTunnelLockdown,
+} from 'appium-ios-tuntap';
 import type { TLSSocket } from 'tls';
-import { type TunnelConnection, connectToTunnelLockdown } from 'tuntap-bridge';
 
 import { RemoteXpcConnection } from '../remote-xpc/remote-xpc-connection.js';
 

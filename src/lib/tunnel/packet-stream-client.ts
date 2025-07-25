@@ -1,7 +1,7 @@
 import { logger } from '@appium/support';
+import type { PacketConsumer, PacketData } from 'appium-ios-tuntap';
 import { EventEmitter } from 'events';
 import { type Socket, createConnection } from 'net';
-import type { PacketConsumer, PacketData } from 'tuntap-bridge';
 
 const log = logger.getLogger('PacketStreamClient');
 
