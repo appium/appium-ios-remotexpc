@@ -77,7 +77,7 @@ export abstract class BasePlistService {
    * @param timeout Timeout in milliseconds
    * @returns Promise resolving to the received message
    */
-  protected async receive(timeout?: number): Promise<PlistMessage> {
+  public async receive(timeout?: number): Promise<PlistMessage> {
     return this._plistService.receivePlist(timeout);
   }
 }

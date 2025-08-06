@@ -9,7 +9,7 @@ describe('Diagnostics Service', function () {
 
   let remoteXPC: any;
   let diagService: DiagnosticsService;
-  const udid = process.env.UDID || '';
+  const udid = process.env.UDID || '00008030-000318693E32402E';
 
   before(async function () {
     let { diagnosticsService, remoteXPC } =
@@ -34,6 +34,7 @@ describe('Diagnostics Service', function () {
       ioClass: 'IOPMPowerSource',
       returnRawJson: true,
     });
+    console.log(rawInfo);
     expect(rawInfo).to.be.an('object');
   });
 
@@ -42,6 +43,7 @@ describe('Diagnostics Service', function () {
       name: 'AppleBCMWLANSkywalkInterface',
       returnRawJson: true,
     });
+    console.log(wifiInfo);
     expect(wifiInfo).to.be.an('object');
   });
 });

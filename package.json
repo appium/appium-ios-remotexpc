@@ -27,6 +27,7 @@
     "test:tunnel": "mocha test/integration/tunnel-test.ts --exit --timeout 1m",
     "test:pair-record": "mocha test/integration/read-pair-record-test.ts --exit --timeout 1m",
     "test:diagnostics": "mocha test/integration/diagnostics-test.ts --exit --timeout 1m",
+    "test:notification": "mocha test/integration/notification-test.ts --exit --timeout 1m",
     "test:unit": "mocha 'test/unit/**/*.ts' --exit --timeout 2m",
     "test:tunnel-creation": "sudo tsx scripts/test-tunnel-creation.ts",
     "test:tunnel-creation:lsof": "sudo tsx scripts/test-tunnel-creation.ts --keep-open"

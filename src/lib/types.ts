@@ -5,6 +5,7 @@ import type { PacketData } from 'appium-ios-tuntap';
 import { EventEmitter } from 'events';
 
 import type { BaseService, Service } from '../services/ios/base-service.js';
+import type { ServiceConnection } from '../service-connection.js';
 import type { RemoteXpcConnection } from './remote-xpc/remote-xpc-connection.js';
 import type { Device } from './usbmux/index.js';
 
@@ -176,6 +177,13 @@ export interface DiagnosticsService extends BaseService {
   }): Promise<PlistDictionary[] | Record<string, any>>;
 }
 
+export interface NotificationProxyService extends BaseService {
+  connectToNotificationProxyService(
+    timeout?: number,
+  ): Promise<ServiceConnection>;
+  receive_notification(): AsyncGenerator<PlistMessage>;
+}
+
 /**
  * Represents the static side of DiagnosticsService
  */
@@ -198,6 +206,17 @@ export interface DiagnosticsServiceConstructor {
 export interface DiagnosticsServiceWithConnection {
   /** The DiagnosticsService instance */
   diagnosticsService: DiagnosticsService;
+  /** The RemoteXPC connection that can be used to close the connection */
+  remoteXPC: RemoteXpcConnection;
+}
+
+/**
+ * Represents a NotificationProxyService instance with its associated RemoteXPC connection
+ * This allows callers to properly manage the connection lifecycle
+*/
+export interface NotificationProxyServiceWithConnection {
+  /** The NotificationProxyService instance */
+  notificationProxyService: NotificationProxyService;
   /** The RemoteXPC connection that can be used to close the connection */
   remoteXPC: RemoteXpcConnection;
 }
