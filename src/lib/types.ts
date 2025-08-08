@@ -183,7 +183,7 @@ export interface NotificationProxyService extends BaseService {
   ): Promise<ServiceConnection>;
   observe(notification: string): Promise<PlistDictionary>;
   post(notification: string): Promise<PlistDictionary>;
-  receive_notification(): AsyncGenerator<PlistMessage>;
+  receiveNotification(): AsyncGenerator<PlistMessage>;
 }
 
 /**

@@ -35,18 +35,22 @@ class NotificationProxyService
    * @returns Promise that resolves when the subscription request is sent
    */
   async observe(notification: string): Promise<PlistDictionary> {
-    try {
-      const conn = await this.connectToNotificationProxyService();
-      const request: PlistDictionary = {
-        Command: 'ObserveNotification',
-        Name: notification,
-      };
-      this._observeNotificationCalled = true;
-      return await conn.sendPlistRequest(request, this.timeout);
-    } catch (error) {
-      log.error(`Error subscribing to notification "${notification}": ${error}`);
-      throw error;
+    if (!this._conn) {
+      this._conn = await this.connectToNotificationProxyService();
     }
+    const request: PlistDictionary = {
+      Command: 'ObserveNotification',
+      Name: notification,
+    };
+    const response = await this._conn.sendPlistRequest(request, this.timeout);
+    if (!response) {
+      return {};
+    }
+    if (Array.isArray(response)) {
+      return response.length > 0 ? (response[0] as PlistDictionary) : {};
+    }
+    this._observeNotificationCalled = true;
+    return response as PlistDictionary;
   }
 
   /**
@@ -64,16 +68,21 @@ class NotificationProxyService
         'You must call observe() before posting notifications.',
       );
     }
-    try {
-      const request: PlistDictionary = {
-        Command: 'PostNotification',
-        Name: notification,
-      };
-      return await this.sendRequest(request);
-    } catch (error) {
-      log.error(`Error posting notification "${notification}": ${error}`);
-      throw error;
+    if (!this._conn) {
+      this._conn = await this.connectToNotificationProxyService();
     }
+    const request: PlistDictionary = {
+      Command: 'PostNotification',
+      Name: notification,
+    };
+    const response = await this._conn.sendPlistRequest(request, this.timeout);
+    if (!response) {
+      return {};
+    }
+    if (Array.isArray(response)) {
+      return response.length > 0 ? (response[0] as PlistDictionary) : {};
+    }
+    return response as PlistDictionary;
   }
 
   /**
@@ -95,15 +104,6 @@ class NotificationProxyService
     }
   }
 
-  /**
-   * Alias for interface compatibility: receive_notification (snake_case)
-   */
-  async *receive_notification(): AsyncGenerator<PlistMessage> {
-    for await (const msg of this.receiveNotification()) {
-      yield msg;
-    }
-  }
-
   async connectToNotificationProxyService() {
     if (this._conn) {
       return this._conn;
@@ -119,26 +119,6 @@ class NotificationProxyService
       port: this.address[1].toString(),
       options: { createConnectionTimeout: this.timeout },
     };
-  }
-
-  private async sendRequest(
-    request: PlistDictionary,
-    timeout?: number,
-  ): Promise<PlistDictionary> {
-    const conn = await this.connectToNotificationProxyService();
-    const response = await conn.sendPlistRequest(request, timeout ?? this.timeout);
-
-    log.debug(`${request.Command} response received`);
-
-    if (!response) {
-      return {};
-    }
-
-    if (Array.isArray(response)) {
-      return response.length > 0 ? (response[0] as PlistDictionary) : {};
-    }
-
-    return response as PlistDictionary;
   }
 }
 

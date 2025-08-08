@@ -31,7 +31,7 @@ describe('NotificationProxyService', function () {
 
   it('print a notification as it is received', async function () {
     await notificationProxyService.observe('com.apple.springboard.lockstate');
-    const gen = notificationProxyService.receive_notification();
+    const gen = notificationProxyService.receiveNotification();
     const { value: notification, done } = await gen.next();
     if (done || !notification) {
       throw new Error('No notification received.');
@@ -42,7 +42,7 @@ describe('NotificationProxyService', function () {
 
   it('prints all notifications as they are received', async function () {
     await notificationProxyService.observe('com.apple.springboard.lockstate');
-    const gen = notificationProxyService.receive_notification();
+    const gen = notificationProxyService.receiveNotification();
     const { value: notification, done } = await gen.next();
     if (done || !notification) {
       throw new Error('No notification received.');
@@ -56,7 +56,7 @@ describe('NotificationProxyService', function () {
   it('observe and post notifications', async function() {
     const notificationName = 'com.apple.springboard.lockstate';
     await notificationProxyService.observe(notificationName);
-    const gen = notificationProxyService.receive_notification();
+    const gen = notificationProxyService.receiveNotification();
     const { value: notification, done: done } = await gen.next();
     if (done || !notification) {
       throw new Error('No notification received.');
