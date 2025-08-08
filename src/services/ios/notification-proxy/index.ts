@@ -19,7 +19,8 @@ class NotificationProxyService
   extends BaseService
   implements NotificationProxyServiceInterface
 {
-  static readonly RSD_SERVICE_NAME = 'com.apple.mobile.notification_proxy.shim.remote';
+  static readonly RSD_SERVICE_NAME =
+    'com.apple.mobile.notification_proxy.shim.remote';
   private readonly timeout: number;
   private _conn: any = null;
   private _observeNotificationCalled: boolean = false;
@@ -64,9 +65,7 @@ class NotificationProxyService
         'Posting notifications without observing them may not yield any results. ' +
           'Consider calling observe() first.',
       );
-      throw new Error(
-        'You must call observe() before posting notifications.',
-      );
+      throw new Error('You must call observe() before posting notifications.');
     }
     if (!this._conn) {
       this._conn = await this.connectToNotificationProxyService();

@@ -4,8 +4,8 @@
 import type { PacketData } from 'appium-ios-tuntap';
 import { EventEmitter } from 'events';
 
-import type { BaseService, Service } from '../services/ios/base-service.js';
 import type { ServiceConnection } from '../service-connection.js';
+import type { BaseService, Service } from '../services/ios/base-service.js';
 import type { RemoteXpcConnection } from './remote-xpc/remote-xpc-connection.js';
 import type { Device } from './usbmux/index.js';
 
@@ -215,7 +215,7 @@ export interface DiagnosticsServiceWithConnection {
 /**
  * Represents a NotificationProxyService instance with its associated RemoteXPC connection
  * This allows callers to properly manage the connection lifecycle
-*/
+ */
 export interface NotificationProxyServiceWithConnection {
   /** The NotificationProxyService instance */
   notificationProxyService: NotificationProxyService;

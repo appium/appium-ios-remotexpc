@@ -1,7 +1,8 @@
 import { logger } from '@appium/support';
+import { expect } from 'chai';
+
 import type { NotificationProxyService } from '../../src/lib/types.js';
 import * as Services from '../../src/services.js';
-import { expect } from 'chai';
 
 // Set NotificationProxyService logger to info level
 logger.getLogger('NotificationProxyService').level = 'info';
@@ -53,7 +54,7 @@ describe('NotificationProxyService', function () {
     } // Keep the generator running to receive more notifications
   });
 
-  it('observe and post notifications', async function() {
+  it('observe and post notifications', async function () {
     const notificationName = 'com.apple.springboard.lockstate';
     await notificationProxyService.observe(notificationName);
     const gen = notificationProxyService.receiveNotification();
@@ -63,11 +64,12 @@ describe('NotificationProxyService', function () {
     }
     const post = await notificationProxyService.post(notificationName);
     if (post.Name !== notificationName) {
-      throw new Error(`Expected post notification to be ${notificationName}, but got ${post.Name}`);
+      throw new Error(
+        `Expected post notification to be ${notificationName}, but got ${post.Name}`,
+      );
     }
     // eslint-disable-next-line no-console
     console.log('Received post notification:', post);
-
   });
 
   it('error if post called first', async function () {
@@ -75,11 +77,15 @@ describe('NotificationProxyService', function () {
     try {
       await notificationProxyService.post(notificationName);
       // If we reach here, the post didn't throw an error as expected
-      throw new Error('Expected post() to throw an error when called before observe()');
+      throw new Error(
+        'Expected post() to throw an error when called before observe()',
+      );
     } catch (error) {
       // Verify the error is the expected one
       if (error instanceof Error) {
-        expect(error.message).to.equal('You must call observe() before posting notifications.');
+        expect(error.message).to.equal(
+          'You must call observe() before posting notifications.',
+        );
       } else {
         throw new Error('Unexpected error type');
       }

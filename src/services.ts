@@ -47,7 +47,6 @@ export async function startNotificationProxyService(
   };
 }
 
-
 export async function startSyslogService(
   udid: string,
 ): Promise<SyslogServiceType> {
