@@ -4,8 +4,9 @@ import { expect } from 'chai';
 import type { NotificationProxyService } from '../../src/lib/types.js';
 import * as Services from '../../src/services.js';
 
+const log = logger.getLogger('NotificationProxyService.test');
 // Set NotificationProxyService logger to info level
-logger.getLogger('NotificationProxyService').level = 'info';
+log.level = 'info';
 
 describe('NotificationProxyService', function () {
   this.timeout(60000);
@@ -37,8 +38,8 @@ describe('NotificationProxyService', function () {
     if (done || !notification) {
       throw new Error('No notification received.');
     }
-    // eslint-disable-next-line no-console
-    console.log('Received notification:', notification);
+    log.debug('Received notification:', notification);
+    expect(notification).to.be.an('object');
   });
 
   it('prints all notifications as they are received', async function () {
@@ -49,8 +50,8 @@ describe('NotificationProxyService', function () {
       throw new Error('No notification received.');
     }
     for await (const msg of gen) {
-      // eslint-disable-next-line no-console
-      console.log('Received notification:', msg);
+      log.debug('Received notification:', msg);
+      expect(msg).to.be.an('object');
     } // Keep the generator running to receive more notifications
   });
 
@@ -68,8 +69,8 @@ describe('NotificationProxyService', function () {
         `Expected post notification to be ${notificationName}, but got ${post.Name}`,
       );
     }
-    // eslint-disable-next-line no-console
-    console.log('Received post notification:', post);
+    expect(post).to.be.an('object');
+    log.debug('Received post notification:', post);
   });
 
   it('error if post called first', async function () {
