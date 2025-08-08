@@ -34,7 +34,6 @@ describe('Diagnostics Service', function () {
       ioClass: 'IOPMPowerSource',
       returnRawJson: true,
     });
-    console.log(rawInfo);
     expect(rawInfo).to.be.an('object');
   });
 
@@ -43,7 +42,6 @@ describe('Diagnostics Service', function () {
       name: 'AppleBCMWLANSkywalkInterface',
       returnRawJson: true,
     });
-    console.log(wifiInfo);
     expect(wifiInfo).to.be.an('object');
   });
 });
