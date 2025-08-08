@@ -9,7 +9,7 @@ describe('Diagnostics Service', function () {
 
   let remoteXPC: any;
   let diagService: DiagnosticsService;
-  const udid = process.env.UDID || '00008030-000318693E32402E';
+  const udid = process.env.UDID || '';
 
   before(async function () {
     let { diagnosticsService, remoteXPC } =
