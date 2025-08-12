@@ -97,6 +97,10 @@ class NotificationProxyService
     }
   }
 
+  /**
+   * Connect to the notification proxy service
+   * @returns Promise resolving to the ServiceConnection instance
+   */
   async connectToNotificationProxyService(): Promise<ServiceConnection> {
     if (this._conn) {
       return this._conn;
