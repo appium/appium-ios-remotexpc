@@ -13,7 +13,7 @@ describe('NotificationProxyService', function () {
 
   let remoteXPC: any;
   let notificationProxyService: NotificationProxyService;
-  const udid = process.env.UDID || '00008030-000318693E32402E';
+  const udid = process.env.UDID || '';
 
   before(async function () {
     const result = await Services.startNotificationProxyService(udid);
