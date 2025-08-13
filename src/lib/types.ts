@@ -177,14 +177,39 @@ export interface DiagnosticsService extends BaseService {
   }): Promise<PlistDictionary[] | Record<string, any>>;
 }
 
+/**
+ * Represents the static side of DiagnosticsService
+ */
 export interface NotificationProxyService extends BaseService {
-  connectToNotificationProxyService(
-    timeout?: number,
-  ): Promise<ServiceConnection>;
+  /**
+   * Connect to the notification proxy service
+   * @returns Promise resolving to the ServiceConnection instance
+   */
+  connectToNotificationProxyService(): Promise<ServiceConnection>;
+  /**
+   * Observe a notification
+   * @param notification The notification name to subscribe to
+   * @returns Promise that resolves when the subscription request is sent
+   */
   observe(notification: string): Promise<PlistDictionary>;
+  /**
+   * Post a notification
+   * @param notification The notification name to post
+   * @returns Promise that resolves when the post request is sent
+   */
   post(notification: string): Promise<PlistDictionary>;
-  receiveNotification(): AsyncGenerator<PlistMessage>;
-  receiveSingleNotification(timeout?: number): Promise<PlistMessage>;
+  /**
+   * Expect notifications as an async generator
+   * @param timeout Timeout in milliseconds
+   * @returns AsyncGenerator yielding PlistMessage objects
+   */
+  expectNotifications(timeout?: number): AsyncGenerator<PlistMessage>;
+  /**
+   * Expect a single notification
+   * @param timeout Timeout in milliseconds
+   * @returns Promise resolving to the expected notification
+   */
+  expectNotification(timeout?: number): Promise<PlistMessage>;
 }
 
 /**

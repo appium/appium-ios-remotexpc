@@ -24,7 +24,7 @@ export interface PostNotificationRequest extends PlistDictionary {
  * NotificationProxyService provides an API to:
  * - Observe notifications
  * - Post notifications
- * - Receive notifications
+ * - Expects notifications
  */
 class NotificationProxyService
   extends BaseService
@@ -77,9 +77,11 @@ class NotificationProxyService
   }
 
   /**
-   * Receive notifications as an async generator
+   * Expect notifications as an async generator
+   * @param timeout Timeout in milliseconds
+   * @returns AsyncGenerator yielding PlistMessage objects
    */
-  async *receiveNotification(
+  async *expectNotifications(
     timeout: number = 120000,
   ): AsyncGenerator<PlistMessage> {
     if (!this._conn) {
@@ -103,29 +105,17 @@ class NotificationProxyService
   }
 
   /**
-   * Receive a single notification
+   * Expect a single notification
    * @param timeout Timeout in milliseconds
-   * @returns Promise resolving to the received notification
+   * @returns Promise resolving to the expected notification
    */
-  async receiveSingleNotification(
-    timeout: number = 120000,
-  ): Promise<PlistMessage> {
-    if (!this._conn) {
-      this._conn = await this.connectToNotificationProxyService();
+  async expectNotification(timeout: number = 120000): Promise<PlistMessage> {
+    const generator = this.expectNotifications(timeout);
+    const { value, done } = await generator.next();
+    if (done || !value) {
+      throw new Error('No notification received');
     }
-    try {
-      const notification = await this._conn.receive(timeout);
-      const notificationStr = JSON.stringify(notification);
-      const truncatedStr =
-        notificationStr.length > 500
-          ? `${notificationStr.substring(0, 500)}...`
-          : notificationStr;
-      log.info(`received response: ${truncatedStr}`);
-      return notification;
-    } catch (error) {
-      log.error(`Error receiving notification: ${(error as Error).message}`);
-      throw error;
-    }
+    return value;
   }
 
   /**
