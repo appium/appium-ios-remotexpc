@@ -34,7 +34,7 @@ class NotificationProxyService
     'com.apple.mobile.notification_proxy.shim.remote';
   private readonly timeout: number;
   private _conn: ServiceConnection | null = null;
-  private _observeNotificationCalled: Map<string, boolean> = new Map();
+  private _pendingNotificationsObservationSet: Set<string> = new Set();
 
   constructor(address: [string, number], timeout: number = 10000) {
     super(address);
@@ -52,7 +52,7 @@ class NotificationProxyService
     }
     const request = this.createObserveNotificationRequest(notification);
     const result = await this.sendPlistDictionary(request);
-    this._observeNotificationCalled.set(notification, true);
+    this._pendingNotificationsObservationSet.add(notification);
     return result;
   }
 
@@ -62,7 +62,7 @@ class NotificationProxyService
    * @returns Promise that resolves when the post request is sent
    */
   async post(notification: string): Promise<PlistDictionary> {
-    if (!this._observeNotificationCalled.get(notification)) {
+    if (!this._pendingNotificationsObservationSet.has(notification)) {
       log.error(
         'Posting notifications without observing them may not yield any results. ' +
           'Consider calling observe() first.',
@@ -72,7 +72,7 @@ class NotificationProxyService
     this._conn = await this.connectToNotificationProxyService();
     const request = this.createPostNotificationRequest(notification);
     const result = await this.sendPlistDictionary(request);
-    this._observeNotificationCalled.delete(notification);
+    this._pendingNotificationsObservationSet.delete(notification);
     return result;
   }
 
@@ -88,12 +88,43 @@ class NotificationProxyService
     while (true) {
       try {
         const notification = await this._conn.receive(timeout);
-        log.info(`received response: ${JSON.stringify(notification)}`);
+        const notificationStr = JSON.stringify(notification);
+        const truncatedStr =
+          notificationStr.length > 500
+            ? `${notificationStr.substring(0, 500)}...`
+            : notificationStr;
+        log.info(`received response: ${truncatedStr}`);
         yield notification;
       } catch (error) {
         log.error(`Error receiving notification: ${(error as Error).message}`);
         throw error;
       }
+    }
+  }
+
+  /**
+   * Receive a single notification
+   * @param timeout Timeout in milliseconds
+   * @returns Promise resolving to the received notification
+   */
+  async receiveSingleNotification(
+    timeout: number = 120000,
+  ): Promise<PlistMessage> {
+    if (!this._conn) {
+      this._conn = await this.connectToNotificationProxyService();
+    }
+    try {
+      const notification = await this._conn.receive(timeout);
+      const notificationStr = JSON.stringify(notification);
+      const truncatedStr =
+        notificationStr.length > 500
+          ? `${notificationStr.substring(0, 500)}...`
+          : notificationStr;
+      log.info(`received response: ${truncatedStr}`);
+      return notification;
+    } catch (error) {
+      log.error(`Error receiving notification: ${(error as Error).message}`);
+      throw error;
     }
   }
 
@@ -128,14 +159,20 @@ class NotificationProxyService
     };
   }
 
-  private getServiceConfig() {
+  private getServiceConfig(): {
+    serviceName: string;
+    port: string;
+    options: { createConnectionTimeout: number };
+  } {
     return {
       serviceName: NotificationProxyService.RSD_SERVICE_NAME,
       port: this.address[1].toString(),
       options: { createConnectionTimeout: this.timeout },
     };
   }
-  private async sendPlistDictionary(request: PlistDictionary) {
+  private async sendPlistDictionary(
+    request: PlistDictionary,
+  ): Promise<PlistDictionary> {
     if (!this._conn) {
       this._conn = await this.connectToNotificationProxyService();
     }

@@ -184,6 +184,7 @@ export interface NotificationProxyService extends BaseService {
   observe(notification: string): Promise<PlistDictionary>;
   post(notification: string): Promise<PlistDictionary>;
   receiveNotification(): AsyncGenerator<PlistMessage>;
+  receiveSingleNotification(timeout?: number): Promise<PlistMessage>;
 }
 
 /**

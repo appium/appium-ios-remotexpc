@@ -31,18 +31,20 @@ describe('NotificationProxyService', function () {
     }
   });
 
-  it('print a notification as it is received', async function () {
-    await notificationProxyService.observe('com.apple.springboard.lockstate');
-    const gen = notificationProxyService.receiveNotification();
-    const { value: notification, done } = await gen.next();
-    if (done || !notification) {
-      throw new Error('No notification received.');
+  it('receive a single notification', async function () {
+    try {
+      await notificationProxyService.observe('com.apple.springboard.lockstate');
+      const notification =
+        await notificationProxyService.receiveSingleNotification();
+      log.debug('Received notification:', notification);
+      expect(notification).to.be.an('object');
+    } catch (error) {
+      log.error('Error receiving notification:', (error as Error).message);
+      throw error;
     }
-    log.debug('Received notification:', notification);
-    expect(notification).to.be.an('object');
   });
 
-  it('prints all notifications as they are received', async function () {
+  it('receive notifications from a generator', async function () {
     await notificationProxyService.observe('com.apple.springboard.lockstate');
     const gen = notificationProxyService.receiveNotification();
     const { value: notification, done } = await gen.next();
