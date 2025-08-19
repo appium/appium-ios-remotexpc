@@ -4,6 +4,7 @@
 import type { PacketData } from 'appium-ios-tuntap';
 import { EventEmitter } from 'events';
 
+import type { ServiceConnection } from '../service-connection.js';
 import type { BaseService, Service } from '../services/ios/base-service.js';
 import type { RemoteXpcConnection } from './remote-xpc/remote-xpc-connection.js';
 import type { Device } from './usbmux/index.js';
@@ -179,6 +180,41 @@ export interface DiagnosticsService extends BaseService {
 /**
  * Represents the static side of DiagnosticsService
  */
+export interface NotificationProxyService extends BaseService {
+  /**
+   * Connect to the notification proxy service
+   * @returns Promise resolving to the ServiceConnection instance
+   */
+  connectToNotificationProxyService(): Promise<ServiceConnection>;
+  /**
+   * Observe a notification
+   * @param notification The notification name to subscribe to
+   * @returns Promise that resolves when the subscription request is sent
+   */
+  observe(notification: string): Promise<PlistDictionary>;
+  /**
+   * Post a notification
+   * @param notification The notification name to post
+   * @returns Promise that resolves when the post request is sent
+   */
+  post(notification: string): Promise<PlistDictionary>;
+  /**
+   * Expect notifications as an async generator
+   * @param timeout Timeout in milliseconds
+   * @returns AsyncGenerator yielding PlistMessage objects
+   */
+  expectNotifications(timeout?: number): AsyncGenerator<PlistMessage>;
+  /**
+   * Expect a single notification
+   * @param timeout Timeout in milliseconds
+   * @returns Promise resolving to the expected notification
+   */
+  expectNotification(timeout?: number): Promise<PlistMessage>;
+}
+
+/**
+ * Represents the static side of DiagnosticsService
+ */
 export interface DiagnosticsServiceConstructor {
   /**
    * Service name for Remote Service Discovery
@@ -198,6 +234,17 @@ export interface DiagnosticsServiceConstructor {
 export interface DiagnosticsServiceWithConnection {
   /** The DiagnosticsService instance */
   diagnosticsService: DiagnosticsService;
+  /** The RemoteXPC connection that can be used to close the connection */
+  remoteXPC: RemoteXpcConnection;
+}
+
+/**
+ * Represents a NotificationProxyService instance with its associated RemoteXPC connection
+ * This allows callers to properly manage the connection lifecycle
+ */
+export interface NotificationProxyServiceWithConnection {
+  /** The NotificationProxyService instance */
+  notificationProxyService: NotificationProxyService;
   /** The RemoteXPC connection that can be used to close the connection */
   remoteXPC: RemoteXpcConnection;
 }

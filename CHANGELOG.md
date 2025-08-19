@@ -1,3 +1,9 @@
+## [0.2.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.1.1...v0.2.0) (2025-08-14)
+
+### Features
+
+* implement notification proxy ([#59](https://github.com/appium/appium-ios-remotexpc/issues/59)) ([aede9f5](https://github.com/appium/appium-ios-remotexpc/commit/aede9f55d7c94657b15a5fe20cc221686a941596))
+
 ## [0.1.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.1.0...v0.1.1) (2025-07-23)
 
 ### Bug Fixes

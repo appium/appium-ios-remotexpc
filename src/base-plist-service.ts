@@ -36,6 +36,15 @@ export abstract class BasePlistService {
   }
 
   /**
+   * Waits for a message
+   * @param timeout Timeout in milliseconds
+   * @returns Promise resolving to the received message
+   */
+  public async receive(timeout?: number): Promise<PlistMessage> {
+    return this._plistService.receivePlist(timeout);
+  }
+
+  /**
    * Gets the PlistService instance
    * @returns The PlistService instance
    */
@@ -70,14 +79,5 @@ export abstract class BasePlistService {
    */
   protected send(message: PlistMessage): void {
     this._plistService.sendPlist(message);
-  }
-
-  /**
-   * Waits for a message
-   * @param timeout Timeout in milliseconds
-   * @returns Promise resolving to the received message
-   */
-  protected async receive(timeout?: number): Promise<PlistMessage> {
-    return this._plistService.receivePlist(timeout);
   }
 }

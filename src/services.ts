@@ -5,9 +5,11 @@ import { TunnelManager } from './lib/tunnel/index.js';
 import { TunnelApiClient } from './lib/tunnel/tunnel-api-client.js';
 import type {
   DiagnosticsServiceWithConnection,
+  NotificationProxyServiceWithConnection,
   SyslogService as SyslogServiceType,
 } from './lib/types.js';
 import DiagnosticsService from './services/ios/diagnostic-service/index.js';
+import { NotificationProxyService } from './services/ios/notification-proxy/index.js';
 import SyslogService from './services/ios/syslog-service/index.js';
 
 const APPIUM_XCUITEST_DRIVER_NAME = 'appium-xcuitest-driver';
@@ -25,6 +27,22 @@ export async function startDiagnosticsService(
     diagnosticsService: new DiagnosticsService([
       tunnelConnection.host,
       parseInt(diagnosticsService.port, 10),
+    ]),
+  };
+}
+
+export async function startNotificationProxyService(
+  udid: string,
+): Promise<NotificationProxyServiceWithConnection> {
+  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
+  const notificationProxyService = remoteXPC.findService(
+    NotificationProxyService.RSD_SERVICE_NAME,
+  );
+  return {
+    remoteXPC: remoteXPC as RemoteXpcConnection,
+    notificationProxyService: new NotificationProxyService([
+      tunnelConnection.host,
+      parseInt(notificationProxyService.port, 10),
     ]),
   };
 }
