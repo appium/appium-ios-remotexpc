@@ -11,7 +11,8 @@
     }
   },
   "engines": {
-    "node": ">=20 <23"
+    "node": "^20.19.0 || ^22.12.0 || >=24.0.0",
+    "npm": ">=10"
   },
   "scripts": {
     "clean:build": "rimraf ./build",
@@ -44,21 +45,17 @@
   },
   "description": "",
   "devDependencies": {
-    "@appium/eslint-config-appium-ts": "^1.0.4",
-    "@appium/tsconfig": "^0.3.5",
-    "@eslint/js": "^9.23.0",
+    "@appium/eslint-config-appium-ts": "^2.0.0-rc.1",
+    "@appium/tsconfig": "^1.0.0-rc.1",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/git": "^10.0.1",
     "@trivago/prettier-plugin-sort-imports": "^5.2.2",
     "@types/chai": "^5.2.1",
     "@types/chai-as-promised": "^8.0.2",
     "@types/mocha": "^10.0.10",
-    "appium": "^2.17.1",
     "chai": "^5.2.0",
     "chai-as-promised": "^8.0.1",
     "conventional-changelog-conventionalcommits": "^8.0.0",
-    "eslint": "^9.23.0",
-    "eslint-config-prettier": "^10.1.2",
     "eslint-plugin-unicorn": "^58.0.0",
     "mocha": "^11.1.0",
     "prettier": "^3.5.3",
@@ -66,14 +63,13 @@
     "semantic-release": "^24.0.0",
     "ts-node": "^10.9.2",
     "tsx": "^4.7.0",
-    "typescript": "^5.2.2",
-    "typescript-eslint": "^8.29.0"
+    "typescript": "^5.2.2"
   },
   "dependencies": {
-    "@appium/strongbox": "^0.x",
-    "@appium/support": "^6.1.0",
+    "@appium/strongbox": "^1.0.0-rc.1",
+    "@appium/support": "^7.0.0-rc.1",
     "@types/node": "^24.0.10",
-    "@xmldom/xmldom": "^0.9.8",
+    "@xmldom/xmldom": "^0.x",
     "npm-run-all2": "^7.0.2",
     "appium-ios-tuntap": "^0.x"
   },
