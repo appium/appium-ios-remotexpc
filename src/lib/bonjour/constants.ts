@@ -22,6 +22,12 @@ export const DNS_SD_COMMANDS = {
   RESOLVE: '-L',
 } as const;
 
+// DNS-SD action types
+export const DNS_SD_ACTIONS = {
+  ADD: 'Add',
+  REMOVE: 'Rmv',
+} as const;
+
 // DNS-SD output patterns
 export const DNS_SD_PATTERNS = {
   STARTING: '...STARTING...',

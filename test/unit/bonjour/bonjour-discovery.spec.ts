@@ -1,19 +1,6 @@
 import { expect } from 'chai';
-import type { ChildProcess } from 'node:child_process';
-import { EventEmitter } from 'node:events';
 
 import { BonjourDiscovery } from '../../../src/lib/bonjour/bonjour-discovery.js';
-
-class MockChildProcess extends EventEmitter {
-  stdout = new EventEmitter();
-  stderr = new EventEmitter();
-  killed = false;
-
-  kill() {
-    this.killed = true;
-    this.emit('exit', 0);
-  }
-}
 
 describe('BonjourDiscovery', function () {
   let discovery: BonjourDiscovery;

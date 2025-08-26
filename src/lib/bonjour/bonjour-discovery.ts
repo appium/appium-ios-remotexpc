@@ -1,20 +1,19 @@
 import { logger } from '@appium/support';
 import { type ChildProcess, spawn } from 'node:child_process';
-import { lookup } from 'node:dns';
+import { resolve4 } from 'node:dns/promises';
 import { EventEmitter } from 'node:events';
 import { clearTimeout, setTimeout } from 'node:timers';
-import { promisify } from 'node:util';
 
 import {
   BONJOUR_DEFAULT_DOMAIN,
   BONJOUR_SERVICE_TYPES,
   BONJOUR_TIMEOUTS,
+  DNS_SD_ACTIONS,
   DNS_SD_COMMANDS,
   DNS_SD_PATTERNS,
 } from './constants.js';
 
 const log = logger.getLogger('BonjourDiscovery');
-const dnsLookup = promisify(lookup);
 
 /**
  * Interface for a discovered Bonjour service
@@ -332,13 +331,28 @@ class ServiceResolver {
   /**
    * Resolve hostname to IP address
    */
-  static async resolveIPAddress(hostname: string): Promise<string | undefined> {
+  static async resolveIPAddress(
+    hostname: string,
+  ): Promise<string[] | undefined> {
     try {
-      const result = await dnsLookup(hostname, { family: 4 });
-      this.log.info(`Resolved ${hostname} to IPv4: ${result.address}`);
-      return result.address;
+      const address = await resolve4(hostname);
+      this.log.info(`Resolved ${hostname} to IPv4: ${address}`);
+      return address;
     } catch (error) {
       this.log.warn(`Failed to resolve hostname ${hostname} to IPv4: ${error}`);
+      // For .local hostnames, try without the trailing dot
+      if (hostname.endsWith('.local.')) {
+        const cleanHostname = hostname.slice(0, -1); // Remove trailing dot
+        try {
+          const address = await resolve4(cleanHostname);
+          this.log.info(`Resolved ${cleanHostname} to IPv4: ${address}`);
+          return address;
+        } catch (retryError) {
+          this.log.warn(
+            `Failed to resolve ${cleanHostname} to IPv4: ${retryError}`,
+          );
+        }
+      }
       return undefined;
     }
   }
@@ -373,7 +387,10 @@ class AppleTVDeviceConverter {
       return null;
     }
 
-    const ip = await ServiceResolver.resolveIPAddress(hostname);
+    const ipAddresses = await ServiceResolver.resolveIPAddress(hostname);
+    // Select default first one
+    // TODO: needs a decision to select from cli, if the user wants to select from the available ip's
+    const ip = ipAddresses?.[0];
 
     return {
       name: service.name,
@@ -410,9 +427,9 @@ class AppleTVDeviceConverter {
  * Main Bonjour discovery service orchestrator
  */
 export class BonjourDiscovery extends EventEmitter {
-  private browseProcess?: ChildProcess;
+  private _browseProcess?: ChildProcess;
   private _isDiscovering = false;
-  private readonly discoveredServices: Map<string, BonjourService> = new Map();
+  private readonly _discoveredServices: Map<string, BonjourService> = new Map();
 
   /**
    * Start browsing for Bonjour services
@@ -440,9 +457,9 @@ export class BonjourDiscovery extends EventEmitter {
    * Stop browsing for services
    */
   stopBrowsing(): void {
-    if (this.browseProcess && !this.browseProcess.killed) {
+    if (this._browseProcess && !this._browseProcess.killed) {
       log.info('Stopping Bonjour discovery');
-      this.browseProcess.kill('SIGTERM');
+      this._browseProcess.kill('SIGTERM');
     }
     this.cleanup();
   }
@@ -451,7 +468,7 @@ export class BonjourDiscovery extends EventEmitter {
    * Get all discovered services
    */
   getDiscoveredServices(): BonjourService[] {
-    return Array.from(this.discoveredServices.values());
+    return Array.from(this._discoveredServices.values());
   }
 
   /**
@@ -496,14 +513,20 @@ export class BonjourDiscovery extends EventEmitter {
     const results = DnssdOutputParser.parseBrowseOutput(output);
 
     for (const { action, service } of results) {
-      if (action === 'Add') {
-        this.discoveredServices.set(service.name, service);
-        this.emit('serviceAdded', service);
-        log.info(`Discovered service: ${service.name}`);
-      } else if (action === 'Rmv') {
-        this.discoveredServices.delete(service.name);
-        this.emit('serviceRemoved', service.name);
-        log.info(`Service removed: ${service.name}`);
+      switch (action) {
+        case DNS_SD_ACTIONS.ADD:
+          this._discoveredServices.set(service.name, service);
+          this.emit('serviceAdded', service);
+          log.info(`Discovered service: ${service.name}`);
+          break;
+        case DNS_SD_ACTIONS.REMOVE:
+          this._discoveredServices.delete(service.name);
+          this.emit('serviceRemoved', service.name);
+          log.info(`Service removed: ${service.name}`);
+          break;
+        default:
+          log.debug(`Unknown action: ${action}`);
+          break;
       }
     }
   }
@@ -516,13 +539,13 @@ export class BonjourDiscovery extends EventEmitter {
     domain: string,
   ): Promise<void> {
     this._isDiscovering = true;
-    this.discoveredServices.clear();
+    this._discoveredServices.clear();
 
     const browseProcess = DnssdProcessManager.createBrowseProcess(
       serviceType,
       domain,
     );
-    this.browseProcess = browseProcess;
+    this._browseProcess = browseProcess;
 
     try {
       await DnssdProcessManager.executeCommand(
@@ -605,7 +628,7 @@ export class BonjourDiscovery extends EventEmitter {
    * Cleanup resources
    */
   private cleanup(): void {
-    this.browseProcess = undefined;
+    this._browseProcess = undefined;
     this._isDiscovering = false;
   }
 }

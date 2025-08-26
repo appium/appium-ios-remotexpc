@@ -3,6 +3,8 @@ import { hostname } from 'node:os';
 import { Opack2 } from '../encryption/index.js';
 import type { AppleTVDeviceInfo } from '../types.js';
 
+type OpackSerialized = Buffer;
+
 const DEFAULT_ALT_IRK = Buffer.from([
   0xe9, 0xe8, 0x2d, 0xc0, 0x6a, 0x49, 0x79, 0x6b, 0x56, 0x6f, 0x54, 0x00, 0x19,
   0xb1, 0xc7, 0x7b,
@@ -37,7 +39,7 @@ export function createAppleTVDeviceInfo(identifier: string): AppleTVDeviceInfo {
  * @param identifier - Unique identifier to use as the account ID
  * @returns Serialized device information as a Buffer
  */
-export function encodeAppleTVDeviceInfo(identifier: string): Buffer {
+export function encodeAppleTVDeviceInfo(identifier: string): OpackSerialized {
   const deviceInfo = createAppleTVDeviceInfo(identifier);
 
   // Cast to SerializableValue to ensure type compatibility with Opack2.dumps
