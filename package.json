@@ -69,7 +69,7 @@
     "@appium/strongbox": "^1.0.0-rc.1",
     "@appium/support": "^7.0.0-rc.1",
     "@types/node": "^24.0.10",
-    "@xmldom/xmldom": "^0.x",
+    "@xmldom/xmldom": "^0.9.8",
     "npm-run-all2": "^7.0.2",
     "appium-ios-tuntap": "^0.x"
   },
