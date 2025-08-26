@@ -1,5 +1,5 @@
 import { logger } from '@appium/support';
-import { DOMParser, Element, Node } from '@xmldom/xmldom';
+import { DOMParser } from '@xmldom/xmldom';
 
 import type { PlistArray, PlistDictionary, PlistValue } from '../types.js';
 import { PlistService } from './plist-service.js';
