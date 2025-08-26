@@ -15,6 +15,8 @@ import {
 
 const log = logger.getLogger('BonjourDiscovery');
 
+const DNS_SD_COMMAND = 'dns-sd';
+
 /**
  * Interface for a discovered Bonjour service
  */
@@ -45,6 +47,14 @@ export interface AppleTVDevice {
 }
 
 /**
+ * Type alias for service discovery results
+ */
+export type ServiceDiscoveryResult = Array<{
+  action: string;
+  service: BonjourService;
+}>;
+
+/**
  * Process output handler result
  */
 interface ProcessResult {
@@ -57,8 +67,6 @@ interface ProcessResult {
  * Handles DNS-SD process management and communication
  */
 class DnssdProcessManager {
-  private static readonly log = logger.getLogger('DnssdProcessManager');
-
   /**
    * Execute a DNS-SD command with timeout and result handling
    */
@@ -68,7 +76,7 @@ class DnssdProcessManager {
     outputHandler: (output: string) => T | boolean,
     timeoutMessage: string,
   ): Promise<T> {
-    const process = spawn('dns-sd', args);
+    const process = spawn(DNS_SD_COMMAND, args);
 
     try {
       const result = await this.waitForProcessResult(
@@ -97,7 +105,7 @@ class DnssdProcessManager {
     serviceType: string,
     domain: string,
   ): ChildProcess {
-    return spawn('dns-sd', [DNS_SD_COMMANDS.BROWSE, serviceType, domain]);
+    return spawn(DNS_SD_COMMAND, [DNS_SD_COMMANDS.BROWSE, serviceType, domain]);
   }
 
   /**
@@ -112,6 +120,9 @@ class DnssdProcessManager {
     return new Promise((resolve) => {
       let isResolved = false;
       let result: T | undefined;
+      let exitCode: number | null = null;
+      let hasError = false;
+      let errorMessage = '';
 
       const timeout = setTimeout(() => {
         if (!isResolved) {
@@ -124,6 +135,22 @@ class DnssdProcessManager {
         clearTimeout(timeout);
         if (!isResolved) {
           isResolved = true;
+
+          if (hasError) {
+            resolve({
+              success: false,
+              error: new Error(errorMessage),
+            });
+          } else if (exitCode !== null && exitCode !== 0) {
+            resolve({
+              success: false,
+              error: new Error(`Process exited with code ${exitCode}`),
+            });
+          } else if (result !== undefined) {
+            resolve({ success: true, data: result });
+          } else {
+            resolve({ success: true });
+          }
         }
       };
 
@@ -133,21 +160,18 @@ class DnssdProcessManager {
         }
 
         const output = data.toString();
-        this.log.debug(`Process output: ${output}`);
+        log.debug(`[DnssdProcessManager] Process output: ${output}`);
 
         try {
           const handlerResult = outputHandler(output);
           if (handlerResult === true) {
-            cleanup();
-            resolve({ success: true });
+            result = undefined;
           } else if (handlerResult) {
             result = handlerResult;
-            cleanup();
-            resolve({ success: true, data: result });
           }
         } catch (error) {
-          cleanup();
-          resolve({ success: false, error: error as Error });
+          hasError = true;
+          errorMessage = `Output handler error: ${error}`;
         }
       });
 
@@ -157,12 +181,9 @@ class DnssdProcessManager {
         }
 
         const error = data.toString();
-        this.log.error(`Process error: ${error}`);
-        cleanup();
-        resolve({
-          success: false,
-          error: new Error(`Process failed: ${error}`),
-        });
+        log.error(`[DnssdProcessManager] Process error: ${error}`);
+        hasError = true;
+        errorMessage = `Process failed: ${error}`;
       });
 
       process.on('error', (error: Error) => {
@@ -170,24 +191,22 @@ class DnssdProcessManager {
           return;
         }
 
-        this.log.error(`Failed to start process: ${error}`);
-        cleanup();
-        resolve({ success: false, error });
+        log.error(`[DnssdProcessManager] Failed to start process: ${error}`);
+        hasError = true;
+        errorMessage = `Failed to start process: ${error}`;
       });
 
       process.on('exit', (code: number | null) => {
-        if (isResolved) {
-          return;
-        }
-
+        exitCode = code;
         if (code !== null && code !== 0) {
-          this.log.error(`Process exited with error code: ${code}`);
-          cleanup();
-          resolve({
-            success: false,
-            error: new Error(`Process exited with code ${code}`),
-          });
+          log.error(
+            `[DnssdProcessManager] Process exited with error code: ${code}`,
+          );
         }
+      });
+      process.on('close', (code: number | null) => {
+        log.debug(`[DnssdProcessManager] Process closed with code: ${code}`);
+        cleanup();
       });
     });
   }
@@ -200,34 +219,29 @@ class DnssdOutputParser {
   /**
    * Parse browse output and extract service information
    */
-  static parseBrowseOutput(
-    output: string,
-  ): Array<{ action: string; service: BonjourService }> {
-    const results: Array<{ action: string; service: BonjourService }> = [];
-    const lines = output.split('\n');
+  static parseBrowseOutput(output: string): ServiceDiscoveryResult {
+    return this.parseOutput(
+      output,
+      (line: string, results: ServiceDiscoveryResult) => {
+        const match = line.match(DNS_SD_PATTERNS.BROWSE_LINE);
+        if (match) {
+          const [, , action, , interfaceIndex, domain, serviceType, name] =
+            match;
+          const trimmedName = name.trim();
 
-    for (const line of lines) {
-      if (this.shouldSkipLine(line)) {
-        continue;
-      }
+          const service: BonjourService = {
+            name: trimmedName,
+            type: serviceType,
+            domain,
+            interfaceIndex: parseInt(interfaceIndex, 10),
+          };
 
-      const match = line.match(DNS_SD_PATTERNS.BROWSE_LINE);
-      if (match) {
-        const [, , action, , interfaceIndex, domain, serviceType, name] = match;
-        const trimmedName = name.trim();
-
-        const service: BonjourService = {
-          name: trimmedName,
-          type: serviceType,
-          domain,
-          interfaceIndex: parseInt(interfaceIndex, 10),
-        };
-
-        results.push({ action, service });
-      }
-    }
-
-    return results;
+          results.push({ action, service });
+        }
+        return results;
+      },
+      [] as ServiceDiscoveryResult,
+    );
   }
 
   /**
@@ -239,27 +253,52 @@ class DnssdOutputParser {
     serviceType: string,
     domain: string,
   ): BonjourService | null {
+    return this.parseOutput(
+      output,
+      (line: string, result: BonjourService | null) => {
+        // If we already found a result, return it (early termination)
+        if (result) {return result;}
+
+        const reachableMatch = line.match(DNS_SD_PATTERNS.REACHABLE);
+        if (reachableMatch) {
+          const [, hostname, port, interfaceIndex] = reachableMatch;
+          const txtRecord = this.parseTxtRecord(output);
+
+          return {
+            name: serviceName,
+            type: serviceType,
+            domain,
+            hostname,
+            port: parseInt(port, 10),
+            txtRecord,
+            interfaceIndex: parseInt(interfaceIndex, 10),
+          };
+        }
+        return result;
+      },
+      null as BonjourService | null,
+    );
+  }
+
+  /**
+   * Generic method to parse output with different reducer functions
+   */
+  private static parseOutput<T>(
+    output: string,
+    reducer: (line: string, accumulator: T) => T,
+    initialValue: T,
+  ): T {
     const lines = output.split('\n');
+    let result = initialValue;
 
     for (const line of lines) {
-      const reachableMatch = line.match(DNS_SD_PATTERNS.REACHABLE);
-      if (reachableMatch) {
-        const [, hostname, port, interfaceIndex] = reachableMatch;
-        const txtRecord = this.parseTxtRecord(output);
-
-        return {
-          name: serviceName,
-          type: serviceType,
-          domain,
-          hostname,
-          port: parseInt(port, 10),
-          txtRecord,
-          interfaceIndex: parseInt(interfaceIndex, 10),
-        };
+      if (this.shouldSkipLine(line)) {
+        continue;
       }
+      result = reducer(line, result);
     }
 
-    return null;
+    return result;
   }
 
   /**
@@ -296,8 +335,6 @@ class DnssdOutputParser {
  * Handles service resolution and IP address lookup
  */
 class ServiceResolver {
-  private static readonly log = logger.getLogger('ServiceResolver');
-
   /**
    * Resolve a specific service to get detailed information
    */
@@ -306,7 +343,9 @@ class ServiceResolver {
     serviceType: string = BONJOUR_SERVICE_TYPES.APPLE_TV_PAIRING,
     domain: string = BONJOUR_DEFAULT_DOMAIN,
   ): Promise<BonjourService> {
-    this.log.info(`Resolving service: ${serviceName}.${serviceType}.${domain}`);
+    log.info(
+      `[ServiceResolver] Resolving service: ${serviceName}.${serviceType}.${domain}`,
+    );
 
     const service = await DnssdProcessManager.executeCommand(
       [DNS_SD_COMMANDS.RESOLVE, serviceName, serviceType, domain],
@@ -336,20 +375,24 @@ class ServiceResolver {
   ): Promise<string[] | undefined> {
     try {
       const address = await resolve4(hostname);
-      this.log.info(`Resolved ${hostname} to IPv4: ${address}`);
+      log.info(`[ServiceResolver] Resolved ${hostname} to IPv4: ${address}`);
       return address;
     } catch (error) {
-      this.log.warn(`Failed to resolve hostname ${hostname} to IPv4: ${error}`);
+      log.warn(
+        `[ServiceResolver] Failed to resolve hostname ${hostname} to IPv4: ${error}`,
+      );
       // For .local hostnames, try without the trailing dot
       if (hostname.endsWith('.local.')) {
         const cleanHostname = hostname.slice(0, -1); // Remove trailing dot
         try {
           const address = await resolve4(cleanHostname);
-          this.log.info(`Resolved ${cleanHostname} to IPv4: ${address}`);
+          log.info(
+            `[ServiceResolver] Resolved ${cleanHostname} to IPv4: ${address}`,
+          );
           return address;
         } catch (retryError) {
-          this.log.warn(
-            `Failed to resolve ${cleanHostname} to IPv4: ${retryError}`,
+          log.warn(
+            `[ServiceResolver] Failed to resolve ${cleanHostname} to IPv4: ${retryError}`,
           );
         }
       }
@@ -362,8 +405,6 @@ class ServiceResolver {
  * Converts Bonjour services to Apple TV devices
  */
 class AppleTVDeviceConverter {
-  private static readonly log = logger.getLogger('AppleTVDeviceConverter');
-
   /**
    * Convert a resolved Bonjour service to an Apple TV device with IP resolution
    */
@@ -376,14 +417,16 @@ class AppleTVDeviceConverter {
 
     const { txtRecord, hostname, port } = service;
     if (!txtRecord || !this.hasRequiredTxtFields(txtRecord)) {
-      this.log.warn(
-        `Service ${service.name} missing required TXT record fields`,
+      log.warn(
+        `[AppleTVDeviceConverter] Service ${service.name} missing required TXT record fields`,
       );
       return null;
     }
 
     if (!hostname || !port) {
-      this.log.warn(`Service ${service.name} missing hostname or port`);
+      log.warn(
+        `[AppleTVDeviceConverter] Service ${service.name} missing hostname or port`,
+      );
       return null;
     }
 
@@ -584,7 +627,10 @@ export class BonjourDiscovery extends EventEmitter {
       if (code !== null && code !== 0) {
         log.error(`dns-sd browse process exited with error code: ${code}`);
       }
-      this._isDiscovering = false;
+    });
+    process.on('close', (code: number | null) => {
+      log.debug(`dns-sd browse process closed with code: ${code}`);
+      this.cleanup();
     });
   }
 
@@ -628,7 +674,9 @@ export class BonjourDiscovery extends EventEmitter {
    * Cleanup resources
    */
   private cleanup(): void {
+    log.debug('Cleaning up BonjourDiscovery resources');
     this._browseProcess = undefined;
     this._isDiscovering = false;
+    this._discoveredServices.clear();
   }
 }
