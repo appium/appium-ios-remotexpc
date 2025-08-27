@@ -117,7 +117,7 @@ class DnssdProcessManager {
     outputHandler: (output: string) => T | boolean,
     timeoutMessage: string,
   ): Promise<ProcessResult> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       let isResolved = false;
       let result: T | undefined;
       let exitCode: number | null = null;
@@ -127,7 +127,7 @@ class DnssdProcessManager {
       const timeout = setTimeout(() => {
         if (!isResolved) {
           isResolved = true;
-          resolve({ success: false, error: new Error(timeoutMessage) });
+          reject(new Error(timeoutMessage));
         }
       }, timeoutMs);
 

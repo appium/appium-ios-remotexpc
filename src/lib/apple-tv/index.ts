@@ -1,5 +1,15 @@
 // Core exports
-export * from './types.js';
+export type {
+  AppleTVDeviceInfo,
+  PairingKeys,
+  PairingResult,
+  PairingConfig,
+  TLV8Item,
+  PairingDataComponentTypeValue,
+  Opack2Value,
+  Opack2Array,
+  Opack2Dictionary,
+} from './types.js';
 export * from './errors.js';
 export * from './constants.js';
 export * from './utils/index.js';
