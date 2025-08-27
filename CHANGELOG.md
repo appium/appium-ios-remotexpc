@@ -1,3 +1,18 @@
+## [0.3.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.2.0...v0.3.0) (2025-08-26)
+
+### Features
+
+* Tune Node.js engines ([#60](https://github.com/appium/appium-ios-remotexpc/issues/60)) ([ab3a259](https://github.com/appium/appium-ios-remotexpc/commit/ab3a25966569c4fa07c50aad250c91cf9a837507))
+
+### Bug Fixes
+
+* use 0.9+ explicitly for xmldom reps ([#63](https://github.com/appium/appium-ios-remotexpc/issues/63)) ([4940032](https://github.com/appium/appium-ios-remotexpc/commit/4940032d439e5dd6a4537c8b8dde8ed49be7ebb9))
+
+### Miscellaneous Chores
+
+* **deps:** bump actions/checkout from 3 to 4 ([#57](https://github.com/appium/appium-ios-remotexpc/issues/57)) ([4d80170](https://github.com/appium/appium-ios-remotexpc/commit/4d80170359af0b41edfb11016ecc08aa6867a28c))
+* **deps:** bump actions/setup-node from 3 to 4 ([#58](https://github.com/appium/appium-ios-remotexpc/issues/58)) ([1f2abdd](https://github.com/appium/appium-ios-remotexpc/commit/1f2abddc315900825d5a94dd817b234a393e1f85))
+
 ## [0.2.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.1.1...v0.2.0) (2025-08-14)
 
 ### Features
