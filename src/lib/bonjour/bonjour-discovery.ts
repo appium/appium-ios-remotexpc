@@ -3,6 +3,7 @@ import { type ChildProcess, spawn } from 'node:child_process';
 import { resolve4 } from 'node:dns/promises';
 import { EventEmitter } from 'node:events';
 import { clearTimeout, setTimeout } from 'node:timers';
+import { setTimeout as delay } from 'node:timers/promises';
 
 import {
   BONJOUR_DEFAULT_DOMAIN,
@@ -64,7 +65,17 @@ interface ProcessResult {
 }
 
 /**
- * Execute a DNS-SD command with timeout and result handling
+ * Execute a dns-sd command with a timeout.
+ *
+ * @param args Arguments passed to the dns-sd CLI.
+ * @param timeoutMs Timeout in milliseconds.
+ * @param outputHandler Called for each stdout chunk from dns-sd:
+ *   - returns true: chunk handled; no result recorded; continue listening
+ *   - returns a truthy non-true value (e.g., object): store as result to return when the process ends
+ *   - returns false/undefined/null: ignore; continue listening
+ *   - throws: mark command as failed
+ * @param timeoutMessage Error message used if the command times out.
+ * @returns The value produced by outputHandler, if any, when the process ends.
  */
 async function executeDnsSdCommand<T>(
   args: string[],
@@ -103,7 +114,17 @@ function createDnsSdBrowseProcess(
 }
 
 /**
- * Generic method to wait for process result with timeout
+ * Wait for a child process result with a timeout.
+ *
+ * @param process Child process to observe.
+ * @param timeoutMs Timeout in milliseconds.
+ * @param outputHandler Called for each stdout chunk from dns-sd:
+ *   - returns true: chunk handled; no result recorded; continue listening
+ *   - returns a truthy non-true value (e.g., object): store as result to return when the process ends
+ *   - returns false/undefined/null: ignore; continue listening
+ *   - throws: mark command as failed
+ * @param timeoutMessage Error message used if the operation times out.
+ * @returns A ProcessResult indicating success and any data from outputHandler.
  */
 async function waitForProcessResult<T>(
   process: ChildProcess,
@@ -131,15 +152,9 @@ async function waitForProcessResult<T>(
         isResolved = true;
 
         if (hasError) {
-          resolve({
-            success: false,
-            error: new Error(errorMessage),
-          });
+          reject(new Error(errorMessage));
         } else if (exitCode !== null && exitCode !== 0) {
-          resolve({
-            success: false,
-            error: new Error(`Process exited with code ${exitCode}`),
-          });
+          reject(new Error(`Process exited with code ${exitCode}`));
         } else if (result !== undefined) {
           resolve({ success: true, data: result });
         } else {
@@ -325,36 +340,9 @@ function shouldSkipLine(line: string): boolean {
 }
 
 /**
- * Resolve a specific service to get detailed information
- */
-async function resolveServiceFn(
-  serviceName: string,
-  serviceType: string = BONJOUR_SERVICE_TYPES.APPLE_TV_PAIRING,
-  domain: string = BONJOUR_DEFAULT_DOMAIN,
-): Promise<BonjourService> {
-  log.info(
-    `[ServiceResolver] Resolving service: ${serviceName}.${serviceType}.${domain}`,
-  );
-
-  const service = await executeDnsSdCommand<BonjourService | null>(
-    [DNS_SD_COMMANDS.RESOLVE, serviceName, serviceType, domain],
-    BONJOUR_TIMEOUTS.SERVICE_RESOLUTION,
-    (output: string) =>
-      parseResolveOutput(output, serviceName, serviceType, domain),
-    `Service resolution timeout for ${serviceName}`,
-  );
-
-  if (!service) {
-    throw new Error(`Failed to resolve service ${serviceName}`);
-  }
-
-  return service;
-}
-
-/**
  * Resolve hostname to IP address
  */
-async function resolveIPAddressFn(
+async function resolveIPAddress(
   hostname: string,
 ): Promise<string[] | undefined> {
   try {
@@ -409,7 +397,7 @@ async function convertToAppleTVDeviceWithIP(
     return null;
   }
 
-  const ipAddresses = await resolveIPAddressFn(hostname);
+  const ipAddresses = await resolveIPAddress(hostname);
   // Select default first one
   // TODO: needs a decision to select from cli, if the user wants to select from the available ip's
   const ip = ipAddresses?.[0];
@@ -499,7 +487,23 @@ export class BonjourDiscovery extends EventEmitter {
     serviceType: string = BONJOUR_SERVICE_TYPES.APPLE_TV_PAIRING,
     domain: string = BONJOUR_DEFAULT_DOMAIN,
   ): Promise<BonjourService> {
-    return resolveServiceFn(serviceName, serviceType, domain);
+    log.info(
+      `[ServiceResolver] Resolving service: ${serviceName}.${serviceType}.${domain}`,
+    );
+
+    const service = await executeDnsSdCommand<BonjourService | null>(
+      [DNS_SD_COMMANDS.RESOLVE, serviceName, serviceType, domain],
+      BONJOUR_TIMEOUTS.SERVICE_RESOLUTION,
+      (output: string) =>
+        parseResolveOutput(output, serviceName, serviceType, domain),
+      `Service resolution timeout for ${serviceName}`,
+    );
+
+    if (!service) {
+      throw new Error(`Failed to resolve service ${serviceName}`);
+    }
+
+    return service;
   }
 
   /**
@@ -512,7 +516,7 @@ export class BonjourDiscovery extends EventEmitter {
 
     try {
       await this.startBrowsing();
-      await this.waitForDiscovery(timeoutMs);
+      await delay(timeoutMs);
 
       const devices = await this.resolveAllServices();
       log.info(
@@ -606,13 +610,6 @@ export class BonjourDiscovery extends EventEmitter {
       log.debug(`dns-sd browse process closed with code: ${code}`);
       this.cleanup();
     });
-  }
-
-  /**
-   * Wait for a discovery period
-   */
-  private async waitForDiscovery(timeoutMs: number): Promise<void> {
-    await new Promise((resolve) => setTimeout(resolve, timeoutMs));
   }
 
   /**
