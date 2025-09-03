@@ -348,3 +348,74 @@ export interface SyslogServiceConstructor {
    */
   new (address: [string, number]): SyslogService;
 }
+
+/**
+ * Represents the instance side of MobileImageMounterService
+ */
+export interface MobileImageMounterService extends BaseService {
+  /**
+   * Lookup for mounted images by type
+   * @param imageType Type of image, 'Developer' by default
+   * @returns Promise resolving to array of signatures of mounted images
+   */
+  lookup(imageType?: string): Promise<Buffer[]>;
+
+  /**
+   * Check if developer image is mounted
+   * @returns Promise resolving to boolean indicating if developer image is mounted
+   */
+  isDeveloperImageMounted(): Promise<boolean>;
+
+  /**
+   * Mount image for device
+   * @param imageFilePath The file path of the image
+   * @param imageSignatureFilePath The signature file path of the given image
+   * @param imageType Type of image, 'Developer' by default
+   */
+  mount(imageFilePath: string, imageSignatureFilePath: string, imageType?: string): Promise<void>;
+
+  /**
+   * Unmount image from device
+   * @param mountPath The mount path to unmount, defaults to '/Developer'
+   */
+  unmountImage(mountPath?: string): Promise<void>;
+
+  /**
+   * Query developer mode status (iOS 16+)
+   * @returns Promise resolving to boolean indicating if developer mode is enabled
+   */
+  queryDeveloperModeStatus(): Promise<boolean>;
+
+  /**
+   * Query personalization nonce (for personalized images)
+   * @param personalizedImageType Optional personalized image type
+   * @returns Promise resolving to personalization nonce
+   */
+  queryNonce(personalizedImageType?: string): Promise<Buffer>;
+}
+
+/**
+ * Represents the static side of MobileImageMounterService
+ */
+export interface MobileImageMounterServiceConstructor {
+  /**
+   * RSD service name for the mobile image mounter service
+   */
+  readonly RSD_SERVICE_NAME: string;
+
+  /**
+   * Creates a new MobileImageMounterService instance
+   * @param address Tuple containing [host, port]
+   */
+  new (address: [string, number]): MobileImageMounterService;
+}
+
+/**
+ * Represents a MobileImageMounterService instance with its associated RemoteXPC connection
+ */
+export interface MobileImageMounterServiceWithConnection {
+  /** The MobileImageMounterService instance */
+  mobileImageMounterService: MobileImageMounterService;
+  /** The RemoteXPC connection for service management */
+  remoteXPC: RemoteXpcConnection;
+}

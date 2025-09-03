@@ -14,12 +14,14 @@ import { startCoreDeviceProxy } from './services/ios/tunnel-service/index.js';
 
 export type {
   DiagnosticsService,
+  MobileImageMounterService,
   SyslogService,
   SocketInfo,
   TunnelResult,
   TunnelRegistry,
   TunnelRegistryEntry,
   DiagnosticsServiceWithConnection,
+  MobileImageMounterServiceWithConnection,
 } from './lib/types.js';
 export {
   createUsbmux,
