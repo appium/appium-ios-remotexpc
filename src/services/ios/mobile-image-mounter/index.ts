@@ -1,5 +1,6 @@
 import { logger } from '@appium/support';
 import { promises as fs, Stats } from 'fs';
+import { createHash } from "crypto";
 import path from 'path';
 
 import type {
@@ -56,10 +57,10 @@ class MobileImageMounterService
 
   // Constants
   private static readonly FILE_TYPE_IMAGE = 'image';
-  private static readonly FILE_TYPE_SIGNATURE = 'signature';
-  private static readonly DEFAULT_IMAGE_TYPE = 'Personalized'; // The default image type for iOS >= 17 is Personalized
-  private static readonly DEFAULT_MOUNT_PATH = '/private/var/mobile/Media/PublicStaging/staging.dimag';
-  private static readonly DEVELOPER_MOUNT_PATH = '/System/Developer'; // default for Personalized images from iOS >= 17
+  private static readonly FILE_TYPE_BUILD_MANIFEST = 'build_manifest';
+  private static readonly FILE_TYPE_TRUST_CACHE = 'trust_cache';
+  private static readonly IMAGE_TYPE = 'Personalized';
+  private static readonly MOUNT_PATH = '/System/Developer';
 
   constructor(address: [string, number]) {
     super(address);
@@ -67,10 +68,10 @@ class MobileImageMounterService
 
   /**
    * Lookup for mounted images by type
-   * @param imageType Type of image, 'Developer' by default
+   * @param imageType Type of image, 'Personalized' by default
    * @returns Promise resolving to array of signatures of mounted images
    */
-  async lookup(imageType: string = MobileImageMounterService.DEFAULT_IMAGE_TYPE): Promise<Buffer[]> {
+  async lookup(imageType: string = MobileImageMounterService.IMAGE_TYPE): Promise<Buffer[]> {
     try {
       const request: PlistDictionary = {
         Command: 'LookupImage',
@@ -78,7 +79,7 @@ class MobileImageMounterService
       };
 
       const response = await this.sendRequest(request) as LookupImageResponse;
-      log.debug(`LookupImage response received: ${JSON.stringify(response)}`);
+      log.debug('LookupImage response received:', response);
       this.checkIfError(response);
 
       const signatures = response.ImageSignature || [];
@@ -105,7 +106,7 @@ class MobileImageMounterService
    */
   async isDeveloperImageMounted(): Promise<boolean> {
     try {
-      const signatures = await this.lookup(MobileImageMounterService.DEFAULT_IMAGE_TYPE);
+      const signatures = await this.lookup(MobileImageMounterService.IMAGE_TYPE);
       return signatures.length > 0;
     } catch (error) {
       log.debug(`Could not check if developer image is mounted: ${error}`);
@@ -114,84 +115,80 @@ class MobileImageMounterService
   }
 
   /**
-   * Mount image for device
-   * @param imageFilePath The file path of the image
-   * @param imageSignatureFilePath The signature file path of the given image
-   * @param imageType Type of image, 'Developer' by default
+   * Mount personalized image for device (iOS >= 17)
+   * @param imageFilePath The file path of the image (.dmg)
+   * @param buildManifestFilePath The build manifest file path (.plist)
+   * @param trustCacheFilePath The trust cache file path (.trustcache)
    */
   async mount(
     imageFilePath: string,
-    imageSignatureFilePath: string,
-    imageType: string = MobileImageMounterService.DEFAULT_IMAGE_TYPE
+    buildManifestFilePath: string,
+    trustCacheFilePath: string
   ): Promise<void> {
     try {
+      // Check if image is already mounted
+      if (await this.isDeveloperImageMounted()) {
+        log.info('Personalized image is already mounted');
+        return;
+      }
+
+      // TODO: Check if developer mode is enabled, raise error if not
+
       // Check file stats and validate files exist
       const [imageFileStat] = await Promise.all([
         this.assertIsFile(imageFilePath, MobileImageMounterService.FILE_TYPE_IMAGE),
-        this.assertIsFile(imageSignatureFilePath, MobileImageMounterService.FILE_TYPE_SIGNATURE),
+        this.assertIsFile(buildManifestFilePath, MobileImageMounterService.FILE_TYPE_BUILD_MANIFEST),
+        this.assertIsFile(trustCacheFilePath, MobileImageMounterService.FILE_TYPE_TRUST_CACHE),
       ]);
 
-      // Read signature file
-      const signature = await fs.readFile(imageSignatureFilePath);
+      // Read files
+      const image = await fs.readFile(imageFilePath);
+      const trustCache = await fs.readFile(trustCacheFilePath);
 
-      // Check if an image with the same signature is already mounted
-      const mountedImages = await this.lookup(imageType);
-      const isAlreadyMounted = mountedImages.some((mountedSignature) =>
-        signature.equals(mountedSignature)
-      );
+      // Get personalization manifest from device
+      let manifest: Buffer;
+      try {
+        const imageHash = createHash("sha384").update(image).digest();
 
-      if (isAlreadyMounted) {
-        log.info(`An image with same signature of ${imageSignatureFilePath} is already mounted. Doing nothing.`);
-        return;
+        log.debug("sha384 digest of image is: " + imageHash);
+        log.debug("sha384 hexdigest of image is: " + imageHash.toString('hex'));
+
+        log.debug('Attempting to query existing personalization manifest from device');
+        manifest = await this.queryPersonalizationManifest('DeveloperDiskImage', imageHash);
+        log.debug('Successfully retrieved personalization manifest from device');
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('MissingManifestError')) {
+          log.debug("error is this: ", error.message);
+          log.debug('Personalization manifest not found on device - this image has not been mounted before');
+          throw new Error('Personalization manifest not found on device. ' +
+                         'This image has not been previously mounted on this device. ' +
+                         'TSS (Ticket Server) support for generating new manifests is not yet implemented.');
+        }
+        log.debug('Failed to get manifest from device - unexpected error');
+        throw error;
       }
 
-      // Step 1: Notify device about incoming image
-      const imageSize = imageFileStat.size;
-      const receiveBytesResult = await this.sendRequest({
-        Command: 'ReceiveBytes',
-        ImageSignature: signature,
-        ImageSize: imageSize,
-        ImageType: imageType,
-      }) as ReceiveBytesResponse;
+      // Upload the image
+      await this.uploadImage(MobileImageMounterService.IMAGE_TYPE, image, manifest);
 
-      this.checkIfError(receiveBytesResult);
+      // Mount the image with trust cache
+      const extras = {
+        ImageTrustCache: trustCache,
+      };
 
-      if (receiveBytesResult.Status !== 'ReceiveBytesAck') {
-        throw new Error(
-          `Unexpected return from mobile_image_mounter on sending ReceiveBytes: ${JSON.stringify(receiveBytesResult)}`
-        );
-      }
-
-      // Step 2: Upload image data to device
-      await this.uploadImageData(imageFilePath);
-
-      // Step 3: Mount the uploaded image
-      const mountResult = await this.sendRequest({
-        Command: 'MountImage',
-        ImagePath: MobileImageMounterService.DEFAULT_MOUNT_PATH,
-        ImageSignature: signature,
-        ImageType: imageType,
-      }) as ImageMountResponse;
-
-      // Handle case where image is already mounted
-      if (mountResult.DetailedError?.includes('is already mounted at /Developer')) {
-        log.info('DeveloperImage was already mounted');
-        return;
-      }
-
-      this.checkIfError(mountResult);
-      log.info(`Successfully mounted ${imageType} image`);
+      await this.mountImage(MobileImageMounterService.IMAGE_TYPE, manifest, extras);
+      log.info('Successfully mounted personalized image');
     } catch (error) {
-      log.error(`Error mounting image: ${error}`);
+      log.error(`Error mounting personalized image: ${error}`);
       throw error;
     }
   }
 
   /**
    * Unmount image from device
-   * @param mountPath The mount path to unmount, defaults to '/Developer'
+   * @param mountPath The mount path to unmount, defaults to '/System/Developer'
    */
-  async unmountImage(mountPath: string = MobileImageMounterService.DEVELOPER_MOUNT_PATH): Promise<void> {
+  async unmountImage(mountPath: string = MobileImageMounterService.MOUNT_PATH): Promise<void> {
     try {
       const request: PlistDictionary = {
         Command: 'UnmountImage',
@@ -266,6 +263,145 @@ class MobileImageMounterService
       return nonce;
     } catch (error) {
       log.error(`Error querying nonce: ${error}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Query personalization manifest
+   * @param imageType The image type
+   * @param signature The image signature/hash
+   * @returns Promise resolving to personalization manifest
+   */
+  async queryPersonalizationManifest(imageType: string, signature: Buffer): Promise<Buffer> {
+    try {
+      log.debug("sig: ", signature);
+      const request: PlistDictionary = {
+        Command: 'QueryPersonalizationManifest',
+        PersonalizedImageType: imageType,
+        ImageType: imageType,
+        ImageSignature: signature,
+      };
+      log.debug('QueryPersonalizationManifest request sent:', request);
+
+      const response = await this.sendRequest(request);
+      log.debug("QueryPersonalizationManifest response received: ", response);
+      this.checkIfError(response);
+
+      // The response "ImageSignature" is actually an IM4M manifest
+      const manifest = response.ImageSignature;
+      
+      if (!manifest) {
+        throw new Error('MissingManifestError: Personalization manifest not found on device');
+      }
+
+      if (!Buffer.isBuffer(manifest)) {
+        throw new Error('Invalid manifest received from device');
+      }
+
+      return manifest;
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('MissingManifestError')) {
+        throw error;
+      }
+      log.error(`Error querying personalization manifest: ${error}`);
+      throw new Error('MissingManifestError: Personalization manifest not found on device');
+    }
+  }
+
+  /**
+   * Upload image to device
+   * @param imageType The image type
+   * @param image The image data
+   * @param signature The image signature/manifest
+   */
+  async uploadImage(imageType: string, image: Buffer, signature: Buffer): Promise<void> {
+    try {
+      // Step 1: Send ReceiveBytes command
+      const receiveBytesResult = await this.sendRequest({
+        Command: 'ReceiveBytes',
+        ImageType: imageType,
+        ImageSize: image.length,
+        ImageSignature: signature,
+      }) as ReceiveBytesResponse;
+
+      this.checkIfError(receiveBytesResult);
+
+      if (receiveBytesResult.Status !== 'ReceiveBytesAck') {
+        throw new Error(
+          `Unexpected return from mobile_image_mounter on sending ReceiveBytes: ${JSON.stringify(receiveBytesResult)}`
+        );
+      }
+
+      // Step 2: Send image data
+      const conn = await this.connectToMobileImageMounterService();
+      const socket = conn.getSocket();
+      
+      await new Promise<void>((resolve, reject) => {
+        socket.write(image, (error) => {
+          if (error) {
+            reject(error);
+          } else {
+            resolve();
+          }
+        });
+      });
+
+      // Step 3: Wait for upload completion
+      const uploadResult = await conn.receive();
+      if (uploadResult.Status !== 'Complete') {
+        throw new Error(
+          `Unexpected return from mobile_image_mounter on pushing image file: ${JSON.stringify(uploadResult)}`
+        );
+      }
+
+      log.debug('Image uploaded successfully');
+    } catch (error) {
+      log.error(`Error uploading image: ${error}`);
+      throw error;
+    }
+  }
+
+  /**
+   * Mount image on device
+   * @param imageType The image type
+   * @param signature The image signature/manifest
+   * @param extras Additional parameters for mounting
+   */
+  async mountImage(imageType: string, signature: Buffer, extras?: Record<string, any>): Promise<void> {
+    try {
+      const request: PlistDictionary = {
+        Command: 'MountImage',
+        ImageType: imageType,
+        ImageSignature: signature,
+      };
+
+      if (extras) {
+        Object.assign(request, extras);
+      }
+
+      const response = await this.sendRequest(request) as ImageMountResponse;
+
+      // Handle case where image is already mounted
+      if (response.DetailedError?.includes('is already mounted')) {
+        log.info('Image was already mounted');
+        return;
+      }
+
+      // Check for developer mode errors
+      if (response.DetailedError?.includes('Developer mode is not enabled')) {
+        throw new Error('Developer mode is not enabled on this device');
+      }
+
+      this.checkIfError(response);
+
+      if (response.Status !== 'Complete') {
+        throw new Error(`Mount image failed: ${JSON.stringify(response)}`);
+      }
+
+      log.debug('Image mounted successfully');
+    } catch (error) {
+      log.error(`Error mounting image: ${error}`);
       throw error;
     }
   }
@@ -347,45 +483,6 @@ class MobileImageMounterService
     }
   }
 
-  /**
-   * Upload image data to the device
-   * @param imageFilePath The path to the image file to upload
-   */
-  private async uploadImageData(imageFilePath: string): Promise<void> {
-    try {
-      // Read the image file
-      const imageData = await fs.readFile(imageFilePath);
-
-      // Get connection to send raw data
-      const conn = await this.connectToMobileImageMounterService();
-
-      // Get the underlying socket and send image data directly
-      const socket = conn.getSocket();
-      await new Promise<void>((resolve, reject) => {
-        socket.write(imageData, (error) => {
-          if (error) {
-            reject(error);
-          } else {
-            resolve();
-          }
-        });
-      });
-
-      // Wait for upload completion confirmation
-      const pushImageResult = await conn.receive();
-
-      if (pushImageResult.Status !== 'Complete') {
-        throw new Error(
-          `Unexpected return from mobile_image_mounter on pushing image file: ${JSON.stringify(pushImageResult)}`
-        );
-      }
-
-      log.debug('Image data uploaded successfully');
-    } catch (error) {
-      log.error(`Error uploading image data: ${error}`);
-      throw error;
-    }
-  }
 }
 
 export default MobileImageMounterService;

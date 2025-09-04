@@ -355,7 +355,7 @@ export interface SyslogServiceConstructor {
 export interface MobileImageMounterService extends BaseService {
   /**
    * Lookup for mounted images by type
-   * @param imageType Type of image, 'Developer' by default
+   * @param imageType Type of image, 'Personalized' by default
    * @returns Promise resolving to array of signatures of mounted images
    */
   lookup(imageType?: string): Promise<Buffer[]>;
@@ -367,16 +367,16 @@ export interface MobileImageMounterService extends BaseService {
   isDeveloperImageMounted(): Promise<boolean>;
 
   /**
-   * Mount image for device
-   * @param imageFilePath The file path of the image
-   * @param imageSignatureFilePath The signature file path of the given image
-   * @param imageType Type of image, 'Developer' by default
+   * Mount personalized image for device (iOS 17+)
+   * @param imageFilePath The file path of the image (.dmg)
+   * @param buildManifestFilePath The build manifest file path (.plist)
+   * @param trustCacheFilePath The trust cache file path (.trustcache)
    */
-  mount(imageFilePath: string, imageSignatureFilePath: string, imageType?: string): Promise<void>;
+  mount(imageFilePath: string, buildManifestFilePath: string, trustCacheFilePath: string): Promise<void>;
 
   /**
    * Unmount image from device
-   * @param mountPath The mount path to unmount, defaults to '/Developer'
+   * @param mountPath The mount path to unmount, defaults to '/System/Developer'
    */
   unmountImage(mountPath?: string): Promise<void>;
 
