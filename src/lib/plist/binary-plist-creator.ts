@@ -61,7 +61,8 @@ class BinaryPlistCreator {
     for (const value of this._objectTable) {
       // Calculate offset including the header length
       objectOffsets.push(
-        BPLIST_MAGIC_AND_VERSION.length + this._calculateObjectDataLength(objectData)
+        BPLIST_MAGIC_AND_VERSION.length +
+          this._calculateObjectDataLength(objectData),
       );
       objectData.push(this._createObjectData(value));
     }

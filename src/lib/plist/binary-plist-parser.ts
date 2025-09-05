@@ -269,10 +269,13 @@ class BinaryPlistParser {
    * @param objLength - The length of the string in characters
    * @returns The parsed string
    */
- private _parseUnicodeString(startOffset: number, objLength: number): string {
+  private _parseUnicodeString(startOffset: number, objLength: number): string {
     // Unicode strings are stored as UTF-16BE in binary plists
     const bytesToRead = objLength * 2;
-    const stringBuffer = this._buffer.slice(startOffset, startOffset + bytesToRead);
+    const stringBuffer = this._buffer.slice(
+      startOffset,
+      startOffset + bytesToRead,
+    );
 
     // Convert UTF-16BE to UTF-16LE for proper decoding
     const utf16leBuffer = Buffer.alloc(bytesToRead);

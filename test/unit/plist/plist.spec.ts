@@ -215,6 +215,4 @@ describe('Plist Module', function () {
       expect(xmlResult).to.include('测试');
     });
   });
-
-
 });
