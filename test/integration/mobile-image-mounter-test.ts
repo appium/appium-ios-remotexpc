@@ -43,7 +43,7 @@ describe('MobileImageMounterService Integration', function () {
   });
 
   describe('Mount Operations', () => {
-    it('should handle personalized mount attempt gracefully', async function () {
+    it('should mount personalized image', async function () {
       // replace all these paths with your own paths to DMG Image, manifest, and trustcache
       const imagePath =
         '/Users/navinchandra/.pymobiledevice3/Xcode_iOS_DDI_Personalized/Image.dmg';
@@ -91,7 +91,7 @@ describe('MobileImageMounterService Integration', function () {
       expect(isImageMounted).to.be.a('boolean');
     });
 
-    it('should copy devices list (test CopyDevices command)', async function () {
+    it('should copy devices list', async function () {
       const devices =
         await serviceWithConnection!.mobileImageMounterService.copyDevices();
       expect(devices).to.be.an('array');
@@ -106,7 +106,7 @@ describe('MobileImageMounterService Integration', function () {
     });
   });
 
-  describe('Personalization Support', () => {
+  describe('Personalization identifiers and manifest', () => {
     it('should query personalization identifiers only', async function () {
       const identifiers =
         await serviceWithConnection!.mobileImageMounterService.queryPersonalizationIdentifiers();
@@ -139,8 +139,6 @@ describe('MobileImageMounterService Integration', function () {
               expect(manifest.length).to.be.greaterThan(0);
               return;
             } catch (error) {
-              // Continue to next signature if this one fails
-              continue;
             }
           }
         }
@@ -186,7 +184,7 @@ describe('MobileImageMounterService Integration', function () {
   });
 
   describe('Unmount Operations', () => {
-    it('should handle unmount attempt gracefully', async function () {
+    it('should unmount personalized image', async function () {
       try {
         await serviceWithConnection!.mobileImageMounterService.unmountImage(
           '/System/Developer',
