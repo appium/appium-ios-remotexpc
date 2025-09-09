@@ -5,13 +5,13 @@ import { TunnelManager } from './lib/tunnel/index.js';
 import { TunnelApiClient } from './lib/tunnel/tunnel-api-client.js';
 import type {
   DiagnosticsServiceWithConnection,
-  NotificationProxyServiceWithConnection,
   MobileImageMounterServiceWithConnection,
+  NotificationProxyServiceWithConnection,
   SyslogService as SyslogServiceType,
 } from './lib/types.js';
 import DiagnosticsService from './services/ios/diagnostic-service/index.js';
-import { NotificationProxyService } from './services/ios/notification-proxy/index.js';
 import MobileImageMounterService from './services/ios/mobile-image-mounter/index.js';
+import { NotificationProxyService } from './services/ios/notification-proxy/index.js';
 import SyslogService from './services/ios/syslog-service/index.js';
 
 const APPIUM_XCUITEST_DRIVER_NAME = 'appium-xcuitest-driver';

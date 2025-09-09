@@ -372,7 +372,11 @@ export interface MobileImageMounterService extends BaseService {
    * @param buildManifestFilePath The build manifest file path (.plist)
    * @param trustCacheFilePath The trust cache file path (.trustcache)
    */
-  mount(imageFilePath: string, buildManifestFilePath: string, trustCacheFilePath: string): Promise<void>;
+  mount(
+    imageFilePath: string,
+    buildManifestFilePath: string,
+    trustCacheFilePath: string,
+  ): Promise<void>;
 
   /**
    * Unmount image from device
@@ -411,7 +415,10 @@ export interface MobileImageMounterService extends BaseService {
    * @param signature The image signature/hash
    * @returns Promise resolving to personalization manifest
    */
-  queryPersonalizationManifest(imageType: string, signature: Buffer): Promise<Buffer>;
+  queryPersonalizationManifest(
+    imageType: string,
+    signature: Buffer,
+  ): Promise<Buffer>;
 }
 
 /**

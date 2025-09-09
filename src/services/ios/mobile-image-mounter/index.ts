@@ -1,16 +1,16 @@
 import { logger } from '@appium/support';
-import { promises as fs, Stats } from 'fs';
-import { createHash } from "crypto";
+import { createHash } from 'crypto';
+import { Stats, promises as fs } from 'fs';
 import path from 'path';
 
+import { parseXmlPlist } from '../../../lib/plist/index.js';
+import { getManifestFromTSS } from '../../../lib/tss/index.js';
 import type {
   MobileImageMounterService as MobileImageMounterServiceInterface,
   PlistDictionary,
 } from '../../../lib/types.js';
-import { BaseService } from '../base-service.js';
 import { ServiceConnection } from '../../../service-connection.js';
-import { getManifestFromTSS } from '../../../lib/tss/index.js';
-import { parseXmlPlist } from '../../../lib/plist/index.js';
+import { BaseService } from '../base-service.js';
 
 const log = logger.getLogger('MobileImageMounterService');
 
@@ -84,14 +84,16 @@ class MobileImageMounterService
    * @param imageType Type of image, 'Personalized' by default
    * @returns Promise resolving to array of signatures of mounted images
    */
-  async lookup(imageType: string = MobileImageMounterService.IMAGE_TYPE): Promise<Buffer[]> {
+  async lookup(
+    imageType: string = MobileImageMounterService.IMAGE_TYPE,
+  ): Promise<Buffer[]> {
     try {
       const request: PlistDictionary = {
         Command: 'LookupImage',
         ImageType: imageType,
       };
 
-      const response = await this.sendRequest(request) as LookupImageResponse;
+      const response = (await this.sendRequest(request)) as LookupImageResponse;
       log.debug('LookupImage response received:', response);
       this.checkIfError(response);
 
@@ -103,7 +105,7 @@ class MobileImageMounterService
       }
 
       if (Array.isArray(signatures)) {
-        return signatures.filter(sig => Buffer.isBuffer(sig)) as Buffer[];
+        return signatures.filter((sig) => Buffer.isBuffer(sig)) as Buffer[];
       }
 
       return [];
@@ -119,7 +121,9 @@ class MobileImageMounterService
    */
   async isDeveloperImageMounted(): Promise<boolean> {
     try {
-      const signatures = await this.lookup(MobileImageMounterService.IMAGE_TYPE);
+      const signatures = await this.lookup(
+        MobileImageMounterService.IMAGE_TYPE,
+      );
       return signatures.length > 0;
     } catch (error) {
       log.debug(`Could not check if developer image is mounted: ${error}`);
@@ -231,7 +235,7 @@ class MobileImageMounterService
   async mount(
     imageFilePath: string,
     buildManifestFilePath: string,
-    trustCacheFilePath: string
+    trustCacheFilePath: string,
   ): Promise<void> {
     try {
       // Check if image is already mounted
@@ -244,9 +248,18 @@ class MobileImageMounterService
 
       // Check file stats and validate files exist
       const [imageFileStat] = await Promise.all([
-        this.assertIsFile(imageFilePath, MobileImageMounterService.FILE_TYPE_IMAGE),
-        this.assertIsFile(buildManifestFilePath, MobileImageMounterService.FILE_TYPE_BUILD_MANIFEST),
-        this.assertIsFile(trustCacheFilePath, MobileImageMounterService.FILE_TYPE_TRUST_CACHE),
+        this.assertIsFile(
+          imageFilePath,
+          MobileImageMounterService.FILE_TYPE_IMAGE,
+        ),
+        this.assertIsFile(
+          buildManifestFilePath,
+          MobileImageMounterService.FILE_TYPE_BUILD_MANIFEST,
+        ),
+        this.assertIsFile(
+          trustCacheFilePath,
+          MobileImageMounterService.FILE_TYPE_TRUST_CACHE,
+        ),
       ]);
 
       // Read files
@@ -254,16 +267,27 @@ class MobileImageMounterService
       const trustCache = await fs.readFile(trustCacheFilePath);
 
       // Read build manifest
-      const buildManifestContent = await fs.readFile(buildManifestFilePath, 'utf8');
-      const buildManifest = parseXmlPlist(buildManifestContent) as PlistDictionary;
+      const buildManifestContent = await fs.readFile(
+        buildManifestFilePath,
+        'utf8',
+      );
+      const buildManifest = parseXmlPlist(
+        buildManifestContent,
+      ) as PlistDictionary;
 
       // Get device personalization identifiers to extract ECID
-      const personalizationIdentifiers = await this.queryPersonalizationIdentifiers();
-      log.debug('Personalization identifiers retrieved from device:', personalizationIdentifiers);
+      const personalizationIdentifiers =
+        await this.queryPersonalizationIdentifiers();
+      log.debug(
+        'Personalization identifiers retrieved from device:',
+        personalizationIdentifiers,
+      );
       const ecid = personalizationIdentifiers.UniqueChipID as number;
 
       if (!ecid) {
-        throw new Error('Could not retrieve device ECID from personalization identifiers');
+        throw new Error(
+          'Could not retrieve device ECID from personalization identifiers',
+        );
       }
 
       log.debug('Using TSS to generate personalization manifest...');
@@ -271,19 +295,28 @@ class MobileImageMounterService
         ecid,
         buildManifest,
         () => this.queryPersonalizationIdentifiers(),
-        (personalizedImageType: string) => this.queryNonce(personalizedImageType)
+        (personalizedImageType: string) =>
+          this.queryNonce(personalizedImageType),
       );
       log.debug('Successfully generated manifest from TSS');
 
       // Upload the image
-      await this.uploadImage(MobileImageMounterService.IMAGE_TYPE, image, manifest);
+      await this.uploadImage(
+        MobileImageMounterService.IMAGE_TYPE,
+        image,
+        manifest,
+      );
 
       // Mount the image with trust cache
       const extras = {
         ImageTrustCache: trustCache,
       };
 
-      await this.mountImage(MobileImageMounterService.IMAGE_TYPE, manifest, extras);
+      await this.mountImage(
+        MobileImageMounterService.IMAGE_TYPE,
+        manifest,
+        extras,
+      );
       log.info('Successfully mounted personalized image');
     } catch (error) {
       log.error(`Error mounting personalized image: ${error}`);
@@ -295,23 +328,31 @@ class MobileImageMounterService
    * Unmount image from device
    * @param mountPath The mount path to unmount, defaults to '/System/Developer'
    */
-  async unmountImage(mountPath: string = MobileImageMounterService.MOUNT_PATH): Promise<void> {
+  async unmountImage(
+    mountPath: string = MobileImageMounterService.MOUNT_PATH,
+  ): Promise<void> {
     try {
       const request: PlistDictionary = {
         Command: 'UnmountImage',
         MountPath: mountPath,
       };
 
-      const response = await this.sendRequest(request) as ImageMountResponse;
+      const response = (await this.sendRequest(request)) as ImageMountResponse;
 
       // Handle specific error cases
       if (response.Error) {
         if (response.Error === 'UnknownCommand') {
-          throw new Error('Unmount command is not supported on this iOS version');
-        } else if (response.DetailedError?.includes('There is no matching entry')) {
+          throw new Error(
+            'Unmount command is not supported on this iOS version',
+          );
+        } else if (
+          response.DetailedError?.includes('There is no matching entry')
+        ) {
           throw new Error(`No mounted image found at path: ${mountPath}`);
         } else if (response.Error === 'InternalError') {
-          throw new Error(`Internal error occurred while unmounting: ${JSON.stringify(response)}`);
+          throw new Error(
+            `Internal error occurred while unmounting: ${JSON.stringify(response)}`,
+          );
         }
       }
 
@@ -333,7 +374,7 @@ class MobileImageMounterService
         Command: 'QueryDeveloperModeStatus',
       };
 
-      const response = await this.sendRequest(request) as PlistDictionary;
+      const response = (await this.sendRequest(request)) as PlistDictionary;
       this.checkIfError(response);
 
       return Boolean(response.DeveloperModeStatus);
@@ -359,7 +400,7 @@ class MobileImageMounterService
         request.PersonalizedImageType = personalizedImageType;
       }
 
-      const response = await this.sendRequest(request) as PlistDictionary;
+      const response = (await this.sendRequest(request)) as PlistDictionary;
       this.checkIfError(response);
 
       const nonce = response.PersonalizationNonce;
@@ -383,11 +424,11 @@ class MobileImageMounterService
       Command: 'QueryPersonalizationIdentifiers',
     };
 
-    const response = await this.sendRequest(request) as PlistDictionary;
+    const response = (await this.sendRequest(request)) as PlistDictionary;
 
     this.checkIfError(response);
 
-    return response['PersonalizationIdentifiers'] as PlistDictionary;
+    return response.PersonalizationIdentifiers as PlistDictionary;
   }
 
   /**
@@ -396,7 +437,10 @@ class MobileImageMounterService
    */
   async copyDevices(): Promise<any[]> {
     try {
-      const response = await this.sendRequest({ Command: 'CopyDevices' }, 10000) as any;
+      const response = (await this.sendRequest(
+        { Command: 'CopyDevices' },
+        10000,
+      )) as any;
 
       if (response.EntryList) {
         return response.EntryList;
@@ -414,7 +458,10 @@ class MobileImageMounterService
    * @param signature The image signature/hash
    * @returns Promise resolving to personalization manifest
    */
-  async queryPersonalizationManifest(imageType: string, signature: Buffer): Promise<Buffer> {
+  async queryPersonalizationManifest(
+    imageType: string,
+    signature: Buffer,
+  ): Promise<Buffer> {
     try {
       const request = {
         Command: 'QueryPersonalizationManifest',
@@ -423,7 +470,10 @@ class MobileImageMounterService
         ImageSignature: signature,
       };
 
-      const response = await this.sendRequest(request, 10000) as PlistDictionary;
+      const response = (await this.sendRequest(
+        request,
+        10000,
+      )) as PlistDictionary;
 
       this.checkIfError(response);
 
@@ -431,7 +481,9 @@ class MobileImageMounterService
       const manifest = response.ImageSignature;
 
       if (!manifest) {
-        throw new Error('MissingManifestError: Personalization manifest not found on device');
+        throw new Error(
+          'MissingManifestError: Personalization manifest not found on device',
+        );
       }
 
       if (!Buffer.isBuffer(manifest)) {
@@ -440,10 +492,15 @@ class MobileImageMounterService
 
       return manifest;
     } catch (error) {
-      if (error instanceof Error && error.message.includes('MissingManifestError')) {
+      if (
+        error instanceof Error &&
+        error.message.includes('MissingManifestError')
+      ) {
         throw error;
       }
-      throw new Error('MissingManifestError: Personalization manifest not found on device');
+      throw new Error(
+        'MissingManifestError: Personalization manifest not found on device',
+      );
     }
   }
 
@@ -453,15 +510,19 @@ class MobileImageMounterService
    * @param image The image data
    * @param signature The image signature/manifest
    */
-  async uploadImage(imageType: string, image: Buffer, signature: Buffer): Promise<void> {
+  async uploadImage(
+    imageType: string,
+    image: Buffer,
+    signature: Buffer,
+  ): Promise<void> {
     try {
       // Step 1: Send ReceiveBytes command
-      const receiveBytesResult = await this.sendRequest({
+      const receiveBytesResult = (await this.sendRequest({
         Command: 'ReceiveBytes',
         ImageType: imageType,
         ImageSize: image.length,
         ImageSignature: signature,
-      }) as ReceiveBytesResponse;
+      })) as ReceiveBytesResponse;
 
       console.log('receiveBytesResult is ', receiveBytesResult);
 
@@ -469,14 +530,14 @@ class MobileImageMounterService
 
       if (receiveBytesResult.Status !== 'ReceiveBytesAck') {
         throw new Error(
-          `Unexpected return from mobile_image_mounter on sending ReceiveBytes: ${JSON.stringify(receiveBytesResult)}`
+          `Unexpected return from mobile_image_mounter on sending ReceiveBytes: ${JSON.stringify(receiveBytesResult)}`,
         );
       }
 
       // Step 2: Send image data
       const conn = await this.connectToMobileImageMounterService();
       const socket = conn.getSocket();
-      
+
       await new Promise<void>((resolve, reject) => {
         socket.write(image, (error: Error | null | undefined) => {
           if (error) {
@@ -492,7 +553,7 @@ class MobileImageMounterService
       log.debug('uploadResult is ', uploadResult);
       if (uploadResult.Status !== 'Complete') {
         throw new Error(
-          `Unexpected return from mobile_image_mounter on pushing image file: ${JSON.stringify(uploadResult)}`
+          `Unexpected return from mobile_image_mounter on pushing image file: ${JSON.stringify(uploadResult)}`,
         );
       }
 
@@ -509,7 +570,11 @@ class MobileImageMounterService
    * @param signature The image signature/manifest
    * @param extras Additional parameters for mounting
    */
-  async mountImage(imageType: string, signature: Buffer, extras?: Record<string, any>): Promise<void> {
+  async mountImage(
+    imageType: string,
+    signature: Buffer,
+    extras?: Record<string, any>,
+  ): Promise<void> {
     try {
       const request: PlistDictionary = {
         Command: 'MountImage',
@@ -521,7 +586,7 @@ class MobileImageMounterService
         Object.assign(request, extras);
       }
 
-      const response = await this.sendRequest(request) as ImageMountResponse;
+      const response = (await this.sendRequest(request)) as ImageMountResponse;
       log.debug('Mount image response from mountImage:', response);
 
       // Handle case where image is already mounted
@@ -558,7 +623,7 @@ class MobileImageMounterService
    */
   private async sendRequest(
     request: PlistDictionary,
-    timeout?: number
+    timeout?: number,
   ): Promise<PlistDictionary> {
     // Add detailed debug logging for the exact plist being sent
     // log.debug("=== EXACT PLIST REQUEST DEBUG ===");
@@ -569,16 +634,20 @@ class MobileImageMounterService
     // log.debug("About to call conn.sendPlistRequest()...");
 
     // Check if we're creating a new connection or reusing an existing one
-    const isNewConnection = !this.connection || (() => {
-      try {
-        const socket = this.connection!.getSocket();
-        return !socket || socket.destroyed;
-      } catch {
-        return true;
-      }
-    })();
+    const isNewConnection =
+      !this.connection ||
+      (() => {
+        try {
+          const socket = this.connection!.getSocket();
+          return !socket || socket.destroyed;
+        } catch {
+          return true;
+        }
+      })();
 
-    log.debug(`Connection status: ${isNewConnection ? 'NEW CONNECTION' : 'REUSING EXISTING CONNECTION'}`);
+    log.debug(
+      `Connection status: ${isNewConnection ? 'NEW CONNECTION' : 'REUSING EXISTING CONNECTION'}`,
+    );
 
     // Let's also hook into the connection to see what's being sent
     const conn = await this.connectToMobileImageMounterService();
@@ -630,7 +699,12 @@ class MobileImageMounterService
     // log.debug("res constructor:", res?.constructor?.name);
 
     // Check if this is a StartService response (new connection) or actual response (reused connection)
-    if (isNewConnection && res && typeof res === 'object' && res.Request === 'StartService') {
+    if (
+      isNewConnection &&
+      res &&
+      typeof res === 'object' &&
+      res.Request === 'StartService'
+    ) {
       // New connection: we got StartService response, need to wait for actual response
       // log.debug("=== WAITING FOR SECOND RESPONSE (new connection) ===");
       // log.debug("About to call conn.receive() for actual command response...");
@@ -656,15 +730,17 @@ class MobileImageMounterService
         return response as PlistDictionary;
       } catch (receiveError) {
         const endTime = Date.now();
-        log.error("=== ERROR RECEIVING SECOND RESPONSE ===");
+        log.error('=== ERROR RECEIVING SECOND RESPONSE ===');
         log.error(`Error after ${endTime - startTime}ms:`, receiveError);
         throw receiveError;
       }
     } else {
       // Reused connection: we already got the actual response
-      log.debug("=== REUSED CONNECTION - Response is the actual command response ===");
+      log.debug(
+        '=== REUSED CONNECTION - Response is the actual command response ===',
+      );
       log.debug(`${request.Command} response received from sendRequest`, res);
-      
+
       if (!res) {
         return {};
       }
@@ -682,7 +758,9 @@ class MobileImageMounterService
    * @param forceNew Force creation of a new connection (used for upload operations)
    * @returns Promise resolving to a service connection
    */
-  private async connectToMobileImageMounterService(forceNew = false): Promise<ServiceConnection> {
+  private async connectToMobileImageMounterService(
+    forceNew = false,
+  ): Promise<ServiceConnection> {
     // Return existing connection if available and not forcing new
     if (!forceNew && this.connection) {
       try {
@@ -705,12 +783,12 @@ class MobileImageMounterService
     };
 
     const newConnection = await this.startLockdownService(service);
-    
+
     // Only cache connection if not forced new
     if (!forceNew) {
       this.connection = newConnection;
     }
-    
+
     return newConnection;
   }
 
@@ -735,10 +813,10 @@ class MobileImageMounterService
    */
   private async restartServiceConnection(): Promise<void> {
     log.debug('Restarting service connection...');
-    
+
     // Close existing connection if any
     this.closeConnection();
-    
+
     // Create a new connection to verify connectivity
     const conn = await this.connectToMobileImageMounterService(true);
     log.debug('Service connection restarted successfully');
@@ -760,25 +838,29 @@ class MobileImageMounterService
    * @param fileType The type of file for error messages
    * @returns Promise resolving to file stats
    */
-  private async assertIsFile(filePath: string, fileType: string): Promise<Stats> {
+  private async assertIsFile(
+    filePath: string,
+    fileType: string,
+  ): Promise<Stats> {
     try {
       const fileStat = await fs.stat(filePath);
 
       if (fileStat.isDirectory()) {
         throw new Error(
-          `The provided ${fileType} path is expected to be a file, but a directory was given: ${filePath}`
+          `The provided ${fileType} path is expected to be a file, but a directory was given: ${filePath}`,
         );
       }
 
       return fileStat;
     } catch (error: any) {
       if (error.code === 'ENOENT') {
-        throw new Error(`The provided ${fileType} path does not exist: ${filePath}`);
+        throw new Error(
+          `The provided ${fileType} path does not exist: ${filePath}`,
+        );
       }
       throw error;
     }
   }
-
 }
 
 export default MobileImageMounterService;

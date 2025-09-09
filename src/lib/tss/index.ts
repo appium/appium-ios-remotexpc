@@ -1,7 +1,7 @@
 import { logger } from '@appium/support';
 import { randomUUID } from 'node:crypto';
-import * as https from 'node:https';
 import * as http from 'node:http';
+import * as https from 'node:https';
 
 import { createPlist, parsePlist } from '../plist/index.js';
 import type { PlistDictionary } from '../types.js';
@@ -52,7 +52,7 @@ export class TSSRequest {
   static applyRestoreRequestRules(
     tssEntry: PlistDictionary,
     parameters: PlistDictionary,
-    rules: any[]
+    rules: any[],
   ): PlistDictionary {
     for (const rule of rules) {
       let conditionsFulfilled = true;
@@ -82,7 +82,9 @@ export class TSSRequest {
             value2 = parameters.ApInRomDFU;
             break;
           default:
-            log.error(`Unhandled condition ${key} while parsing RestoreRequestRules`);
+            log.error(
+              `Unhandled condition ${key} while parsing RestoreRequestRules`,
+            );
             value2 = null;
         }
 
@@ -129,7 +131,7 @@ export class TSSRequest {
       'Cache-Control': 'no-cache',
       'Content-Type': 'text/xml; charset="utf-8"',
       'User-Agent': 'InetURL/1.0',
-      'Expect': '',
+      Expect: '',
     };
 
     log.info('Sending TSS request...');
@@ -138,13 +140,16 @@ export class TSSRequest {
     try {
       log.debug('Converting request to plist format...');
       const requestDataStr = createPlist(this._request);
-      const requestData = typeof requestDataStr === 'string' 
-        ? Buffer.from(requestDataStr, 'utf8') 
-        : requestDataStr;
-      
+      const requestData =
+        typeof requestDataStr === 'string'
+          ? Buffer.from(requestDataStr, 'utf8')
+          : requestDataStr;
+
       log.debug(`Request plist length: ${requestData.length} bytes`);
-      log.debug(`Request plist (first 500 chars): ${requestData.toString().substring(0, 500)}`);
-      
+      log.debug(
+        `Request plist (first 500 chars): ${requestData.toString().substring(0, 500)}`,
+      );
+
       const response = await this.httpRequest(TSS_CONTROLLER_ACTION_URL, {
         method: 'POST',
         headers,
@@ -168,7 +173,7 @@ export class TSSRequest {
 
       const message = messagePart.split('&')[0];
       log.debug(`TSS server message: ${message}`);
-      
+
       if (message !== 'SUCCESS') {
         log.error(`TSS server replied with error: ${message}`);
         throw new Error(`TSS server replied: ${message}`);
@@ -184,7 +189,7 @@ export class TSSRequest {
       log.debug('Parsing TSS response plist...');
       const responseData = parsePlist(requestStringPart) as TSSResponse;
       log.debug('TSS response parsed successfully');
-      
+
       return responseData;
     } catch (error) {
       log.error('TSS request failed:', error);
@@ -200,7 +205,7 @@ export class TSSRequest {
    */
   private httpRequest(
     url: string,
-    options: { method: string; headers: Record<string, string>; body: Buffer }
+    options: { method: string; headers: Record<string, string>; body: Buffer },
   ): Promise<string> {
     return new Promise((resolve, reject) => {
       const urlObj = new URL(url);
@@ -219,7 +224,7 @@ export class TSSRequest {
           port: urlObj.port || (isHttps ? 443 : 80),
           path: urlObj.pathname + urlObj.search,
           method: options.method,
-          timeout: timeout,
+          timeout,
           headers: {
             ...options.headers,
             'Content-Length': options.body.length,
@@ -227,22 +232,24 @@ export class TSSRequest {
         },
         (res) => {
           log.debug(`TSS response status: ${res.statusCode}`);
-          log.debug(`TSS response headers:`, res.headers);
+          log.debug('TSS response headers:', res.headers);
 
           const chunks: Buffer[] = [];
           res.on('data', (chunk) => chunks.push(chunk));
           res.on('end', () => {
             const body = Buffer.concat(chunks).toString();
             log.debug(`TSS response data length: ${body.length} bytes`);
-            log.debug(`TSS response (first 500 chars): ${body.substring(0, 500)}`);
-            
+            log.debug(
+              `TSS response (first 500 chars): ${body.substring(0, 500)}`,
+            );
+
             if (res.statusCode && res.statusCode >= 400) {
               reject(new Error(`HTTP ${res.statusCode}: ${body}`));
             } else {
               resolve(body);
             }
           });
-        }
+        },
       );
 
       req.on('error', (error) => {
@@ -275,10 +282,10 @@ export async function getManifestFromTSS(
   ecid: number,
   buildManifest: PlistDictionary,
   queryPersonalizationIdentifiers: () => Promise<PlistDictionary>,
-  queryNonce: (personalizedImageType: string) => Promise<Buffer>
+  queryNonce: (personalizedImageType: string) => Promise<Buffer>,
 ): Promise<Buffer> {
   log.debug('Starting TSS manifest generation process');
-  
+
   const request = new TSSRequest();
 
   const personalizationIdentifiers = await queryPersonalizationIdentifiers();
@@ -293,11 +300,11 @@ export async function getManifestFromTSS(
 
   let buildIdentity: any = null;
   const buildIdentities = buildManifest.BuildIdentities as any[];
-  
+
   for (const tmpBuildIdentity of buildIdentities) {
     const apBoardId = parseInt(tmpBuildIdentity.ApBoardID, 0);
     const apChipId = parseInt(tmpBuildIdentity.ApChipID, 0);
-    
+
     if (apBoardId === boardId && apChipId === chipId) {
       buildIdentity = tmpBuildIdentity;
       break;
@@ -306,7 +313,7 @@ export async function getManifestFromTSS(
 
   if (!buildIdentity) {
     throw new BuildIdentityNotFoundError(
-      `Could not find the manifest for board ${boardId} and chip ${chipId}`
+      `Could not find the manifest for board ${boardId} and chip ${chipId}`,
     );
   }
 
@@ -354,7 +361,7 @@ export async function getManifestFromTSS(
     }
 
     log.debug(`Processing manifest entry: ${key}`);
-    log.debug(`Entry Info:`, infoDict);
+    log.debug('Entry Info:', infoDict);
 
     // Start with minimal TSS entry - only copy essential fields
     const tssEntry: PlistDictionary = {
@@ -369,11 +376,15 @@ export async function getManifestFromTSS(
 
     // Handle RestoreRequestRules - apply rules from LoadableTrustCache Info to ALL entries (per PyMobileDevice3)
     const loadableTrustCache = manifest.LoadableTrustCache as any;
-    if (loadableTrustCache && loadableTrustCache.Info && loadableTrustCache.Info.RestoreRequestRules) {
+    if (
+      loadableTrustCache &&
+      loadableTrustCache.Info &&
+      loadableTrustCache.Info.RestoreRequestRules
+    ) {
       const rules = loadableTrustCache.Info.RestoreRequestRules;
       if (rules && rules.length > 0) {
         log.debug(`Applying restore request rules for entry ${key}`);
-        log.debug(`Rules:`, rules);
+        log.debug('Rules:', rules);
         TSSRequest.applyRestoreRequestRules(tssEntry, parameters, rules);
       }
     }
@@ -385,7 +396,7 @@ export async function getManifestFromTSS(
   }
 
   const response = await request.sendReceive();
-  
+
   if (!response.ApImg4Ticket) {
     throw new TSSError('TSS response doesn\'t contain an ApImg4Ticket');
   }
