@@ -392,6 +392,26 @@ export interface MobileImageMounterService extends BaseService {
    * @returns Promise resolving to personalization nonce
    */
   queryNonce(personalizedImageType?: string): Promise<Buffer>;
+
+  /**
+   * Query personalization identifiers from the device
+   * @returns Promise resolving to personalization identifiers
+   */
+  queryPersonalizationIdentifiers(): Promise<PlistDictionary>;
+
+  /**
+   * Copy devices list (equivalent to PyMobileDevice3's copy_devices())
+   * @returns Promise resolving to array of mounted devices
+   */
+  copyDevices(): Promise<any[]>;
+
+  /**
+   * Query personalization manifest for a specific image
+   * @param imageType The image type (e.g., 'DeveloperDiskImage')
+   * @param signature The image signature/hash
+   * @returns Promise resolving to personalization manifest
+   */
+  queryPersonalizationManifest(imageType: string, signature: Buffer): Promise<Buffer>;
 }
 
 /**

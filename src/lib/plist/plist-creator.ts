@@ -17,6 +17,10 @@ export function createPlist(obj: PlistDictionary): string {
     if (typeof value === 'string') {
       return `<string>${escapeXml(value)}</string>`;
     }
+    if (Buffer.isBuffer(value)) {
+      const base64Data = value.toString('base64');
+      return `<data>${base64Data}</data>`;
+    }
     if (Array.isArray(value)) {
       return `<array>${value.map((item) => convert(item)).join('')}</array>`;
     }
@@ -34,8 +38,7 @@ export function createPlist(obj: PlistDictionary): string {
     .join('');
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" 
-"http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>${body}</dict>
 </plist>`;

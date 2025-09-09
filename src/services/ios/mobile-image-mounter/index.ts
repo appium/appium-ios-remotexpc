@@ -8,6 +8,9 @@ import type {
   PlistDictionary,
 } from '../../../lib/types.js';
 import { BaseService } from '../base-service.js';
+import { ServiceConnection } from '../../../service-connection.js';
+import { getManifestFromTSS } from '../../../lib/tss/index.js';
+import { parseXmlPlist } from '../../../lib/plist/index.js';
 
 const log = logger.getLogger('MobileImageMounterService');
 
@@ -62,8 +65,18 @@ class MobileImageMounterService
   private static readonly IMAGE_TYPE = 'Personalized';
   private static readonly MOUNT_PATH = '/System/Developer';
 
+  // Connection cache
+  private connection: ServiceConnection | null = null;
+
   constructor(address: [string, number]) {
     super(address);
+  }
+
+  /**
+   * Clean up resources when service is no longer needed
+   */
+  async cleanup(): Promise<void> {
+    this.closeConnection();
   }
 
   /**
@@ -120,6 +133,101 @@ class MobileImageMounterService
    * @param buildManifestFilePath The build manifest file path (.plist)
    * @param trustCacheFilePath The trust cache file path (.trustcache)
    */
+  // async mount(
+  //   imageFilePath: string,
+  //   buildManifestFilePath: string,
+  //   trustCacheFilePath: string
+  // ): Promise<void> {
+  //   try {
+  //     // Check if image is already mounted
+  //     if (await this.isDeveloperImageMounted()) {
+  //       log.info('Personalized image is already mounted');
+  //       return;
+  //     }
+  //
+  //     // TODO: Check if developer mode is enabled, raise error if not
+  //
+  //     // Check file stats and validate files exist
+  //     const [imageFileStat] = await Promise.all([
+  //       this.assertIsFile(imageFilePath, MobileImageMounterService.FILE_TYPE_IMAGE),
+  //       this.assertIsFile(buildManifestFilePath, MobileImageMounterService.FILE_TYPE_BUILD_MANIFEST),
+  //       this.assertIsFile(trustCacheFilePath, MobileImageMounterService.FILE_TYPE_TRUST_CACHE),
+  //     ]);
+  //
+  //     // Read files
+  //     const image = await fs.readFile(imageFilePath);
+  //     const trustCache = await fs.readFile(trustCacheFilePath);
+  //
+  //     // Get personalization manifest from device
+  //     let manifest: Buffer;
+  //     try {
+  //       const imageHash = createHash("sha384").update(image).digest();
+  //
+  //       log.debug("sha384 digest of image is: " + imageHash);
+  //       log.debug("sha384 hexdigest of image is: " + imageHash.toString('hex'));
+  //
+  //       log.debug('Attempting to query existing personalization manifest from device');
+  //       manifest = await this.queryPersonalizationManifest('DeveloperDiskImage', imageHash);
+  //       log.debug('Successfully retrieved personalization manifest from device');
+  //     } catch (error) {
+  //       if (error instanceof Error && error.message.includes('MissingManifestError')) {
+  //         log.debug("Personalization manifest not found on device, falling back to TSS");
+  //         log.debug("Service connection was closed by device, restarting service...");
+  //
+  //         try {
+  //           // CRITICAL: After MissingManifestError, the service socket is closed by the device
+  //           // We need to restart the service connection before proceeding with TSS
+  //           await this.connectToMobileImageMounterService(); // was changed from restartServiceConnection
+  //           log.debug("Service connection restarted successfully");
+  //
+  //           // Read build manifest
+  //           const buildManifestContent = await fs.readFile(buildManifestFilePath, 'utf8');
+  //           const buildManifest = parseXmlPlist(buildManifestContent) as PlistDictionary;
+  //
+  //           // Get device personalization identifiers to extract ECID
+  //           const personalizationIdentifiers = await this.queryPersonalizationIdentifiers();
+  //           log.debug('Personalization identifiers retrieved from device:', personalizationIdentifiers);
+  //           const ecid = personalizationIdentifiers.UniqueChipID as number;
+  //
+  //           if (!ecid) {
+  //             throw new Error('Could not retrieve device ECID from personalization identifiers');
+  //           }
+  //
+  //           log.debug('Using TSS to generate personalization manifest...');
+  //           manifest = await getManifestFromTSS(
+  //             ecid,
+  //             buildManifest,
+  //             () => this.queryPersonalizationIdentifiers(),
+  //             (personalizedImageType: string) => this.queryNonce(personalizedImageType)
+  //           );
+  //           log.debug('Successfully generated manifest from TSS');
+  //         } catch (tssError) {
+  //           log.error('TSS manifest generation failed:', tssError);
+  //           throw new Error('Failed to generate personalization manifest via TSS: ' +
+  //                          (tssError instanceof Error ? tssError.message : String(tssError)));
+  //         }
+  //       } else {
+  //         log.debug('Failed to get manifest from device - unexpected error');
+  //         throw error;
+  //       }
+  //     }
+  //
+  //     // Upload the image
+  //     await this.uploadImage(MobileImageMounterService.IMAGE_TYPE, image, manifest);
+  //
+  //     // Mount the image with trust cache
+  //     const extras = {
+  //       ImageTrustCache: trustCache,
+  //     };
+  //
+  //     await this.mountImage(MobileImageMounterService.IMAGE_TYPE, manifest, extras);
+  //     log.info('Successfully mounted personalized image');
+  //   } catch (error) {
+  //     log.error(`Error mounting personalized image: ${error}`);
+  //     throw error;
+  //   }
+  // }
+
   async mount(
     imageFilePath: string,
     buildManifestFilePath: string,
@@ -132,7 +240,7 @@ class MobileImageMounterService
         return;
       }
 
-      // TODO: Check if developer mode is enabled, raise error if not
+      // TODO: Check if developer mode is enabled, raise error if not (does not affect current implementation, it is just a check
 
       // Check file stats and validate files exist
       const [imageFileStat] = await Promise.all([
@@ -145,28 +253,27 @@ class MobileImageMounterService
       const image = await fs.readFile(imageFilePath);
       const trustCache = await fs.readFile(trustCacheFilePath);
 
-      // Get personalization manifest from device
-      let manifest: Buffer;
-      try {
-        const imageHash = createHash("sha384").update(image).digest();
+      // Read build manifest
+      const buildManifestContent = await fs.readFile(buildManifestFilePath, 'utf8');
+      const buildManifest = parseXmlPlist(buildManifestContent) as PlistDictionary;
 
-        log.debug("sha384 digest of image is: " + imageHash);
-        log.debug("sha384 hexdigest of image is: " + imageHash.toString('hex'));
+      // Get device personalization identifiers to extract ECID
+      const personalizationIdentifiers = await this.queryPersonalizationIdentifiers();
+      log.debug('Personalization identifiers retrieved from device:', personalizationIdentifiers);
+      const ecid = personalizationIdentifiers.UniqueChipID as number;
 
-        log.debug('Attempting to query existing personalization manifest from device');
-        manifest = await this.queryPersonalizationManifest('DeveloperDiskImage', imageHash);
-        log.debug('Successfully retrieved personalization manifest from device');
-      } catch (error) {
-        if (error instanceof Error && error.message.includes('MissingManifestError')) {
-          log.debug("error is this: ", error.message);
-          log.debug('Personalization manifest not found on device - this image has not been mounted before');
-          throw new Error('Personalization manifest not found on device. ' +
-                         'This image has not been previously mounted on this device. ' +
-                         'TSS (Ticket Server) support for generating new manifests is not yet implemented.');
-        }
-        log.debug('Failed to get manifest from device - unexpected error');
-        throw error;
+      if (!ecid) {
+        throw new Error('Could not retrieve device ECID from personalization identifiers');
       }
+
+      log.debug('Using TSS to generate personalization manifest...');
+      const manifest = await getManifestFromTSS(
+        ecid,
+        buildManifest,
+        () => this.queryPersonalizationIdentifiers(),
+        (personalizedImageType: string) => this.queryNonce(personalizedImageType)
+      );
+      log.debug('Successfully generated manifest from TSS');
 
       // Upload the image
       await this.uploadImage(MobileImageMounterService.IMAGE_TYPE, image, manifest);
@@ -268,6 +375,40 @@ class MobileImageMounterService
   }
 
   /**
+   * Query personalization identifiers from the device
+   * @returns Promise resolving to personalization identifiers
+   */
+  async queryPersonalizationIdentifiers(): Promise<PlistDictionary> {
+    const request: PlistDictionary = {
+      Command: 'QueryPersonalizationIdentifiers',
+    };
+
+    const response = await this.sendRequest(request) as PlistDictionary;
+
+    this.checkIfError(response);
+
+    return response['PersonalizationIdentifiers'] as PlistDictionary;
+  }
+
+  /**
+   * Copy devices - equivalent to PyMobileDevice3's copy_devices()
+   * @returns Promise resolving to the list of mounted devices
+   */
+  async copyDevices(): Promise<any[]> {
+    try {
+      const response = await this.sendRequest({ Command: 'CopyDevices' }, 10000) as any;
+
+      if (response.EntryList) {
+        return response.EntryList;
+      }
+      return [];
+    } catch (error) {
+      log.error(`Error in copyDevices: ${error}`);
+      throw error;
+    }
+  }
+
+  /**
    * Query personalization manifest
    * @param imageType The image type
    * @param signature The image signature/hash
@@ -275,22 +416,20 @@ class MobileImageMounterService
    */
   async queryPersonalizationManifest(imageType: string, signature: Buffer): Promise<Buffer> {
     try {
-      log.debug("sig: ", signature);
-      const request: PlistDictionary = {
+      const request = {
         Command: 'QueryPersonalizationManifest',
         PersonalizedImageType: imageType,
         ImageType: imageType,
         ImageSignature: signature,
       };
-      log.debug('QueryPersonalizationManifest request sent:', request);
 
-      const response = await this.sendRequest(request);
-      log.debug("QueryPersonalizationManifest response received: ", response);
+      const response = await this.sendRequest(request, 10000) as PlistDictionary;
+
       this.checkIfError(response);
 
-      // The response "ImageSignature" is actually an IM4M manifest
+      // The response "ImageSignature" is an IM4M manifest
       const manifest = response.ImageSignature;
-      
+
       if (!manifest) {
         throw new Error('MissingManifestError: Personalization manifest not found on device');
       }
@@ -304,7 +443,6 @@ class MobileImageMounterService
       if (error instanceof Error && error.message.includes('MissingManifestError')) {
         throw error;
       }
-      log.error(`Error querying personalization manifest: ${error}`);
       throw new Error('MissingManifestError: Personalization manifest not found on device');
     }
   }
@@ -333,12 +471,12 @@ class MobileImageMounterService
         );
       }
 
-      // Step 2: Send image data
-      const conn = await this.connectToMobileImageMounterService();
+      // Step 2: Send image data (force new connection for upload)
+      const conn = await this.connectToMobileImageMounterService(true);
       const socket = conn.getSocket();
       
       await new Promise<void>((resolve, reject) => {
-        socket.write(image, (error) => {
+        socket.write(image, (error: Error | null | undefined) => {
           if (error) {
             reject(error);
           } else {
@@ -418,34 +556,188 @@ class MobileImageMounterService
     request: PlistDictionary,
     timeout?: number
   ): Promise<PlistDictionary> {
+    // Add detailed debug logging for the exact plist being sent
+    // log.debug("=== EXACT PLIST REQUEST DEBUG ===");
+    // log.debug("Request object before plist conversion:", request);
+
+    // Send the request and get the first response (usually StartService)
+    // log.debug("=== SENDING PLIST REQUEST ===");
+    // log.debug("About to call conn.sendPlistRequest()...");
+
+    // Check if we're creating a new connection or reusing an existing one
+    const isNewConnection = !this.connection || (() => {
+      try {
+        const socket = this.connection!.getSocket();
+        return !socket || socket.destroyed;
+      } catch {
+        return true;
+      }
+    })();
+
+    log.debug(`Connection status: ${isNewConnection ? 'NEW CONNECTION' : 'REUSING EXISTING CONNECTION'}`);
+
+    // Let's also hook into the connection to see what's being sent
     const conn = await this.connectToMobileImageMounterService();
-    const _ = await conn.sendPlistRequest(request, timeout);
-    const response = await conn.receive()
 
-    log.debug(`${request.Command} response received`);
+    // Debug the connection object
+    // log.debug("Connection created:", typeof conn);
+    // log.debug("Connection methods:", Object.getOwnPropertyNames(Object.getPrototypeOf(conn)));
 
-    if (!response) {
-      return {};
+    // Try to access the underlying socket if possible to log what's sent
+    // const socket = (conn as any).getSocket?.() || (conn as any).socket;
+    // if (socket) {
+    //   log.debug("Socket found:", typeof socket);
+    //
+    //   // Hook into the socket write method to log what's being sent
+    //   const originalWrite = socket.write;
+    //   socket.write = function(data: any, ...args: any[]) {
+    //     log.debug("=== SOCKET WRITE DEBUG ===");
+    //     log.debug("Data type:", typeof data);
+    //     log.debug("full data navin:", data.toString("hex").match(/.{1,2}/g).join(" "));
+    //
+    //     log.debug("Data length:", data?.length || 'unknown');
+    //
+    //     if (Buffer.isBuffer(data)) {
+    //       log.debug("Buffer data (first 100 bytes):", data.subarray(0, Math.min(100, data.length)).toString('hex'));
+    //       log.debug("Buffer data as string (first 500 chars):", data.subarray(0, Math.min(500, data.length)).toString());
+    //
+    //       // Show the length prefix (first 4 bytes)
+    //       if (data.length >= 4) {
+    //         const lengthPrefix = data.readUInt32BE(0);
+    //         log.debug("Length prefix (first 4 bytes as uint32BE):", lengthPrefix);
+    //         log.debug("Length prefix hex:", data.subarray(0, 4).toString('hex'));
+    //
+    //         // Show the payload after length prefix
+    //         log.debug("Payload after length prefix:", data.subarray(4).toString());
+    //       }
+    //     } else if (typeof data === 'string') {
+    //       log.debug("String data:", data.substring(0, 500));
+    //     }
+    //     log.debug("=== END SOCKET WRITE DEBUG ===");
+    //
+    //     return originalWrite.call(this, data, ...args);
+    //   };
+    // }
+
+    const res = await conn.sendPlistRequest(request, timeout);
+    // log.debug("=== FIRST RESPONSE RECEIVED ===");
+    // log.debug("res from first send and receive: ", res);
+    // log.debug("res type:", typeof res);
+    // log.debug("res constructor:", res?.constructor?.name);
+
+    // Check if this is a StartService response (new connection) or actual response (reused connection)
+    if (isNewConnection && res && typeof res === 'object' && res.Request === 'StartService') {
+      // New connection: we got StartService response, need to wait for actual response
+      // log.debug("=== WAITING FOR SECOND RESPONSE (new connection) ===");
+      // log.debug("About to call conn.receive() for actual command response...");
+      const startTime = Date.now();
+
+      try {
+        const response = await conn.receive();
+        const endTime = Date.now();
+        // log.debug("=== SECOND RESPONSE RECEIVED ===");
+        // log.debug(`Received response after ${endTime - startTime}ms`);
+        // log.debug(`${request.Command} response received from sendRequest`, response);
+        // log.debug("response type:", typeof response);
+        // log.debug("response constructor:", response?.constructor?.name);
+
+        if (!response) {
+          return {};
+        }
+
+        if (Array.isArray(response)) {
+          return response.length > 0 ? (response[0] as PlistDictionary) : {};
+        }
+
+        return response as PlistDictionary;
+      } catch (receiveError) {
+        const endTime = Date.now();
+        log.error("=== ERROR RECEIVING SECOND RESPONSE ===");
+        log.error(`Error after ${endTime - startTime}ms:`, receiveError);
+        throw receiveError;
+      }
+    } else {
+      // Reused connection: we already got the actual response
+      log.debug("=== REUSED CONNECTION - Response is the actual command response ===");
+      log.debug(`${request.Command} response received from sendRequest`, res);
+      
+      if (!res) {
+        return {};
+      }
+
+      if (Array.isArray(res)) {
+        return res.length > 0 ? (res[0] as PlistDictionary) : {};
+      }
+
+      return res as PlistDictionary;
     }
-
-    if (Array.isArray(response)) {
-      return response.length > 0 ? (response[0] as PlistDictionary) : {};
-    }
-
-    return response as PlistDictionary;
   }
 
   /**
    * Connect to the mobile image mounter service
+   * @param forceNew Force creation of a new connection (used for upload operations)
    * @returns Promise resolving to a service connection
    */
-  private async connectToMobileImageMounterService() {
+  private async connectToMobileImageMounterService(forceNew = false): Promise<ServiceConnection> {
+    // Return existing connection if available and not forcing new
+    if (!forceNew && this.connection) {
+      try {
+        // Check if connection is still alive by accessing the socket
+        const socket = this.connection.getSocket();
+        if (socket && !socket.destroyed) {
+          log.debug('Reusing existing connection');
+          return this.connection;
+        }
+      } catch (error) {
+        log.debug('Existing connection is no longer valid, creating new one');
+        this.connection = null;
+      }
+    }
+
+    // Create new connection
     const service = {
       serviceName: MobileImageMounterService.RSD_SERVICE_NAME,
       port: this.address[1].toString(),
     };
 
-    return await this.startLockdownService(service);
+    const newConnection = await this.startLockdownService(service);
+    
+    // Only cache connection if not forced new
+    if (!forceNew) {
+      this.connection = newConnection;
+    }
+    
+    return newConnection;
+  }
+
+  /**
+   * Close the current connection
+   */
+  private closeConnection(): void {
+    if (this.connection) {
+      try {
+        this.connection.close();
+      } catch (error) {
+        log.debug('Error closing connection:', error);
+      }
+      this.connection = null;
+    }
+  }
+
+  /**
+   * Restart service connection after it was closed by the device
+   * This is required after MissingManifestError as the device closes the socket
+   * @returns Promise that resolves when connection is ready
+   */
+  private async restartServiceConnection(): Promise<void> {
+    log.debug('Restarting service connection...');
+    
+    // Close existing connection if any
+    this.closeConnection();
+    
+    // Create a new connection to verify connectivity
+    const conn = await this.connectToMobileImageMounterService(true);
+    log.debug('Service connection restarted successfully');
   }
 
   /**
