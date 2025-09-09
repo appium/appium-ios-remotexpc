@@ -463,6 +463,8 @@ class MobileImageMounterService
         ImageSignature: signature,
       }) as ReceiveBytesResponse;
 
+      console.log('receiveBytesResult is ', receiveBytesResult);
+
       this.checkIfError(receiveBytesResult);
 
       if (receiveBytesResult.Status !== 'ReceiveBytesAck') {
@@ -471,8 +473,8 @@ class MobileImageMounterService
         );
       }
 
-      // Step 2: Send image data (force new connection for upload)
-      const conn = await this.connectToMobileImageMounterService(true);
+      // Step 2: Send image data
+      const conn = await this.connectToMobileImageMounterService();
       const socket = conn.getSocket();
       
       await new Promise<void>((resolve, reject) => {
@@ -486,7 +488,8 @@ class MobileImageMounterService
       });
 
       // Step 3: Wait for upload completion
-      const uploadResult = await conn.receive();
+      const uploadResult = await conn.receive(10000);
+      log.debug('uploadResult is ', uploadResult);
       if (uploadResult.Status !== 'Complete') {
         throw new Error(
           `Unexpected return from mobile_image_mounter on pushing image file: ${JSON.stringify(uploadResult)}`
@@ -519,6 +522,7 @@ class MobileImageMounterService
       }
 
       const response = await this.sendRequest(request) as ImageMountResponse;
+      log.debug('Mount image response from mountImage:', response);
 
       // Handle case where image is already mounted
       if (response.DetailedError?.includes('is already mounted')) {

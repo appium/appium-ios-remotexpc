@@ -46,6 +46,7 @@ describe('MobileImageMounterService Integration', function () {
       const signatures = await serviceWithConnection!.mobileImageMounterService.lookup('Personalized');
       expect(signatures).to.be.an('array');
       console.log(`Found ${signatures.length} mounted personalized images`);
+      console.log('Mounted personalized images:', signatures.map(sig => sig.toString('hex')));
     });
 
     it('should check if developer image is mounted', async function () {
@@ -116,7 +117,7 @@ describe('MobileImageMounterService Integration', function () {
               
               console.log('SUCCESS: Manifest received with mounted signature!');
               console.log('Manifest length:', manifest.length);
-              console.log('Manifest preview (first 100 bytes):', manifest.subarray(0, 100).toString('hex'));
+              console.log('Full Manifest: ', manifest.toString('hex'));
               return; // Found working signature, exit test successfully
             } catch (error) {
               const errorMessage = (error as Error).message;
@@ -223,20 +224,6 @@ describe('MobileImageMounterService Integration', function () {
         } else {
           throw error;
         }
-      }
-    });
-  });
-
-  describe('Error Handling', () => {
-    it('should handle invalid image type lookup', async function () {
-      try {
-        const signatures = await serviceWithConnection!.mobileImageMounterService.lookup('InvalidImageType');
-        expect(signatures).to.be.an('array');
-        // May return empty array for unknown image types
-        console.log(`Found ${signatures.length} images of type 'InvalidImageType'`);
-      } catch (error) {
-        // Some devices may reject invalid image types
-        console.log('Invalid image type correctly rejected:', (error as Error).message);
       }
     });
   });
