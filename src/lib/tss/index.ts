@@ -86,7 +86,7 @@ export class TSSRequest {
             value2 = null;
         }
 
-        if (value2) {
+        if (value2 !== null && value2 !== undefined) {
           conditionsFulfilled = value === value2;
         } else {
           conditionsFulfilled = false;
@@ -136,10 +136,14 @@ export class TSSRequest {
     log.debug('TSS Request:', this._request);
 
     try {
+      log.debug('Converting request to plist format...');
       const requestDataStr = createPlist(this._request);
       const requestData = typeof requestDataStr === 'string' 
         ? Buffer.from(requestDataStr, 'utf8') 
         : requestDataStr;
+      
+      log.debug(`Request plist length: ${requestData.length} bytes`);
+      log.debug(`Request plist (first 500 chars): ${requestData.toString().substring(0, 500)}`);
       
       const response = await this.httpRequest(TSS_CONTROLLER_ACTION_URL, {
         method: 'POST',
@@ -147,27 +151,40 @@ export class TSSRequest {
         body: requestData,
       });
 
+      log.debug('Analyzing TSS response...');
       if (response.includes('MESSAGE=SUCCESS')) {
         log.info('TSS response successfully received');
+      } else {
+        log.warn('TSS response does not contain MESSAGE=SUCCESS');
       }
 
       const responseStr = response.toString();
       const messagePart = responseStr.split('MESSAGE=')[1];
       if (!messagePart) {
+        log.error('Invalid TSS response format - no MESSAGE field found');
+        log.error(`Full response: ${responseStr.substring(0, 1000)}`);
         throw new Error('Invalid TSS response format');
       }
 
       const message = messagePart.split('&')[0];
+      log.debug(`TSS server message: ${message}`);
+      
       if (message !== 'SUCCESS') {
+        log.error(`TSS server replied with error: ${message}`);
         throw new Error(`TSS server replied: ${message}`);
       }
 
       const requestStringPart = responseStr.split('REQUEST_STRING=')[1];
       if (!requestStringPart) {
+        log.error('No REQUEST_STRING in TSS response');
+        log.error(`Full response: ${responseStr.substring(0, 1000)}`);
         throw new Error('No REQUEST_STRING in TSS response');
       }
 
+      log.debug('Parsing TSS response plist...');
       const responseData = parsePlist(requestStringPart) as TSSResponse;
+      log.debug('TSS response parsed successfully');
+      
       return responseData;
     } catch (error) {
       log.error('TSS request failed:', error);
@@ -190,22 +207,35 @@ export class TSSRequest {
       const isHttps = urlObj.protocol === 'https:';
       const lib = isHttps ? https : http;
 
+      // Set timeout to 10 seconds to allow for TSS processing
+      const timeout = 10000;
+
+      log.debug(`Making TSS request to ${url} with timeout ${timeout}ms`);
+      log.debug(`Request body length: ${options.body.length} bytes`);
+
       const req = lib.request(
         {
           hostname: urlObj.hostname,
           port: urlObj.port || (isHttps ? 443 : 80),
           path: urlObj.pathname + urlObj.search,
           method: options.method,
+          timeout: timeout,
           headers: {
             ...options.headers,
             'Content-Length': options.body.length,
           },
         },
         (res) => {
+          log.debug(`TSS response status: ${res.statusCode}`);
+          log.debug(`TSS response headers:`, res.headers);
+
           const chunks: Buffer[] = [];
           res.on('data', (chunk) => chunks.push(chunk));
           res.on('end', () => {
             const body = Buffer.concat(chunks).toString();
+            log.debug(`TSS response data length: ${body.length} bytes`);
+            log.debug(`TSS response (first 500 chars): ${body.substring(0, 500)}`);
+            
             if (res.statusCode && res.statusCode >= 400) {
               reject(new Error(`HTTP ${res.statusCode}: ${body}`));
             } else {
@@ -215,7 +245,18 @@ export class TSSRequest {
         }
       );
 
-      req.on('error', reject);
+      req.on('error', (error) => {
+        log.error('TSS request error:', error);
+        reject(error);
+      });
+
+      req.on('timeout', () => {
+        log.error(`TSS request timed out after ${timeout}ms`);
+        req.destroy();
+        reject(new Error(`TSS request timed out after ${timeout}ms`));
+      });
+
+      log.debug('Sending TSS request body...');
       req.write(options.body);
       req.end();
     });
@@ -276,6 +317,12 @@ export async function getManifestFromTSS(
     ApSecurityDomain: 1,
     ApSecurityMode: true,
     ApSupportsImg4: true,
+    // Add additional parameters needed for rule evaluation
+    ApCurrentProductionMode: true,
+    ApRequiresImage4: true,
+    ApDemotionPolicyOverride: 'Demote',
+    ApInRomDFU: true,
+    ApRawSecurityMode: true,
   };
 
   const apNonce = await queryNonce('DeveloperDiskImage');
@@ -297,6 +344,7 @@ export async function getManifestFromTSS(
   for (const [key, manifestEntry] of Object.entries(manifest)) {
     const infoDict = (manifestEntry as any).Info;
     if (!infoDict) {
+      log.debug(`Skipping ${key} - no Info dict`);
       continue;
     }
 
@@ -305,27 +353,34 @@ export async function getManifestFromTSS(
       continue;
     }
 
-    // Copy this entry
-    const tssEntry = { ...(manifestEntry as PlistDictionary) };
+    log.debug(`Processing manifest entry: ${key}`);
+    log.debug(`Entry Info:`, infoDict);
 
-    // Remove obsolete Info node
-    delete tssEntry.Info;
+    // Start with minimal TSS entry - only copy essential fields
+    const tssEntry: PlistDictionary = {
+      Digest: (manifestEntry as any).Digest || Buffer.alloc(0),
+      Trusted: (manifestEntry as any).Trusted || false,
+    };
 
-    // Handle RestoreRequestRules
+    // Add Name field for PersonalizedDMG (required by TSS)
+    if (key === 'PersonalizedDMG') {
+      tssEntry.Name = 'DeveloperDiskImage';
+    }
+
+    // Handle RestoreRequestRules - apply rules from LoadableTrustCache Info to ALL entries (per PyMobileDevice3)
     const loadableTrustCache = manifest.LoadableTrustCache as any;
     if (loadableTrustCache && loadableTrustCache.Info && loadableTrustCache.Info.RestoreRequestRules) {
       const rules = loadableTrustCache.Info.RestoreRequestRules;
       if (rules && rules.length > 0) {
         log.debug(`Applying restore request rules for entry ${key}`);
+        log.debug(`Rules:`, rules);
         TSSRequest.applyRestoreRequestRules(tssEntry, parameters, rules);
       }
     }
 
-    // Make sure we have a Digest key for Trusted items even if empty
-    if (!(manifestEntry as any).Digest) {
-      tssEntry.Digest = Buffer.alloc(0);
-    }
+    // No cleanup needed since we only include minimal fields from the start
 
+    log.debug(`Final TSS entry for ${key}:`, tssEntry);
     request.update({ [key]: tssEntry });
   }
 
