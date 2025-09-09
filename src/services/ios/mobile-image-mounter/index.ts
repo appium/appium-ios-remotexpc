@@ -93,7 +93,6 @@ class MobileImageMounterService
       };
 
       const response = (await this.sendRequest(request)) as LookupImageResponse;
-      log.debug('LookupImage response received:', response);
       this.checkIfError(response);
 
       const signatures = response.ImageSignature || [];
@@ -201,10 +200,6 @@ class MobileImageMounterService
           // Get device personalization identifiers to extract ECID
           const personalizationIdentifiers =
             await this.queryPersonalizationIdentifiers();
-          log.debug(
-            'Personalization identifiers retrieved from device:',
-            personalizationIdentifiers,
-          );
           const ecid = personalizationIdentifiers.UniqueChipID as number;
 
           if (!ecid) {
@@ -450,8 +445,6 @@ class MobileImageMounterService
         ImageSignature: signature,
       })) as ReceiveBytesResponse;
 
-      console.log('receiveBytesResult is ', receiveBytesResult);
-
       this.checkIfError(receiveBytesResult);
 
       if (receiveBytesResult.Status !== 'ReceiveBytesAck') {
@@ -476,7 +469,6 @@ class MobileImageMounterService
 
       // Wait for upload completion
       const uploadResult = await conn.receive(20000);
-      log.debug('uploadResult is ', uploadResult);
       if (uploadResult.Status !== 'Complete') {
         throw new Error(
           `Unexpected return from mobile_image_mounter on pushing image file: ${JSON.stringify(uploadResult)}`,
@@ -513,7 +505,6 @@ class MobileImageMounterService
       }
 
       const response = (await this.sendRequest(request)) as ImageMountResponse;
-      log.debug('Mount image response from mountImage:', response);
 
       // Handle case where image is already mounted
       if (response.DetailedError?.includes('is already mounted')) {
@@ -562,10 +553,6 @@ class MobileImageMounterService
           return true;
         }
       })();
-
-    log.debug(
-      `Connection status: ${isNewConnection ? 'NEW CONNECTION' : 'REUSING EXISTING CONNECTION'}`,
-    );
 
     const conn = await this.connectToMobileImageMounterService();
 
@@ -619,11 +606,9 @@ class MobileImageMounterService
         // Check if connection is still alive by accessing the socket
         const socket = this.connection.getSocket();
         if (socket && !socket.destroyed) {
-          log.debug('Reusing existing connection');
           return this.connection;
         }
       } catch (error) {
-        log.debug('Existing connection is no longer valid, creating new one');
         this.connection = null;
       }
     }
