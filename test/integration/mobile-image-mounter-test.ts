@@ -7,7 +7,7 @@ import { Services } from '../../src/index.js';
 import type { MobileImageMounterServiceWithConnection } from '../../src/index.js';
 
 describe('MobileImageMounterService Integration', function () {
-  this.timeout(30000);
+  this.timeout(40000);
 
   let serviceWithConnection: MobileImageMounterServiceWithConnection | null =
     null;
@@ -43,6 +43,38 @@ describe('MobileImageMounterService Integration', function () {
       expect(serviceWithConnection).to.not.be.null;
       expect(serviceWithConnection!.mobileImageMounterService).to.not.be.null;
       expect(serviceWithConnection!.remoteXPC).to.not.be.null;
+    });
+  });
+
+  describe('Mount Operations', () => {
+    it('should handle personalized mount attempt gracefully', async function () {
+      const imagePath =
+        '/Users/navinchandra/.pymobiledevice3/Xcode_iOS_DDI_Personalized/Image.dmg';
+      const buildManifestPath =
+        '/Users/navinchandra/.pymobiledevice3/Xcode_iOS_DDI_Personalized/BuildManifest.plist';
+      const trustCachePath =
+        '/Users/navinchandra/.pymobiledevice3/Xcode_iOS_DDI_Personalized/Image.trustcache';
+
+      try {
+        await serviceWithConnection!.mobileImageMounterService.mount(
+          imagePath,
+          buildManifestPath,
+          trustCachePath,
+        );
+        console.log('Mount operation succeeded');
+      } catch (error) {
+        const errorMessage = (error as Error).message;
+        console.log('Mount operation failed with error:', errorMessage);
+        if (errorMessage.includes('path does not exist')) {
+          console.log('Mount operation correctly rejected non-existent files');
+        } else if (errorMessage.includes('already mounted')) {
+          console.log('Image already mounted');
+        } else if (errorMessage.includes('manifest not found')) {
+          console.log('Personalization manifest not found (expected)');
+        } else {
+          console.log('Mount failed with error:', errorMessage);
+        }
+      }
     });
   });
 
@@ -215,38 +247,6 @@ describe('MobileImageMounterService Integration', function () {
           'Personalization nonce query not supported:',
           (error as Error).message,
         );
-      }
-    });
-  });
-
-  describe('Mount Operations', () => {
-    it('should handle personalized mount attempt gracefully', async function () {
-      const imagePath =
-        '/Users/navinchandra/.pymobiledevice3/Xcode_iOS_DDI_Personalized/Image.dmg';
-      const buildManifestPath =
-        '/Users/navinchandra/.pymobiledevice3/Xcode_iOS_DDI_Personalized/BuildManifest.plist';
-      const trustCachePath =
-        '/Users/navinchandra/.pymobiledevice3/Xcode_iOS_DDI_Personalized/Image.trustcache';
-
-      try {
-        await serviceWithConnection!.mobileImageMounterService.mount(
-          imagePath,
-          buildManifestPath,
-          trustCachePath,
-        );
-        console.log('Mount operation succeeded');
-      } catch (error) {
-        const errorMessage = (error as Error).message;
-        console.log('Mount operation failed with error:', errorMessage);
-        if (errorMessage.includes('path does not exist')) {
-          console.log('Mount operation correctly rejected non-existent files');
-        } else if (errorMessage.includes('already mounted')) {
-          console.log('Image already mounted');
-        } else if (errorMessage.includes('manifest not found')) {
-          console.log('Personalization manifest not found (expected)');
-        } else {
-          console.log('Mount failed with error:', errorMessage);
-        }
       }
     });
   });

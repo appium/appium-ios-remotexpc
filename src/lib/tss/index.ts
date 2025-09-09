@@ -307,7 +307,6 @@ export async function getManifestFromTSS(
     ApSecurityDomain: 1,
     ApSecurityMode: true,
     ApSupportsImg4: true,
-    // Add additional parameters needed for rule evaluation
     ApCurrentProductionMode: true,
     ApRequiresImage4: true,
     ApDemotionPolicyOverride: 'Demote',
@@ -334,7 +333,6 @@ export async function getManifestFromTSS(
   for (const [key, manifestEntry] of Object.entries(manifest)) {
     const infoDict = (manifestEntry as any).Info;
     if (!infoDict) {
-      log.debug(`Skipping ${key} - no Info dict`);
       continue;
     }
 
@@ -351,12 +349,10 @@ export async function getManifestFromTSS(
       Trusted: (manifestEntry as any).Trusted || false,
     };
 
-    // Add Name field for PersonalizedDMG (required by TSS)
     if (key === 'PersonalizedDMG') {
       tssEntry.Name = 'DeveloperDiskImage';
     }
 
-    // Handle RestoreRequestRules - apply rules from LoadableTrustCache Info to ALL entries (per PyMobileDevice3)
     const loadableTrustCache = manifest.LoadableTrustCache as any;
     if (
       loadableTrustCache &&
@@ -370,15 +366,13 @@ export async function getManifestFromTSS(
       }
     }
 
-    // No cleanup needed since we only include minimal fields from the start
-
     request.update({ [key]: tssEntry });
   }
 
   const response = await request.sendReceive();
 
   if (!response.ApImg4Ticket) {
-    throw new TSSError("TSS response doesn't contain an ApImg4Ticket");
+    throw new TSSError('TSS response doesn\'t contain an ApImg4Ticket');
   }
 
   return response.ApImg4Ticket;

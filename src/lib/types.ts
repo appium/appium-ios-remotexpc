@@ -404,7 +404,7 @@ export interface MobileImageMounterService extends BaseService {
   queryPersonalizationIdentifiers(): Promise<PlistDictionary>;
 
   /**
-   * Copy devices list (equivalent to PyMobileDevice3's copy_devices())
+   * Copy devices list
    * @returns Promise resolving to array of mounted devices
    */
   copyDevices(): Promise<any[]>;
