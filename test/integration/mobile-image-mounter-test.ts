@@ -48,6 +48,7 @@ describe('MobileImageMounterService Integration', function () {
 
   describe('Mount Operations', () => {
     it('should handle personalized mount attempt gracefully', async function () {
+      // replace all these paths with your own paths to DMG Image, manifest, and trustcache
       const imagePath =
         '/Users/navinchandra/.pymobiledevice3/Xcode_iOS_DDI_Personalized/Image.dmg';
       const buildManifestPath =
