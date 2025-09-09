@@ -138,17 +138,11 @@ export class TSSRequest {
     log.debug('TSS Request:', this._request);
 
     try {
-      log.debug('Converting request to plist format...');
       const requestDataStr = createPlist(this._request);
       const requestData =
         typeof requestDataStr === 'string'
           ? Buffer.from(requestDataStr, 'utf8')
           : requestDataStr;
-
-      log.debug(`Request plist length: ${requestData.length} bytes`);
-      log.debug(
-        `Request plist (first 500 chars): ${requestData.toString().substring(0, 500)}`,
-      );
 
       const response = await this.httpRequest(TSS_CONTROLLER_ACTION_URL, {
         method: 'POST',
@@ -156,9 +150,8 @@ export class TSSRequest {
         body: requestData,
       });
 
-      log.debug('Analyzing TSS response...');
       if (response.includes('MESSAGE=SUCCESS')) {
-        log.info('TSS response successfully received');
+        log.debug('TSS response successfully received');
       } else {
         log.warn('TSS response does not contain MESSAGE=SUCCESS');
       }
@@ -167,7 +160,6 @@ export class TSSRequest {
       const messagePart = responseStr.split('MESSAGE=')[1];
       if (!messagePart) {
         log.error('Invalid TSS response format - no MESSAGE field found');
-        log.error(`Full response: ${responseStr.substring(0, 1000)}`);
         throw new Error('Invalid TSS response format');
       }
 
@@ -182,11 +174,9 @@ export class TSSRequest {
       const requestStringPart = responseStr.split('REQUEST_STRING=')[1];
       if (!requestStringPart) {
         log.error('No REQUEST_STRING in TSS response');
-        log.error(`Full response: ${responseStr.substring(0, 1000)}`);
         throw new Error('No REQUEST_STRING in TSS response');
       }
 
-      log.debug('Parsing TSS response plist...');
       const responseData = parsePlist(requestStringPart) as TSSResponse;
       log.debug('TSS response parsed successfully');
 
@@ -215,8 +205,7 @@ export class TSSRequest {
       // Set timeout to 10 seconds to allow for TSS processing
       const timeout = 10000;
 
-      log.debug(`Making TSS request to ${url} with timeout ${timeout}ms`);
-      log.debug(`Request body length: ${options.body.length} bytes`);
+      log.debug(`Making TSS request to ${url}`);
 
       const req = lib.request(
         {
@@ -232,16 +221,11 @@ export class TSSRequest {
         },
         (res) => {
           log.debug(`TSS response status: ${res.statusCode}`);
-          log.debug('TSS response headers:', res.headers);
 
           const chunks: Buffer[] = [];
           res.on('data', (chunk) => chunks.push(chunk));
           res.on('end', () => {
             const body = Buffer.concat(chunks).toString();
-            log.debug(`TSS response data length: ${body.length} bytes`);
-            log.debug(
-              `TSS response (first 500 chars): ${body.substring(0, 500)}`,
-            );
 
             if (res.statusCode && res.statusCode >= 400) {
               reject(new Error(`HTTP ${res.statusCode}: ${body}`));
@@ -263,7 +247,6 @@ export class TSSRequest {
         reject(new Error(`TSS request timed out after ${timeout}ms`));
       });
 
-      log.debug('Sending TSS request body...');
       req.write(options.body);
       req.end();
     });
@@ -361,7 +344,6 @@ export async function getManifestFromTSS(
     }
 
     log.debug(`Processing manifest entry: ${key}`);
-    log.debug('Entry Info:', infoDict);
 
     // Start with minimal TSS entry - only copy essential fields
     const tssEntry: PlistDictionary = {
@@ -384,21 +366,19 @@ export async function getManifestFromTSS(
       const rules = loadableTrustCache.Info.RestoreRequestRules;
       if (rules && rules.length > 0) {
         log.debug(`Applying restore request rules for entry ${key}`);
-        log.debug('Rules:', rules);
         TSSRequest.applyRestoreRequestRules(tssEntry, parameters, rules);
       }
     }
 
     // No cleanup needed since we only include minimal fields from the start
 
-    log.debug(`Final TSS entry for ${key}:`, tssEntry);
     request.update({ [key]: tssEntry });
   }
 
   const response = await request.sendReceive();
 
   if (!response.ApImg4Ticket) {
-    throw new TSSError('TSS response doesn\'t contain an ApImg4Ticket');
+    throw new TSSError("TSS response doesn't contain an ApImg4Ticket");
   }
 
   return response.ApImg4Ticket;
