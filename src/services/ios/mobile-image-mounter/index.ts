@@ -34,7 +34,7 @@ export interface ImageResponse extends BaseResponse {
  * MobileImageMounterService provides an API to:
  * - Mount Developer Disk Images on iOS devices
  * - Lookup mounted images and their signatures
- * - Check if developer images are mounted
+ * - Check if personalized images are mounted
  * - Unmount images when needed
  */
 class MobileImageMounterService
@@ -87,10 +87,10 @@ class MobileImageMounterService
   }
 
   /**
-   * Check if developer image is mounted
-   * @returns True if developer image is mounted
+   * Check if personalized image is mounted
+   * @returns True if personalized image is mounted
    */
-  async isDeveloperImageMounted(): Promise<boolean> {
+  async isPersonalizedImageMounted(): Promise<boolean> {
     try {
       return (await this.lookup()).length > 0;
     } catch {
@@ -109,7 +109,7 @@ class MobileImageMounterService
     buildManifestFilePath: string,
     trustCacheFilePath: string,
   ): Promise<void> {
-    if (await this.isDeveloperImageMounted()) {
+    if (await this.isPersonalizedImageMounted()) {
       log.info('Personalized image is already mounted');
       return;
     }
@@ -175,7 +175,11 @@ class MobileImageMounterService
         error instanceof Error &&
         error.message.includes('MissingManifestError')
       ) {
-        log.debug('Personalization manifest not found on device, using TSS...');
+        // restart service since after getting MissingManifestError, the service closes the socket
+        log.debug(
+          'Personalization manifest not found on device, re-establishing connection and using TSS...',
+        );
+        await this.connectToMobileImageMounterService(true);
 
         const identifiers = await this.queryPersonalizationIdentifiers();
         const ecid = identifiers.UniqueChipID as number;
@@ -437,7 +441,9 @@ class MobileImageMounterService
   }
 
   private normalizeResponse(response: any): PlistDictionary {
-    if (!response) {return {};}
+    if (!response) {
+      return {};
+    }
     return Array.isArray(response) ? response[0] || {} : response;
   }
 

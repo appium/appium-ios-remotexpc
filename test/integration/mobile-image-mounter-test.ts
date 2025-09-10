@@ -1,3 +1,4 @@
+import { logger } from '@appium/support';
 import { expect } from 'chai';
 import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
@@ -5,6 +6,9 @@ import { after, before, describe } from 'mocha';
 
 import { Services } from '../../src/index.js';
 import type { MobileImageMounterServiceWithConnection } from '../../src/index.js';
+
+const log = logger.getLogger('MobileImageMounterService.test');
+log.level = 'debug';
 
 describe('MobileImageMounterService Integration', function () {
   this.timeout(40000);
@@ -52,23 +56,15 @@ describe('MobileImageMounterService Integration', function () {
       const trustCachePath =
         '/Users/navinchandra/.pymobiledevice3/Xcode_iOS_DDI_Personalized/Image.trustcache';
 
-      try {
-        // this is slow (15-20 seconds)
-        await serviceWithConnection!.mobileImageMounterService.mount(
-          imagePath,
-          buildManifestPath,
-          trustCachePath,
-        );
-      } catch (error) {
-        const errorMessage = (error as Error).message;
-        expect(errorMessage).to.satisfy(
-          (msg: string) =>
-            msg.includes('path does not exist') ||
-            msg.includes('already mounted') ||
-            msg.includes('manifest not found') ||
-            msg.length > 0,
-        );
-      }
+      // this is slow (15-20 seconds)
+      await serviceWithConnection!.mobileImageMounterService.mount(
+        imagePath,
+        buildManifestPath,
+        trustCachePath,
+      );
+      const isImageMounted =
+        await serviceWithConnection!.mobileImageMounterService.isPersonalizedImageMounted();
+      expect(isImageMounted).to.be.true;
     });
   });
 
@@ -79,15 +75,21 @@ describe('MobileImageMounterService Integration', function () {
           'Personalized',
         );
       expect(signatures).to.be.an('array');
+      log.debug(
+        'Signatures:',
+        signatures.map((s) => s.toString('hex')),
+      );
+
       signatures.forEach((sig, index) => {
         expect(sig).to.be.instanceOf(Buffer);
         expect(sig.length).to.be.greaterThan(0);
       });
     });
 
-    it('should check if developer image is mounted', async function () {
+    it('should check if personalized image is mounted', async function () {
       const isImageMounted =
-        await serviceWithConnection!.mobileImageMounterService.isDeveloperImageMounted();
+        await serviceWithConnection!.mobileImageMounterService.isPersonalizedImageMounted();
+      log.debug('Image mounted: ', isImageMounted);
       expect(isImageMounted).to.be.a('boolean');
     });
 
@@ -102,6 +104,7 @@ describe('MobileImageMounterService Integration', function () {
     it('should query developer mode status', async function () {
       const isDeveloperModeEnabled =
         await serviceWithConnection!.mobileImageMounterService.queryDeveloperModeStatus();
+      log.debug('Developer mode enabled: ', isDeveloperModeEnabled);
       expect(isDeveloperModeEnabled).to.be.a('boolean');
     });
   });
@@ -110,6 +113,7 @@ describe('MobileImageMounterService Integration', function () {
     it('should query personalization identifiers only', async function () {
       const identifiers =
         await serviceWithConnection!.mobileImageMounterService.queryPersonalizationIdentifiers();
+      log.debug('Personalization Identifier:', identifiers);
       expect(identifiers).to.be.an('object');
       expect(Object.keys(identifiers)).to.have.length.greaterThan(0);
     });
@@ -138,8 +142,7 @@ describe('MobileImageMounterService Integration', function () {
               expect(manifest).to.be.instanceOf(Buffer);
               expect(manifest.length).to.be.greaterThan(0);
               return;
-            } catch (error) {
-            }
+            } catch (error) {}
           }
         }
 
@@ -177,6 +180,7 @@ describe('MobileImageMounterService Integration', function () {
     it('should query personalization nonce', async function () {
       const nonce =
         await serviceWithConnection!.mobileImageMounterService.queryNonce();
+      log.debug('Personalization nonce:', nonce.toString('hex'));
       expect(nonce).to.be.instanceOf(Buffer);
       expect(nonce.length).to.be.greaterThan(0);
       expect(nonce.length).to.be.lessThan(64);
@@ -185,19 +189,11 @@ describe('MobileImageMounterService Integration', function () {
 
   describe('Unmount Operations', () => {
     it('should unmount personalized image', async function () {
-      try {
-        await serviceWithConnection!.mobileImageMounterService.unmountImage(
-          '/System/Developer',
-        );
-      } catch (error) {
-        const errorMessage = (error as Error).message;
-        expect(errorMessage).to.satisfy(
-          (msg: string) =>
-            msg.includes('not supported') ||
-            msg.includes('no matching entry') ||
-            msg.length > 0,
-        );
-      }
+      await serviceWithConnection!.mobileImageMounterService.unmountImage();
+
+      const isImageMounted =
+        await serviceWithConnection!.mobileImageMounterService.isPersonalizedImageMounted();
+      expect(isImageMounted).to.be.false;
     });
   });
 });

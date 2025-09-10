@@ -361,10 +361,10 @@ export interface MobileImageMounterService extends BaseService {
   lookup(imageType?: string): Promise<Buffer[]>;
 
   /**
-   * Check if developer image is mounted
-   * @returns Promise resolving to boolean indicating if developer image is mounted
+   * Check if personalized image is mounted
+   * @returns Promise resolving to boolean indicating if personalized image is mounted
    */
-  isDeveloperImageMounted(): Promise<boolean>;
+  isPersonalizedImageMounted(): Promise<boolean>;
 
   /**
    * Mount personalized image for device (iOS 17+)
