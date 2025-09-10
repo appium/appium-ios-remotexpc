@@ -103,11 +103,13 @@ class MobileImageMounterService
    * @param imageFilePath Path to the image file (.dmg)
    * @param buildManifestFilePath Path to the build manifest file (.plist)
    * @param trustCacheFilePath Path to the trust cache file (.trustcache)
+   * @param infoPlist Optional info plist dictionary
    */
   async mount(
     imageFilePath: string,
     buildManifestFilePath: string,
     trustCacheFilePath: string,
+    infoPlist?: PlistDictionary,
   ): Promise<void> {
     if (await this.isPersonalizedImageMounted()) {
       log.info('Personalized image is already mounted');
@@ -149,9 +151,20 @@ class MobileImageMounterService
       image,
       manifest,
     );
-    await this.mountImage(MobileImageMounterService.IMAGE_TYPE, manifest, {
+
+    const extras: Record<string, any> = {
       ImageTrustCache: trustCache,
-    });
+    };
+
+    if (infoPlist) {
+      extras.ImageInfoPlist = infoPlist;
+    }
+
+    await this.mountImage(
+      MobileImageMounterService.IMAGE_TYPE,
+      manifest,
+      extras,
+    );
 
     log.info('Successfully mounted personalized image');
   }
