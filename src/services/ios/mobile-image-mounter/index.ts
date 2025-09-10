@@ -456,10 +456,8 @@ class MobileImageMounterService
     return Array.isArray(response) ? response[0] || {} : response;
   }
 
-  private async connectToMobileImageMounterService(
-    forceNew = false,
-  ): Promise<ServiceConnection> {
-    if (!forceNew && this.connection && !this.isConnectionDestroyed()) {
+  private async connectToMobileImageMounterService(): Promise<ServiceConnection> {
+    if (this.connection && !this.isConnectionDestroyed()) {
       return this.connection;
     }
 
@@ -468,10 +466,7 @@ class MobileImageMounterService
       port: this.address[1].toString(),
     });
 
-    if (!forceNew) {
-      this.connection = newConnection;
-    }
-
+    this.connection = newConnection;
     return newConnection;
   }
 
