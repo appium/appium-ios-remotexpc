@@ -1,3 +1,13 @@
+## [0.3.3](https://github.com/appium/appium-ios-remotexpc/compare/v0.3.2...v0.3.3) (2025-09-05)
+
+### Bug Fixes
+
+* correct UTF-16BE string parsing and TempObject handling in binary plist parser ([#65](https://github.com/appium/appium-ios-remotexpc/issues/65)) ([e64933a](https://github.com/appium/appium-ios-remotexpc/commit/e64933a5126ea796b12fcd001d12cab93a3bb9f8))
+
+### Miscellaneous Chores
+
+* **deps:** bump actions/checkout from 4 to 5 ([#64](https://github.com/appium/appium-ios-remotexpc/issues/64)) ([2fc7af0](https://github.com/appium/appium-ios-remotexpc/commit/2fc7af0c29f774f4dc37339c0825b109d410b815))
+
 ## [0.3.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.3.1...v0.3.2) (2025-08-31)
 
 ### Miscellaneous Chores
