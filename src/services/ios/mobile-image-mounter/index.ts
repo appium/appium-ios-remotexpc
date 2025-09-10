@@ -169,54 +169,6 @@ class MobileImageMounterService
     log.info('Successfully mounted personalized image');
   }
 
-  private async getOrRetrieveManifestFromTSS(
-    image: Buffer,
-    buildManifest: PlistDictionary,
-  ): Promise<Buffer> {
-    try {
-      const imageHash = createHash('sha384').update(image).digest();
-      const manifest = await this.queryPersonalizationManifest(
-        'DeveloperDiskImage',
-        imageHash,
-      );
-      log.debug(
-        'Successfully retrieved existing personalization manifest from device',
-      );
-      return manifest;
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message.includes('MissingManifestError')
-      ) {
-        // restart service since after getting MissingManifestError, the service closes the socket
-        log.debug(
-          'Personalization manifest not found on device, re-establishing connection and using TSS...',
-        );
-        await this.connectToMobileImageMounterService(true);
-
-        const identifiers = await this.queryPersonalizationIdentifiers();
-        const ecid = identifiers.UniqueChipID as number;
-
-        if (!ecid) {
-          throw new Error(
-            'Could not retrieve device ECID from personalization identifiers',
-          );
-        }
-
-        const manifest = await getManifestFromTSS(
-          ecid,
-          buildManifest,
-          () => this.queryPersonalizationIdentifiers(),
-          (type: string) => this.queryNonce(type),
-        );
-
-        log.debug('Successfully generated manifest from TSS');
-        return manifest;
-      }
-      throw error;
-    }
-  }
-
   /**
    * Unmount image from device
    * @param mountPath Mount path to unmount (defaults to '/System/Developer')
@@ -442,6 +394,54 @@ class MobileImageMounterService
     }
 
     return this.normalizeResponse(res);
+  }
+
+  private async getOrRetrieveManifestFromTSS(
+    image: Buffer,
+    buildManifest: PlistDictionary,
+  ): Promise<Buffer> {
+    try {
+      const imageHash = createHash('sha384').update(image).digest();
+      const manifest = await this.queryPersonalizationManifest(
+        'DeveloperDiskImage',
+        imageHash,
+      );
+      log.debug(
+        'Successfully retrieved existing personalization manifest from device',
+      );
+      return manifest;
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.includes('MissingManifestError')
+      ) {
+        // restart service since after getting MissingManifestError, the service closes the socket
+        log.debug(
+          'Personalization manifest not found on device, re-establishing connection and using TSS...',
+        );
+        await this.connectToMobileImageMounterService(true);
+
+        const identifiers = await this.queryPersonalizationIdentifiers();
+        const ecid = identifiers.UniqueChipID as number;
+
+        if (!ecid) {
+          throw new Error(
+            'Could not retrieve device ECID from personalization identifiers',
+          );
+        }
+
+        const manifest = await getManifestFromTSS(
+          ecid,
+          buildManifest,
+          () => this.queryPersonalizationIdentifiers(),
+          (type: string) => this.queryNonce(type),
+        );
+
+        log.debug('Successfully generated manifest from TSS');
+        return manifest;
+      }
+      throw error;
+    }
   }
 
   private isConnectionDestroyed(): boolean {

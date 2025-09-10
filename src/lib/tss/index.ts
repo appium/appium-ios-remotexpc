@@ -285,8 +285,8 @@ export async function getManifestFromTSS(
   const buildIdentities = buildManifest.BuildIdentities as any[];
 
   for (const tmpBuildIdentity of buildIdentities) {
-    const apBoardId = parseInt(tmpBuildIdentity.ApBoardID, 0);
-    const apChipId = parseInt(tmpBuildIdentity.ApChipID, 0);
+    const apBoardId = parseInt(tmpBuildIdentity.ApBoardID, 10);
+    const apChipId = parseInt(tmpBuildIdentity.ApChipID, 10);
 
     if (apBoardId === boardId && apChipId === chipId) {
       buildIdentity = tmpBuildIdentity;
@@ -372,7 +372,7 @@ export async function getManifestFromTSS(
   const response = await request.sendReceive();
 
   if (!response.ApImg4Ticket) {
-    throw new TSSError('TSS response doesn\'t contain an ApImg4Ticket');
+    throw new TSSError('TSS response does not contain ApImg4Ticket');
   }
 
   return response.ApImg4Ticket;
