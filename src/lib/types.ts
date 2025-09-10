@@ -212,6 +212,13 @@ export interface NotificationProxyService extends BaseService {
   expectNotification(timeout?: number): Promise<PlistMessage>;
 }
 
+export interface MobileConfigService extends BaseService {
+  connectToMobileConfigService(): Promise<ServiceConnection>;
+  getProfileList(): Promise<PlistDictionary>;
+  installProfile(path: string): Promise<void>;
+  removeProfile(identifier: string): Promise<void>;
+}
+
 /**
  * Represents the static side of DiagnosticsService
  */
@@ -246,6 +253,11 @@ export interface NotificationProxyServiceWithConnection {
   /** The NotificationProxyService instance */
   notificationProxyService: NotificationProxyService;
   /** The RemoteXPC connection that can be used to close the connection */
+  remoteXPC: RemoteXpcConnection;
+}
+
+export interface MobileConfigServiceWithConnection {
+  mobileConfigService: MobileConfigService;
   remoteXPC: RemoteXpcConnection;
 }
 

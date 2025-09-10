@@ -4,12 +4,13 @@ import { RemoteXpcConnection } from './lib/remote-xpc/remote-xpc-connection.js';
 import { TunnelManager } from './lib/tunnel/index.js';
 import { TunnelApiClient } from './lib/tunnel/tunnel-api-client.js';
 import type {
-  DiagnosticsServiceWithConnection,
+  DiagnosticsServiceWithConnection, MobileConfigServiceWithConnection,
   NotificationProxyServiceWithConnection,
   SyslogService as SyslogServiceType,
 } from './lib/types.js';
 import DiagnosticsService from './services/ios/diagnostic-service/index.js';
 import { NotificationProxyService } from './services/ios/notification-proxy/index.js';
+import { MobileConfigService } from './services/ios/mobile-config/index.js';
 import SyslogService from './services/ios/syslog-service/index.js';
 
 const APPIUM_XCUITEST_DRIVER_NAME = 'appium-xcuitest-driver';
@@ -47,6 +48,21 @@ export async function startNotificationProxyService(
   };
 }
 
+export async function startMobileConfigService(
+  udid: string,
+): Promise<MobileConfigServiceWithConnection> {
+  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
+  const mobileConfigService = remoteXPC.findService(
+    MobileConfigService.RSD_SERVICE_NAME,
+  );
+  return {
+    remoteXPC: remoteXPC as RemoteXpcConnection,
+    mobileConfigService: new MobileConfigService([
+      tunnelConnection.host,
+      parseInt(mobileConfigService.port, 10),
+    ]),
+  };
+}
 export async function startSyslogService(
   udid: string,
 ): Promise<SyslogServiceType> {
