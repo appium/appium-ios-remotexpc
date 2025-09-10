@@ -1,6 +1,6 @@
 import { logger } from '@appium/support';
 import { createHash } from 'crypto';
-import { Stats, promises as fs } from 'fs';
+import { promises as fs, Stats } from 'fs';
 
 import { parseXmlPlist } from '../../../lib/plist/index.js';
 import { getManifestFromTSS } from '../../../lib/tss/index.js';
@@ -389,11 +389,9 @@ class MobileImageMounterService
     const res = await conn.sendPlistRequest(request, timeout);
 
     if (isNewConnection && res?.Request === 'StartService') {
-      const response = await conn.receive();
-      return this.normalizeResponse(response);
+      return await conn.receive();
     }
-
-    return this.normalizeResponse(res);
+    return res;
   }
 
   private async getOrRetrieveManifestFromTSS(
@@ -447,13 +445,6 @@ class MobileImageMounterService
     } catch {
       return true;
     }
-  }
-
-  private normalizeResponse(response: any): PlistDictionary {
-    if (!response) {
-      return {};
-    }
-    return Array.isArray(response) ? response[0] || {} : response;
   }
 
   private async connectToMobileImageMounterService(): Promise<ServiceConnection> {
