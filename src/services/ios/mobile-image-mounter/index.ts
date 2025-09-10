@@ -415,11 +415,7 @@ class MobileImageMounterService
         error instanceof Error &&
         error.message.includes('MissingManifestError')
       ) {
-        // restart service since after getting MissingManifestError, the service closes the socket
-        log.debug(
-          'Personalization manifest not found on device, re-establishing connection and using TSS...',
-        );
-        await this.connectToMobileImageMounterService(true);
+        log.debug('Personalization manifest not found on device, using TSS...');
 
         const identifiers = await this.queryPersonalizationIdentifiers();
         const ecid = identifiers.UniqueChipID as number;

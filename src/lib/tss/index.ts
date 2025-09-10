@@ -285,8 +285,9 @@ export async function getManifestFromTSS(
   const buildIdentities = buildManifest.BuildIdentities as any[];
 
   for (const tmpBuildIdentity of buildIdentities) {
-    const apBoardId = parseInt(tmpBuildIdentity.ApBoardID, 10);
-    const apChipId = parseInt(tmpBuildIdentity.ApChipID, 10);
+    // ApBoardID and ApChipID are hex strings, so parse with radix 16
+    const apBoardId = parseInt(tmpBuildIdentity.ApBoardID, 16);
+    const apChipId = parseInt(tmpBuildIdentity.ApChipID, 16);
 
     if (apBoardId === boardId && apChipId === chipId) {
       buildIdentity = tmpBuildIdentity;
