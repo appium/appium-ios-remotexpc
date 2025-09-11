@@ -1,6 +1,6 @@
 import { logger } from '@appium/support';
 import { createHash } from 'crypto';
-import { promises as fs, Stats } from 'fs';
+import { Stats, promises as fs } from 'fs';
 
 import { parseXmlPlist } from '../../../lib/plist/index.js';
 import { getManifestFromTSS } from '../../../lib/tss/index.js';

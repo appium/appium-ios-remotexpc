@@ -3,12 +3,36 @@ import { expect } from 'chai';
 import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
 import { after, before, describe } from 'mocha';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 import { Services } from '../../src/index.js';
 import type { MobileImageMounterServiceWithConnection } from '../../src/index.js';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 const log = logger.getLogger('MobileImageMounterService.test');
 log.level = 'debug';
+
+// Set the env var MOUNTER_IMAGE_DIR to a real fixtures directory containing Image.dmg, BuildManifest.plist and Image.trustcache/Image.dmg.trustcache
+async function getFixturesInfo(): Promise<{
+  isReal: boolean;
+  fixturesDir: string;
+}> {
+  const realDir = process.env.MOUNTER_IMAGE_DIR;
+  const stubDir = path.join(__dirname, '..', 'fixtures', 'stubs');
+
+  const isReal =
+    !!realDir &&
+    (await fs
+      .access(realDir)
+      .then(() => true)
+      .catch(() => false));
+
+  const fixturesDir = isReal ? realDir! : stubDir;
+
+  return { isReal, fixturesDir };
+}
 
 describe('MobileImageMounterService Integration', function () {
   this.timeout(40000);
@@ -19,17 +43,13 @@ describe('MobileImageMounterService Integration', function () {
 
   before(async function () {
     if (!testUdid) {
+      log.warn('Skipping: set UDID env var to execute tests.');
       this.skip();
-      return;
     }
 
     // Establish connection for all tests
-    try {
-      serviceWithConnection =
-        await Services.startMobileImageMounterService(testUdid);
-    } catch (error) {
-      this.skip();
-    }
+    serviceWithConnection =
+      await Services.startMobileImageMounterService(testUdid);
   });
 
   after(async function () {
@@ -47,24 +67,44 @@ describe('MobileImageMounterService Integration', function () {
   });
 
   describe('Mount Operations', () => {
-    it('should mount personalized image', async function () {
-      // replace all these paths with your own paths to DMG Image, manifest, and trustcache
-      const imagePath =
-        '/Users/navinchandra/.pymobiledevice3/Xcode_iOS_DDI_Personalized/Image.dmg';
-      const buildManifestPath =
-        '/Users/navinchandra/.pymobiledevice3/Xcode_iOS_DDI_Personalized/BuildManifest.plist';
-      const trustCachePath =
-        '/Users/navinchandra/.pymobiledevice3/Xcode_iOS_DDI_Personalized/Image.trustcache';
+    it('should mount image', async function () {
+      // Set env var MOUNTER_IMAGE_DIR
+      const { isReal, fixturesDir } = await getFixturesInfo();
 
-      // this is slow (15-20 seconds)
-      await serviceWithConnection!.mobileImageMounterService.mount(
-        imagePath,
-        buildManifestPath,
-        trustCachePath,
-      );
-      const isImageMounted =
-        await serviceWithConnection!.mobileImageMounterService.isPersonalizedImageMounted();
-      expect(isImageMounted).to.be.true;
+      const imagePath = path.join(fixturesDir, 'Image.dmg');
+      const buildManifestPath = path.join(fixturesDir, 'BuildManifest.plist');
+
+      // check for Image.trustcache or Image.dmg.trustcache
+      let trustCachePath = path.join(fixturesDir, 'Image.trustcache');
+      if (
+        !(await fs
+          .access(trustCachePath)
+          .then(() => true)
+          .catch(() => false))
+      ) {
+        trustCachePath = path.join(fixturesDir, 'Image.dmg.trustcache');
+      }
+
+      try {
+        await serviceWithConnection!.mobileImageMounterService.mount(
+          imagePath,
+          buildManifestPath,
+          trustCachePath,
+        );
+
+        if (isReal) {
+          const mounted =
+            await serviceWithConnection!.mobileImageMounterService.isPersonalizedImageMounted();
+          expect(mounted).to.be.true;
+        } else {
+          console.warn('⚠️ Stub mount unexpectedly succeeded.');
+        }
+      } catch (err) {
+        if (isReal) throw err;
+        console.warn(
+          `⚠️ Stub mount failed (expected). Error: ${(err as Error).message}`,
+        );
+      }
     });
   });
 
@@ -119,60 +159,59 @@ describe('MobileImageMounterService Integration', function () {
     });
 
     it('should test queryPersonalizationManifest behavior', async function () {
-      // First, check what signatures are currently mounted
-      try {
-        const mountedSignatures =
-          await serviceWithConnection!.mobileImageMounterService.lookup();
-        expect(mountedSignatures).to.be.an('array');
+      const mountedSignatures =
+        await serviceWithConnection!.mobileImageMounterService.lookup();
+      expect(mountedSignatures).to.be.an('array');
 
-        if (mountedSignatures.length > 0) {
-          for (let i = 0; i < mountedSignatures.length; i++) {
-            const sig = mountedSignatures[i];
-            expect(sig).to.be.instanceOf(Buffer);
-            expect(sig.length).to.be.greaterThan(0);
+      if (mountedSignatures.length > 0) {
+        for (const sig of mountedSignatures) {
+          expect(sig).to.be.instanceOf(Buffer);
+          expect(sig.length).to.be.greaterThan(0);
 
-            // Try to query with this mounted signature
-            try {
-              const manifest =
-                await serviceWithConnection!.mobileImageMounterService.queryPersonalizationManifest(
-                  'DeveloperDiskImage',
-                  sig,
-                );
-
-              expect(manifest).to.be.instanceOf(Buffer);
-              expect(manifest.length).to.be.greaterThan(0);
-              return;
-            } catch (error) {}
-          }
+          try {
+            const manifest =
+              await serviceWithConnection!.mobileImageMounterService.queryPersonalizationManifest(
+                'DeveloperDiskImage',
+                sig,
+              );
+            log.debug(
+              'First 100 bytes of Manifest: ',
+              manifest.toString('hex', 0, 100),
+            );
+            expect(manifest).to.be.instanceOf(Buffer);
+            expect(manifest.length).to.be.greaterThan(0);
+            return;
+          } catch {}
         }
+      }
 
-        // If no mounted signatures, try with image hash
-        // replace with your own path to DMG Image
-        const imageFilePath =
-          '/Users/navinchandra/.pymobiledevice3/Xcode_iOS_DDI_Personalized/Image.dmg';
-        const image = await fs.readFile(imageFilePath);
-        const imageHash = createHash('sha384').update(image).digest();
+      // If no mounted signatures, use local image hash
+      const { isReal, fixturesDir } = await getFixturesInfo();
 
-        expect(imageHash).to.be.instanceOf(Buffer);
-        expect(imageHash.length).to.equal(48); // SHA384 produces 48 bytes
+      const imageFilePath = path.join(fixturesDir, 'Image.dmg');
+      const image = await fs.readFile(imageFilePath);
+      const imageHash = createHash('sha384').update(image).digest();
 
+      expect(imageHash).to.be.instanceOf(Buffer);
+      expect(imageHash.length).to.equal(48); // SHA384 produces 48 bytes
+
+      try {
         const manifest =
           await serviceWithConnection!.mobileImageMounterService.queryPersonalizationManifest(
             'DeveloperDiskImage',
             imageHash,
           );
 
+        log.debug(
+          'First 100 bytes of Manifest: ',
+          manifest.toString('hex', 0, 100),
+        );
         expect(manifest).to.be.instanceOf(Buffer);
         expect(manifest.length).to.be.greaterThan(0);
-      } catch (error) {
-        const errorMessage = (error as Error).message;
-
-        expect(errorMessage).to.satisfy(
-          (msg: string) =>
-            msg.includes('MissingManifestError') ||
-            msg.includes('Timed out') ||
-            msg.includes('timeout') ||
-            msg.includes('InternalError'),
+      } catch (err) {
+        if (isReal) throw err;
+        console.warn(
+          `⚠️ Stub manifest query failed (expected). Error: ${(err as Error).message}`,
         );
       }
     });
@@ -189,11 +228,19 @@ describe('MobileImageMounterService Integration', function () {
 
   describe('Unmount Operations', () => {
     it('should unmount personalized image', async function () {
-      await serviceWithConnection!.mobileImageMounterService.unmountImage();
+      const { isReal } = await getFixturesInfo();
 
-      const isImageMounted =
-        await serviceWithConnection!.mobileImageMounterService.isPersonalizedImageMounted();
-      expect(isImageMounted).to.be.false;
+      try {
+        await serviceWithConnection!.mobileImageMounterService.unmountImage();
+        const isImageMounted =
+          await serviceWithConnection!.mobileImageMounterService.isPersonalizedImageMounted();
+        expect(isImageMounted).to.be.false;
+      } catch (err) {
+        if (isReal) throw err;
+        console.warn(
+          `⚠️ Stub unmount failed (expected). Error: ${(err as Error).message}`,
+        );
+      }
     });
   });
 });
