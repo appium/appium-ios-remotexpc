@@ -251,7 +251,7 @@ class MobileImageMounterService
    * @returns List of mounted devices
    */
   async copyDevices(): Promise<any[]> {
-    const response = await this.sendRequest({ Command: 'CopyDevices' }, 10000);
+    const response = await this.sendRequest({ Command: 'CopyDevices' });
     return (response.EntryList as any[]) || [];
   }
 
@@ -266,15 +266,12 @@ class MobileImageMounterService
     signature: Buffer,
   ): Promise<Buffer> {
     try {
-      const response = await this.sendRequest(
-        {
-          Command: 'QueryPersonalizationManifest',
-          PersonalizedImageType: imageType,
-          ImageType: imageType,
-          ImageSignature: signature,
-        },
-        10000,
-      );
+      const response = await this.sendRequest({
+        Command: 'QueryPersonalizationManifest',
+        PersonalizedImageType: imageType,
+        ImageType: imageType,
+        ImageSignature: signature,
+      });
 
       this.checkIfError(response);
       const manifest = response.ImageSignature;
@@ -484,10 +481,8 @@ class MobileImageMounterService
   ): Promise<Stats> {
     try {
       const fileStat = await fs.stat(filePath);
-      if (fileStat.isDirectory()) {
-        throw new Error(
-          `Expected ${fileType} file, got directory: ${filePath}`,
-        );
+      if (!fileStat.isFile()) {
+        throw new Error(`Expected ${fileType} file, got non-file: ${filePath}`);
       }
       return fileStat;
     } catch (error: any) {
