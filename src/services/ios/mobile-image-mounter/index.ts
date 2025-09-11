@@ -1,6 +1,7 @@
 import { logger } from '@appium/support';
 import { createHash } from 'crypto';
 import { Stats, promises as fs } from 'fs';
+import { Readable } from 'stream';
 
 import { parseXmlPlist } from '../../../lib/plist/index.js';
 import { getManifestFromTSS } from '../../../lib/tss/index.js';
@@ -50,6 +51,7 @@ class MobileImageMounterService
   private static readonly FILE_TYPE_TRUST_CACHE = 'trust_cache';
   private static readonly IMAGE_TYPE = 'Personalized';
   private static readonly MOUNT_PATH = '/System/Developer';
+  private static readonly UPLOAD_IMAGE_TIMEOUT = 20000;
 
   // Connection cache
   private connection: ServiceConnection | null = null;
@@ -79,11 +81,7 @@ class MobileImageMounterService
     })) as ImageResponse;
 
     const signatures = response.ImageSignature || [];
-    return Buffer.isBuffer(signatures)
-      ? [signatures]
-      : Array.isArray(signatures)
-        ? (signatures.filter(Buffer.isBuffer) as Buffer[])
-        : [];
+    return signatures.filter(Buffer.isBuffer) as Buffer[];
   }
 
   /**
@@ -301,11 +299,13 @@ class MobileImageMounterService
    * @param imageType The image type
    * @param image The image data
    * @param signature The image signature/manifest
+   * @param timeout Optional timeout for upload operation (defaults to 20000ms)
    */
   async uploadImage(
     imageType: string,
     image: Buffer,
     signature: Buffer,
+    timeout = MobileImageMounterService.UPLOAD_IMAGE_TIMEOUT,
   ): Promise<void> {
     const receiveBytesResult = (await this.sendRequest({
       Command: 'ReceiveBytes',
@@ -331,7 +331,7 @@ class MobileImageMounterService
       );
     });
 
-    const uploadResult = await conn.receive(20000);
+    const uploadResult = await conn.receive(timeout);
     if (uploadResult.Status !== 'Complete') {
       throw new Error(`Image upload failed: ${JSON.stringify(uploadResult)}`);
     }
@@ -391,12 +391,36 @@ class MobileImageMounterService
     return res;
   }
 
+  /**
+   * Calculate hash of a buffer asynchronously
+   * @param buffer The buffer to hash
+   * @returns Promise resolving to the hash digest
+   */
+  private async hashLargeBufferAsync(buffer: Buffer): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      const hash = createHash('sha384');
+      const stream = Readable.from(buffer);
+
+      stream.on('data', (chunk) => {
+        hash.update(chunk);
+      });
+
+      stream.on('end', () => {
+        resolve(hash.digest());
+      });
+
+      stream.on('error', (err) => {
+        reject(err);
+      });
+    });
+  }
+
   private async getOrRetrieveManifestFromTSS(
     image: Buffer,
     buildManifest: PlistDictionary,
   ): Promise<Buffer> {
     try {
-      const imageHash = createHash('sha384').update(image).digest();
+      const imageHash = await this.hashLargeBufferAsync(image);
       const manifest = await this.queryPersonalizationManifest(
         'DeveloperDiskImage',
         imageHash,
@@ -406,10 +430,7 @@ class MobileImageMounterService
       );
       return manifest;
     } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message.includes('MissingManifestError')
-      ) {
+      if ((error as Error).message?.includes('MissingManifestError')) {
         log.debug('Personalization manifest not found on device, using TSS...');
 
         const identifiers = await this.queryPersonalizationIdentifiers();
