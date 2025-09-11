@@ -34,6 +34,37 @@ export interface TSSResponse {
   ApImg4Ticket?: Buffer;
 }
 
+export interface RestoreRequestRule {
+  Conditions?: {
+    ApRawProductionMode?: boolean;
+    ApCurrentProductionMode?: boolean;
+    ApRawSecurityMode?: boolean;
+    ApRequiresImage4?: boolean;
+    ApDemotionPolicyOverride?: string;
+    ApInRomDFU?: boolean;
+    [key: string]: any;
+  };
+  Actions?: {
+    [key: string]: any;
+  };
+}
+
+export interface ManifestEntry {
+  Info?: {
+    RestoreRequestRules?: RestoreRequestRule[];
+    [key: string]: any;
+  };
+  Digest?: Buffer;
+  Trusted?: boolean;
+  [key: string]: any;
+}
+
+export interface BuildManifest {
+  LoadableTrustCache?: ManifestEntry;
+  PersonalizedDMG?: ManifestEntry;
+  [key: string]: ManifestEntry | undefined;
+}
+
 export class TSSRequest {
   private _request: PlistDictionary;
 
@@ -55,7 +86,7 @@ export class TSSRequest {
   static applyRestoreRequestRules(
     tssEntry: PlistDictionary,
     parameters: PlistDictionary,
-    rules: any[],
+    rules: RestoreRequestRule[],
   ): PlistDictionary {
     for (const rule of rules) {
       let conditionsFulfilled = true;
@@ -302,7 +333,7 @@ export async function getManifestFromTSS(
     );
   }
 
-  const manifest = buildIdentity.Manifest;
+  const manifest = buildIdentity.Manifest as BuildManifest;
 
   const parameters = {
     ApProductionMode: true,
@@ -333,36 +364,30 @@ export async function getManifestFromTSS(
   });
 
   for (const [key, manifestEntry] of Object.entries(manifest)) {
-    const infoDict = (manifestEntry as any).Info;
-    if (!infoDict) {
+    if (!manifestEntry?.Info) {
       continue;
     }
 
-    if (!(manifestEntry as any).Trusted) {
+    if (!manifestEntry.Trusted) {
       log.debug(`Skipping ${key} as it is not trusted`);
       continue;
     }
 
     log.debug(`Processing manifest entry: ${key}`);
 
-    // Start with minimal TSS entry - only copy essential fields
     const tssEntry: PlistDictionary = {
-      Digest: (manifestEntry as any).Digest || Buffer.alloc(0),
-      Trusted: (manifestEntry as any).Trusted || false,
+      Digest: manifestEntry.Digest || Buffer.alloc(0),
+      Trusted: manifestEntry.Trusted || false,
     };
 
     if (key === 'PersonalizedDMG') {
       tssEntry.Name = 'DeveloperDiskImage';
     }
 
-    const loadableTrustCache = manifest.LoadableTrustCache as any;
-    if (
-      loadableTrustCache &&
-      loadableTrustCache.Info &&
-      loadableTrustCache.Info.RestoreRequestRules
-    ) {
+    const loadableTrustCache = manifest.LoadableTrustCache;
+    if (loadableTrustCache?.Info?.RestoreRequestRules) {
       const rules = loadableTrustCache.Info.RestoreRequestRules;
-      if (rules && rules.length > 0) {
+      if (rules.length > 0) {
         log.debug(`Applying restore request rules for entry ${key}`);
         TSSRequest.applyRestoreRequestRules(tssEntry, parameters, rules);
       }
