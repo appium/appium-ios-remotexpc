@@ -11,6 +11,9 @@ const log = logger.getLogger('TSSRequestor');
 // TSS Constants
 const TSS_CONTROLLER_ACTION_URL = 'http://gs.apple.com/TSS/controller?action=2';
 const TSS_CLIENT_VERSION_STRING = 'libauthinstall-1033.80.3';
+const TSS_SUCCESS_MESSAGE = 'SUCCESS';
+const TSS_REQUEST_TIMEOUT = 10000; // 10 seconds
+const TSS_RULE_IGNORE_VALUE = 255;
 
 export class TSSError extends Error {
   constructor(message: string) {
@@ -101,7 +104,7 @@ export class TSSRequest {
 
       const actions = rule.Actions || {};
       for (const [key, value] of Object.entries(actions)) {
-        if (value !== 255) {
+        if (value !== TSS_RULE_IGNORE_VALUE) {
           const value2 = tssEntry[key];
           if (value2) {
             delete tssEntry[key];
@@ -156,22 +159,21 @@ export class TSSRequest {
         log.warn('TSS response does not contain MESSAGE=SUCCESS');
       }
 
-      const responseStr = response.toString();
-      const messagePart = responseStr.split('MESSAGE=')[1];
+      const messagePart = response.split('MESSAGE=')[1];
       if (!messagePart) {
         log.error('Invalid TSS response format - no MESSAGE field found');
         throw new Error('Invalid TSS response format');
       }
 
-      const message = messagePart.split('&')[0];
+      const [message] = messagePart.split('&');
       log.debug(`TSS server message: ${message}`);
 
-      if (message !== 'SUCCESS') {
+      if (message !== TSS_SUCCESS_MESSAGE) {
         log.error(`TSS server replied with error: ${message}`);
         throw new Error(`TSS server replied: ${message}`);
       }
 
-      const requestStringPart = responseStr.split('REQUEST_STRING=')[1];
+      const requestStringPart = response.split('REQUEST_STRING=')[1];
       if (!requestStringPart) {
         log.error('No REQUEST_STRING in TSS response');
         throw new Error('No REQUEST_STRING in TSS response');
@@ -202,8 +204,7 @@ export class TSSRequest {
       const isHttps = urlObj.protocol === 'https:';
       const lib = isHttps ? https : http;
 
-      // Set timeout to 10 seconds to allow for TSS processing
-      const timeout = 10000;
+      const timeout = TSS_REQUEST_TIMEOUT;
 
       log.debug(`Making TSS request to ${url}`);
 
