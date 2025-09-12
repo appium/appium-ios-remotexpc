@@ -1,7 +1,6 @@
 import { logger } from '@appium/support';
+import axios from 'axios';
 import { randomUUID } from 'node:crypto';
-import * as http from 'node:http';
-import * as https from 'node:https';
 
 import { createPlist, parsePlist } from '../plist/index.js';
 import type { PlistDictionary } from '../types.js';
@@ -178,11 +177,14 @@ export class TSSRequest {
           ? Buffer.from(requestDataStr, 'utf8')
           : requestDataStr;
 
-      const response = await this.httpRequest(TSS_CONTROLLER_ACTION_URL, {
-        method: 'POST',
+      const res = await axios.post(TSS_CONTROLLER_ACTION_URL, requestData, {
         headers,
-        body: requestData,
+        timeout: TSS_REQUEST_TIMEOUT,
+        responseType: 'text',
       });
+
+      const response = res.data;
+      log.debug(`TSS response status: ${res.status}`);
 
       if (response.includes('MESSAGE=SUCCESS')) {
         log.debug('TSS response successfully received');
@@ -192,98 +194,26 @@ export class TSSRequest {
 
       const [, messagePart] = response.split('MESSAGE=');
       if (!messagePart) {
-        log.error('Invalid TSS response format - no MESSAGE field found');
-        throw new Error('Invalid TSS response format');
+        throw new TSSError('Invalid TSS response format');
       }
 
       const [message] = messagePart.split('&');
       log.debug(`TSS server message: ${message}`);
 
       if (message !== TSS_SUCCESS_MESSAGE) {
-        log.error(`TSS server replied with error: ${message}`);
-        throw new Error(`TSS server replied: ${message}`);
+        throw new TSSError(`TSS server replied: ${message}`);
       }
 
       const [, requestStringPart] = response.split('REQUEST_STRING=');
       if (!requestStringPart) {
-        log.error('No REQUEST_STRING in TSS response');
-        throw new Error('No REQUEST_STRING in TSS response');
+        throw new TSSError('No REQUEST_STRING in TSS response');
       }
 
-      const responseData = parsePlist(requestStringPart) as TSSResponse;
-      log.debug('TSS response parsed successfully');
-
-      return responseData;
+      return parsePlist(requestStringPart) as TSSResponse;
     } catch (error) {
       log.error('TSS request failed:', error);
       throw error;
     }
-  }
-
-  /**
-   * Make HTTP request using Node.js built-in modules
-   * @param url The URL to request
-   * @param options Request options
-   * @returns Promise resolving to response body
-   */
-  private httpRequest(
-    url: string,
-    options: { method: string; headers: Record<string, string>; body: Buffer },
-  ): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const urlObj = new URL(url);
-      const isHttps = urlObj.protocol === 'https:';
-      const lib = isHttps ? https : http;
-
-      const timeout = TSS_REQUEST_TIMEOUT;
-
-      log.debug(`Making TSS request to ${url}`);
-
-      const headers = { ...options.headers };
-      if (options.body && options.body.length > 0) {
-        headers['Content-Length'] = options.body.length.toString();
-      }
-
-      const req = lib.request(
-        {
-          hostname: urlObj.hostname,
-          port: urlObj.port || (isHttps ? 443 : 80),
-          path: urlObj.pathname + urlObj.search,
-          method: options.method,
-          timeout,
-          headers,
-        },
-        (res) => {
-          log.debug(`TSS response status: ${res.statusCode}`);
-
-          const chunks: Buffer[] = [];
-          res.on('data', (chunk) => chunks.push(chunk));
-          res.on('end', () => {
-            const body = Buffer.concat(chunks).toString();
-
-            if (res.statusCode && res.statusCode >= 400) {
-              reject(new Error(`HTTP ${res.statusCode}: ${body}`));
-            } else {
-              resolve(body);
-            }
-          });
-        },
-      );
-
-      req.on('error', (error) => {
-        log.error('TSS request error:', error);
-        reject(error);
-      });
-
-      req.on('timeout', () => {
-        log.error(`TSS request timed out after ${timeout}ms`);
-        req.destroy();
-        reject(new Error(`TSS request timed out after ${timeout}ms`));
-      });
-
-      req.write(options.body);
-      req.end();
-    });
   }
 }
 
