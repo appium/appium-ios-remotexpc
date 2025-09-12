@@ -43,8 +43,7 @@ describe('MobileImageMounterService Integration', function () {
 
   before(async function () {
     if (!testUdid) {
-      log.warn('Skipping: set UDID env var to execute tests.');
-      this.skip();
+      throw new Error('set UDID env var to execute tests.');
     }
 
     // Establish connection for all tests

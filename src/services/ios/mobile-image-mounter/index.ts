@@ -1,6 +1,7 @@
 import { logger } from '@appium/support';
 import { createHash } from 'crypto';
 import { Stats, promises as fs } from 'fs';
+import { performance } from 'perf_hooks';
 import { Readable } from 'stream';
 
 import { parseXmlPlist } from '../../../lib/plist/index.js';
@@ -114,6 +115,8 @@ class MobileImageMounterService
       return;
     }
 
+    const start = performance.now();
+
     // Validate files and read content
     await Promise.all([
       this.assertIsFile(
@@ -164,7 +167,10 @@ class MobileImageMounterService
       extras,
     );
 
-    log.info('Successfully mounted personalized image');
+    const end = performance.now();
+    log.info(
+      `Successfully mounted personalized image in ${(end - start).toFixed(2)} ms`,
+    );
   }
 
   /**

@@ -190,7 +190,7 @@ export class TSSRequest {
         log.warn('TSS response does not contain MESSAGE=SUCCESS');
       }
 
-      const messagePart = response.split('MESSAGE=')[1];
+      const [, messagePart] = response.split('MESSAGE=');
       if (!messagePart) {
         log.error('Invalid TSS response format - no MESSAGE field found');
         throw new Error('Invalid TSS response format');
@@ -204,7 +204,7 @@ export class TSSRequest {
         throw new Error(`TSS server replied: ${message}`);
       }
 
-      const requestStringPart = response.split('REQUEST_STRING=')[1];
+      const [, requestStringPart] = response.split('REQUEST_STRING=');
       if (!requestStringPart) {
         log.error('No REQUEST_STRING in TSS response');
         throw new Error('No REQUEST_STRING in TSS response');
@@ -239,6 +239,11 @@ export class TSSRequest {
 
       log.debug(`Making TSS request to ${url}`);
 
+      const headers = { ...options.headers };
+      if (options.body && options.body.length > 0) {
+        headers['Content-Length'] = options.body.length.toString();
+      }
+
       const req = lib.request(
         {
           hostname: urlObj.hostname,
@@ -246,10 +251,7 @@ export class TSSRequest {
           path: urlObj.pathname + urlObj.search,
           method: options.method,
           timeout,
-          headers: {
-            ...options.headers,
-            'Content-Length': options.body.length,
-          },
+          headers,
         },
         (res) => {
           log.debug(`TSS response status: ${res.statusCode}`);
