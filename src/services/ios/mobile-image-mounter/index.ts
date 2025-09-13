@@ -440,18 +440,10 @@ class MobileImageMounterService
         log.debug('Personalization manifest not found on device, using TSS...');
 
         const identifiers = await this.queryPersonalizationIdentifiers();
-        const ecid = identifiers.UniqueChipID as number;
-
-        if (!ecid) {
-          throw new Error(
-            'Could not retrieve device ECID from personalization identifiers',
-          );
-        }
 
         const manifest = await getManifestFromTSS(
-          ecid,
+          identifiers,
           buildManifest,
-          () => this.queryPersonalizationIdentifiers(),
           (type: string) => this.queryNonce(type),
         );
 

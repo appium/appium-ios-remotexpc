@@ -219,29 +219,27 @@ export class TSSRequest {
 
 /**
  * Get manifest from Apple's TSS (Ticket Signing Server)
- * @param ecid The device ECID
+ * @param personalizationIdentifiers The device personalization identifiers
  * @param buildManifest The build manifest dictionary
- * @param queryPersonalizationIdentifiers Function to query personalization identifiers
  * @param queryNonce Function to query nonce
  * @returns Promise resolving to the manifest bytes
  */
 export async function getManifestFromTSS(
-  ecid: number,
+  personalizationIdentifiers: PlistDictionary,
   buildManifest: PlistDictionary,
-  queryPersonalizationIdentifiers: () => Promise<PlistDictionary>,
   queryNonce: (personalizedImageType: string) => Promise<Buffer>,
 ): Promise<Buffer> {
   log.debug('Starting TSS manifest generation process');
 
   const request = new TSSRequest();
 
-  const personalizationIdentifiers = await queryPersonalizationIdentifiers();
   for (const [key, value] of Object.entries(personalizationIdentifiers)) {
     if (key.startsWith('Ap,')) {
       request.update({ [key]: value });
     }
   }
 
+  const ecid = personalizationIdentifiers.UniqueChipID as number;
   const boardId = personalizationIdentifiers.BoardId as number;
   const chipId = personalizationIdentifiers.ChipID as number;
 
