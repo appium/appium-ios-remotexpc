@@ -14,7 +14,7 @@ describe('MobileConfigService', function () {
 
   let remoteXPC: any;
   let mobileConfigService: MobileConfigService;
-  const udid = process.env.UDID || '00008030-000318693E32402E';
+  const udid = process.env.UDID || '';
 
   before(async function () {
     const result = await Services.startMobileConfigService(udid);
@@ -38,7 +38,6 @@ describe('MobileConfigService', function () {
       expect(profiles).to.be.an('object');
       expect(profiles).to.not.deep.equal({});
       expect(profiles.Status).to.be.equal('Acknowledged');
-      console.log(profiles);
     } catch (error) {
       log.error('Error getting listed profiles:', (error as Error).message);
       throw error;
@@ -47,7 +46,8 @@ describe('MobileConfigService', function () {
 
   it('install profile', async function () {
     try {
-      await mobileConfigService.installProfile('/Users/swastikb/Downloads/test.mobileconfig');
+      // Make sure to provide a valid .mobileconfig file path
+      await mobileConfigService.installProfile('pathto/your.mobileconfig');
       // This only installs on the iPhone, to use it must be installed manually
     } catch (error) {
       log.error('Error while installing profile:', (error as Error).message);
@@ -55,9 +55,10 @@ describe('MobileConfigService', function () {
     }
   });
 
-  it('delete profile', async function () {
+  it('remove profile', async function () {
     try {
-      await mobileConfigService.removeProfile('com.example.testprofile');
+      // Identifier is found in the profile list under ProfileMetadata key
+      await mobileConfigService.removeProfile('com.xxx.yyy');
     } catch (error) {
       log.error('Error while removing profile:', (error as Error).message);
       throw error;

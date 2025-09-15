@@ -1,16 +1,20 @@
 import { logger } from '@appium/support';
 import fs from 'fs/promises';
 
-import { createBinaryPlist, createPlist, parseBinaryPlist, parseXmlPlist } from '../../../lib/plist';
+import { createPlist, parsePlist } from '../../../lib/plist/index.js';
 import { type MobileConfigService as MobileConfigServiceInterface, type PlistDictionary } from '../../../lib/types.js';
 import { ServiceConnection } from '../../../service-connection.js';
 import { BaseService } from '../base-service.js';
-import {jsonStringify} from "@appium/support/build/lib/util";
 
 const ERROR_CLOUD_CONFIGURATION_ALREADY_PRESENT = 14002;
 const log = logger.getLogger('MobileConfigService');
 
-
+/**
+ * MobileConfigService provides an API to:
+ * - Install configuration profiles
+ * - Remove configuration profiles
+ * - List installed configuration profiles
+ */
 class MobileConfigService extends BaseService implements MobileConfigServiceInterface {
   static readonly RSD_SERVICE_NAME = 'com.apple.mobile.MCInstall.shim.remote';
   private _conn: ServiceConnection | null = null;
@@ -18,16 +22,108 @@ class MobileConfigService extends BaseService implements MobileConfigServiceInte
   constructor(address: [string, number]) {
     super(address);
   }
+  /**
+   * Connect to the mobile config service
+   * @returns Promise resolving to the ServiceConnection instance
+   */
+  async connectToMobileConfigService(): Promise<ServiceConnection> {
+    if (this._conn) {
+      return this._conn;
+    }
+
+    const service = this.getServiceConfig();
+    this._conn = await this.startLockdownService(service);
+    return this._conn;
+  }
+
+
+  /**
+   * Get all profiles of iOS devices
+   * @returns {Promise<PlistDictionary>}
+   * e.g.
+   * {
+   *   OrderedIdentifiers: [ '2fac1c2b3d684843189b2981c718b0132854a847a' ],
+   *   ProfileManifest: {
+   *     '2fac1c2b3d684843189b2981c718b0132854a847a': {
+   *       Description: 'Charles Proxy CA (7 Dec 2020, MacBook-Pro.local)',
+   *       IsActive: true
+   *     }
+   *   },
+   *   ProfileMetadata: {
+   *     '2fac1c2b3d684843189b2981c718b0132854a847a': {
+   *       PayloadDisplayName: 'Charles Proxy CA (7 Dec 2020, MacBook-Pro.local)',
+   *       PayloadRemovalDisallowed: false,
+   *       PayloadUUID: 'B30005CC-BC73-4E42-8545-8DA6C44A8A71',
+   *       PayloadVersion: 1
+   *     }
+   *   },
+   *   Status: 'Acknowledged'
+   * }
+   */
+  async getProfileList(): Promise<PlistDictionary> {
+    const req = {
+      RequestType: 'GetProfileList',
+    };
+
+    return this._sendPlistAndReceive(req);
+  }
+
+  /**
+   * Install profile to iOS device
+   * @param {String} path  must be a certificate file .PEM .CER and more formats
+   * e.g: /Downloads/charles-certificate.pem
+   */
+  async installProfile(path: string): Promise<void> {
+    const payload = await fs.readFile(path);
+    const req = {
+      RequestType: 'InstallProfile',
+      Payload: parsePlist(payload),
+    };
+    await this._sendPlistAndReceive(req);
+  }
+  /**
+   * Remove profile from iOS device
+   * @param {String} identifier Query identifier list through getProfileList method
+   */
+  async removeProfile(identifier: string): Promise<void> {
+    const profileList = await this.getProfileList();
+    if (!profileList || !profileList.ProfileMetadata) {
+      return;
+    }
+
+    const profileMetadata = profileList.ProfileMetadata as Record<string, any>;
+    if (!(identifier in profileMetadata)) {
+      throw new Error(`Trying to remove not installed profile: ${identifier}`);
+    }
+
+    const meta = profileMetadata[identifier];
+    const payloadData = {
+      PayloadIdentifier: identifier,
+      PayloadType: 'Configuration',
+      PayloadUUID: meta.PayloadUUID,
+      PayloadVersion: meta.PayloadVersion,
+    };
+    if (!this._conn) {
+      this._conn = await this.connectToMobileConfigService();
+    }
+
+    const req = {
+      RequestType: 'RemoveProfile',
+      ProfileIdentifier: createPlist(payloadData),
+    };
+
+    log.info(req);
+
+    await this._sendPlistAndReceive(req);
+  }
 
   private async _sendPlistAndReceive(req: PlistDictionary): Promise<PlistDictionary> {
     if (!this._conn) {
       this._conn = await this.connectToMobileConfigService();
     }
     // Ignore first response as it is just status check
-    const _ = await this._conn.sendAndReceive(req);
-   //console.log(_);
+    await this._conn.sendAndReceive(req);
     const res = await this._conn.sendAndReceive(req);
-    console.log(req);
     if (res.Status !== 'Acknowledged') {
       const errorChain = res.ErrorChain;
       if (
@@ -47,7 +143,7 @@ class MobileConfigService extends BaseService implements MobileConfigServiceInte
           }
         }
       }
-      throw new Error(`Invalid response: ${jsonStringify(res)}`);
+      throw new Error(`Invalid response: ${JSON.stringify(res)}`);
     }
     return res;
   }
@@ -61,74 +157,6 @@ class MobileConfigService extends BaseService implements MobileConfigServiceInte
       port: this.address[1].toString(),
     };
   }
-
-  // eslint-disable-next-line @typescript-eslint/member-ordering
-  async connectToMobileConfigService(): Promise<ServiceConnection> {
-    if (this._conn) {
-      return this._conn;
-    }
-
-    const service = this.getServiceConfig();
-    this._conn = await this.startLockdownService(service);
-    return this._conn;
-  }
-
-  // eslint-disable-next-line @typescript-eslint/member-ordering
-  async getProfileList(): Promise<PlistDictionary> {
-    const req = {
-      RequestType: 'GetProfileList',
-    };
-    if (!this._conn) {
-      this._conn = await this.connectToMobileConfigService();
-    }
-    return this._sendPlistAndReceive(req);
-  }
-
-  // eslint-disable-next-line @typescript-eslint/member-ordering
-  async installProfile(path: string): Promise<void> {
-    const payload = await fs.readFile(path);
-    const req = {
-      RequestType: 'InstallProfile',
-      Payload: parseXmlPlist(payload),
-    };
-    await this._sendPlistAndReceive(req);
-  }
-
-  // eslint-disable-next-line @typescript-eslint/member-ordering
-  async removeProfile(identifier: string): Promise<void> {
-    const profileList = await this.getProfileList();
-    if (!profileList || !profileList.ProfileMetadata) {
-      return;
-    }
-
-    const profileMetadata = profileList.ProfileMetadata as Record<string, any>;
-    if (!(identifier in profileMetadata)) {
-      throw new Error(`Trying to remove not installed profile: ${identifier}`);
-    }
-
-
-    const meta = profileMetadata[identifier];
-    const payloadData = {
-      PayloadIdentifier: identifier,
-      PayloadType: 'Configuration',
-      PayloadUUID: meta.PayloadUUID,
-      PayloadVersion: meta.PayloadVersion,
-    };
-      if (!this._conn) {
-          this._conn = await this.connectToMobileConfigService();
-      }
-
-    console.log(parseBinaryPlist(Buffer.from(createPlist(payloadData))));
-
-
-    const req = {
-      RequestType: 'RemoveProfile',
-      ProfileIdentifier: Buffer.from(createPlist(payloadData)),
-    };
-
-    console.log(await this._sendPlistAndReceive(req));
-  }
-
 }
 
 export { MobileConfigService };

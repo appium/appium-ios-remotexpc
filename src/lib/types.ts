@@ -212,10 +212,49 @@ export interface NotificationProxyService extends BaseService {
   expectNotification(timeout?: number): Promise<PlistMessage>;
 }
 
+/**
+ * Represents the static side of MobileConfigService
+ */
 export interface MobileConfigService extends BaseService {
+  /**
+   * Connect to the mobile config service
+   * @returns Promise resolving to the ServiceConnection instance
+   */
   connectToMobileConfigService(): Promise<ServiceConnection>;
+  /**
+   * Get all profiles of iOS devices
+   * @returns {Promise<PlistDictionary>}
+   * e.g.
+   * {
+   *   OrderedIdentifiers: [ '2fac1c2b3d684843189b2981c718b0132854a847a' ],
+   *   ProfileManifest: {
+   *     '2fac1c2b3d684843189b2981c718b0132854a847a': {
+   *       Description: 'Charles Proxy CA (7 Dec 2020, MacBook-Pro.local)',
+   *       IsActive: true
+   *     }
+   *   },
+   *   ProfileMetadata: {
+   *     '2fac1c2b3d684843189b2981c718b0132854a847a': {
+   *       PayloadDisplayName: 'Charles Proxy CA (7 Dec 2020, MacBook-Pro.local)',
+   *       PayloadRemovalDisallowed: false,
+   *       PayloadUUID: 'B30005CC-BC73-4E42-8545-8DA6C44A8A71',
+   *       PayloadVersion: 1
+   *     }
+   *   },
+   *   Status: 'Acknowledged'
+   * }
+   */
   getProfileList(): Promise<PlistDictionary>;
+  /**
+   * Install profile to iOS device
+   * @param {String} path  must be a certificate file .PEM .CER and more formats
+   * e.g: /Downloads/charles-certificate.pem
+   */
   installProfile(path: string): Promise<void>;
+  /**
+   * Remove profile from iOS device
+   * @param {String} identifier Query identifier list through getProfileList method
+   */
   removeProfile(identifier: string): Promise<void>;
 }
 
@@ -256,8 +295,14 @@ export interface NotificationProxyServiceWithConnection {
   remoteXPC: RemoteXpcConnection;
 }
 
+/**
+ * Represents a MobileConfigService instance with its associated RemoteXPC connection
+ * This allows callers to properly manage the connection lifecycle
+ */
 export interface MobileConfigServiceWithConnection {
+  /** The MobileConfigService instance */
   mobileConfigService: MobileConfigService;
+  /** The RemoteXPC connection that can be used to close the connection */
   remoteXPC: RemoteXpcConnection;
 }
 
