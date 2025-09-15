@@ -1,9 +1,8 @@
 import { logger } from '@appium/support';
-
+import { expect } from 'chai';
 
 import type { MobileConfigService } from '../../src/lib/types.js';
 import * as Services from '../../src/services.js';
-import { expect } from 'chai';
 
 const log = logger.getLogger('MobileConfigService.test');
 // Set MobileConfigService logger to info level

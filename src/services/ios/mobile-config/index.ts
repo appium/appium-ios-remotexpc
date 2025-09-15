@@ -2,7 +2,10 @@ import { logger } from '@appium/support';
 import fs from 'fs/promises';
 
 import { createPlist, parsePlist } from '../../../lib/plist/index.js';
-import { type MobileConfigService as MobileConfigServiceInterface, type PlistDictionary } from '../../../lib/types.js';
+import {
+  type MobileConfigService as MobileConfigServiceInterface,
+  type PlistDictionary,
+} from '../../../lib/types.js';
 import { ServiceConnection } from '../../../service-connection.js';
 import { BaseService } from '../base-service.js';
 
@@ -15,7 +18,10 @@ const log = logger.getLogger('MobileConfigService');
  * - Remove configuration profiles
  * - List installed configuration profiles
  */
-class MobileConfigService extends BaseService implements MobileConfigServiceInterface {
+class MobileConfigService
+  extends BaseService
+  implements MobileConfigServiceInterface
+{
   static readonly RSD_SERVICE_NAME = 'com.apple.mobile.MCInstall.shim.remote';
   private _conn: ServiceConnection | null = null;
 
@@ -35,7 +41,6 @@ class MobileConfigService extends BaseService implements MobileConfigServiceInte
     this._conn = await this.startLockdownService(service);
     return this._conn;
   }
-
 
   /**
    * Get all profiles of iOS devices
@@ -117,7 +122,9 @@ class MobileConfigService extends BaseService implements MobileConfigServiceInte
     await this._sendPlistAndReceive(req);
   }
 
-  private async _sendPlistAndReceive(req: PlistDictionary): Promise<PlistDictionary> {
+  private async _sendPlistAndReceive(
+    req: PlistDictionary,
+  ): Promise<PlistDictionary> {
     if (!this._conn) {
       this._conn = await this.connectToMobileConfigService();
     }
@@ -139,7 +146,9 @@ class MobileConfigService extends BaseService implements MobileConfigServiceInte
         ) {
           const errorCode = firstError.ErrorCode;
           if (errorCode === ERROR_CLOUD_CONFIGURATION_ALREADY_PRESENT) {
-            throw new Error('A cloud configuration is already present on device. You must first erase the device to install a new configuration.');
+            throw new Error(
+              'A cloud configuration is already present on device. You must first erase the device to install a new configuration.',
+            );
           }
         }
       }
