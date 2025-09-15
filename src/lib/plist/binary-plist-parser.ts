@@ -270,15 +270,21 @@ class BinaryPlistParser {
    * @returns The parsed string
    */
   private _parseUnicodeString(startOffset: number, objLength: number): string {
-    // Unicode strings are stored as UTF-16BE
-    const utf16Buffer = Buffer.alloc(objLength * 2);
-    for (let j = 0; j < objLength; j++) {
-      utf16Buffer.writeUInt16BE(
-        this._buffer.readUInt16BE(startOffset + j * 2),
-        j * 2,
-      );
+    // Unicode strings are stored as UTF-16BE in binary plists
+    const bytesToRead = objLength * 2;
+    const stringBuffer = this._buffer.slice(
+      startOffset,
+      startOffset + bytesToRead,
+    );
+
+    // Convert UTF-16BE to UTF-16LE for proper decoding
+    const utf16leBuffer = Buffer.alloc(bytesToRead);
+    for (let i = 0; i < bytesToRead; i += 2) {
+      utf16leBuffer[i] = stringBuffer[i + 1]; // Low byte
+      utf16leBuffer[i + 1] = stringBuffer[i]; // High byte
     }
-    return utf16Buffer.toString('utf16le', 0, objLength * 2);
+
+    return utf16leBuffer.toString('utf16le');
   }
 
   /**
@@ -476,8 +482,10 @@ class BinaryPlistParser {
         obj.startOffset + j * this._objectRefSize,
       );
       const refValue = this._objectTable[refIdx];
-      // Ensure we're not adding a TempObject to the array
-      if (!this._isTempObject(refValue)) {
+      // Handle TempObjects correctly - they should be resolved by the time we get here
+      if (this._isTempObject(refValue)) {
+        array.push(refValue.value);
+      } else {
         array.push(refValue);
       }
     }
@@ -511,8 +519,10 @@ class BinaryPlistParser {
         );
       }
 
-      // Ensure we're not adding a TempObject to the dictionary
-      if (!this._isTempObject(value)) {
+      // Handle TempObjects correctly - they should be resolved by the time we get here
+      if (this._isTempObject(value)) {
+        dict[key] = value.value;
+      } else {
         dict[key] = value;
       }
     }

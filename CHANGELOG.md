@@ -1,3 +1,25 @@
+## [0.4.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.4.0...v0.4.1) (2025-09-13)
+
+### Bug Fixes
+
+* call identifiers command once in case of TSS ([#69](https://github.com/appium/appium-ios-remotexpc/issues/69)) ([f7ac423](https://github.com/appium/appium-ios-remotexpc/commit/f7ac4237353a116b96cc3f770268b12b20b2d5c4))
+
+## [0.4.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.3.3...v0.4.0) (2025-09-13)
+
+### Features
+
+* implement `mobile_image_mounter` service ([#68](https://github.com/appium/appium-ios-remotexpc/issues/68)) ([c8253f0](https://github.com/appium/appium-ios-remotexpc/commit/c8253f0dccc16652d68755fa0fc73bdd1711c881))
+
+## [0.3.3](https://github.com/appium/appium-ios-remotexpc/compare/v0.3.2...v0.3.3) (2025-09-05)
+
+### Bug Fixes
+
+* correct UTF-16BE string parsing and TempObject handling in binary plist parser ([#65](https://github.com/appium/appium-ios-remotexpc/issues/65)) ([e64933a](https://github.com/appium/appium-ios-remotexpc/commit/e64933a5126ea796b12fcd001d12cab93a3bb9f8))
+
+### Miscellaneous Chores
+
+* **deps:** bump actions/checkout from 4 to 5 ([#64](https://github.com/appium/appium-ios-remotexpc/issues/64)) ([2fc7af0](https://github.com/appium/appium-ios-remotexpc/commit/2fc7af0c29f774f4dc37339c0825b109d410b815))
+
 ## [0.3.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.3.1...v0.3.2) (2025-08-31)
 
 ### Miscellaneous Chores

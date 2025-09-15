@@ -47,6 +47,8 @@ describe('Plist Module', function () {
         nestedArray: [1, 2],
       },
       specialChars: '<Hello & World>',
+      emoji: '😀',
+      unicode: '测试',
     };
   });
 
@@ -104,7 +106,6 @@ describe('Plist Module', function () {
       const binaryPlist = createBinaryPlist(expectedPlistObject);
       expect(isBinaryPlist(binaryPlist)).to.be.true;
       expect(isBinaryPlist(Buffer.from(sampleXmlPlistContent))).to.be.false;
-
       // Create and verify
       expect(Buffer.isBuffer(binaryPlist)).to.be.true;
       expect(binaryPlist.slice(0, 6).toString()).to.equal('bplist');
@@ -200,6 +201,18 @@ describe('Plist Module', function () {
       const emptyXmlResult = createXmlPlist(emptyObj);
       const parsedEmptyXml = parseXmlPlist(emptyXmlResult);
       expect(parsedEmptyXml).to.deep.equal({});
+    });
+
+    it('should validate that sample data contains emoji and unicode', function () {
+      // Test round-trip with the sample data
+      const binary = createBinaryPlist(expectedPlistObject);
+      const obj = parseBinaryPlist(binary) as Record<string, any>;
+      const xmlResult = createXmlPlist(expectedPlistObject);
+      expect(obj).to.have.property('emoji', '😀');
+      expect(obj).to.have.property('unicode', '测试');
+      // Verify the XML contains the encoded characters
+      expect(xmlResult).to.include('😀');
+      expect(xmlResult).to.include('测试');
     });
   });
 });

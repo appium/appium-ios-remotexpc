@@ -17,6 +17,10 @@ export function createPlist(obj: PlistDictionary): string {
     if (typeof value === 'string') {
       return `<string>${escapeXml(value)}</string>`;
     }
+    if (Buffer.isBuffer(value)) {
+      const base64Data = value.toString('base64');
+      return `<data>${base64Data}</data>`;
+    }
     if (Array.isArray(value)) {
       return `<array>${value.map((item) => convert(item)).join('')}</array>`;
     }

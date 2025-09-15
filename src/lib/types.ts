@@ -405,3 +405,101 @@ export interface SyslogServiceConstructor {
    */
   new (address: [string, number]): SyslogService;
 }
+
+/**
+ * Represents the instance side of MobileImageMounterService
+ */
+export interface MobileImageMounterService extends BaseService {
+  /**
+   * Lookup for mounted images by type
+   * @param imageType Type of image, 'Personalized' by default
+   * @returns Promise resolving to array of signatures of mounted images
+   */
+  lookup(imageType?: string): Promise<Buffer[]>;
+
+  /**
+   * Check if personalized image is mounted
+   * @returns Promise resolving to boolean indicating if personalized image is mounted
+   */
+  isPersonalizedImageMounted(): Promise<boolean>;
+
+  /**
+   * Mount personalized image for device (iOS 17+)
+   * @param imageFilePath The file path of the image (.dmg)
+   * @param buildManifestFilePath The build manifest file path (.plist)
+   * @param trustCacheFilePath The trust cache file path (.trustcache)
+   */
+  mount(
+    imageFilePath: string,
+    buildManifestFilePath: string,
+    trustCacheFilePath: string,
+  ): Promise<void>;
+
+  /**
+   * Unmount image from device
+   * @param mountPath The mount path to unmount, defaults to '/System/Developer'
+   */
+  unmountImage(mountPath?: string): Promise<void>;
+
+  /**
+   * Query developer mode status (iOS 16+)
+   * @returns Promise resolving to boolean indicating if developer mode is enabled
+   */
+  queryDeveloperModeStatus(): Promise<boolean>;
+
+  /**
+   * Query personalization nonce (for personalized images)
+   * @param personalizedImageType Optional personalized image type
+   * @returns Promise resolving to personalization nonce
+   */
+  queryNonce(personalizedImageType?: string): Promise<Buffer>;
+
+  /**
+   * Query personalization identifiers from the device
+   * @returns Promise resolving to personalization identifiers
+   */
+  queryPersonalizationIdentifiers(): Promise<PlistDictionary>;
+
+  /**
+   * Copy devices list
+   * @returns Promise resolving to array of mounted devices
+   */
+  copyDevices(): Promise<any[]>;
+
+  /**
+   * Query personalization manifest for a specific image
+   * @param imageType The image type (e.g., 'DeveloperDiskImage')
+   * @param signature The image signature/hash
+   * @returns Promise resolving to personalization manifest
+   */
+  queryPersonalizationManifest(
+    imageType: string,
+    signature: Buffer,
+  ): Promise<Buffer>;
+}
+
+/**
+ * Represents the static side of MobileImageMounterService
+ */
+export interface MobileImageMounterServiceConstructor {
+  /**
+   * RSD service name for the mobile image mounter service
+   */
+  readonly RSD_SERVICE_NAME: string;
+
+  /**
+   * Creates a new MobileImageMounterService instance
+   * @param address Tuple containing [host, port]
+   */
+  new (address: [string, number]): MobileImageMounterService;
+}
+
+/**
+ * Represents a MobileImageMounterService instance with its associated RemoteXPC connection
+ */
+export interface MobileImageMounterServiceWithConnection {
+  /** The MobileImageMounterService instance */
+  mobileImageMounterService: MobileImageMounterService;
+  /** The RemoteXPC connection for service management */
+  remoteXPC: RemoteXpcConnection;
+}

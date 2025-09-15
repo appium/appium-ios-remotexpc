@@ -59,7 +59,11 @@ class BinaryPlistCreator {
     const objectData: Buffer[] = [];
 
     for (const value of this._objectTable) {
-      objectOffsets.push(this._calculateObjectDataLength(objectData));
+      // Calculate offset including the header length
+      objectOffsets.push(
+        BPLIST_MAGIC_AND_VERSION.length +
+          this._calculateObjectDataLength(objectData),
+      );
       objectData.push(this._createObjectData(value));
     }
 
@@ -341,11 +345,22 @@ class BinaryPlistCreator {
     // Check if string can be ASCII
     // eslint-disable-next-line no-control-regex
     const isAscii = /^[\x00-\x7F]*$/.test(value);
-    const stringBuffer = isAscii
-      ? Buffer.from(value, 'ascii')
-      : Buffer.from(value, 'utf16le');
 
-    // Fixed the typo here - using stringBuffer.length instead of value.length for Unicode strings
+    let stringBuffer: Buffer;
+    if (isAscii) {
+      stringBuffer = Buffer.from(value, 'ascii');
+    } else {
+      // Unicode strings should be stored as UTF-16BE in binary plists
+      const utf16leBuffer = Buffer.from(value, 'utf16le');
+      stringBuffer = Buffer.alloc(utf16leBuffer.length);
+
+      // Convert UTF-16LE to UTF-16BE
+      for (let i = 0; i < utf16leBuffer.length; i += 2) {
+        stringBuffer[i] = utf16leBuffer[i + 1]; // High byte
+        stringBuffer[i + 1] = utf16leBuffer[i]; // Low byte
+      }
+    }
+
     const length = isAscii ? value.length : stringBuffer.length / 2;
     let header: Buffer;
 
