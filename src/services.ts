@@ -5,7 +5,6 @@ import { TunnelManager } from './lib/tunnel/index.js';
 import { TunnelApiClient } from './lib/tunnel/tunnel-api-client.js';
 import type {
   DiagnosticsServiceWithConnection, MobileConfigServiceWithConnection,
-  DiagnosticsServiceWithConnection,
   MobileImageMounterServiceWithConnection,
   NotificationProxyServiceWithConnection,
   SyslogService as SyslogServiceType,
