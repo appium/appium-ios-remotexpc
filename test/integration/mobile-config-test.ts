@@ -37,6 +37,7 @@ describe('MobileConfigService', function () {
       expect(profiles).to.be.an('object');
       expect(profiles).to.not.deep.equal({});
       expect(profiles.Status).to.be.equal('Acknowledged');
+      log.info(profiles);
     } catch (error) {
       log.error('Error getting listed profiles:', (error as Error).message);
       throw error;
@@ -46,7 +47,9 @@ describe('MobileConfigService', function () {
   it('install profile', async function () {
     try {
       // Make sure to provide a valid .mobileconfig file path
-      await mobileConfigService.installProfile('pathto/your.mobileconfig');
+      await mobileConfigService.installProfileFromPath(
+        'pathto/your.mobileconfig',
+      );
       // This only installs on the iPhone, to use it must be installed manually
     } catch (error) {
       log.error('Error while installing profile:', (error as Error).message);

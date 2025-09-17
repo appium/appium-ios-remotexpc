@@ -250,7 +250,12 @@ export interface MobileConfigService extends BaseService {
    * @param {String} path  must be a certificate file .PEM .CER and more formats
    * e.g: /Downloads/charles-certificate.pem
    */
-  installProfile(path: string): Promise<void>;
+  installProfileFromPath(path: string): Promise<void>;
+  /**
+   * Install profile to iOS device from buffer
+   * @param {Buffer} payload  must be a certificate file .PEM .CER and more formats
+   */
+  installProfileFromBuffer(payload: Buffer): Promise<void>;
   /**
    * Remove profile from iOS device
    * @param {String} identifier Query identifier list through getProfileList method

@@ -74,17 +74,59 @@ class MobileConfigService
   }
 
   /**
-   * Install profile to iOS device
+   * Install profile from path to iOS device
+   * The phone must be unlocked before installing the profile
    * @param {String} path  must be a certificate file .PEM .CER and more formats
    * e.g: /Downloads/charles-certificate.pem
    */
-  async installProfile(path: string): Promise<void> {
+  async installProfileFromPath(path: string): Promise<void> {
+    // Check if file exists
+    try {
+      await fs.access(path);
+    } catch (error) {
+      throw new Error(`Profile filepath does not exist: ${path}`);
+    }
+
+    // Validate file format based on extension
+    const supportedExtensions = [
+      '.pem',
+      '.cer',
+      '.crt',
+      '.p12',
+      '.pfx',
+      '.mobileconfig',
+      '.plist',
+    ];
+    const fileExtension = path.toLowerCase().split('.').pop();
+
+    if (!fileExtension || !supportedExtensions.includes(`.${fileExtension}`)) {
+      throw new Error(
+        `Unsupported file format. Supported formats: ${supportedExtensions.join(', ')}`,
+      );
+    }
+
     const payload = await fs.readFile(path);
-    const req = {
-      RequestType: 'InstallProfile',
-      Payload: parsePlist(payload),
-    };
-    await this._sendPlistAndReceive(req);
+    await this.installProfileFromBuffer(payload);
+  }
+
+  /**
+   * Install profile to iOS device from buffer
+   * The phone must be unlocked before installing the profile
+   * @param {Buffer} payload  must be a certificate file buffer .PEM .CER and more formats
+   */
+  async installProfileFromBuffer(payload: Buffer): Promise<void> {
+    try {
+      const req = {
+        RequestType: 'InstallProfile',
+        Payload: parsePlist(payload),
+      };
+      await this._sendPlistAndReceive(req);
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new Error(`Failed to install profile: ${error.message}`);
+      }
+      throw error;
+    }
   }
   /**
    * Remove profile from iOS device
@@ -98,7 +140,16 @@ class MobileConfigService
 
     const profileMetadata = profileList.ProfileMetadata as Record<string, any>;
     if (!(identifier in profileMetadata)) {
-      throw new Error(`Trying to remove not installed profile: ${identifier}`);
+      // Get available identifiers from OrderedIdentifiers array or ProfileMetadata keys
+      const availableIdentifiers =
+        profileList.OrderedIdentifiers &&
+        Array.isArray(profileList.OrderedIdentifiers)
+          ? (profileList.OrderedIdentifiers as string[])
+          : Object.keys(profileMetadata);
+
+      throw new Error(
+        `Trying to remove not installed profile: ${identifier}. Expected one of: ${availableIdentifiers.join(', ')}`,
+      );
     }
 
     const meta = profileMetadata[identifier];
@@ -108,9 +159,6 @@ class MobileConfigService
       PayloadUUID: meta.PayloadUUID,
       PayloadVersion: meta.PayloadVersion,
     };
-    if (!this._conn) {
-      this._conn = await this.connectToMobileConfigService();
-    }
 
     const req = {
       RequestType: 'RemoveProfile',
@@ -132,23 +180,21 @@ class MobileConfigService
     await this._conn.sendAndReceive(req);
     const res = await this._conn.sendAndReceive(req);
     if (res.Status !== 'Acknowledged') {
-      const errorChain = res.ErrorChain;
-      if (
-        errorChain != null &&
-        Array.isArray(errorChain) &&
-        errorChain.length > 0
-      ) {
+      const errorChain = res?.ErrorChain;
+      if (Array.isArray(errorChain) && errorChain.length > 0) {
         const firstError = errorChain[0];
         if (
           typeof firstError === 'object' &&
           firstError !== null &&
           'ErrorCode' in firstError
         ) {
-          const errorCode = firstError.ErrorCode;
-          if (errorCode === ERROR_CLOUD_CONFIGURATION_ALREADY_PRESENT) {
-            throw new Error(
-              'A cloud configuration is already present on device. You must first erase the device to install a new configuration.',
-            );
+          const errorCode = (firstError as any).ErrorCode;
+          if (Number.isInteger(errorCode)) {
+            if (errorCode === ERROR_CLOUD_CONFIGURATION_ALREADY_PRESENT) {
+              throw new Error(
+                'A cloud configuration is already present on device. You must first erase the device to install a new configuration.',
+              );
+            }
           }
         }
       }
