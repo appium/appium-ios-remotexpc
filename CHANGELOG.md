@@ -1,3 +1,9 @@
+## [0.4.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.4.1...v0.4.2) (2025-09-16)
+
+### Miscellaneous Chores
+
+* **deps-dev:** bump eslint-plugin-unicorn ([#66](https://github.com/appium/appium-ios-remotexpc/issues/66)) ([b8569bc](https://github.com/appium/appium-ios-remotexpc/commit/b8569bc466570a25a75861f98d2b3be841c6387c))
+
 ## [0.4.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.4.0...v0.4.1) (2025-09-13)
 
 ### Bug Fixes
