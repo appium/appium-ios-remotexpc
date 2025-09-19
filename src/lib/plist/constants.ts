@@ -51,3 +51,14 @@ export const BPLIST_TYPE = {
   SET: 0xc0,
   DICT: 0xd0,
 };
+
+// Supported file extensions for plist-related file
+export const SUPPORTED_EXTENSIONS = [
+  '.pem',
+  '.cer',
+  '.crt',
+  '.p12',
+  '.pfx',
+  '.mobileconfig',
+  '.plist',
+];

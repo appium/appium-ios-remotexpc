@@ -1,6 +1,7 @@
-import { logger } from '@appium/support';
-import fs from 'fs/promises';
+import { fs, logger } from '@appium/support';
+import path from 'node:path';
 
+import { SUPPORTED_EXTENSIONS } from '../../../lib/plist/constants.js';
 import { createPlist, parsePlist } from '../../../lib/plist/index.js';
 import {
   type MobileConfigService as MobileConfigServiceInterface,
@@ -79,33 +80,22 @@ class MobileConfigService
    * @param {String} path  must be a certificate file .PEM .CER and more formats
    * e.g: /Downloads/charles-certificate.pem
    */
-  async installProfileFromPath(path: string): Promise<void> {
+  async installProfileFromPath(filePath: string): Promise<void> {
     // Check if file exists
     try {
-      await fs.access(path);
+      await fs.access(filePath);
     } catch (error) {
-      throw new Error(`Profile filepath does not exist: ${path}`);
+      throw new Error(`Profile filepath does not exist: ${filePath}`);
     }
 
-    // Validate file format based on extension
-    const supportedExtensions = [
-      '.pem',
-      '.cer',
-      '.crt',
-      '.p12',
-      '.pfx',
-      '.mobileconfig',
-      '.plist',
-    ];
-    const fileExtension = path.toLowerCase().split('.').pop();
-
-    if (!fileExtension || !supportedExtensions.includes(`.${fileExtension}`)) {
+    const fileExtension = path.extname(filePath);
+    if (!fileExtension || !SUPPORTED_EXTENSIONS.includes(`.${fileExtension}`)) {
       throw new Error(
-        `Unsupported file format. Supported formats: ${supportedExtensions.join(', ')}`,
+        `Unsupported file format. Supported formats: ${SUPPORTED_EXTENSIONS.join(', ')}`,
       );
     }
 
-    const payload = await fs.readFile(path);
+    const payload = await fs.readFile(filePath);
     await this.installProfileFromBuffer(payload);
   }
 
@@ -134,18 +124,22 @@ class MobileConfigService
    */
   async removeProfile(identifier: string): Promise<void> {
     const profileList = await this.getProfileList();
-    if (!profileList || !profileList.ProfileMetadata) {
+    if (!profileList?.ProfileMetadata) {
       return;
     }
 
     const profileMetadata = profileList.ProfileMetadata as Record<string, any>;
     if (!(identifier in profileMetadata)) {
       // Get available identifiers from OrderedIdentifiers array or ProfileMetadata keys
-      const availableIdentifiers =
+      let availableIdentifiers: string[];
+      if (
         profileList.OrderedIdentifiers &&
         Array.isArray(profileList.OrderedIdentifiers)
-          ? (profileList.OrderedIdentifiers as string[])
-          : Object.keys(profileMetadata);
+      ) {
+        availableIdentifiers = profileList.OrderedIdentifiers as string[];
+      } else {
+        availableIdentifiers = Object.keys(profileMetadata);
+      }
 
       throw new Error(
         `Trying to remove not installed profile: ${identifier}. Expected one of: ${availableIdentifiers.join(', ')}`,
@@ -180,7 +174,7 @@ class MobileConfigService
     await this._conn.sendAndReceive(req);
     const res = await this._conn.sendAndReceive(req);
     if (res.Status !== 'Acknowledged') {
-      const errorChain = res?.ErrorChain;
+      const errorChain = res.ErrorChain;
       if (Array.isArray(errorChain) && errorChain.length > 0) {
         const firstError = errorChain[0];
         if (
