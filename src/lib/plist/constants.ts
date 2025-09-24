@@ -61,4 +61,4 @@ export const SUPPORTED_EXTENSIONS = [
   '.pfx',
   '.mobileconfig',
   '.plist',
-];
+] as const;

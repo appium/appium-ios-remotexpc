@@ -77,7 +77,7 @@ class MobileConfigService
   /**
    * Install profile from path to iOS device
    * The phone must be unlocked before installing the profile
-   * @param {String} path  must be a certificate file .PEM .CER and more formats
+   * @param {String} filePath  must be a certificate file .PEM .CER and more formats
    * e.g: /Downloads/charles-certificate.pem
    */
   async installProfileFromPath(filePath: string): Promise<void> {
@@ -88,8 +88,11 @@ class MobileConfigService
       throw new Error(`Profile filepath does not exist: ${filePath}`);
     }
 
-    const fileExtension = path.extname(filePath);
-    if (!fileExtension || !SUPPORTED_EXTENSIONS.includes(`.${fileExtension}`)) {
+    const fileExtension = path.extname(filePath).toLowerCase();
+    if (
+      !fileExtension ||
+      !SUPPORTED_EXTENSIONS.includes(fileExtension as any)
+    ) {
       throw new Error(
         `Unsupported file format. Supported formats: ${SUPPORTED_EXTENSIONS.join(', ')}`,
       );
@@ -174,22 +177,12 @@ class MobileConfigService
     await this._conn.sendAndReceive(req);
     const res = await this._conn.sendAndReceive(req);
     if (res.Status !== 'Acknowledged') {
-      const errorChain = res.ErrorChain;
-      if (Array.isArray(errorChain) && errorChain.length > 0) {
-        const firstError = errorChain[0];
-        if (
-          typeof firstError === 'object' &&
-          firstError !== null &&
-          'ErrorCode' in firstError
-        ) {
-          const errorCode = (firstError as any).ErrorCode;
-          if (Number.isInteger(errorCode)) {
-            if (errorCode === ERROR_CLOUD_CONFIGURATION_ALREADY_PRESENT) {
-              throw new Error(
-                'A cloud configuration is already present on device. You must first erase the device to install a new configuration.',
-              );
-            }
-          }
+      const errorCode = (res.ErrorChain as any[])?.[0]?.ErrorCode;
+      if (Number.isInteger(errorCode)) {
+        if (errorCode === ERROR_CLOUD_CONFIGURATION_ALREADY_PRESENT) {
+          throw new Error(
+            'A cloud configuration is already present on device. You must first erase the device to install a new configuration.',
+          );
         }
       }
       throw new Error(`Invalid response: ${JSON.stringify(res)}`);
