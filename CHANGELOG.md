@@ -1,3 +1,9 @@
+## [0.5.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.4.2...v0.5.0) (2025-09-29)
+
+### Features
+
+* implement `mcinstall` service ([#71](https://github.com/appium/appium-ios-remotexpc/issues/71)) ([dbd2a6d](https://github.com/appium/appium-ios-remotexpc/commit/dbd2a6dece3d4994d301b0891fff20af77c1a1f2))
+
 ## [0.4.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.4.1...v0.4.2) (2025-09-16)
 
 ### Miscellaneous Chores
