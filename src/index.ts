@@ -15,6 +15,8 @@ import { startCoreDeviceProxy } from './services/ios/tunnel-service/index.js';
 export type {
   DiagnosticsService,
   MobileImageMounterService,
+  NotificationProxyService,
+  MobileConfigService,
   SyslogService,
   SocketInfo,
   TunnelResult,
@@ -22,6 +24,8 @@ export type {
   TunnelRegistryEntry,
   DiagnosticsServiceWithConnection,
   MobileImageMounterServiceWithConnection,
+  NotificationProxyServiceWithConnection,
+  MobileConfigServiceWithConnection,
 } from './lib/types.js';
 export {
   createUsbmux,
