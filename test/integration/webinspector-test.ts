@@ -1,7 +1,5 @@
 import { logger } from '@appium/support';
 import { expect } from 'chai';
-import { fileURLToPath } from 'url';
-import path from 'path';
 
 import type { WebInspectorService } from '../../src/lib/types.js';
 import * as Services from '../../src/services.js';
@@ -325,46 +323,46 @@ describe('WebInspectorService Integration', function () {
     });
   });
 
-  // describe('Message Listener Management', () => {
-  //   it('should allow stopping and restarting listening', async function () {
-  //     let messageCount = 0;
-  //
-  //     // Start listening
-  //     await serviceWithConnection!.webInspectorService.listenMessage(() => {
-  //       messageCount++;
-  //     });
-  //
-  //     // Send a message
-  //     await serviceWithConnection!.webInspectorService.getConnectedApplications();
-  //     await new Promise((resolve) => setTimeout(resolve, 1000));
-  //
-  //     const countAfterFirst = messageCount;
-  //     expect(countAfterFirst).to.be.greaterThan(0);
-  //
-  //     // Stop listening
-  //     serviceWithConnection!.webInspectorService.stopListening();
-  //
-  //     // Send another message
-  //     await serviceWithConnection!.webInspectorService.getConnectedApplications();
-  //     await new Promise((resolve) => setTimeout(resolve, 1000));
-  //
-  //     // Message count should not have increased
-  //     expect(messageCount).to.equal(countAfterFirst);
-  //
-  //     // Restart listening
-  //     await serviceWithConnection!.webInspectorService.listenMessage(() => {
-  //       messageCount++;
-  //     });
-  //
-  //     // Send another message
-  //     await serviceWithConnection!.webInspectorService.getConnectedApplications();
-  //     await new Promise((resolve) => setTimeout(resolve, 1000));
-  //
-  //     // Message count should have increased
-  //     expect(messageCount).to.be.greaterThan(countAfterFirst);
-  //
-  //     // Clean up
-  //     serviceWithConnection!.webInspectorService.stopListening();
-  //   });
-  // });
+  describe('Message Listener Management', () => {
+    it('should allow stopping and restarting listening', async function () {
+      let messageCount = 0;
+
+      // Start listening
+      await serviceWithConnection!.webInspectorService.listenMessage(() => {
+        messageCount++;
+      });
+
+      // Send a message
+      await serviceWithConnection!.webInspectorService.getConnectedApplications();
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      const countAfterFirst = messageCount;
+      expect(countAfterFirst).to.be.greaterThan(0);
+
+      // Stop listening
+      serviceWithConnection!.webInspectorService.stopListening();
+
+      // Send another message
+      await serviceWithConnection!.webInspectorService.getConnectedApplications();
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Message count should not have increased
+      expect(messageCount).to.equal(countAfterFirst);
+
+      // Restart listening
+      await serviceWithConnection!.webInspectorService.listenMessage(() => {
+        messageCount++;
+      });
+
+      // Send another message
+      await serviceWithConnection!.webInspectorService.getConnectedApplications();
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Message count should have increased
+      expect(messageCount).to.be.greaterThan(countAfterFirst);
+
+      // Clean up
+      serviceWithConnection!.webInspectorService.stopListening();
+    });
+  });
 });
