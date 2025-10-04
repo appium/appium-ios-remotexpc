@@ -112,14 +112,18 @@ export class LengthBasedSplitter extends Transform {
           possibleBplistHeader === BINARY_PLIST_MAGIC ||
           possibleBplistHeader.includes(BINARY_PLIST_MAGIC)
         ) {
-          log.debug('Detected standard binary plist format; proceeding with length-prefixed frame parsing');
+          log.debug(
+            'Detected standard binary plist format; proceeding with length-prefixed frame parsing',
+          );
         }
 
         if (
           possibleBplistHeader === IBINARY_PLIST_MAGIC ||
           possibleBplistHeader.includes(IBINARY_PLIST_MAGIC)
         ) {
-          log.debug('Detected non-standard Ibplist00 format; proceeding with length-prefixed frame parsing');
+          log.debug(
+            'Detected non-standard Ibplist00 format; proceeding with length-prefixed frame parsing',
+          );
         }
       }
       // Process as many complete messages as possible for binary data
