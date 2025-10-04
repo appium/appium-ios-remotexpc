@@ -1,3 +1,9 @@
+## [0.5.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.5.1...v0.5.2) (2025-10-04)
+
+### Bug Fixes
+
+* use binary plist for removeProfile profileIdentifier ([8848c03](https://github.com/appium/appium-ios-remotexpc/commit/8848c0327b1720c7680c9be60f83aeafde9f3c32))
+
 ## [0.5.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.5.0...v0.5.1) (2025-10-04)
 
 ### Bug Fixes
