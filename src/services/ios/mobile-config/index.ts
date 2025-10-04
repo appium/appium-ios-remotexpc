@@ -159,7 +159,7 @@ class MobileConfigService
 
     const req = {
       RequestType: 'RemoveProfile',
-      ProfileIdentifier: createPlist(payloadData),
+      ProfileIdentifier: createPlist(payloadData, true),
     };
 
     log.info(req);

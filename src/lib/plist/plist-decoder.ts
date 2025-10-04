@@ -2,7 +2,7 @@ import { logger } from '@appium/support';
 import { Transform, type TransformCallback } from 'stream';
 
 import { UTF8_ENCODING } from './constants.js';
-import { parsePlist } from './plist-parser.js';
+import { parsePlist } from './unified-plist-parser.js';
 import {
   ensureString,
   findFirstReplacementCharacter,

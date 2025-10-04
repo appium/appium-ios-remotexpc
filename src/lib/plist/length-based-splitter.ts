@@ -100,14 +100,6 @@ export class LengthBasedSplitter extends Transform {
         Math.min(MAX_PREVIEW_LENGTH, this.buffer.length),
       );
 
-      // Check for XML format
-      if (isXmlPlistContent(bufferString) || this.isXmlMode) {
-        // This is XML data, set XML mode
-        this.isXmlMode = true;
-        this.processXmlData(callback);
-        return;
-      }
-
       // Check for binary plist format (bplist00 or Ibplist00)
       if (this.buffer.length >= BINARY_PLIST_HEADER_LENGTH) {
         const possibleBplistHeader = this.buffer.toString(
@@ -120,20 +112,18 @@ export class LengthBasedSplitter extends Transform {
           possibleBplistHeader === BINARY_PLIST_MAGIC ||
           possibleBplistHeader.includes(BINARY_PLIST_MAGIC)
         ) {
-          log.debug('Detected standard binary plist format');
-          this.push(this.buffer);
-          this.buffer = Buffer.alloc(0);
-          return callback();
+          log.debug(
+            'Detected standard binary plist format; proceeding with length-prefixed frame parsing',
+          );
         }
 
         if (
           possibleBplistHeader === IBINARY_PLIST_MAGIC ||
           possibleBplistHeader.includes(IBINARY_PLIST_MAGIC)
         ) {
-          log.debug('Detected non-standard Ibplist00 format');
-          this.push(this.buffer);
-          this.buffer = Buffer.alloc(0);
-          return callback();
+          log.debug(
+            'Detected non-standard Ibplist00 format; proceeding with length-prefixed frame parsing',
+          );
         }
       }
       // Process as many complete messages as possible for binary data
@@ -253,12 +243,6 @@ export class LengthBasedSplitter extends Transform {
               Math.min(MAX_PREVIEW_LENGTH, this.buffer.length),
             );
 
-            if (isXmlPlistContent(suspiciousData)) {
-              this.isXmlMode = true;
-              // Process as XML on next iteration
-              return callback();
-            }
-
             // Invalid length - skip one byte and try again
             this.buffer = this.buffer.slice(1);
             continue;
@@ -271,12 +255,6 @@ export class LengthBasedSplitter extends Transform {
             0,
             Math.min(MAX_PREVIEW_LENGTH, this.buffer.length),
           );
-
-          if (isXmlPlistContent(suspiciousData)) {
-            this.isXmlMode = true;
-            // Process as XML on next iteration
-            return callback();
-          }
 
           // Invalid length - skip one byte and try again
           this.buffer = this.buffer.slice(1);
@@ -298,20 +276,7 @@ export class LengthBasedSplitter extends Transform {
         // Extract the complete message
         const message = this.buffer.slice(0, totalLength);
 
-        // Check if this message is actually XML
-        const messageStart = message.toString(
-          UTF8_ENCODING,
-          0,
-          Math.min(MAX_PREVIEW_LENGTH, message.length),
-        );
-
-        if (isXmlPlistContent(messageStart)) {
-          // Switch to XML mode
-          this.isXmlMode = true;
-          return callback();
-        }
-
-        // Push the message
+        // Push the message (header + payload)
         this.push(message);
 
         // Remove the processed message from the buffer
