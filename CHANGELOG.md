@@ -1,3 +1,9 @@
+## [0.6.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.5.2...v0.6.0) (2025-10-04)
+
+### Features
+
+* **index:** export Notification and MobileConfig ([#74](https://github.com/appium/appium-ios-remotexpc/issues/74)) ([d860c83](https://github.com/appium/appium-ios-remotexpc/commit/d860c838ad684e4c9d04304c90c0753ebe4bdf35))
+
 ## [0.5.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.5.1...v0.5.2) (2025-10-04)
 
 ### Bug Fixes
