@@ -32,6 +32,7 @@ export class WebInspectorService extends BaseService {
   private connection: ServiceConnection | null = null;
   private messageEmitter: EventEmitter = new EventEmitter();
   private isListening: boolean = false;
+  private isReceiving: boolean = false;
   private connectionId: string;
 
   constructor(address: [string, number]) {
@@ -59,10 +60,14 @@ export class WebInspectorService extends BaseService {
    * Connect to the WebInspector service
    * @returns Promise resolving to the ServiceConnection instance
    */
+  private isNewConnection = true;
+
   private async connectToWebInspectorService(): Promise<ServiceConnection> {
     if (this.connection) {
+      this.isNewConnection = false;
       return this.connection;
     }
+    this.isNewConnection = true;
 
     const service = this.getServiceConfig();
     this.connection = await this.startLockdownService(service);
@@ -155,36 +160,32 @@ export class WebInspectorService extends BaseService {
    */
   private async startMessageReceiver(): Promise<void> {
     if (!this.connection) {
-      return;
+      throw new Error('Connection not established');
     }
 
+    this.isReceiving = true;
+    let shouldSkipStartService = this.isNewConnection;
+
     try {
-      while (this.isListening) {
-        try {
-          const message = await this.connection.receive();
-
-          const messageStr = JSON.stringify(message);
-          const truncatedStr =
-            messageStr.length > 500
-              ? `${messageStr.substring(0, 500)}...`
-              : messageStr;
-          log.debug(`Received WebInspector message: ${truncatedStr}`);
-
-          // Emit the message to all listeners
-          this.messageEmitter.emit('message', message);
-        } catch (error) {
-          if (this.isListening) {
-            log.error(
-              `Error receiving WebInspector message: ${(error as Error).message}`,
-            );
-          }
-          break;
+      while (this.isReceiving) {
+        const message = await this.connection.receive();
+        
+        // Skip StartService message only on new connections
+        if (shouldSkipStartService && 
+            message && 
+            typeof message === 'object' && 
+            (message as any).Request === 'StartService') {
+          shouldSkipStartService = false;
+          continue;
         }
+        
+        shouldSkipStartService = false;
+        this.messageEmitter.emit('message', message);
       }
     } catch (error) {
-      log.error(
-        `Message receiver error: ${(error as Error).message}`,
-      );
+      if (this.isReceiving) {
+        this.messageEmitter.emit('error', error);
+      }
     }
   }
 

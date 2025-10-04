@@ -134,34 +134,26 @@ describe('WebInspectorService Integration', function () {
 
     it('should handle messages with __selector and __argument', async function () {
       const receivedMessages: any[] = [];
-      let reportCurrentStateReceived = false;
+      let reportConnectedAppsReceived = false;
 
       // Listen for specific message types
       await serviceWithConnection!.webInspectorService.listenMessage(
         (message) => {
           receivedMessages.push(message);
 
-          // Check if this is a _rpc_reportCurrentState message
-          if (message.__selector === '_rpc_reportCurrentState:') {
-            reportCurrentStateReceived = true;
-            log.debug('Received _rpc_reportCurrentState message');
+          if (message.__selector === '_rpc_reportConnectedApplicationList:') {
+            reportConnectedAppsReceived = true;
             log.debug('Message argument:', message.__argument);
           }
         },
       );
 
-      // Request identifier to trigger a current state report
-      await serviceWithConnection!.webInspectorService.sendMessage(
-        '_rpc_reportIdentifier:',
-        {},
-      );
+      await serviceWithConnection!.webInspectorService.getConnectedApplications();
 
-      // Wait for the response
       await new Promise((resolve) => setTimeout(resolve, 3000));
 
       log.info(`Received ${receivedMessages.length} messages total`);
 
-      // We should have received at least the current state message
       expect(receivedMessages.length).to.be.greaterThan(0);
 
       // Stop listening
