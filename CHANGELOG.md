@@ -1,3 +1,9 @@
+## [0.5.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.5.0...v0.5.1) (2025-10-04)
+
+### Bug Fixes
+
+* **plist:** enforce strict length‑prefixed framing in `LengthBasedSplitter` ([#75](https://github.com/appium/appium-ios-remotexpc/issues/75)) ([e3d1ba2](https://github.com/appium/appium-ios-remotexpc/commit/e3d1ba26bc0553a82e56e8af429dd1c1d1637e88))
+
 ## [0.5.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.4.2...v0.5.0) (2025-09-29)
 
 ### Features
