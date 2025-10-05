@@ -7,3 +7,4 @@ tuntap-bridge/node_modules
 .DS_Store
 tunnel-registry.json
 package-lock.json
+.pairing/
