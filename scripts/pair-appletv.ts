@@ -31,6 +31,36 @@ import {
 import { type AppleTVDevice, BonjourDiscovery } from '../src/lib/bonjour/bonjour-discovery.js';
 import { createXmlPlist } from '../src/lib/plist/index.js';
 
+/** Constants for network protocol */
+const NETWORK_CONSTANTS = {
+  MAGIC: 'RPPairing',
+  MAGIC_LENGTH: 9,
+  HEADER_LENGTH: 11,
+  LENGTH_FIELD_SIZE: 2,
+  MAX_TLV_FRAGMENT_SIZE: 255,
+  PIN_INPUT_TIMEOUT_MS: 120000,
+} as const;
+
+/** Constants for pairing protocol states */
+const PAIRING_STATES = {
+  M3: 0x03,
+  M5: 0x05,
+  M6: 0x06,
+} as const;
+
+/** Constants for pairing protocol messages */
+const PAIRING_MESSAGES = {
+  ENCRYPT_SALT: 'Pair-Setup-Encrypt-Salt',
+  ENCRYPT_INFO: 'Pair-Setup-Encrypt-Info',
+  SIGN_SALT: 'Pair-Setup-Controller-Sign-Salt',
+  SIGN_INFO: 'Pair-Setup-Controller-Sign-Info',
+  M5_NONCE: 'PS-Msg05',
+  M6_NONCE: 'PS-Msg06',
+} as const;
+
+/** TLV type for device info */
+const INFO_TYPE = 0x11;
+
 /** Interface for network communication with Apple TV devices */
 interface NetworkClientInterface {
   connect(ip: string, port: number): Promise<void>;
@@ -83,31 +113,63 @@ export class NetworkClient implements NetworkClientInterface {
       this.log.debug(`Connecting to ${ip}:${port}`);
 
       return new Promise((resolve, reject) => {
-        this.socket = net.connect(port, ip);
+        let timeoutId: NodeJS.Timeout | null = null;
+        let isResolved = false;
 
-        const timeout = setTimeout(() => {
-          this.cleanup();
-          reject(new NetworkError('Connection timeout'));
+        const resolveOnce = () => {
+          if (!isResolved) {
+            isResolved = true;
+            if (timeoutId) {
+              clearTimeout(timeoutId);
+            }
+            resolve();
+          }
+        };
+
+        const rejectOnce = (error: Error) => {
+          if (!isResolved) {
+            isResolved = true;
+            if (timeoutId) {
+              clearTimeout(timeoutId);
+            }
+            this.cleanup();
+            reject(error);
+          }
+        };
+
+        // Create socket without connecting yet
+        this.socket = new net.Socket();
+        this.socket.setTimeout(this.config.timeout);
+
+        // Attach event listeners BEFORE connecting to avoid race conditions
+        this.socket.once('connect', () => {
+          this.log.debug('Connected successfully');
+          resolveOnce();
+        });
+
+        this.socket.once('error', (error) => {
+          this.log.error('Connection error:', error);
+          rejectOnce(new NetworkError(`Connection failed: ${error.message}`));
+        });
+
+        this.socket.once('timeout', () => {
+          this.log.error('Socket timeout');
+          rejectOnce(new NetworkError('Socket timeout'));
+        });
+
+        // Set up timeout for connection attempt
+        timeoutId = setTimeout(() => {
+          this.log.error('Connection attempt timeout');
+          rejectOnce(new NetworkError(`Connection timeout after ${this.config.timeout}ms`));
         }, this.config.timeout);
 
-        this.socket.on('connect', () => {
-          clearTimeout(timeout);
-          this.log.debug('Connected successfully');
-          resolve();
-        });
-
-        this.socket.on('error', (error) => {
-          clearTimeout(timeout);
-          this.cleanup();
-          this.log.error('Connection error:', error);
-          reject(new NetworkError('Connection failed'));
-        });
-
-        this.socket.setTimeout(this.config.timeout);
+        // Now initiate the connection
+        this.socket.connect(port, ip);
       });
     } catch (error) {
+      this.cleanup();
       this.log.error('Connect failed:', error);
-      throw new NetworkError('Failed to initiate connection');
+      throw new NetworkError(`Failed to initiate connection: ${(error as Error).message}`);
     }
   }
 
@@ -150,58 +212,88 @@ export class NetworkClient implements NetworkClientInterface {
       let buffer = Buffer.alloc(0);
       let expectedLength: number | null = null;
       let headerRead = false;
+      let isResolved = false;
+      let timeoutId: NodeJS.Timeout | null = null;
 
-      const timeout = setTimeout(() => {
-        cleanup();
-        reject(new NetworkError('Response timeout'));
-      }, this.config.timeout);
+      const resolveOnce = (response: any) => {
+        if (!isResolved) {
+          isResolved = true;
+          cleanup();
+          resolve(response);
+        }
+      };
+
+      const rejectOnce = (error: Error) => {
+        if (!isResolved) {
+          isResolved = true;
+          cleanup();
+          reject(error);
+        }
+      };
+
+      const cleanup = () => {
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+          timeoutId = null;
+        }
+        if (this.socket) {
+          this.socket.removeListener('data', onData);
+          this.socket.removeListener('error', onError);
+          this.socket.removeListener('close', onClose);
+        }
+      };
 
       const onData = (chunk: Buffer) => {
-        buffer = Buffer.concat([buffer, chunk]);
-
         try {
-          if (!headerRead && buffer.length >= 11) {
-            const magic = buffer.slice(0, 9).toString('ascii');
-            if (magic !== 'RPPairing') {
-              throw new NetworkError(`Invalid magic: ${magic}`);
+          buffer = Buffer.concat([buffer, chunk]);
+
+          // Parse header if not yet read
+          if (!headerRead && buffer.length >= NETWORK_CONSTANTS.HEADER_LENGTH) {
+            const magic = buffer.slice(0, NETWORK_CONSTANTS.MAGIC_LENGTH).toString('ascii');
+            if (magic !== NETWORK_CONSTANTS.MAGIC) {
+              throw new NetworkError(`Invalid protocol magic: expected '${NETWORK_CONSTANTS.MAGIC}', got '${magic}'`);
             }
-            expectedLength = buffer.readUInt16BE(9);
+            expectedLength = buffer.readUInt16BE(NETWORK_CONSTANTS.MAGIC_LENGTH);
             headerRead = true;
+            this.log.debug(`Response header parsed: expecting ${expectedLength} bytes`);
           }
 
-          if (headerRead && expectedLength !== null && buffer.length >= 11 + expectedLength) {
-            const bodyBytes = buffer.slice(11, 11 + expectedLength);
+          // Parse body if complete
+          if (headerRead && expectedLength !== null && buffer.length >= NETWORK_CONSTANTS.HEADER_LENGTH + expectedLength) {
+            const bodyBytes = buffer.slice(NETWORK_CONSTANTS.HEADER_LENGTH, NETWORK_CONSTANTS.HEADER_LENGTH + expectedLength);
             const response = JSON.parse(bodyBytes.toString('utf8'));
-            cleanup();
-            resolve(response);
+            this.log.debug('Response received and parsed successfully');
+            resolveOnce(response);
           }
         } catch (error) {
-          cleanup();
           this.log.error('Parse response error:', error);
-          reject(new NetworkError('Failed to parse response'));
+          rejectOnce(new NetworkError(`Failed to parse response: ${(error as Error).message}`));
         }
       };
 
       const onError = (error: Error) => {
-        cleanup();
-        this.log.error('Socket error:', error);
-        reject(new NetworkError('Socket error'));
+        this.log.error('Socket error during receive:', error);
+        rejectOnce(new NetworkError(`Socket error: ${error.message}`));
       };
 
-      const cleanup = () => {
-        clearTimeout(timeout);
-        if (this.socket) {
-          this.socket.removeListener('data', onData);
-          this.socket.removeListener('error', onError);
-        }
+      const onClose = () => {
+        this.log.error('Socket closed unexpectedly during receive');
+        rejectOnce(new NetworkError('Socket closed unexpectedly'));
       };
 
+      // Attach listeners BEFORE setting up timeout to avoid race conditions
       if (this.socket) {
         this.socket.on('data', onData);
         this.socket.on('error', onError);
+        this.socket.on('close', onClose);
+
+        // Set up timeout after listeners are attached
+        timeoutId = setTimeout(() => {
+          this.log.error(`Response timeout after ${this.config.timeout}ms`);
+          rejectOnce(new NetworkError(`Response timeout after ${this.config.timeout}ms`));
+        }, this.config.timeout);
       } else {
-        cleanup();
-        reject(new NetworkError('Socket not available'));
+        rejectOnce(new NetworkError('Socket not available'));
       }
     });
   }
@@ -213,8 +305,8 @@ export class NetworkClient implements NetworkClientInterface {
   private createRPPairingPacket(jsonData: any): Buffer {
     const jsonString = JSON.stringify(jsonData);
     const bodyBytes = Buffer.from(jsonString, 'utf8');
-    const magic = Buffer.from('RPPairing', 'ascii');
-    const length = Buffer.alloc(2);
+    const magic = Buffer.from(NETWORK_CONSTANTS.MAGIC, 'ascii');
+    const length = Buffer.alloc(NETWORK_CONSTANTS.LENGTH_FIELD_SIZE);
     length.writeUInt16BE(bodyBytes.length, 0);
     return Buffer.concat([magic, length, bodyBytes]);
   }
@@ -275,6 +367,8 @@ export class UserInputService implements UserInputInterface {
       output: process.stdout
     });
 
+    let timeoutId: NodeJS.Timeout | null = null;
+
     try {
       const questionPromise = new Promise<string>((resolve) => {
         rl.question('Enter PIN from Apple TV screen: ', (answer) => {
@@ -283,12 +377,17 @@ export class UserInputService implements UserInputInterface {
       });
 
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => {
+        timeoutId = setTimeout(() => {
           reject(new PairingError('PIN input timeout', 'INPUT_TIMEOUT'));
-        }, 120000);
+        }, NETWORK_CONSTANTS.PIN_INPUT_TIMEOUT_MS);
       });
 
       const pin = await Promise.race([questionPromise, timeoutPromise]);
+
+      // Clear timeout since we got the PIN
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
 
       const cleanPin = pin.trim();
       if (!cleanPin.length || !/^\d+$/.test(cleanPin)) {
@@ -299,6 +398,10 @@ export class UserInputService implements UserInputInterface {
       this.log.debug('PIN received successfully');
       return cleanPin;
     } finally {
+      // Clean up timeout if error occurred before clearing
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
       rl.close();
     }
   }
@@ -314,16 +417,8 @@ export class PairingProtocol implements PairingProtocolInterface {
     private readonly userInput: UserInputInterface
   ) {}
 
-  private get sequenceNumber(): number {
-    return this._sequenceNumber;
-  }
-
-  private set sequenceNumber(value: number) {
-    this._sequenceNumber = value;
-  }
-
   async executePairingFlow(device: AppleTVDevice): Promise<string> {
-    this.sequenceNumber = 1;
+    this._sequenceNumber = 1;
 
     try {
       // Step 1: Handshake
@@ -461,7 +556,7 @@ export class PairingProtocol implements PairingProtocolInterface {
         }
       },
       originatedBy: 'host',
-      sequenceNumber: this.sequenceNumber++
+      sequenceNumber: this._sequenceNumber++
     };
   }
 
@@ -479,7 +574,7 @@ export class PairingProtocol implements PairingProtocolInterface {
         }
       },
       originatedBy: 'host',
-      sequenceNumber: this.sequenceNumber++
+      sequenceNumber: this._sequenceNumber++
     };
   }
 
@@ -506,7 +601,7 @@ export class PairingProtocol implements PairingProtocolInterface {
         }
       },
       originatedBy: 'host',
-      sequenceNumber: this.sequenceNumber++
+      sequenceNumber: this._sequenceNumber++
     };
   }
 
@@ -566,12 +661,12 @@ export class PairingProtocol implements PairingProtocolInterface {
     const clientProof = srpClient.computeProof();
 
     const tlvItems: TLV8Item[] = [
-      { type: PairingDataComponentType.STATE, data: Buffer.from([0x03]) }
+      { type: PairingDataComponentType.STATE, data: Buffer.from([PAIRING_STATES.M3]) }
     ];
 
     // Fragment public key if necessary
-    for (let i = 0; i < clientPublicKey.length; i += 255) {
-      const fragment = clientPublicKey.slice(i, i + 255);
+    for (let i = 0; i < clientPublicKey.length; i += NETWORK_CONSTANTS.MAX_TLV_FRAGMENT_SIZE) {
+      const fragment = clientPublicKey.slice(i, i + NETWORK_CONSTANTS.MAX_TLV_FRAGMENT_SIZE);
       tlvItems.push({ type: PairingDataComponentType.PUBLIC_KEY, data: fragment });
     }
 
@@ -598,7 +693,7 @@ export class PairingProtocol implements PairingProtocolInterface {
         }
       },
       originatedBy: 'host',
-      sequenceNumber: this.sequenceNumber++
+      sequenceNumber: this._sequenceNumber++
     };
 
     await this.networkClient.sendPacket(request);
@@ -619,8 +714,8 @@ export class PairingProtocol implements PairingProtocolInterface {
     try {
       const signingKey = hkdf({
         ikm: sessionKey,
-        salt: Buffer.from('Pair-Setup-Controller-Sign-Salt', 'utf8'),
-        info: Buffer.from('Pair-Setup-Controller-Sign-Info', 'utf8'),
+        salt: Buffer.from(PAIRING_MESSAGES.SIGN_SALT, 'utf8'),
+        info: Buffer.from(PAIRING_MESSAGES.SIGN_INFO, 'utf8'),
         length: 32
       });
 
@@ -629,7 +724,6 @@ export class PairingProtocol implements PairingProtocolInterface {
       const signature = createEd25519Signature(dataToSign, ltsk);
       const deviceInfo = encodeAppleTVDeviceInfo(devicePairingID);
 
-      const INFO_TYPE = 0x11;
       const tlvItems: TLV8Item[] = [
         { type: PairingDataComponentType.IDENTIFIER, data: devicePairingIDBuffer },
         { type: PairingDataComponentType.PUBLIC_KEY, data: ltpk },
@@ -638,7 +732,7 @@ export class PairingProtocol implements PairingProtocolInterface {
       ];
 
       const tlvData = encodeTLV8(tlvItems);
-      const nonce = Buffer.concat([Buffer.alloc(4), Buffer.from('PS-Msg05')]);
+      const nonce = Buffer.concat([Buffer.alloc(4), Buffer.from(PAIRING_MESSAGES.M5_NONCE)]);
       const encrypted = encryptChaCha20Poly1305({
         plaintext: tlvData,
         key: encryptKey,
@@ -646,12 +740,12 @@ export class PairingProtocol implements PairingProtocolInterface {
       });
 
       const encryptedTLVItems: TLV8Item[] = [];
-      for (let i = 0; i < encrypted.length; i += 255) {
-        const fragment = encrypted.slice(i, Math.min(i + 255, encrypted.length));
+      for (let i = 0; i < encrypted.length; i += NETWORK_CONSTANTS.MAX_TLV_FRAGMENT_SIZE) {
+        const fragment = encrypted.slice(i, Math.min(i + NETWORK_CONSTANTS.MAX_TLV_FRAGMENT_SIZE, encrypted.length));
         encryptedTLVItems.push({ type: PairingDataComponentType.ENCRYPTED_DATA, data: fragment });
       }
 
-      encryptedTLVItems.push({ type: PairingDataComponentType.STATE, data: Buffer.from([0x05]) });
+      encryptedTLVItems.push({ type: PairingDataComponentType.STATE, data: Buffer.from([PAIRING_STATES.M5]) });
       const encryptedTLV = encodeTLV8(encryptedTLVItems);
 
       const request: PairingRequest = {
@@ -674,7 +768,7 @@ export class PairingProtocol implements PairingProtocolInterface {
           }
         },
         originatedBy: 'host',
-        sequenceNumber: this.sequenceNumber++
+        sequenceNumber: this._sequenceNumber++
       };
 
       await this.networkClient.sendPacket(request);
@@ -695,13 +789,13 @@ export class PairingProtocol implements PairingProtocolInterface {
     this.log.debug('M6 TLV types received:', Object.keys(m6Parsed).map((k) => `0x${Number(k).toString(16)}`));
 
     const stateData = m6Parsed[PairingDataComponentType.STATE];
-    if (stateData && stateData[0] === 0x06) {
+    if (stateData && stateData[0] === PAIRING_STATES.M6) {
       this.log.info('✅ Pairing completed successfully (STATE=0x06)');
     }
 
     const encryptedData = m6Parsed[PairingDataComponentType.ENCRYPTED_DATA];
     if (encryptedData) {
-      const nonce = Buffer.concat([Buffer.alloc(4), Buffer.from('PS-Msg06')]);
+      const nonce = Buffer.concat([Buffer.alloc(4), Buffer.from(PAIRING_MESSAGES.M6_NONCE)]);
       const decrypted = decryptChaCha20Poly1305({
         ciphertext: encryptedData,
         key: decryptKey,
@@ -715,8 +809,8 @@ export class PairingProtocol implements PairingProtocolInterface {
   private deriveEncryptionKeys(sessionKey: Buffer): EncryptionKeys {
     const sharedKey = hkdf({
       ikm: sessionKey,
-      salt: Buffer.from('Pair-Setup-Encrypt-Salt', 'utf8'),
-      info: Buffer.from('Pair-Setup-Encrypt-Info', 'utf8'),
+      salt: Buffer.from(PAIRING_MESSAGES.ENCRYPT_SALT, 'utf8'),
+      info: Buffer.from(PAIRING_MESSAGES.ENCRYPT_INFO, 'utf8'),
       length: 32
     });
 
