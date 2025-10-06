@@ -1,11 +1,18 @@
-import { BaseService } from '../base-service.js';
+import {
+  type PlistDictionary,
+  type SpringboardService as SpringboardInterface,
+} from '../../../lib/types.js';
 import { ServiceConnection } from '../../../service-connection.js';
-import { type PlistDictionary } from '../../../lib/types.js';
-import { logger } from '@appium/support';
+import { BaseService } from '../base-service.js';
 
-const log = logger.getLogger('springboard-service');
+enum InterfaceOrientation {
+  PORTRAIT = 1,
+  PORTRAIT_UPSIDE_DOWN = 2,
+  LANDSCAPE = 3,
+  LANDSCAPE_HOME_TO_LEFT = 4,
+}
 
-class SpringBoardService extends BaseService {
+class SpringBoardService extends BaseService implements SpringboardInterface {
   static readonly RSD_SERVICE_NAME =
     'com.apple.springboardservices.shim.remote';
   private _conn: ServiceConnection | null = null;
@@ -29,6 +36,22 @@ class SpringBoardService extends BaseService {
     }
   }
 
+  async setIconState(newState: PlistDictionary[] = []): Promise<void> {
+    try {
+      const req = {
+        command: 'setIconState',
+        iconState: newState,
+      };
+
+      await this.sendRequestAndReceive(req);
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new Error(`Failed to set icon state: ${error.message}`);
+      }
+      throw error;
+    }
+  }
+
   async getIconPNGData(bundleID: string): Promise<Buffer> {
     try {
       const req = {
@@ -45,6 +68,10 @@ class SpringBoardService extends BaseService {
     }
   }
 
+  /**
+   * TODO: This does not work due to a bug in Apple protocol implementation
+   * Add tests when it is fixed
+   */
   async getWallpaperInfo(wallpaperName: string): Promise<PlistDictionary> {
     try {
       const req = {
@@ -60,6 +87,31 @@ class SpringBoardService extends BaseService {
     }
   }
 
+  async getWallpaperPreviewImage(wallpaperName: string): Promise<Buffer> {
+    const validWallpaperNames = ['homescreen', 'lockscreen'];
+    if (!validWallpaperNames.includes(wallpaperName.toLowerCase())) {
+      throw new Error(
+        `Invalid wallpaper name: ${wallpaperName}. Only 'homescreen' and 'lockscreen' are supported.`,
+      );
+    }
+
+    try {
+      const req = {
+        command: 'getWallpaperPreviewImage',
+        wallpaperName,
+      };
+      const res = await this.sendRequestAndReceive(req);
+      return res.pngData as Buffer;
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new Error(
+          `Failed to get wallpaper preview image: ${error.message}`,
+        );
+      }
+      throw error;
+    }
+  }
+
   async getHomescreenIconMetrics(): Promise<PlistDictionary> {
     try {
       const req = {
@@ -68,7 +120,26 @@ class SpringBoardService extends BaseService {
       return await this.sendRequestAndReceive(req);
     } catch (error) {
       if (error instanceof Error) {
-        throw new Error(`Failed to get homescreen icon metrics: ${error.message}`);
+        throw new Error(
+          `Failed to get homescreen icon metrics: ${error.message}`,
+        );
+      }
+      throw error;
+    }
+  }
+
+  async getInterfaceOrientation(): Promise<InterfaceOrientation> {
+    try {
+      const req = {
+        command: 'getInterfaceOrientation',
+      };
+      const res = await this.sendRequestAndReceive(req);
+      return res.interfaceOrientation as InterfaceOrientation;
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new Error(
+          `Failed to get interface orientation: ${error.message}`,
+        );
       }
       throw error;
     }
@@ -89,12 +160,8 @@ class SpringBoardService extends BaseService {
     if (!this._conn) {
       this._conn = await this.connectToSpringboardService();
     }
-    const _ = await this._conn.sendAndReceive(request);
-    const response = await this._conn.sendPlistRequest(request);
-
-    console.log(response);
-
-    return response;
+    await this._conn.sendAndReceive(request);
+    return await this._conn.sendPlistRequest(request);
   }
 
   private getServiceConfig(): {
@@ -108,4 +175,4 @@ class SpringBoardService extends BaseService {
   }
 }
 
-export { SpringBoardService };
+export { SpringBoardService, InterfaceOrientation };

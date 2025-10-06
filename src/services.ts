@@ -3,7 +3,14 @@ import { strongbox } from '@appium/strongbox';
 import { RemoteXpcConnection } from './lib/remote-xpc/remote-xpc-connection.js';
 import { TunnelManager } from './lib/tunnel/index.js';
 import { TunnelApiClient } from './lib/tunnel/tunnel-api-client.js';
-import type { DiagnosticsServiceWithConnection, MobileConfigServiceWithConnection, MobileImageMounterServiceWithConnection, NotificationProxyServiceWithConnection, SpringboardServiceWithConnection, SyslogService as SyslogServiceType } from './lib/types.js';
+import type {
+  DiagnosticsServiceWithConnection,
+  MobileConfigServiceWithConnection,
+  MobileImageMounterServiceWithConnection,
+  NotificationProxyServiceWithConnection,
+  SpringboardServiceWithConnection,
+  SyslogService as SyslogServiceType,
+} from './lib/types.js';
 import DiagnosticsService from './services/ios/diagnostic-service/index.js';
 import { MobileConfigService } from './services/ios/mobile-config/index.js';
 import MobileImageMounterService from './services/ios/mobile-image-mounter/index.js';

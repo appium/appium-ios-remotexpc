@@ -6,6 +6,7 @@ import { EventEmitter } from 'events';
 
 import type { ServiceConnection } from '../service-connection.js';
 import type { BaseService, Service } from '../services/ios/base-service.js';
+import type { InterfaceOrientation } from '../services/ios/springboard-service/index.js';
 import type { RemoteXpcConnection } from './remote-xpc/remote-xpc-connection.js';
 import type { Device } from './usbmux/index.js';
 
@@ -519,6 +520,8 @@ export interface SpringboardService extends BaseService {
    */
   getIconState(): Promise<PlistDictionary>;
 
+  setIconState(newState: PlistDictionary[]): Promise<void>;
+
   /**
    * Gets the icon PNG data for a given bundle ID
    * @param bundleID The bundle ID of the app
@@ -538,6 +541,10 @@ export interface SpringboardService extends BaseService {
    * @returns Promise resolving to the homescreen icon metrics
    */
   getHomescreenIconMetrics(): Promise<PlistDictionary>;
+
+  getInterfaceOrientation(): Promise<InterfaceOrientation>;
+
+  getWallpaperPreviewImage(wallpaperName: string): Promise<Buffer>;
 }
 
 /**

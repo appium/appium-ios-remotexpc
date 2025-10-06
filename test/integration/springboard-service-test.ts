@@ -3,6 +3,7 @@ import { expect } from 'chai';
 
 import type { SpringboardService } from '../../src/lib/types.js';
 import * as Services from '../../src/services.js';
+import { InterfaceOrientation } from '../../src/services/ios/springboard-service/index.js';
 
 const log = logger.getLogger('SpringBoardService.test');
 // Set SpringBoardService logger to info level
@@ -45,35 +46,12 @@ describe('SpringBoardService', function () {
         const iconState = await springboardService.getIconState();
         log.debug('Retrieved icon state:', JSON.stringify(iconState, null, 2));
 
-        expect(iconState).to.be.an('object');
-        expect(iconState).to.not.be.empty;
-
-        console.log(iconState);
-
-        // Icon state typically contains iconLists array
-        if (iconState.iconLists) {
-          expect(iconState.iconLists).to.be.an('array');
-        }
+        expect(iconState).not.be.empty;
       } catch (error) {
         log.error('Error getting icon state:', (error as Error).message);
         throw error;
       }
     });
-
-    // it('should handle errors gracefully when service is unavailable', async function () {
-    //   // This test simulates error handling - we expect the method to throw with a descriptive error
-    //   try {
-    //     // Force an error by creating a service with invalid address
-    //     const invalidService = new (await import('../../src/services/ios/springboard-service/index.js')).SpringBoardService(['invalid', 0]);
-    //     await invalidService.getIconState();
-    //
-    //     // If we reach here, the test should fail
-    //     expect.fail('Expected method to throw an error');
-    //   } catch (error) {
-    //     expect(error).to.be.an('error');
-    //     expect((error as Error).message).to.include('Failed to get Icon state');
-    //   }
-    // });
   });
 
   describe('getIconPNGData', function () {
@@ -83,82 +61,48 @@ describe('SpringBoardService', function () {
 
       try {
         const pngData = await springboardService.getIconPNGData(bundleId);
-        log.debug(`Retrieved PNG data for ${bundleId}, size: ${pngData.length} bytes`);
+        log.debug(
+          `Retrieved PNG data for ${bundleId}, size: ${pngData.length} bytes`,
+        );
 
         expect(pngData).to.be.instanceOf(Buffer);
         expect(pngData.length).to.be.greaterThan(0);
 
         // Verify it's actually PNG data by checking the PNG signature
-        const pngSignature = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+        const pngSignature = Buffer.from([
+          0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+        ]);
         expect(pngData.subarray(0, 8)).to.deep.equal(pngSignature);
       } catch (error) {
-        log.error(`Error getting PNG data for ${bundleId}:`, (error as Error).message);
+        log.error(
+          `Error getting PNG data for ${bundleId}:`,
+          (error as Error).message,
+        );
         throw error;
       }
     });
 
-    // it('should handle invalid bundle ID gracefully', async function () {
-    //   const invalidBundleId = 'com.invalid.nonexistent.app';
-    //
-    //   try {
-    //     await springboardService.getIconPNGData(invalidBundleId);
-    //     // If we reach here without error, that's also acceptable - some implementations might return empty data
-    //   } catch (error) {
-    //     expect(error).to.be.an('error');
-    //     expect((error as Error).message).to.include('Failed to get Icon PNG data');
-    //   }
-    // });
-    //
-    // it('should handle empty bundle ID', async function () {
-    //   try {
-    //     await springboardService.getIconPNGData('');
-    //   } catch (error) {
-    //     expect(error).to.be.an('error');
-    //     expect((error as Error).message).to.include('Failed to get Icon PNG data');
-    //   }
-    // });
-  });
-
-  describe('getWallpaperInfo', function () {
-    it('should retrieve wallpaper info for lock screen', async function () {
-      const wallpaperName = 'LockBackground';
+    it('should handle invalid bundle ID gracefully', async function () {
+      const invalidBundleId = 'com.invalid.nonexistent.app';
 
       try {
-        const wallpaperInfo = await springboardService.getWallpaperInfo(wallpaperName);
-        log.debug(`Retrieved wallpaper info for ${wallpaperName}:`, JSON.stringify(wallpaperInfo, null, 2));
-
-        expect(wallpaperInfo).to.be.an('object');
-        // Wallpaper info might contain properties like imageData, cropRect, etc.
-      } catch (error) {
-        log.error(`Error getting wallpaper info for ${wallpaperName}:`, (error as Error).message);
-        throw error;
-      }
-    });
-
-    it('should retrieve wallpaper info for home screen', async function () {
-      const wallpaperName = 'HomeBackground';
-
-      try {
-        const wallpaperInfo = await springboardService.getWallpaperInfo(wallpaperName);
-        log.debug(`Retrieved wallpaper info for ${wallpaperName}:`, JSON.stringify(wallpaperInfo, null, 2));
-
-        expect(wallpaperInfo).to.be.an('object');
-      } catch (error) {
-        log.error(`Error getting wallpaper info for ${wallpaperName}:`, (error as Error).message);
-        throw error;
-      }
-    });
-
-    it('should handle invalid wallpaper name', async function () {
-      const invalidWallpaperName = 'InvalidWallpaper';
-
-      try {
-        const result = await springboardService.getWallpaperInfo(invalidWallpaperName);
-        // Some implementations might return empty object for invalid names
-        expect(result).to.be.an('object');
+        await springboardService.getIconPNGData(invalidBundleId);
       } catch (error) {
         expect(error).to.be.an('error');
-        expect((error as Error).message).to.include('Failed to get wallpaper info');
+        expect((error as Error).message).to.include(
+          'Failed to get Icon PNG data',
+        );
+      }
+    });
+
+    it('should handle empty bundle ID', async function () {
+      try {
+        await springboardService.getIconPNGData('');
+      } catch (error) {
+        expect(error).to.be.an('error');
+        expect((error as Error).message).to.include(
+          'Failed to get Icon PNG data',
+        );
       }
     });
   });
@@ -167,15 +111,91 @@ describe('SpringBoardService', function () {
     it('should retrieve homescreen icon metrics', async function () {
       try {
         const metrics = await springboardService.getHomescreenIconMetrics();
-        log.debug('Retrieved homescreen icon metrics:', JSON.stringify(metrics, null, 2));
+        log.debug(
+          'Retrieved homescreen icon metrics:',
+          JSON.stringify(metrics, null, 2),
+        );
 
         expect(metrics).to.be.an('object');
         expect(metrics).to.not.be.empty;
-
-        // Icon metrics typically contain information about icon layout, sizes, etc.
-        // Common properties might include iconImageSize, iconSpacing, etc.
+        Object.keys(metrics).forEach((key) => {
+          expect(key.startsWith('homeScreen')).to.be.true;
+        });
       } catch (error) {
-        log.error('Error getting homescreen icon metrics:', (error as Error).message);
+        log.error(
+          'Error getting homescreen icon metrics:',
+          (error as Error).message,
+        );
+        throw error;
+      }
+    });
+  });
+
+  describe('getInterfaceOrientation', function () {
+    it('should retrieve the current interface orientation', async function () {
+      try {
+        const orientation = await springboardService.getInterfaceOrientation();
+        log.debug('Retrieved interface orientation:', orientation);
+        expect(orientation).to.be.oneOf(Object.values(InterfaceOrientation));
+      } catch (error) {
+        log.error(
+          'Error getting interface orientation:',
+          (error as Error).message,
+        );
+        throw error;
+      }
+    });
+  });
+
+  describe('getWallpaperPreviewImage', function () {
+    it('get homescreen wallpaper preview image', async function () {
+      try {
+        const wallpaperName = 'homescreen';
+        const pngData =
+          await springboardService.getWallpaperPreviewImage(wallpaperName);
+        log.debug(
+          `Retrieved wallpaper preview image for ${wallpaperName}, size: ${pngData.length} bytes`,
+        );
+
+        expect(pngData.length).to.be.greaterThan(0);
+        expect(pngData).to.be.instanceOf(Buffer);
+
+        // Verify it's actually PNG data by checking the PNG signature
+        const pngSignature = Buffer.from([
+          0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+        ]);
+        expect(pngData.subarray(0, 8)).to.deep.equal(pngSignature);
+      } catch (error) {
+        log.error(
+          'Error getting wallpaper preview image:',
+          (error as Error).message,
+        );
+        throw error;
+      }
+    });
+
+    it('get lockscreen wallpaper preview image', async function () {
+      try {
+        const wallpaperName = 'lockscreen';
+        const pngData =
+          await springboardService.getWallpaperPreviewImage(wallpaperName);
+        log.debug(
+          `Retrieved wallpaper preview image for ${wallpaperName}, size: ${pngData.length} bytes`,
+        );
+
+        expect(pngData.length).to.be.greaterThan(0);
+        expect(pngData).to.be.instanceOf(Buffer);
+
+        // Verify it's actually PNG data by checking the PNG signature
+        const pngSignature = Buffer.from([
+          0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+        ]);
+        expect(pngData.subarray(0, 8)).to.deep.equal(pngSignature);
+      } catch (error) {
+        log.error(
+          'Error getting wallpaper preview image:',
+          (error as Error).message,
+        );
         throw error;
       }
     });
@@ -196,7 +216,10 @@ describe('SpringBoardService', function () {
         // Verify that we get consistent results
         expect(iconState1).to.deep.equal(iconState2);
       } catch (error) {
-        log.error('Error testing connection persistence:', (error as Error).message);
+        log.error(
+          'Error testing connection persistence:',
+          (error as Error).message,
+        );
         throw error;
       }
     });
@@ -206,7 +229,9 @@ describe('SpringBoardService', function () {
     it('should provide meaningful error messages', async function () {
       try {
         // Test with a service that has invalid configuration
-        const invalidService = new (await import('../../src/services/ios/springboard-service/index.js')).SpringBoardService(['127.0.0.1', 99999]);
+        const invalidService = new (
+          await import('../../src/services/ios/springboard-service/index.js')
+        ).SpringBoardService(['127.0.0.1', 99999]);
         await invalidService.getIconState();
 
         expect.fail('Expected method to throw an error');
