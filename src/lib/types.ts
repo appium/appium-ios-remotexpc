@@ -508,3 +508,44 @@ export interface MobileImageMounterServiceWithConnection {
   /** The RemoteXPC connection for service management */
   remoteXPC: RemoteXpcConnection;
 }
+
+/**
+ * Represents the instance side of SpringboardService
+ */
+export interface SpringboardService extends BaseService {
+  /**
+   * Gets the icon state
+   * @returns Promise resolving to the icon state
+   */
+  getIconState(): Promise<PlistDictionary>;
+
+  /**
+   * Gets the icon PNG data for a given bundle ID
+   * @param bundleID The bundle ID of the app
+   * @returns Promise resolving to the icon PNG data
+   */
+  getIconPNGData(bundleID: string): Promise<Buffer>;
+
+  /**
+   * Gets wallpaper info
+   * @param wallpaperName The name of the wallpaper
+   * @returns Promise resolving to the wallpaper info
+   */
+  getWallpaperInfo(wallpaperName: string): Promise<PlistDictionary>;
+
+  /**
+   * Gets homescreen icon metrics
+   * @returns Promise resolving to the homescreen icon metrics
+   */
+  getHomescreenIconMetrics(): Promise<PlistDictionary>;
+}
+
+/**
+ * Represents a SpringboardService instance with its associated RemoteXPC connection
+ */
+export interface SpringboardServiceWithConnection {
+  /** The SpringboardService instance */
+  springboardService: SpringboardService;
+  /** The RemoteXPC connection for service management */
+  remoteXPC: RemoteXpcConnection;
+}
