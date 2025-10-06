@@ -1,6 +1,6 @@
 import { logger } from '@appium/support';
 import { type ChildProcess, spawn } from 'node:child_process';
-import { lookup } from 'node:dns/promises';
+import { resolve4 } from 'node:dns/promises';
 import { EventEmitter } from 'node:events';
 import { clearTimeout, setTimeout } from 'node:timers';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -173,19 +173,10 @@ async function waitForProcessResult<T>(
 
       try {
         const handlerResult = outputHandler(output);
-        if (handlerResult) {
-          try {
-            process.kill('SIGTERM');
-          } catch {}
-          clearTimeout(timeout);
-          isResolved = true;
-          if (handlerResult === true) {
-            resolve({ success: true });
-          } else {
-            result = handlerResult as T;
-            resolve({ success: true, data: result });
-          }
-          return;
+        if (handlerResult === true) {
+          result = undefined;
+        } else if (handlerResult) {
+          result = handlerResult as T;
         }
       } catch (error) {
         hasError = true;
@@ -354,15 +345,29 @@ function shouldSkipLine(line: string): boolean {
 async function resolveIPAddress(
   hostname: string,
 ): Promise<string[] | undefined> {
-  const clean = hostname.endsWith('.') ? hostname.slice(0, -1) : hostname;
   try {
-    const results = await lookup(clean, { family: 4, all: true });
-    const list = Array.isArray(results) ? results : [results];
-    const addresses = list.map((r: any) => r.address);
-    log.info(`[ServiceResolver] Resolved ${clean} to IPv4: ${addresses}`);
-    return addresses;
+    const address = await resolve4(hostname);
+    log.info(`[ServiceResolver] Resolved ${hostname} to IPv4: ${address}`);
+    return address;
   } catch (error) {
-    log.debug(`[ServiceResolver] IPv4 lookup failed for ${clean}: ${error}`);
+    log.warn(
+      `[ServiceResolver] Failed to resolve hostname ${hostname} to IPv4: ${error}`,
+    );
+    // For .local hostnames, try without the trailing dot
+    if (hostname.endsWith('.local.')) {
+      const cleanHostname = hostname.slice(0, -1); // Remove trailing dot
+      try {
+        const address = await resolve4(cleanHostname);
+        log.info(
+          `[ServiceResolver] Resolved ${cleanHostname} to IPv4: ${address}`,
+        );
+        return address;
+      } catch (retryError) {
+        log.warn(
+          `[ServiceResolver] Failed to resolve ${cleanHostname} to IPv4: ${retryError}`,
+        );
+      }
+    }
     return undefined;
   }
 }
