@@ -358,7 +358,7 @@ async function resolveIPAddress(
   try {
     const results = await lookup(clean, { family: 4, all: true });
     const list = Array.isArray(results) ? results : [results];
-    const addresses = list.map((r: any) => r.address);
+    const addresses = list.map((r) => r.address);
     log.info(`[ServiceResolver] Resolved ${clean} to IPv4: ${addresses}`);
     return addresses;
   } catch (error) {
