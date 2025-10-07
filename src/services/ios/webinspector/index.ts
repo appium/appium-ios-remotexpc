@@ -1,5 +1,6 @@
 import { logger } from '@appium/support';
 import { EventEmitter } from 'events';
+import { randomUUID } from 'crypto';
 
 import type {
   PlistDictionary,
@@ -23,7 +24,7 @@ export interface WebInspectorMessage extends PlistDictionary {
  * - Send messages to webinspectord
  * - Listen to messages from webinspectord
  * - Communicate with web views and Safari on iOS devices
- * 
+ *
  * This service is used for web automation, inspection, and debugging.
  */
 export class WebInspectorService extends BaseService {
@@ -31,71 +32,37 @@ export class WebInspectorService extends BaseService {
 
   private connection: ServiceConnection | null = null;
   private messageEmitter: EventEmitter = new EventEmitter();
-  private isListening: boolean = false;
   private isReceiving: boolean = false;
-  private connectionId: string;
+  private readonly connectionId: string;
+  private skipNextStartServiceMessage: boolean = false;
 
   constructor(address: [string, number]) {
     super(address);
-    // Generate a unique connection identifier (uppercase UUID format)
-    this.connectionId = this.generateConnectionId();
-  }
-
-  /**
-   * Generate a unique connection identifier in uppercase UUID format
-   * @returns Connection ID string
-   */
-  private generateConnectionId(): string {
-    // Generate UUID v4
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
-      .replace(/[xy]/g, (c) => {
-        const r = (Math.random() * 16) | 0;
-        const v = c === 'x' ? r : (r & 0x3) | 0x8;
-        return v.toString(16);
-      })
-      .toUpperCase();
+    this.connectionId = randomUUID().toUpperCase();
   }
 
   /**
    * Connect to the WebInspector service
    * @returns Promise resolving to the ServiceConnection instance
    */
-  private isNewConnection = true;
-
-  private async connectToWebInspectorService(): Promise<ServiceConnection> {
+  private async ensureConnected(): Promise<ServiceConnection> {
     if (this.connection) {
-      this.isNewConnection = false;
       return this.connection;
     }
-    this.isNewConnection = true;
 
-    const service = this.getServiceConfig();
-    this.connection = await this.startLockdownService(service);
-
-    // Send initial identifier report
-    await this.reportIdentifier();
-
-    log.debug('Connected to WebInspector service');
-    return this.connection;
-  }
-
-  /**
-   * Get the service configuration
-   * @returns Service configuration object
-   */
-  private getServiceConfig() {
-    return {
+    const service = {
       serviceName: WebInspectorService.RSD_SERVICE_NAME,
       port: this.address[1].toString(),
     };
-  }
 
-  /**
-   * Report identifier to the WebInspector service
-   * This is the initial handshake message
-   */
-  private async reportIdentifier(): Promise<void> {
+    this.connection = await this.startLockdownService(service);
+    this.skipNextStartServiceMessage = true;
+
+    // Send initial identifier report
     await this.sendMessage('_rpc_reportIdentifier:', {});
+
+    log.debug('Connected to WebInspector service');
+    return this.connection;
   }
 
   /**
@@ -108,27 +75,24 @@ export class WebInspectorService extends BaseService {
     selector: string,
     args: PlistDictionary = {},
   ): Promise<void> {
-    if (!this.connection) {
-      await this.connectToWebInspectorService();
-    }
+    const connection = await this.ensureConnected();
 
     // Add connection identifier to all messages
-    const messageArgs: PlistDictionary = {
-      ...args,
-      WIRConnectionIdentifierKey: this.connectionId,
-    };
-
     const message: WebInspectorMessage = {
       __selector: selector,
-      __argument: messageArgs,
+      __argument: {
+        ...args,
+        WIRConnectionIdentifierKey: this.connectionId,
+      },
     };
 
     log.debug(`Sending WebInspector message: ${selector}`);
     log.debug(`Message details: ${JSON.stringify(message, null, 2)}`);
 
-    // WebInspector uses a fire-and-forget pattern for sending messages
-    // We need to use a helper method to send without waiting for response
-    await this.sendWebInspectorMessage(message);
+    // WebInspector uses a fire-and-forget pattern
+    // ServiceConnection extends BasePlistService which has a protected send() method
+    // We can access it by casting to any or by using the protected method directly
+    (connection as any).send(message);
   }
 
   /**
@@ -139,20 +103,15 @@ export class WebInspectorService extends BaseService {
   async listenMessage(
     callback: (message: PlistMessage) => void,
   ): Promise<void> {
-    if (!this.connection) {
-      await this.connectToWebInspectorService();
-    }
+    await this.ensureConnected();
 
-    if (this.isListening) {
-      log.warn('Already listening for messages');
-      return;
-    }
-
-    this.isListening = true;
+    // Register callback
     this.messageEmitter.on('message', callback);
 
-    // Start receiving messages in the background
-    this.startMessageReceiver();
+    // Start receiving messages in the background if not already receiving
+    if (!this.isReceiving) {
+      this.startMessageReceiver();
+    }
   }
 
   /**
@@ -164,22 +123,21 @@ export class WebInspectorService extends BaseService {
     }
 
     this.isReceiving = true;
-    let shouldSkipStartService = this.isNewConnection;
 
     try {
       while (this.isReceiving) {
         const message = await this.connection.receive();
-        
-        // Skip StartService message only on new connections
-        if (shouldSkipStartService && 
-            message && 
-            typeof message === 'object' && 
-            (message as any).Request === 'StartService') {
-          shouldSkipStartService = false;
+
+        // Skip the StartService response from RSDCheckin on new connections
+        if (this.skipNextStartServiceMessage &&
+          message &&
+          typeof message === 'object' &&
+          (message as any).Request === 'StartService') {
+          this.skipNextStartServiceMessage = false;
           continue;
         }
-        
-        shouldSkipStartService = false;
+
+        this.skipNextStartServiceMessage = false;
         this.messageEmitter.emit('message', message);
       }
     } catch (error) {
@@ -193,30 +151,10 @@ export class WebInspectorService extends BaseService {
    * Stop listening to messages
    */
   stopListening(): void {
-    this.isListening = false;
+    this.isReceiving = false;
     this.messageEmitter.removeAllListeners('message');
+    this.messageEmitter.removeAllListeners('error');
     log.debug('Stopped listening for WebInspector messages');
-  }
-
-  /**
-   * Send a WebInspector message without waiting for response
-   * @param message The message to send
-   */
-  private async sendWebInspectorMessage(
-    message: WebInspectorMessage,
-  ): Promise<void> {
-    if (!this.connection) {
-      throw new Error('Connection not established');
-    }
-    
-    // Access the underlying PlistService through the protected method
-    const plistService = (this.connection as any).getPlistService();
-    if (!plistService) {
-      throw new Error('PlistService not available');
-    }
-    
-    // Send the message using the PlistService's sendPlist method
-    plistService.sendPlist(message);
   }
 
   /**
@@ -239,8 +177,6 @@ export class WebInspectorService extends BaseService {
   getConnectionId(): string {
     return this.connectionId;
   }
-
-  // Convenience methods for common WebInspector operations
 
   /**
    * Request application launch

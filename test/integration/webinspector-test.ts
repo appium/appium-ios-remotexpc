@@ -7,354 +7,254 @@ import * as Services from '../../src/services.js';
 const log = logger.getLogger('WebInspectorService.test');
 log.level = 'debug';
 
-describe('WebInspectorService Integration', function () {
+describe('WebInspectorService', function () {
   this.timeout(60000);
 
-  let serviceWithConnection: {
-    webInspectorService: WebInspectorService;
-    remoteXPC: any;
-  } | null = null;
-  const testUdid = process.env.UDID || '00008030-001E290A3EF2402E';
+  let service: WebInspectorService;
+  let remoteXPC: any;
+  const udid = process.env.UDID || '00008030-001E290A3EF2402E';
+  const sessionId = 'test-session-' + Date.now();
+  let realAppId: string | null = null;
+  let realPageId: number | null = null;
 
   before(async function () {
-    if (!testUdid) {
-      throw new Error('set UDID env var to execute tests.');
+    if (!udid) {
+      throw new Error('Set UDID env var to execute tests.');
     }
-
-    // Establish connection for all tests
-    serviceWithConnection = await Services.startWebInspectorService(testUdid);
+    const result = await Services.startWebInspectorService(udid);
+    service = result.webInspectorService;
+    remoteXPC = result.remoteXPC;
   });
 
   after(async function () {
-    if (serviceWithConnection) {
-      // Close the service first
-      await serviceWithConnection.webInspectorService.close();
-      
-      // Then close the RemoteXPC connection
-      if (serviceWithConnection.remoteXPC) {
-        await serviceWithConnection.remoteXPC.close();
-      }
+    if (service) {
+      await service.close();
+    }
+    if (remoteXPC) {
+      await remoteXPC.close();
     }
   });
 
-  describe('Service Connection', () => {
-    it('should connect to WebInspector service', async function () {
-      expect(serviceWithConnection).to.not.be.null;
-      expect(serviceWithConnection!.webInspectorService).to.not.be.null;
-      expect(serviceWithConnection!.remoteXPC).to.not.be.null;
-    });
-
-    it('should have a valid connection ID', function () {
-      const connectionId =
-        serviceWithConnection!.webInspectorService.getConnectionId();
-      expect(connectionId).to.be.a('string');
-      expect(connectionId.length).to.be.greaterThan(0);
-      log.debug(`Connection ID: ${connectionId}`);
-    });
+  it('should connect and have valid connection ID', function () {
+    expect(service).to.not.be.null;
+    const connectionId = service.connectionId;
+    expect(connectionId).to.be.a('string');
+    expect(connectionId.length).to.be.greaterThan(0);
   });
 
-  describe('Send Message Operations', () => {
-    it('should send _rpc_reportIdentifier message', async function () {
-      // This message is automatically sent during connection, but we can send it again
-      await serviceWithConnection!.webInspectorService.sendMessage(
-        '_rpc_reportIdentifier:',
-        {},
-      );
-      // No error means success - WebInspector uses fire-and-forget for sending
-    });
-
-    it('should send _rpc_getConnectedApplications message', async function () {
-      await serviceWithConnection!.webInspectorService.getConnectedApplications();
-      // Wait a bit for the device to respond
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-    });
-
-    it('should send _rpc_requestApplicationLaunch message', async function () {
-      // Launch Safari
-      await serviceWithConnection!.webInspectorService.requestApplicationLaunch(
-        'com.apple.mobilesafari',
-      );
-      // Wait a bit for the device to respond
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-    });
+  it('should send messages', async function () {
+    await service.getConnectedApplications();
+    await service.requestApplicationLaunch('com.apple.mobilesafari');
+    await new Promise((resolve) => setTimeout(resolve, 500));
   });
 
-  describe('Listen Message Operations', () => {
-    it('should receive messages from WebInspector', async function () {
-      const receivedMessages: any[] = [];
-      let messageCount = 0;
-      const maxMessages = 3;
+  it('should receive messages', async function () {
+    const messages: any[] = [];
 
-      await serviceWithConnection!.webInspectorService.requestApplicationLaunch(
-        'com.apple.mobilesafari',
-      );
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+    await service.listenMessage((msg) => messages.push(msg));
+    await service.getConnectedApplications();
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
+    expect(messages.length).to.be.greaterThan(0);
+    expect(messages[0]).to.have.property('__selector');
+    expect(messages[0]).to.have.property('__argument');
 
-      // Start listening for messages
-      await serviceWithConnection!.webInspectorService.listenMessage(
-        (message) => {
-          log.debug(`Received message ${messageCount + 1}:`, message);
-          receivedMessages.push(message);
-          messageCount++;
-        },
-      );
-
-      // Request connected applications to trigger some messages
-      await serviceWithConnection!.webInspectorService.getConnectedApplications();
-
-      // Wait for messages to arrive
-      await new Promise((resolve) => {
-        const checkInterval = setInterval(() => {
-          if (messageCount >= maxMessages) {
-            clearInterval(checkInterval);
-            resolve(undefined);
-          }
-        }, 100);
-
-        // Timeout after 15 seconds
-        setTimeout(() => {
-          clearInterval(checkInterval);
-          resolve(undefined);
-        }, 15000);
-      });
-
-      log.info(`Received ${messageCount} messages`);
-      expect(receivedMessages.length).to.be.greaterThan(0);
-
-      // Verify message structure
-      receivedMessages.forEach((msg, index) => {
-        expect(msg).to.be.an('object');
-        log.debug(`Message ${index + 1} type:`, Object.keys(msg));
-      });
-
-      // Stop listening
-      serviceWithConnection!.webInspectorService.stopListening();
-    });
-
-    it('should handle messages with __selector and __argument', async function () {
-      const receivedMessages: any[] = [];
-      let reportConnectedAppsReceived = false;
-
-      // Listen for specific message types
-      await serviceWithConnection!.webInspectorService.listenMessage(
-        (message) => {
-          receivedMessages.push(message);
-
-          if (message.__selector === '_rpc_reportConnectedApplicationList:') {
-            reportConnectedAppsReceived = true;
-            log.debug('Message argument:', message.__argument);
-          }
-        },
-      );
-
-      await serviceWithConnection!.webInspectorService.getConnectedApplications();
-
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-
-      log.info(`Received ${receivedMessages.length} messages total`);
-
-      expect(receivedMessages.length).to.be.greaterThan(0);
-
-      // Stop listening
-      serviceWithConnection!.webInspectorService.stopListening();
-    });
+    service.stopListening();
   });
 
-  describe('Application and Page Operations', () => {
-    it('should send forwardGetListing for an application', async function () {
-      // First, get connected applications
-      const receivedMessages: any[] = [];
-      let appId: string | null = null;
+  describe('Safari Integration', function () {
+    before(async function () {
+      // Find Safari app and page
+      const messages: any[] = [];
+      let foundSafari = false;
 
-      await serviceWithConnection!.webInspectorService.listenMessage(
-        (message) => {
-          receivedMessages.push(message);
+      await service.listenMessage((message) => {
+        messages.push(message);
 
-          // Look for connected application list
-          if (message.__selector === '_rpc_reportConnectedApplicationList:') {
-            const argument = message.__argument;
-            if (argument && typeof argument === 'object' && !Buffer.isBuffer(argument) && !Array.isArray(argument)) {
-              const apps = (argument as any).WIRApplicationDictionaryKey;
-              if (apps && typeof apps === 'object') {
-                // Get the first app ID
-                const appIds = Object.keys(apps);
-                if (appIds.length > 0) {
-                  appId = appIds[0];
-                  log.debug(`Found application ID: ${appId}`);
+        // Find Safari application
+        if (message.__selector === '_rpc_reportConnectedApplicationList:') {
+          const arg = message.__argument;
+          if (arg && typeof arg === 'object' && !Buffer.isBuffer(arg) && !Array.isArray(arg)) {
+            const apps = (arg as any).WIRApplicationDictionaryKey;
+            if (apps) {
+              for (const [appId, appData] of Object.entries(apps)) {
+                if ((appData as any).WIRApplicationBundleIdentifierKey === 'com.apple.mobilesafari') {
+                  realAppId = appId;
+                  foundSafari = true;
                 }
               }
             }
           }
-        },
-      );
+        }
 
-      // Request connected applications
-      await serviceWithConnection!.webInspectorService.getConnectedApplications();
-
-      // Wait for response
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-
-      if (appId) {
-        // Try to get listing for the app
-        await serviceWithConnection!.webInspectorService.forwardGetListing(
-          appId,
-        );
-        log.debug('Successfully sent forwardGetListing request');
-
-        // Wait for listing response
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-      } else {
-        log.warn('No applications found to test forwardGetListing');
-      }
-
-      // Stop listening
-      serviceWithConnection!.webInspectorService.stopListening();
-    });
-  });
-
-  describe('Advanced Operations', () => {
-    it('should handle forwardSocketSetup message', async function () {
-      const sessionId = 'test-session-' + Date.now();
-      const appId = 'test-app-id';
-      const pageId = 1;
-
-      // This will likely fail on a real device without a proper app/page,
-      // but it tests that the message can be sent
-      try {
-        await serviceWithConnection!.webInspectorService.forwardSocketSetup(
-          sessionId,
-          appId,
-          pageId,
-          true,
-        );
-        log.debug('forwardSocketSetup message sent successfully');
-      } catch (error) {
-        log.warn(
-          `forwardSocketSetup failed (expected without real app): ${(error as Error).message}`,
-        );
-      }
-    });
-
-    it('should handle forwardSocketData message', async function () {
-      const sessionId = 'test-session-' + Date.now();
-      const appId = 'test-app-id';
-      const pageId = 1;
-      const testData = { method: 'Runtime.enable', id: 1 };
-
-      // This will likely fail on a real device without a proper app/page,
-      // but it tests that the message can be sent
-      try {
-        await serviceWithConnection!.webInspectorService.forwardSocketData(
-          sessionId,
-          appId,
-          pageId,
-          testData,
-        );
-        log.debug('forwardSocketData message sent successfully');
-      } catch (error) {
-        log.warn(
-          `forwardSocketData failed (expected without real session): ${(error as Error).message}`,
-        );
-      }
-    });
-
-    it('should handle forwardIndicateWebView message', async function () {
-      const appId = 'test-app-id';
-      const pageId = 1;
-
-      // This will likely fail on a real device without a proper app/page,
-      // but it tests that the message can be sent
-      try {
-        await serviceWithConnection!.webInspectorService.forwardIndicateWebView(
-          appId,
-          pageId,
-          true,
-        );
-        log.debug('forwardIndicateWebView message sent successfully');
-      } catch (error) {
-        log.warn(
-          `forwardIndicateWebView failed (expected without real app): ${(error as Error).message}`,
-        );
-      }
-    });
-  });
-
-  describe('Automation Session', () => {
-    it('should handle forwardAutomationSessionRequest', async function () {
-      const sessionId = 'automation-session-' + Date.now();
-      const appId = 'com.apple.mobilesafari';
-
-      // Listen for responses
-      const receivedMessages: any[] = [];
-      await serviceWithConnection!.webInspectorService.listenMessage(
-        (message) => {
-          receivedMessages.push(message);
-          log.debug('Received response:', message.__selector);
-        },
-      );
-
-      // Send automation session request
-      try {
-        await serviceWithConnection!.webInspectorService.forwardAutomationSessionRequest(
-          sessionId,
-          appId,
-        );
-        log.debug('forwardAutomationSessionRequest sent successfully');
-
-        // Wait for responses
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-      } catch (error) {
-        log.warn(
-          `forwardAutomationSessionRequest failed: ${(error as Error).message}`,
-        );
-      }
-
-      // Stop listening
-      serviceWithConnection!.webInspectorService.stopListening();
-    });
-  });
-
-  describe('Message Listener Management', () => {
-    it('should allow stopping and restarting listening', async function () {
-      let messageCount = 0;
-
-      // Start listening
-      await serviceWithConnection!.webInspectorService.listenMessage(() => {
-        messageCount++;
+        // Find Safari page
+        if (message.__selector === '_rpc_applicationSentListing:' && realAppId) {
+          const arg = message.__argument;
+          if (arg && typeof arg === 'object' && !Buffer.isBuffer(arg) && !Array.isArray(arg)) {
+            const appId = (arg as any).WIRApplicationIdentifierKey;
+            if (appId === realAppId) {
+              const listing = (arg as any).WIRListingKey;
+              if (listing) {
+                const pageIds = Object.keys(listing);
+                if (pageIds.length > 0) {
+                  realPageId = parseInt(pageIds[0], 10);
+                }
+              }
+            }
+          }
+        }
       });
 
-      // Send a message
-      await serviceWithConnection!.webInspectorService.getConnectedApplications();
+      await service.getConnectedApplications();
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      const countAfterFirst = messageCount;
-      expect(countAfterFirst).to.be.greaterThan(0);
+      if (realAppId) {
+        await service.forwardGetListing(realAppId);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
 
-      // Stop listening
-      serviceWithConnection!.webInspectorService.stopListening();
+      service.stopListening();
 
-      // Send another message
-      await serviceWithConnection!.webInspectorService.getConnectedApplications();
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      if (!foundSafari || !realAppId || !realPageId) {
+        log.warn('Safari not found. Ensure Safari is open with a webpage loaded.');
+        this.skip();
+      }
+    });
 
-      // Message count should not have increased
-      expect(messageCount).to.equal(countAfterFirst);
+    it('should setup inspector socket', async function () {
+      if (!realAppId || !realPageId) {
+        this.skip();
+        return;
+      }
 
-      // Restart listening
-      await serviceWithConnection!.webInspectorService.listenMessage(() => {
-        messageCount++;
+      const messages: any[] = [];
+      await service.listenMessage((msg) => messages.push(msg));
+
+      await service.forwardSocketSetup(sessionId, realAppId, realPageId, false);
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+
+      expect(messages.length).to.be.greaterThan(0);
+      service.stopListening();
+    });
+
+    it('should send CDP commands and receive responses', async function () {
+      if (!realAppId || !realPageId) {
+        this.skip();
+        return;
+      }
+
+      const cdpResponses: any[] = [];
+
+      await service.listenMessage((message) => {
+        if (message.__selector === '_rpc_applicationSentData:') {
+          const arg = message.__argument;
+          if (arg && typeof arg === 'object' && !Buffer.isBuffer(arg) && !Array.isArray(arg)) {
+            const dataKey = (arg as any).WIRMessageDataKey;
+            if (dataKey) {
+              try {
+                const dataString = Buffer.isBuffer(dataKey) ? dataKey.toString('utf-8') : dataKey;
+                cdpResponses.push(JSON.parse(dataString));
+              } catch (e) {
+                // Ignore parse errors
+              }
+            }
+          }
+        }
       });
 
-      // Send another message
-      await serviceWithConnection!.webInspectorService.getConnectedApplications();
+      // Setup socket
+      await service.forwardSocketSetup(sessionId, realAppId, realPageId, false);
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      // Message count should have increased
-      expect(messageCount).to.be.greaterThan(countAfterFirst);
+      // Get target ID
+      const targetEvent = cdpResponses.find((msg) => msg.method === 'Target.targetCreated');
+      if (!targetEvent) {
+        throw new Error('Target.targetCreated event not received');
+      }
 
-      // Clean up
-      serviceWithConnection!.webInspectorService.stopListening();
+      const targetId = targetEvent.params?.targetInfo?.targetId;
+      expect(targetId).to.be.a('string');
+
+      // Send CDP command via Target.sendMessageToTarget
+      await service.forwardSocketData(sessionId, realAppId, realPageId, {
+        id: 100,
+        method: 'Target.sendMessageToTarget',
+        params: {
+          targetId,
+          message: JSON.stringify({
+            id: 1,
+            method: 'Runtime.evaluate',
+            params: { expression: '1 + 1', returnByValue: true },
+          }),
+        },
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Parse nested responses
+      const dispatchMessages = cdpResponses.filter(
+        (msg) => msg.method === 'Target.dispatchMessageFromTarget'
+      );
+
+      expect(dispatchMessages.length).to.be.greaterThan(0);
+
+      const nestedResponse = JSON.parse(dispatchMessages[0].params.message);
+      expect(nestedResponse.result).to.exist;
+      expect(nestedResponse.result.result.value).to.equal(2);
+
+      service.stopListening();
     });
+
+    it('should highlight webview on device', async function () {
+      if (!realAppId || !realPageId) {
+        this.skip();
+        return;
+      }
+
+      const messages: any[] = [];
+      await service.listenMessage((msg) => messages.push(msg));
+
+      await service.forwardIndicateWebView(realAppId, realPageId, true);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await service.forwardIndicateWebView(realAppId, realPageId, false);
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      service.stopListening();
+    });
+  });
+
+  it('should handle automation session request', async function () {
+    const messages: any[] = [];
+    await service.listenMessage((msg) => messages.push(msg));
+
+    await service.forwardAutomationSessionRequest(
+      'automation-session-' + Date.now(),
+      'com.apple.mobilesafari',
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    service.stopListening();
+  });
+
+  it('should stop and restart listening', async function () {
+    let count = 0;
+    await service.listenMessage(() => count++);
+
+    await service.getConnectedApplications();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    const firstCount = count;
+
+    service.stopListening();
+    await service.getConnectedApplications();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    expect(count).to.equal(firstCount); // No new messages
+
+    await service.listenMessage(() => count++);
+    await service.getConnectedApplications();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    expect(count).to.be.greaterThan(firstCount);
+    service.stopListening();
   });
 });
