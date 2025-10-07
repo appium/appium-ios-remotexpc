@@ -39,30 +39,6 @@ export class WebInspectorService extends BaseService {
   }
 
   /**
-   * Connect to the WebInspector service
-   * @returns Promise resolving to the ServiceConnection instance
-   */
-  private async ensureConnected(): Promise<ServiceConnection> {
-    if (this.connection) {
-      return this.connection;
-    }
-
-    const service = {
-      serviceName: WebInspectorService.RSD_SERVICE_NAME,
-      port: this.address[1].toString(),
-    };
-
-    this.connection = await this.startLockdownService(service);
-    this.skipNextStartServiceMessage = true;
-
-    // Send initial identifier report
-    await this.sendMessage('_rpc_reportIdentifier:', {});
-
-    log.debug('Connected to WebInspector service');
-    return this.connection;
-  }
-
-  /**
    * Send a message to the WebInspector service
    * @param selector The RPC selector (e.g., '_rpc_reportIdentifier:')
    * @param args The arguments dictionary for the message
@@ -91,55 +67,17 @@ export class WebInspectorService extends BaseService {
 
   /**
    * Listen to messages from the WebInspector service
-   * @param callback Callback function that will be called for each received message
+   * @param handler Handler function that will be called for each received message
    * @returns Promise that resolves when listening starts
    */
-  async listenMessage(
-    callback: (message: PlistMessage) => void,
-  ): Promise<void> {
+  async listenMessage(handler: (message: PlistMessage) => void): Promise<void> {
     await this.ensureConnected();
 
-    // Register callback
-    this.messageEmitter.on('message', callback);
+    this.messageEmitter.on('message', handler);
 
     // Start receiving messages in the background if not already receiving
     if (!this.isReceiving) {
       this.startMessageReceiver();
-    }
-  }
-
-  /**
-   * Start receiving messages from the WebInspector service
-   */
-  private async startMessageReceiver(): Promise<void> {
-    if (!this.connection) {
-      throw new Error('Connection not established');
-    }
-
-    this.isReceiving = true;
-
-    try {
-      while (this.isReceiving) {
-        const message = await this.connection.receive();
-
-        // Skip the StartService response from RSDCheckin on new connections
-        if (
-          this.skipNextStartServiceMessage &&
-          message &&
-          typeof message === 'object' &&
-          (message as any).Request === 'StartService'
-        ) {
-          this.skipNextStartServiceMessage = false;
-          continue;
-        }
-
-        this.skipNextStartServiceMessage = false;
-        this.messageEmitter.emit('message', message);
-      }
-    } catch (error) {
-      if (this.isReceiving) {
-        this.messageEmitter.emit('error', error);
-      }
     }
   }
 
@@ -291,6 +229,65 @@ export class WebInspectorService extends BaseService {
       WIRPageIdentifierKey: pageId,
       WIRIndicateEnabledKey: enable,
     });
+  }
+
+  /**
+   * Connect to the WebInspector service
+   * @returns Promise resolving to the ServiceConnection instance
+   */
+  private async ensureConnected(): Promise<ServiceConnection> {
+    if (this.connection) {
+      return this.connection;
+    }
+
+    const service = {
+      serviceName: WebInspectorService.RSD_SERVICE_NAME,
+      port: this.address[1].toString(),
+    };
+
+    this.connection = await this.startLockdownService(service);
+    this.skipNextStartServiceMessage = true;
+
+    // Send initial identifier report
+    await this.sendMessage('_rpc_reportIdentifier:', {});
+
+    log.debug('Connected to WebInspector service');
+    return this.connection;
+  }
+
+  /**
+   * Start receiving messages from the WebInspector service
+   */
+  private async startMessageReceiver(): Promise<void> {
+    if (!this.connection) {
+      throw new Error('Connection not established');
+    }
+
+    this.isReceiving = true;
+
+    try {
+      while (this.isReceiving) {
+        const message = await this.connection.receive();
+
+        // Skip the StartService response from RSDCheckin on new connections
+        if (
+          this.skipNextStartServiceMessage &&
+          message &&
+          typeof message === 'object' &&
+          (message as any).Request === 'StartService'
+        ) {
+          this.skipNextStartServiceMessage = false;
+          continue;
+        }
+
+        this.skipNextStartServiceMessage = false;
+        this.messageEmitter.emit('message', message);
+      }
+    } catch (error) {
+      if (this.isReceiving) {
+        this.messageEmitter.emit('error', error);
+      }
+    }
   }
 }
 
