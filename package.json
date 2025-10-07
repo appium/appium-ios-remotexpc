@@ -30,6 +30,7 @@
     "test:diagnostics": "mocha test/integration/diagnostics-test.ts --exit --timeout 1m",
     "test:notification": "mocha test/integration/notification-proxy-test.ts --exit --timeout 1m",
     "test:image-mounter": "mocha test/integration/mobile-image-mounter-test.ts --exit --timeout 1m",
+    "test:mobile-config": "mocha test/integration/mobile-config-test.ts --exit --timeout 1m",
     "test:webinspector": "mocha test/integration/webinspector-test.ts --exit --timeout 1m",
     "test:unit": "mocha 'test/unit/**/*.ts' --exit --timeout 2m",
     "test:tunnel-creation": "sudo tsx scripts/test-tunnel-creation.ts",
