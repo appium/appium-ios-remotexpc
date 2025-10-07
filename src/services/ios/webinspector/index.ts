@@ -1,11 +1,8 @@
 import { logger } from '@appium/support';
-import { EventEmitter } from 'events';
 import { randomUUID } from 'crypto';
+import { EventEmitter } from 'events';
 
-import type {
-  PlistDictionary,
-  PlistMessage,
-} from '../../../lib/types.js';
+import type { PlistDictionary, PlistMessage } from '../../../lib/types.js';
 import { ServiceConnection } from '../../../service-connection.js';
 import { BaseService } from '../base-service.js';
 
@@ -89,10 +86,7 @@ export class WebInspectorService extends BaseService {
     log.debug(`Sending WebInspector message: ${selector}`);
     log.debug(`Message details: ${JSON.stringify(message, null, 2)}`);
 
-    // WebInspector uses a fire-and-forget pattern
-    // ServiceConnection extends BasePlistService which has a protected send() method
-    // We can access it by casting to any or by using the protected method directly
-    (connection as any).send(message);
+    connection.sendPlist(message);
   }
 
   /**
@@ -129,10 +123,12 @@ export class WebInspectorService extends BaseService {
         const message = await this.connection.receive();
 
         // Skip the StartService response from RSDCheckin on new connections
-        if (this.skipNextStartServiceMessage &&
+        if (
+          this.skipNextStartServiceMessage &&
           message &&
           typeof message === 'object' &&
-          (message as any).Request === 'StartService') {
+          (message as any).Request === 'StartService'
+        ) {
           this.skipNextStartServiceMessage = false;
           continue;
         }
@@ -268,8 +264,7 @@ export class WebInspectorService extends BaseService {
     pageId: number,
     data: any,
   ): Promise<void> {
-    const socketData =
-      typeof data === 'string' ? data : JSON.stringify(data);
+    const socketData = typeof data === 'string' ? data : JSON.stringify(data);
 
     await this.sendMessage('_rpc_forwardSocketData:', {
       WIRApplicationIdentifierKey: appId,

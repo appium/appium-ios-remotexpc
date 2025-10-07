@@ -37,7 +37,7 @@ describe('WebInspectorService', function () {
 
   it('should connect and have valid connection ID', function () {
     expect(service).to.not.be.null;
-    const connectionId = service.connectionId;
+    const connectionId = service.getConnectionId();
     expect(connectionId).to.be.a('string');
     expect(connectionId.length).to.be.greaterThan(0);
   });
@@ -74,11 +74,19 @@ describe('WebInspectorService', function () {
         // Find Safari application
         if (message.__selector === '_rpc_reportConnectedApplicationList:') {
           const arg = message.__argument;
-          if (arg && typeof arg === 'object' && !Buffer.isBuffer(arg) && !Array.isArray(arg)) {
+          if (
+            arg &&
+            typeof arg === 'object' &&
+            !Buffer.isBuffer(arg) &&
+            !Array.isArray(arg)
+          ) {
             const apps = (arg as any).WIRApplicationDictionaryKey;
             if (apps) {
               for (const [appId, appData] of Object.entries(apps)) {
-                if ((appData as any).WIRApplicationBundleIdentifierKey === 'com.apple.mobilesafari') {
+                if (
+                  (appData as any).WIRApplicationBundleIdentifierKey ===
+                  'com.apple.mobilesafari'
+                ) {
                   realAppId = appId;
                   foundSafari = true;
                 }
@@ -88,9 +96,17 @@ describe('WebInspectorService', function () {
         }
 
         // Find Safari page
-        if (message.__selector === '_rpc_applicationSentListing:' && realAppId) {
+        if (
+          message.__selector === '_rpc_applicationSentListing:' &&
+          realAppId
+        ) {
           const arg = message.__argument;
-          if (arg && typeof arg === 'object' && !Buffer.isBuffer(arg) && !Array.isArray(arg)) {
+          if (
+            arg &&
+            typeof arg === 'object' &&
+            !Buffer.isBuffer(arg) &&
+            !Array.isArray(arg)
+          ) {
             const appId = (arg as any).WIRApplicationIdentifierKey;
             if (appId === realAppId) {
               const listing = (arg as any).WIRListingKey;
@@ -116,7 +132,9 @@ describe('WebInspectorService', function () {
       service.stopListening();
 
       if (!foundSafari || !realAppId || !realPageId) {
-        log.warn('Safari not found. Ensure Safari is open with a webpage loaded.');
+        log.warn(
+          'Safari not found. Ensure Safari is open with a webpage loaded.',
+        );
         this.skip();
       }
     });
@@ -148,11 +166,18 @@ describe('WebInspectorService', function () {
       await service.listenMessage((message) => {
         if (message.__selector === '_rpc_applicationSentData:') {
           const arg = message.__argument;
-          if (arg && typeof arg === 'object' && !Buffer.isBuffer(arg) && !Array.isArray(arg)) {
+          if (
+            arg &&
+            typeof arg === 'object' &&
+            !Buffer.isBuffer(arg) &&
+            !Array.isArray(arg)
+          ) {
             const dataKey = (arg as any).WIRMessageDataKey;
             if (dataKey) {
               try {
-                const dataString = Buffer.isBuffer(dataKey) ? dataKey.toString('utf-8') : dataKey;
+                const dataString = Buffer.isBuffer(dataKey)
+                  ? dataKey.toString('utf-8')
+                  : dataKey;
                 cdpResponses.push(JSON.parse(dataString));
               } catch (e) {
                 // Ignore parse errors
@@ -167,7 +192,9 @@ describe('WebInspectorService', function () {
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       // Get target ID
-      const targetEvent = cdpResponses.find((msg) => msg.method === 'Target.targetCreated');
+      const targetEvent = cdpResponses.find(
+        (msg) => msg.method === 'Target.targetCreated',
+      );
       if (!targetEvent) {
         throw new Error('Target.targetCreated event not received');
       }
@@ -193,7 +220,7 @@ describe('WebInspectorService', function () {
 
       // Parse nested responses
       const dispatchMessages = cdpResponses.filter(
-        (msg) => msg.method === 'Target.dispatchMessageFromTarget'
+        (msg) => msg.method === 'Target.dispatchMessageFromTarget',
       );
 
       expect(dispatchMessages.length).to.be.greaterThan(0);
