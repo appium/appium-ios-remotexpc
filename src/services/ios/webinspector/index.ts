@@ -27,11 +27,24 @@ export interface WebInspectorMessage extends PlistDictionary {
 export class WebInspectorService extends BaseService {
   static readonly RSD_SERVICE_NAME = 'com.apple.webinspector.shim.remote';
 
+  // RPC method selectors
+  private static readonly RPC_REPORT_IDENTIFIER = '_rpc_reportIdentifier:';
+  private static readonly RPC_REQUEST_APPLICATION_LAUNCH =
+    '_rpc_requestApplicationLaunch:';
+  private static readonly RPC_GET_CONNECTED_APPLICATIONS =
+    '_rpc_getConnectedApplications:';
+  private static readonly RPC_FORWARD_GET_LISTING = '_rpc_forwardGetListing:';
+  private static readonly RPC_FORWARD_AUTOMATION_SESSION_REQUEST =
+    '_rpc_forwardAutomationSessionRequest:';
+  private static readonly RPC_FORWARD_SOCKET_SETUP = '_rpc_forwardSocketSetup:';
+  private static readonly RPC_FORWARD_SOCKET_DATA = '_rpc_forwardSocketData:';
+  private static readonly RPC_FORWARD_INDICATE_WEB_VIEW =
+    '_rpc_forwardIndicateWebView:';
+
   private connection: ServiceConnection | null = null;
   private messageEmitter: EventEmitter = new EventEmitter();
   private isReceiving: boolean = false;
   private readonly connectionId: string;
-  private skipNextStartServiceMessage: boolean = false;
 
   constructor(address: [string, number]) {
     super(address);
@@ -48,7 +61,7 @@ export class WebInspectorService extends BaseService {
     selector: string,
     args: PlistDictionary = {},
   ): Promise<void> {
-    const connection = await this.ensureConnected();
+    const connection = await this.connectToWebInspectorService();
 
     // Add connection identifier to all messages
     const message: WebInspectorMessage = {
@@ -71,7 +84,7 @@ export class WebInspectorService extends BaseService {
    * @returns Promise that resolves when listening starts
    */
   async listenMessage(handler: (message: PlistMessage) => void): Promise<void> {
-    await this.ensureConnected();
+    await this.connectToWebInspectorService();
 
     this.messageEmitter.on('message', handler);
 
@@ -117,7 +130,7 @@ export class WebInspectorService extends BaseService {
    * @param bundleId The bundle identifier of the application to launch
    */
   async requestApplicationLaunch(bundleId: string): Promise<void> {
-    await this.sendMessage('_rpc_requestApplicationLaunch:', {
+    await this.sendMessage(WebInspectorService.RPC_REQUEST_APPLICATION_LAUNCH, {
       WIRApplicationBundleIdentifierKey: bundleId,
     });
   }
@@ -126,7 +139,10 @@ export class WebInspectorService extends BaseService {
    * Get connected applications
    */
   async getConnectedApplications(): Promise<void> {
-    await this.sendMessage('_rpc_getConnectedApplications:', {});
+    await this.sendMessage(
+      WebInspectorService.RPC_GET_CONNECTED_APPLICATIONS,
+      {},
+    );
   }
 
   /**
@@ -134,7 +150,7 @@ export class WebInspectorService extends BaseService {
    * @param appId The application identifier
    */
   async forwardGetListing(appId: string): Promise<void> {
-    await this.sendMessage('_rpc_forwardGetListing:', {
+    await this.sendMessage(WebInspectorService.RPC_FORWARD_GET_LISTING, {
       WIRApplicationIdentifierKey: appId,
     });
   }
@@ -155,11 +171,14 @@ export class WebInspectorService extends BaseService {
       'org.webkit.webdriver.webrtc.suppress-ice-candidate-filtering': false,
     };
 
-    await this.sendMessage('_rpc_forwardAutomationSessionRequest:', {
-      WIRApplicationIdentifierKey: appId,
-      WIRSessionIdentifierKey: sessionId,
-      WIRSessionCapabilitiesKey: capabilities || defaultCapabilities,
-    });
+    await this.sendMessage(
+      WebInspectorService.RPC_FORWARD_AUTOMATION_SESSION_REQUEST,
+      {
+        WIRApplicationIdentifierKey: appId,
+        WIRSessionIdentifierKey: sessionId,
+        WIRSessionCapabilitiesKey: capabilities || defaultCapabilities,
+      },
+    );
   }
 
   /**
@@ -186,7 +205,10 @@ export class WebInspectorService extends BaseService {
       message.WIRAutomaticallyPause = false;
     }
 
-    await this.sendMessage('_rpc_forwardSocketSetup:', message);
+    await this.sendMessage(
+      WebInspectorService.RPC_FORWARD_SOCKET_SETUP,
+      message,
+    );
   }
 
   /**
@@ -204,7 +226,7 @@ export class WebInspectorService extends BaseService {
   ): Promise<void> {
     const socketData = typeof data === 'string' ? data : JSON.stringify(data);
 
-    await this.sendMessage('_rpc_forwardSocketData:', {
+    await this.sendMessage(WebInspectorService.RPC_FORWARD_SOCKET_DATA, {
       WIRApplicationIdentifierKey: appId,
       WIRPageIdentifierKey: pageId,
       WIRSessionIdentifierKey: sessionId,
@@ -224,7 +246,7 @@ export class WebInspectorService extends BaseService {
     pageId: number,
     enable: boolean,
   ): Promise<void> {
-    await this.sendMessage('_rpc_forwardIndicateWebView:', {
+    await this.sendMessage(WebInspectorService.RPC_FORWARD_INDICATE_WEB_VIEW, {
       WIRApplicationIdentifierKey: appId,
       WIRPageIdentifierKey: pageId,
       WIRIndicateEnabledKey: enable,
@@ -235,7 +257,7 @@ export class WebInspectorService extends BaseService {
    * Connect to the WebInspector service
    * @returns Promise resolving to the ServiceConnection instance
    */
-  private async ensureConnected(): Promise<ServiceConnection> {
+  private async connectToWebInspectorService(): Promise<ServiceConnection> {
     if (this.connection) {
       return this.connection;
     }
@@ -246,10 +268,17 @@ export class WebInspectorService extends BaseService {
     };
 
     this.connection = await this.startLockdownService(service);
-    this.skipNextStartServiceMessage = true;
+
+    // Consume the StartService response from RSDCheckin
+    const startServiceResponse = await this.connection.receive();
+    if (startServiceResponse?.Request !== 'StartService') {
+      log.warn(
+        `Expected StartService response, got: ${JSON.stringify(startServiceResponse)}`,
+      );
+    }
 
     // Send initial identifier report
-    await this.sendMessage('_rpc_reportIdentifier:', {});
+    await this.sendMessage(WebInspectorService.RPC_REPORT_IDENTIFIER, {});
 
     log.debug('Connected to WebInspector service');
     return this.connection;
@@ -268,19 +297,6 @@ export class WebInspectorService extends BaseService {
     try {
       while (this.isReceiving) {
         const message = await this.connection.receive();
-
-        // Skip the StartService response from RSDCheckin on new connections
-        if (
-          this.skipNextStartServiceMessage &&
-          message &&
-          typeof message === 'object' &&
-          (message as any).Request === 'StartService'
-        ) {
-          this.skipNextStartServiceMessage = false;
-          continue;
-        }
-
-        this.skipNextStartServiceMessage = false;
         this.messageEmitter.emit('message', message);
       }
     } catch (error) {
