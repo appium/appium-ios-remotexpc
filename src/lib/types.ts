@@ -520,6 +520,11 @@ export interface SpringboardService extends BaseService {
    */
   getIconState(): Promise<PlistDictionary>;
 
+  /**
+   * TODO: This does not work currently due to a bug in Apple protocol implementation (maybe?)
+   * Sets the icon state
+   * @param newState
+   */
   setIconState(newState: PlistDictionary[]): Promise<void>;
 
   /**
@@ -530,6 +535,7 @@ export interface SpringboardService extends BaseService {
   getIconPNGData(bundleID: string): Promise<Buffer>;
 
   /**
+   * TODO: This does not work currently due to a bug in Apple protocol implementation
    * Gets wallpaper info
    * @param wallpaperName The name of the wallpaper
    * @returns Promise resolving to the wallpaper info
@@ -542,9 +548,31 @@ export interface SpringboardService extends BaseService {
    */
   getHomescreenIconMetrics(): Promise<PlistDictionary>;
 
+  /**
+   * Gets the current interface orientation
+   * @returns Promise resolving to InterfaceOrientation
+   * 1 = Portrait
+   * 2 = PortraitUpsideDown
+   * 3 = Landscape
+   * 4 = LandscapeHomeToLeft
+   */
   getInterfaceOrientation(): Promise<InterfaceOrientation>;
 
+  /**
+   * Gets wallpaper preview image for homescreen and lockscreen
+   * @param wallpaperName
+   * @returns Promise resolving to the wallpaper preview image as a Buffer
+   */
   getWallpaperPreviewImage(wallpaperName: string): Promise<Buffer>;
+
+  /**
+   * TODO: This does not work currently due to a bug in Apple protocol implementation
+   * Use getWallpaperPreviewImage('homescreen') instead
+   * Gets wallpaper PNG data
+   * @param wallpaperName
+   * @returns Promise resolving to the wallpaper PNG data as a Buffer
+   */
+  getWallpaperPNGData(wallpaperName: string): Promise<Buffer>;
 }
 
 /**

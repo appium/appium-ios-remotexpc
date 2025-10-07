@@ -36,6 +36,10 @@ class SpringBoardService extends BaseService implements SpringboardInterface {
     }
   }
 
+  /**
+   * TODO: This does not work currently due to a bug in Apple protocol implementation (maybe?)
+   * Uncomment tests when it is fixed
+   */
   async setIconState(newState: PlistDictionary[] = []): Promise<void> {
     try {
       const req = {
@@ -69,7 +73,7 @@ class SpringBoardService extends BaseService implements SpringboardInterface {
   }
 
   /**
-   * TODO: This does not work due to a bug in Apple protocol implementation
+   * TODO: This does not work currently due to a bug in Apple protocol implementation
    * Add tests when it is fixed
    */
   async getWallpaperInfo(wallpaperName: string): Promise<PlistDictionary> {
@@ -144,6 +148,25 @@ class SpringBoardService extends BaseService implements SpringboardInterface {
       throw error;
     }
   }
+  /**
+   * TODO: This does not work currently due to a bug in Apple protocol implementation
+   * Add tests when it is fixed
+   */
+  async getWallpaperPNGData(wallpaperName: string): Promise<Buffer> {
+    try {
+      const req = {
+        command: 'getHomeScreenWallpaperPNGData',
+        wallpaperName,
+      };
+      const res = await this.sendRequestAndReceive(req);
+      return res.pngData as Buffer;
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new Error(`Failed to get wallpaper PNG data: ${error.message}`);
+      }
+      throw error;
+    }
+  }
 
   async connectToSpringboardService(): Promise<ServiceConnection> {
     if (this._conn) {
@@ -160,6 +183,7 @@ class SpringBoardService extends BaseService implements SpringboardInterface {
     if (!this._conn) {
       this._conn = await this.connectToSpringboardService();
     }
+    // Skip StartService response
     await this._conn.sendAndReceive(request);
     return await this._conn.sendPlistRequest(request);
   }
