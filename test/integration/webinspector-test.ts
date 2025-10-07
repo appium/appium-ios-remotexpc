@@ -1,7 +1,7 @@
 import { logger } from '@appium/support';
 import { expect } from 'chai';
 
-import type { WebInspectorService } from '../../src/lib/types.js';
+import type { WebInspectorService } from '../../src/index.js';
 import * as Services from '../../src/services.js';
 
 const log = logger.getLogger('WebInspectorService.test');
@@ -12,7 +12,7 @@ describe('WebInspectorService', function () {
 
   let service: WebInspectorService;
   let remoteXPC: any;
-  const udid = process.env.UDID || '00008030-001E290A3EF2402E';
+  const udid = process.env.UDID || '';
   const sessionId = 'test-session-' + Date.now();
   let realAppId: string | null = null;
   let realPageId: number | null = null;
