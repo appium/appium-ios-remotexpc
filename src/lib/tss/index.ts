@@ -171,11 +171,7 @@ export class TSSRequest {
     log.debug('TSS Request:', this._request);
 
     try {
-      const requestDataStr = createPlist(this._request);
-      const requestData =
-        typeof requestDataStr === 'string'
-          ? Buffer.from(requestDataStr, 'utf8')
-          : requestDataStr;
+      const requestData = createPlist(this._request);
 
       const res = await axios.post(TSS_CONTROLLER_ACTION_URL, requestData, {
         headers,
