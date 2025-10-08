@@ -1,3 +1,15 @@
+## [0.6.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.6.1...v0.6.2) (2025-10-08)
+
+### Bug Fixes
+
+* improve DNS resolution in bonjour service ([#78](https://github.com/appium/appium-ios-remotexpc/issues/78)) ([5cfda64](https://github.com/appium/appium-ios-remotexpc/commit/5cfda643f9e00de3d7e6da51f757ebb90e661757))
+
+## [0.6.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.6.0...v0.6.1) (2025-10-07)
+
+### Miscellaneous Chores
+
+* **deps:** bump actions/setup-node from 4 to 5 ([#73](https://github.com/appium/appium-ios-remotexpc/issues/73)) ([d39e4f8](https://github.com/appium/appium-ios-remotexpc/commit/d39e4f8817591c4e6ea674fc3bfd7a61dcbff403))
+
 ## [0.6.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.5.2...v0.6.0) (2025-10-04)
 
 ### Features
