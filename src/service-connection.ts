@@ -61,6 +61,15 @@ export class ServiceConnection extends BasePlistService {
   }
 
   /**
+   * Sends a plist message without waiting for a response
+   * This is useful for fire-and-forget style communication
+   * @param message The message to send
+   */
+  sendPlist(message: PlistDictionary): void {
+    this.send(message);
+  }
+
+  /**
    * Gets the underlying socket
    * @returns The socket used by this service
    */
