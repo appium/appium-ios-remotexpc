@@ -1,3 +1,9 @@
+## [0.6.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.6.1...v0.6.2) (2025-10-08)
+
+### Bug Fixes
+
+* improve DNS resolution in bonjour service ([#78](https://github.com/appium/appium-ios-remotexpc/issues/78)) ([5cfda64](https://github.com/appium/appium-ios-remotexpc/commit/5cfda643f9e00de3d7e6da51f757ebb90e661757))
+
 ## [0.6.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.6.0...v0.6.1) (2025-10-07)
 
 ### Miscellaneous Chores
