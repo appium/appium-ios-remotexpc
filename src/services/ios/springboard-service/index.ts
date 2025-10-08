@@ -6,10 +6,10 @@ import { ServiceConnection } from '../../../service-connection.js';
 import { BaseService } from '../base-service.js';
 
 enum InterfaceOrientation {
-  PORTRAIT = 1,
-  PORTRAIT_UPSIDE_DOWN = 2,
-  LANDSCAPE = 3,
-  LANDSCAPE_HOME_TO_LEFT = 4,
+  PORTRAIT = 1, // 0 degrees (default)
+  PORTRAIT_UPSIDE_DOWN = 2, // 180 degrees
+  LANDSCAPE = 3, // 90 degrees clockwise
+  LANDSCAPE_HOME_TO_LEFT = 4, // 270 degrees clockwise
 }
 
 class SpringBoardService extends BaseService implements SpringboardInterface {
@@ -91,14 +91,9 @@ class SpringBoardService extends BaseService implements SpringboardInterface {
     }
   }
 
-  async getWallpaperPreviewImage(wallpaperName: string): Promise<Buffer> {
-    const validWallpaperNames = ['homescreen', 'lockscreen'];
-    if (!validWallpaperNames.includes(wallpaperName.toLowerCase())) {
-      throw new Error(
-        `Invalid wallpaper name: ${wallpaperName}. Only 'homescreen' and 'lockscreen' are supported.`,
-      );
-    }
-
+  async getWallpaperPreviewImage(
+    wallpaperName: 'homescreen' | 'lockscreen',
+  ): Promise<Buffer> {
     try {
       const req = {
         command: 'getWallpaperPreviewImage',

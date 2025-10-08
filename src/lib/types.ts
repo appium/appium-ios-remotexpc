@@ -517,25 +517,44 @@ export interface SpringboardService extends BaseService {
   /**
    * Gets the icon state
    * @returns Promise resolving to the icon state
+   * e.g.
+   * [
+   *     {
+   *       displayIdentifier: 'com.apple.MobileSMS',
+   *       displayName: 'Messages',
+   *       iconModDate: 2025-09-03T12:55:46.400Z,
+   *       bundleVersion: '1402.700.63.2.1',
+   *       bundleIdentifier: 'com.apple.MobileSMS'
+   *     },
+   *     {
+   *       displayIdentifier: 'com.apple.measure',
+   *       displayName: 'Measure',
+   *       iconModDate: 2025-09-03T12:55:49.522Z,
+   *       bundleVersion: '175.100.3.0.1',
+   *       bundleIdentifier: 'com.apple.measure'
+   *     },
+   *     ...
+   *  ]
    */
   getIconState(): Promise<PlistDictionary>;
 
   /**
    * TODO: This does not work currently due to a bug in Apple protocol implementation (maybe?)
    * Sets the icon state
-   * @param newState
+   * @param newState where is the payload from getIconState
    */
   setIconState(newState: PlistDictionary[]): Promise<void>;
 
   /**
    * Gets the icon PNG data for a given bundle ID
    * @param bundleID The bundle ID of the app
-   * @returns Promise resolving to the icon PNG data
+   * @returns {Promise<Buffer>} which is the PNG data of the app icon
    */
   getIconPNGData(bundleID: string): Promise<Buffer>;
 
   /**
    * TODO: This does not work currently due to a bug in Apple protocol implementation
+   * Add payload structure when it is fixed
    * Gets wallpaper info
    * @param wallpaperName The name of the wallpaper
    * @returns Promise resolving to the wallpaper info
@@ -544,13 +563,27 @@ export interface SpringboardService extends BaseService {
 
   /**
    * Gets homescreen icon metrics
-   * @returns Promise resolving to the homescreen icon metrics
+   * @returns {Promise<PlistDictionary>}
+   * e.g.
+   * {
+   *   homeScreenIconHeight: 64,
+   *   homeScreenIconMaxPages: 15,
+   *   homeScreenWidth: 414,
+   *   homeScreenHeight: 896,
+   *   homeScreenIconDockMaxCount: 4,
+   *   homeScreenIconFolderMaxPages: 15,
+   *   homeScreenIconWidth: 64,
+   *   homeScreenIconRows: 6,
+   *   homeScreenIconColumns: 4,
+   *   homeScreenIconFolderColumns: 3,
+   *   homeScreenIconFolderRows: 3
+   * }
    */
   getHomescreenIconMetrics(): Promise<PlistDictionary>;
 
   /**
    * Gets the current interface orientation
-   * @returns Promise resolving to InterfaceOrientation
+   * @returns {Promise<InterfaceOrientation>}
    * 1 = Portrait
    * 2 = PortraitUpsideDown
    * 3 = Landscape
@@ -561,16 +594,18 @@ export interface SpringboardService extends BaseService {
   /**
    * Gets wallpaper preview image for homescreen and lockscreen
    * @param wallpaperName
-   * @returns Promise resolving to the wallpaper preview image as a Buffer
+   * @returns {Promise<Buffer>} which is a wallpaper preview image
    */
-  getWallpaperPreviewImage(wallpaperName: string): Promise<Buffer>;
+  getWallpaperPreviewImage(
+    wallpaperName: 'homescreen' | 'lockscreen',
+  ): Promise<Buffer>;
 
   /**
    * TODO: This does not work currently due to a bug in Apple protocol implementation
    * Use getWallpaperPreviewImage('homescreen') instead
    * Gets wallpaper PNG data
    * @param wallpaperName
-   * @returns Promise resolving to the wallpaper PNG data as a Buffer
+   * @returns {Promise<Buffer>}
    */
   getWallpaperPNGData(wallpaperName: string): Promise<Buffer>;
 }
