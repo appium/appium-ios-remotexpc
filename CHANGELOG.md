@@ -1,3 +1,9 @@
+## [0.7.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.6.2...v0.7.0) (2025-10-09)
+
+### Features
+
+* implement springboard service  ([#79](https://github.com/appium/appium-ios-remotexpc/issues/79)) ([eae9b42](https://github.com/appium/appium-ios-remotexpc/commit/eae9b427dfb644a8b67f8eb76505d4aba7094311))
+
 ## [0.6.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.6.1...v0.6.2) (2025-10-08)
 
 ### Bug Fixes
