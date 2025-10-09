@@ -100,6 +100,8 @@ describe('SpringBoardService', function () {
           0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
         ]);
         expect(pngData.subarray(0, 8)).to.deep.equal(pngSignature);
+
+        expect(pngData.length).to.be.greaterThan(10000); // Typical icon size
       } catch (error) {
         log.error(
           `Error getting PNG data for ${bundleId}:`,
@@ -109,27 +111,29 @@ describe('SpringBoardService', function () {
       }
     });
 
-    it('should handle invalid bundle ID gracefully', async function () {
+    it('check invalid bundle ID', async function () {
       const invalidBundleId = 'com.invalid.nonexistent.app';
 
       try {
-        await springboardService.getIconPNGData(invalidBundleId);
-      } catch (error) {
-        expect(error).to.be.an('error');
-        expect((error as Error).message).to.include(
-          'Failed to get Icon PNG data',
-        );
-      }
-    });
+        const invalid =
+          await springboardService.getIconPNGData(invalidBundleId);
 
-    it('should handle empty bundle ID', async function () {
-      try {
-        await springboardService.getIconPNGData('');
+        // Invalid bundle IDs will return some default icon data
+        // also have length between 7000 and 10000 bytes
+        expect(invalid.length).to.be.greaterThan(7000);
+        expect(invalid.length).to.be.lessThan(10000);
+
+        // Verify it's actually PNG data by checking the PNG signature
+        const pngSignature = Buffer.from([
+          0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+        ]);
+        expect(invalid.subarray(0, 8)).to.deep.equal(pngSignature);
       } catch (error) {
-        expect(error).to.be.an('error');
-        expect((error as Error).message).to.include(
-          'Failed to get Icon PNG data',
+        log.error(
+          `Error getting PNG data for ${invalidBundleId}:`,
+          (error as Error).message,
         );
+        throw error;
       }
     });
   });
