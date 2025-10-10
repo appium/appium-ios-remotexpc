@@ -34,6 +34,7 @@
     "test:springboard": "mocha test/integration/springboard-service-test.ts --exit --timeout 1m",
     "test:unit": "mocha 'test/unit/**/*.ts' --exit --timeout 2m",
     "test:tunnel-creation": "sudo tsx scripts/test-tunnel-creation.ts",
+    "test:pair-appletv": "sudo tsx scripts/pair-appletv.ts",
     "test:tunnel-creation:lsof": "sudo tsx scripts/test-tunnel-creation.ts --keep-open"
   },
   "keywords": [],
