@@ -45,6 +45,7 @@ export class WebInspectorService extends BaseService {
   private messageEmitter: EventEmitter = new EventEmitter();
   private isReceiving: boolean = false;
   private readonly connectionId: string;
+  private receivePromise: Promise<void> | null = null;
 
   constructor(address: [string, number]) {
     super(address);
@@ -73,24 +74,72 @@ export class WebInspectorService extends BaseService {
     };
 
     log.debug(`Sending WebInspector message: ${selector}`);
-    log.debug(`Message details: ${JSON.stringify(message, null, 2)}`);
 
     connection.sendPlist(message);
   }
 
   /**
-   * Listen to messages from the WebInspector service
-   * @param handler Handler function that will be called for each received message
-   * @returns Promise that resolves when listening starts
+   * Listen to messages from the WebInspector service using async generator
+   * @yields PlistMessage - Messages received from the WebInspector service
    */
-  async listenMessage(handler: (message: PlistMessage) => void): Promise<void> {
+  async *listenMessage(): AsyncGenerator<PlistMessage, void, unknown> {
     await this.connectToWebInspectorService();
 
-    this.messageEmitter.on('message', handler);
-
-    // Start receiving messages in the background if not already receiving
+    // Start receiving messages in background if not already started
     if (!this.isReceiving) {
       this.startMessageReceiver();
+    }
+
+    const queue: PlistMessage[] = [];
+    let resolveNext: ((value: IteratorResult<PlistMessage>) => void) | null =
+      null;
+    let stopped = false;
+
+    const messageHandler = (message: PlistMessage) => {
+      if (resolveNext) {
+        resolveNext({ value: message, done: false });
+        resolveNext = null;
+      } else {
+        queue.push(message);
+      }
+    };
+
+    const stopHandler = () => {
+      stopped = true;
+      if (resolveNext) {
+        resolveNext({ value: undefined, done: true });
+        resolveNext = null;
+      }
+    };
+
+    this.messageEmitter.on('message', messageHandler);
+    this.messageEmitter.once('stop', stopHandler);
+
+    try {
+      while (!stopped) {
+        if (queue.length > 0) {
+          yield queue.shift()!;
+        } else {
+          const message = await new Promise<PlistMessage | null>((resolve) => {
+            if (stopped) {
+              resolve(null);
+              return;
+            }
+            resolveNext = (result) => {
+              resolve(result.done ? null : result.value);
+            };
+          });
+
+          if (message === null) {
+            break;
+          }
+
+          yield message;
+        }
+      }
+    } finally {
+      this.messageEmitter.off('message', messageHandler);
+      this.messageEmitter.off('stop', stopHandler);
     }
   }
 
@@ -99,9 +148,7 @@ export class WebInspectorService extends BaseService {
    */
   stopListening(): void {
     this.isReceiving = false;
-    this.messageEmitter.removeAllListeners('message');
-    this.messageEmitter.removeAllListeners('error');
-    log.debug('Stopped listening for WebInspector messages');
+    this.messageEmitter.emit('stop');
   }
 
   /**
@@ -114,6 +161,10 @@ export class WebInspectorService extends BaseService {
       await this.connection.close();
       this.connection = null;
       log.debug('WebInspector connection closed');
+    }
+
+    if (this.receivePromise) {
+      await this.receivePromise;
     }
   }
 
@@ -176,7 +227,10 @@ export class WebInspectorService extends BaseService {
       {
         WIRApplicationIdentifierKey: appId,
         WIRSessionIdentifierKey: sessionId,
-        WIRSessionCapabilitiesKey: capabilities || defaultCapabilities,
+        WIRSessionCapabilitiesKey: {
+          ...defaultCapabilities,
+          ...(capabilities ?? {}),
+        },
       },
     );
   }
@@ -285,25 +339,33 @@ export class WebInspectorService extends BaseService {
   }
 
   /**
-   * Start receiving messages from the WebInspector service
+   * Start receiving messages from the WebInspector service in the background
    */
-  private async startMessageReceiver(): Promise<void> {
-    if (!this.connection) {
-      throw new Error('Connection not established');
+  private startMessageReceiver(): void {
+    if (this.isReceiving || !this.connection) {
+      return;
     }
 
     this.isReceiving = true;
 
-    try {
-      while (this.isReceiving) {
-        const message = await this.connection.receive();
-        this.messageEmitter.emit('message', message);
+    this.receivePromise = (async () => {
+      try {
+        while (this.isReceiving && this.connection) {
+          try {
+            const message = await this.connection.receive();
+            this.messageEmitter.emit('message', message);
+          } catch (error) {
+            if (this.isReceiving) {
+              log.error('Error receiving message:', error);
+              this.messageEmitter.emit('error', error);
+            }
+            break;
+          }
+        }
+      } finally {
+        this.isReceiving = false;
       }
-    } catch (error) {
-      if (this.isReceiving) {
-        this.messageEmitter.emit('error', error);
-      }
-    }
+    })();
   }
 }
 

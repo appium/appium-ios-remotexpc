@@ -324,11 +324,10 @@ export interface WebInspectorService extends BaseService {
   sendMessage(selector: string, args?: PlistDictionary): Promise<void>;
 
   /**
-   * Listen to messages from the WebInspector service
-   * @param callback Callback function that will be called for each received message
-   * @returns Promise that resolves when listening starts
+   * Listen to messages from the WebInspector service using async generator
+   * @yields PlistMessage - Messages received from the WebInspector service
    */
-  listenMessage(callback: (message: PlistMessage) => void): Promise<void>;
+  listenMessage(): AsyncGenerator<PlistMessage, void, unknown>;
 
   /**
    * Stop listening to messages

@@ -51,7 +51,13 @@ describe('WebInspectorService', function () {
   it('should receive messages', async function () {
     const messages: any[] = [];
 
-    await service.listenMessage((msg) => messages.push(msg));
+    // Start listening in background
+    const listenTask = (async () => {
+      for await (const msg of service.listenMessage()) {
+        messages.push(msg);
+      }
+    })();
+
     await service.getConnectedApplications();
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
@@ -60,6 +66,7 @@ describe('WebInspectorService', function () {
     expect(messages[0]).to.have.property('__argument');
 
     service.stopListening();
+    await listenTask;
   });
 
   describe('Safari Integration', function () {
@@ -68,58 +75,61 @@ describe('WebInspectorService', function () {
       const messages: any[] = [];
       let foundSafari = false;
 
-      await service.listenMessage((message) => {
-        messages.push(message);
+      // Start listening in background
+      const listenTask = (async () => {
+        for await (const message of service.listenMessage()) {
+          messages.push(message);
 
-        // Find Safari application
-        if (message.__selector === '_rpc_reportConnectedApplicationList:') {
-          const arg = message.__argument;
+          // Find Safari application
+          if (message.__selector === '_rpc_reportConnectedApplicationList:') {
+            const arg = message.__argument;
+            if (
+              arg &&
+              typeof arg === 'object' &&
+              !Buffer.isBuffer(arg) &&
+              !Array.isArray(arg)
+            ) {
+              const apps = (arg as any).WIRApplicationDictionaryKey;
+              if (apps) {
+                for (const [appId, appData] of Object.entries(apps)) {
+                  if (
+                    (appData as any).WIRApplicationBundleIdentifierKey ===
+                    'com.apple.mobilesafari'
+                  ) {
+                    realAppId = appId;
+                    foundSafari = true;
+                  }
+                }
+              }
+            }
+          }
+
+          // Find Safari page
           if (
-            arg &&
-            typeof arg === 'object' &&
-            !Buffer.isBuffer(arg) &&
-            !Array.isArray(arg)
+            message.__selector === '_rpc_applicationSentListing:' &&
+            realAppId
           ) {
-            const apps = (arg as any).WIRApplicationDictionaryKey;
-            if (apps) {
-              for (const [appId, appData] of Object.entries(apps)) {
-                if (
-                  (appData as any).WIRApplicationBundleIdentifierKey ===
-                  'com.apple.mobilesafari'
-                ) {
-                  realAppId = appId;
-                  foundSafari = true;
+            const arg = message.__argument;
+            if (
+              arg &&
+              typeof arg === 'object' &&
+              !Buffer.isBuffer(arg) &&
+              !Array.isArray(arg)
+            ) {
+              const appId = (arg as any).WIRApplicationIdentifierKey;
+              if (appId === realAppId) {
+                const listing = (arg as any).WIRListingKey;
+                if (listing) {
+                  const pageIds = Object.keys(listing);
+                  if (pageIds.length > 0) {
+                    realPageId = parseInt(pageIds[0], 10);
+                  }
                 }
               }
             }
           }
         }
-
-        // Find Safari page
-        if (
-          message.__selector === '_rpc_applicationSentListing:' &&
-          realAppId
-        ) {
-          const arg = message.__argument;
-          if (
-            arg &&
-            typeof arg === 'object' &&
-            !Buffer.isBuffer(arg) &&
-            !Array.isArray(arg)
-          ) {
-            const appId = (arg as any).WIRApplicationIdentifierKey;
-            if (appId === realAppId) {
-              const listing = (arg as any).WIRListingKey;
-              if (listing) {
-                const pageIds = Object.keys(listing);
-                if (pageIds.length > 0) {
-                  realPageId = parseInt(pageIds[0], 10);
-                }
-              }
-            }
-          }
-        }
-      });
+      })();
 
       await service.getConnectedApplications();
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -130,6 +140,7 @@ describe('WebInspectorService', function () {
       }
 
       service.stopListening();
+      await listenTask;
 
       if (!foundSafari || !realAppId || !realPageId) {
         log.warn(
@@ -146,13 +157,19 @@ describe('WebInspectorService', function () {
       }
 
       const messages: any[] = [];
-      await service.listenMessage((msg) => messages.push(msg));
+
+      const listenTask = (async () => {
+        for await (const msg of service.listenMessage()) {
+          messages.push(msg);
+        }
+      })();
 
       await service.forwardSocketSetup(sessionId, realAppId, realPageId, false);
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
       expect(messages.length).to.be.greaterThan(0);
       service.stopListening();
+      await listenTask;
     });
 
     it('should send CDP commands and receive responses', async function () {
@@ -163,29 +180,32 @@ describe('WebInspectorService', function () {
 
       const cdpResponses: any[] = [];
 
-      await service.listenMessage((message) => {
-        if (message.__selector === '_rpc_applicationSentData:') {
-          const arg = message.__argument;
-          if (
-            arg &&
-            typeof arg === 'object' &&
-            !Buffer.isBuffer(arg) &&
-            !Array.isArray(arg)
-          ) {
-            const dataKey = (arg as any).WIRMessageDataKey;
-            if (dataKey) {
-              try {
-                const dataString = Buffer.isBuffer(dataKey)
-                  ? dataKey.toString('utf-8')
-                  : dataKey;
-                cdpResponses.push(JSON.parse(dataString));
-              } catch (e) {
-                // Ignore parse errors
+      // Start listening in background
+      const listenTask = (async () => {
+        for await (const message of service.listenMessage()) {
+          if (message.__selector === '_rpc_applicationSentData:') {
+            const arg = message.__argument;
+            if (
+              arg &&
+              typeof arg === 'object' &&
+              !Buffer.isBuffer(arg) &&
+              !Array.isArray(arg)
+            ) {
+              const dataKey = (arg as any).WIRMessageDataKey;
+              if (dataKey) {
+                try {
+                  const dataString = Buffer.isBuffer(dataKey)
+                    ? dataKey.toString('utf-8')
+                    : dataKey;
+                  cdpResponses.push(JSON.parse(dataString));
+                } catch (e) {
+                  // Ignore parse errors
+                }
               }
             }
           }
         }
-      });
+      })();
 
       // Setup socket
       await service.forwardSocketSetup(sessionId, realAppId, realPageId, false);
@@ -230,6 +250,7 @@ describe('WebInspectorService', function () {
       expect(nestedResponse.result.result.value).to.equal(2);
 
       service.stopListening();
+      await listenTask;
     });
 
     it('should highlight webview on device', async function () {
@@ -239,7 +260,12 @@ describe('WebInspectorService', function () {
       }
 
       const messages: any[] = [];
-      await service.listenMessage((msg) => messages.push(msg));
+
+      const listenTask = (async () => {
+        for await (const msg of service.listenMessage()) {
+          messages.push(msg);
+        }
+      })();
 
       await service.forwardIndicateWebView(realAppId, realPageId, true);
       await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -247,12 +273,18 @@ describe('WebInspectorService', function () {
       await new Promise((resolve) => setTimeout(resolve, 500));
 
       service.stopListening();
+      await listenTask;
     });
   });
 
   it('should handle automation session request', async function () {
     const messages: any[] = [];
-    await service.listenMessage((msg) => messages.push(msg));
+
+    const listenTask = (async () => {
+      for await (const msg of service.listenMessage()) {
+        messages.push(msg);
+      }
+    })();
 
     await service.forwardAutomationSessionRequest(
       'automation-session-' + Date.now(),
@@ -261,27 +293,42 @@ describe('WebInspectorService', function () {
 
     await new Promise((resolve) => setTimeout(resolve, 1000));
     service.stopListening();
+    await listenTask;
   });
 
   it('should stop and restart listening', async function () {
     let count = 0;
-    await service.listenMessage(() => count++);
+
+    let listenTask = (async () => {
+      for await (const _ of service.listenMessage()) {
+        count++;
+      }
+    })();
 
     await service.getConnectedApplications();
     await new Promise((resolve) => setTimeout(resolve, 500));
     const firstCount = count;
 
     service.stopListening();
+    await listenTask;
+
     await service.getConnectedApplications();
     await new Promise((resolve) => setTimeout(resolve, 500));
 
     expect(count).to.equal(firstCount); // No new messages
 
-    await service.listenMessage(() => count++);
+    // Second listening session
+    listenTask = (async () => {
+      for await (const _ of service.listenMessage()) {
+        count++;
+      }
+    })();
+
     await service.getConnectedApplications();
     await new Promise((resolve) => setTimeout(resolve, 500));
 
     expect(count).to.be.greaterThan(firstCount);
     service.stopListening();
+    await listenTask;
   });
 });
