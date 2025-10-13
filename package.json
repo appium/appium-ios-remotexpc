@@ -1,6 +1,6 @@
 {
   "name": "appium-ios-remotexpc",
-  "version": "0.6.2",
+  "version": "0.7.0",
   "main": "build/src/index.js",
   "types": "build/src/index.d.ts",
   "type": "module",
@@ -31,6 +31,7 @@
     "test:notification": "mocha test/integration/notification-proxy-test.ts --exit --timeout 1m",
     "test:image-mounter": "mocha test/integration/mobile-image-mounter-test.ts --exit --timeout 1m",
     "test:mobile-config": "mocha test/integration/mobile-config-test.ts --exit --timeout 1m",
+    "test:springboard": "mocha test/integration/springboard-service-test.ts --exit --timeout 1m",
     "test:unit": "mocha 'test/unit/**/*.ts' --exit --timeout 2m",
     "test:tunnel-creation": "sudo tsx scripts/test-tunnel-creation.ts",
     "test:pair-appletv": "sudo tsx scripts/pair-appletv.ts",

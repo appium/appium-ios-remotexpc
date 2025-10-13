@@ -17,6 +17,7 @@ export type {
   MobileImageMounterService,
   NotificationProxyService,
   MobileConfigService,
+  SpringboardService,
   SyslogService,
   SocketInfo,
   TunnelResult,
@@ -26,6 +27,7 @@ export type {
   MobileImageMounterServiceWithConnection,
   NotificationProxyServiceWithConnection,
   MobileConfigServiceWithConnection,
+  SpringboardServiceWithConnection,
 } from './lib/types.js';
 export {
   createUsbmux,
