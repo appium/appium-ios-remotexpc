@@ -6,6 +6,7 @@ import { EventEmitter } from 'events';
 
 import type { ServiceConnection } from '../service-connection.js';
 import type { BaseService, Service } from '../services/ios/base-service.js';
+import type { InterfaceOrientation } from '../services/ios/springboard-service/index.js';
 import type { RemoteXpcConnection } from './remote-xpc/remote-xpc-connection.js';
 import type { Device } from './usbmux/index.js';
 
@@ -620,6 +621,116 @@ export interface MobileImageMounterServiceConstructor {
 export interface MobileImageMounterServiceWithConnection {
   /** The MobileImageMounterService instance */
   mobileImageMounterService: MobileImageMounterService;
+  /** The RemoteXPC connection for service management */
+  remoteXPC: RemoteXpcConnection;
+}
+
+/**
+ * Represents the instance side of SpringboardService
+ */
+export interface SpringboardService extends BaseService {
+  /**
+   * Gets the icon state
+   * @returns Promise resolving to the icon state
+   * e.g.
+   * [
+   *     {
+   *       displayIdentifier: 'com.apple.MobileSMS',
+   *       displayName: 'Messages',
+   *       iconModDate: 2025-09-03T12:55:46.400Z,
+   *       bundleVersion: '1402.700.63.2.1',
+   *       bundleIdentifier: 'com.apple.MobileSMS'
+   *     },
+   *     {
+   *       displayIdentifier: 'com.apple.measure',
+   *       displayName: 'Measure',
+   *       iconModDate: 2025-09-03T12:55:49.522Z,
+   *       bundleVersion: '175.100.3.0.1',
+   *       bundleIdentifier: 'com.apple.measure'
+   *     },
+   *     ...
+   *  ]
+   */
+  getIconState(): Promise<PlistDictionary>;
+
+  /**
+   * TODO: This does not work currently due to a bug in Apple protocol implementation (maybe?)
+   * Sets the icon state
+   * @param newState where is the payload from getIconState
+   */
+  setIconState(newState: PlistDictionary[]): Promise<void>;
+
+  /**
+   * Gets the icon PNG data for a given bundle ID
+   * @param bundleID The bundle ID of the app
+   * @returns {Promise<Buffer>} which is the PNG data of the app icon
+   */
+  getIconPNGData(bundleID: string): Promise<Buffer>;
+
+  /**
+   * TODO: This does not work currently due to a bug in Apple protocol implementation
+   * Add payload structure when it is fixed
+   * Gets wallpaper info
+   * @param wallpaperName The name of the wallpaper
+   * @returns Promise resolving to the wallpaper info
+   */
+  getWallpaperInfo(wallpaperName: string): Promise<PlistDictionary>;
+
+  /**
+   * Gets homescreen icon metrics
+   * @returns {Promise<PlistDictionary>}
+   * e.g.
+   * {
+   *   homeScreenIconHeight: 64,
+   *   homeScreenIconMaxPages: 15,
+   *   homeScreenWidth: 414,
+   *   homeScreenHeight: 896,
+   *   homeScreenIconDockMaxCount: 4,
+   *   homeScreenIconFolderMaxPages: 15,
+   *   homeScreenIconWidth: 64,
+   *   homeScreenIconRows: 6,
+   *   homeScreenIconColumns: 4,
+   *   homeScreenIconFolderColumns: 3,
+   *   homeScreenIconFolderRows: 3
+   * }
+   */
+  getHomescreenIconMetrics(): Promise<PlistDictionary>;
+
+  /**
+   * Gets the current interface orientation
+   * @returns {Promise<InterfaceOrientation>}
+   * 1 = Portrait
+   * 2 = PortraitUpsideDown
+   * 3 = Landscape
+   * 4 = LandscapeHomeToLeft
+   */
+  getInterfaceOrientation(): Promise<InterfaceOrientation>;
+
+  /**
+   * Gets wallpaper preview image for homescreen and lockscreen
+   * @param wallpaperName
+   * @returns {Promise<Buffer>} which is a wallpaper preview image
+   */
+  getWallpaperPreviewImage(
+    wallpaperName: 'homescreen' | 'lockscreen',
+  ): Promise<Buffer>;
+
+  /**
+   * TODO: This does not work currently due to a bug in Apple protocol implementation
+   * Use getWallpaperPreviewImage('homescreen') instead
+   * Gets wallpaper PNG data
+   * @param wallpaperName
+   * @returns {Promise<Buffer>}
+   */
+  getWallpaperPNGData(wallpaperName: string): Promise<Buffer>;
+}
+
+/**
+ * Represents a SpringboardService instance with its associated RemoteXPC connection
+ */
+export interface SpringboardServiceWithConnection {
+  /** The SpringboardService instance */
+  springboardService: SpringboardService;
   /** The RemoteXPC connection for service management */
   remoteXPC: RemoteXpcConnection;
 }

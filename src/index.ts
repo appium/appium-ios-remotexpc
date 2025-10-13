@@ -17,6 +17,7 @@ export type {
   MobileImageMounterService,
   NotificationProxyService,
   MobileConfigService,
+  SpringboardService,
   WebInspectorService,
   SyslogService,
   SocketInfo,
@@ -27,6 +28,7 @@ export type {
   MobileImageMounterServiceWithConnection,
   NotificationProxyServiceWithConnection,
   MobileConfigServiceWithConnection,
+  SpringboardServiceWithConnection,
   WebInspectorServiceWithConnection,
 } from './lib/types.js';
 export {
