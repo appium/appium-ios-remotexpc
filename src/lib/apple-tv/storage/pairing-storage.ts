@@ -20,7 +20,7 @@ export class PairingStorage implements PairingStorageInterface {
     remoteUnlockHostKey = '',
   ): string {
     try {
-      const projectRoot = join(import.meta.dirname, '../../..');
+      const projectRoot = join(import.meta.dirname, '../../../..');
       const pairingDir = join(projectRoot, this.config.pairingDirectory);
 
       if (!existsSync(pairingDir)) {
