@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+#!/usr/bin/env tsx
 /**
  * Test script for creating lockdown service, starting CoreDeviceProxy, and creating tunnel
  * This script demonstrates the tunnel creation workflow for all connected devices
