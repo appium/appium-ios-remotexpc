@@ -1,3 +1,9 @@
+## [0.8.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.7.0...v0.8.0) (2025-10-17)
+
+### Features
+
+* implement `webinspector` shim service ([#81](https://github.com/appium/appium-ios-remotexpc/issues/81)) ([0abd6e3](https://github.com/appium/appium-ios-remotexpc/commit/0abd6e32ba3f6abdbc238bde7201abf96646cbcc))
+
 ## [0.7.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.6.2...v0.7.0) (2025-10-09)
 
 ### Features
