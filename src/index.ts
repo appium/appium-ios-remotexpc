@@ -18,6 +18,7 @@ export type {
   NotificationProxyService,
   MobileConfigService,
   SpringboardService,
+  WebInspectorService,
   SyslogService,
   SocketInfo,
   TunnelResult,
@@ -28,6 +29,7 @@ export type {
   NotificationProxyServiceWithConnection,
   MobileConfigServiceWithConnection,
   SpringboardServiceWithConnection,
+  WebInspectorServiceWithConnection,
 } from './lib/types.js';
 export {
   createUsbmux,
