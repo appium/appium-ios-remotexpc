@@ -25,6 +25,3 @@ export const AFC_HEADER_SIZE = 40;
 
 // Override for WRITE packets' this_length
 export const AFC_WRITE_THIS_LENGTH = 48;
-
-// RSD service name for AFC over Remote XPC shim
-export const AFC_RSD_SERVICE_NAME = 'com.apple.afc.shim.remote';

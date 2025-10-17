@@ -16,7 +16,6 @@ export {
   tunnel,
   afc,
   webinspector,
-  afc,
   TunnelRegistryServer,
   startTunnelRegistryServer,
 };

@@ -20,7 +20,6 @@ import {
 } from './codec.js';
 import {
   AFC_FOPEN_TEXTUAL_MODES,
-  AFC_RSD_SERVICE_NAME,
   AFC_WRITE_THIS_LENGTH,
   MAXIMUM_READ_SIZE,
 } from './constants.js';
@@ -44,7 +43,7 @@ export interface StatInfo {
  * After RSDCheckin, speaks raw AFC protocol on the same socket.
  */
 export class AfcService {
-  static readonly RSD_SERVICE_NAME = AFC_RSD_SERVICE_NAME;
+  static readonly RSD_SERVICE_NAME = 'com.apple.afc.shim.remote';
 
   private readonly address: [string, number];
   private socket: net.Socket | null = null;

@@ -138,18 +138,6 @@ export async function startWebInspectorService(
       parseInt(webInspectorService.port, 10),
     ]),
   };
-
-/**
- * Start AFC service over RemoteXPC shim.
- * Resolves the AFC service port via RemoteXPC and returns a ready-to-use AfcService instance.
- */
-export async function startAfcService(udid: string): Promise<AfcService> {
-  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
-  const afcDescriptor = remoteXPC.findService(AfcService.RSD_SERVICE_NAME);
-  return new AfcService([
-    tunnelConnection.host,
-    parseInt(afcDescriptor.port, 10),
-  ]);
 }
 
 export async function createRemoteXPCConnection(udid: string) {
