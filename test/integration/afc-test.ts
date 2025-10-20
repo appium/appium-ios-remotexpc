@@ -59,7 +59,7 @@ describe('AFC Service', function () {
     // Stat
     const stat1 = await afc.stat(name1);
     expect(stat1.st_ifmt).to.equal('S_IFREG');
-    expect(stat1.st_size).to.equal(data.length);
+    expect(stat1.st_size).to.equal(BigInt(data.length));
 
     // Read back
     const read = await afc.getFileContents(name1);

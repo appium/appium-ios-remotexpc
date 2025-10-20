@@ -1,7 +1,9 @@
 import { logger } from '@appium/support';
-import { readFile } from 'node:fs/promises';
+import fs from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
+import { Readable, Writable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 
 import {
   buildClosePayload,
@@ -10,6 +12,7 @@ import {
   buildRemovePayload,
   buildRenamePayload,
   buildStatPayload,
+  nanosecondsToMilliseconds,
   nextReadChunkSize,
   parseCStringArray,
   parseKeyValueNullList,
@@ -24,12 +27,13 @@ import {
   MAXIMUM_READ_SIZE,
 } from './constants.js';
 import { AfcError, AfcOpcode } from './enums.js';
+import { createAfcReadStream, createAfcWriteStream } from './stream-utils.js';
 
 const log = logger.getLogger('AfcService');
 
 export interface StatInfo {
   st_ifmt: string;
-  st_size: number;
+  st_size: bigint;
   st_blocks: number;
   st_mtime: Date;
   st_birthtime: Date;
@@ -45,13 +49,10 @@ export interface StatInfo {
 export class AfcService {
   static readonly RSD_SERVICE_NAME = 'com.apple.afc.shim.remote';
 
-  private readonly address: [string, number];
   private socket: net.Socket | null = null;
   private packetNum: bigint = 0n;
 
-  constructor(address: [string, number]) {
-    this.address = address;
-  }
+  constructor(private readonly address: [string, number]) {}
 
   /**
    * List directory entries. Returned entries do not include '.' and '..'
@@ -62,8 +63,8 @@ export class AfcService {
       buildStatPayload(dirPath),
     );
     const entries = parseCStringArray(data);
-    // Skip '.' and '..'
-    return entries.slice(2).filter((x) => x !== '');
+    // Filter out '.' and '..' entries and empty strings
+    return entries.filter((x) => x !== '' && x !== '.' && x !== '..');
   }
 
   async stat(filePath: string, silent = false): Promise<StatInfo> {
@@ -76,16 +77,12 @@ export class AfcService {
       const kv = parseKeyValueNullList(data);
 
       const out: StatInfo = {
-        st_ifmt: kv.st_ifmt,
-        st_size: Number.parseInt(kv.st_size, 10),
+        st_size: BigInt(kv.st_size),
         st_blocks: Number.parseInt(kv.st_blocks, 10),
-        st_mtime: new Date(Number.parseInt(kv.st_mtime, 10) / 1e6), // ns -> ms
-        st_birthtime: new Date(Number.parseInt(kv.st_birthtime, 10) / 1e6), // ns -> ms
+        st_mtime: new Date(nanosecondsToMilliseconds(kv.st_mtime)),
+        st_birthtime: new Date(nanosecondsToMilliseconds(kv.st_birthtime)),
         st_nlink: Number.parseInt(kv.st_nlink, 10),
-      };
-      if (kv.LinkTarget) {
-        out.LinkTarget = kv.LinkTarget;
-      }
+      } as StatInfo;
       for (const [k, v] of Object.entries(kv)) {
         if (!(k in out)) {
           (out as any)[k] = v;
@@ -148,32 +145,34 @@ export class AfcService {
     await this._doOperation(AfcOpcode.FILE_CLOSE, buildClosePayload(handle));
   }
 
-  async fread(handle: bigint, size: number): Promise<Buffer> {
+  createReadStream(handle: bigint, size: bigint): Readable {
+    return createAfcReadStream(
+      handle,
+      size,
+      this._dispatch.bind(this),
+      this._receive.bind(this),
+    );
+  }
+
+  createWriteStream(handle: bigint, chunkSize?: number): Writable {
+    return createAfcWriteStream(
+      handle,
+      this._dispatch.bind(this),
+      this._receive.bind(this),
+      chunkSize,
+    );
+  }
+
+  async fread(handle: bigint, size: bigint): Promise<Buffer> {
     log.debug(`Reading ${size} bytes from handle ${handle}`);
+    const stream = this.createReadStream(handle, size);
     const chunks: Buffer[] = [];
-    let left = size;
-    let totalRead = 0;
-
-    while (left > 0) {
-      const toRead = nextReadChunkSize(left);
-      await this._dispatch(AfcOpcode.READ, buildReadPayload(handle, toRead));
-      const { status, data } = await this._receive();
-      if (status !== AfcError.SUCCESS) {
-        const errorName = AfcError[status] || 'UNKNOWN';
-        log.error(`Read operation failed with status ${errorName} (${status})`);
-        throw new Error(`fread error: ${errorName} (${status})`);
-      }
-      chunks.push(data);
-      totalRead += data.length;
-      left -= toRead;
-      if (data.length < toRead) {
-        log.debug(`Reached EOF after reading ${totalRead} bytes`);
-        break;
-      }
+    for await (const chunk of stream) {
+      chunks.push(chunk);
     }
-
-    log.debug(`Successfully read ${totalRead} bytes`);
-    return Buffer.concat(chunks);
+    const buffer = Buffer.concat(chunks);
+    log.debug(`Successfully read ${buffer.length} bytes`);
+    return buffer;
   }
 
   async fwrite(
@@ -243,6 +242,40 @@ export class AfcService {
     } finally {
       await this.fclose(h);
     }
+  }
+
+  async getFileStream(filePath: string): Promise<Readable> {
+    log.debug(`Creating read stream for: ${filePath}`);
+    const resolved = await this._resolvePath(filePath);
+    const st = await this.stat(resolved);
+    if (st.st_ifmt !== 'S_IFREG') {
+      throw new Error(`'${resolved}' isn't a regular file`);
+    }
+    const handle = await this.fopen(resolved, 'r');
+    const stream = this.createReadStream(handle, st.st_size);
+    stream.on('end', () => this.fclose(handle).catch(() => {}));
+    stream.on('error', () => this.fclose(handle).catch(() => {}));
+    return stream;
+  }
+
+  async setFileStream(filePath: string, stream: Readable): Promise<void> {
+    log.debug(`Writing stream to file: ${filePath}`);
+    const handle = await this.fopen(filePath, 'w');
+    const writeStream = this.createWriteStream(handle);
+    try {
+      await pipeline(stream, writeStream);
+      log.debug(`Successfully wrote file: ${filePath}`);
+    } finally {
+      await this.fclose(handle);
+    }
+  }
+
+  async pull(remoteSrc: string, localDst: string): Promise<void> {
+    log.debug(`Pulling file from '${remoteSrc}' to '${localDst}'`);
+    const stream = await this.getFileStream(remoteSrc);
+    const writeStream = fs.createWriteStream(localDst);
+    await pipeline(stream, writeStream);
+    log.debug(`Successfully pulled file to '${localDst}'`);
   }
 
   async rmSingle(filePath: string, force = false): Promise<boolean> {
@@ -329,19 +362,9 @@ export class AfcService {
 
   async push(localSrc: string, remoteDst: string): Promise<void> {
     log.debug(`Pushing file from '${localSrc}' to '${remoteDst}'`);
-    try {
-      const buf = await readFile(localSrc);
-      await this.setFileContents(remoteDst, buf);
-      log.debug(
-        `Successfully pushed file to '${remoteDst}' (${buf.length} bytes)`,
-      );
-    } catch (error) {
-      log.error(
-        `Failed to push file from '${localSrc}' to '${remoteDst}':`,
-        error,
-      );
-      throw error;
-    }
+    const readStream = fs.createReadStream(localSrc);
+    await this.setFileStream(remoteDst, readStream);
+    log.debug(`Successfully pushed file to '${remoteDst}'`);
   }
 
   async walk(

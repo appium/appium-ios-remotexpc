@@ -274,7 +274,7 @@ export function buildFopenPayload(mode: AfcFopenMode, path: string): Buffer {
 
 export function buildReadPayload(
   handle: bigint | number,
-  size: number,
+  size: bigint | number,
 ): Buffer {
   return Buffer.concat([writeUInt64LE(handle), writeUInt64LE(BigInt(size))]);
 }
@@ -346,6 +346,16 @@ export async function rsdHandshakeForRawService(
   }
 }
 
-export function nextReadChunkSize(left: number): number {
-  return left > MAXIMUM_READ_SIZE ? MAXIMUM_READ_SIZE : left;
+export function nextReadChunkSize(left: bigint | number): number {
+  const leftNum = typeof left === 'bigint' ? Number(left) : left;
+  return leftNum > MAXIMUM_READ_SIZE ? MAXIMUM_READ_SIZE : leftNum;
+}
+
+/**
+ * Convert nanoseconds to milliseconds for Date construction
+ * @param nanoseconds - Time value in nanoseconds as a string
+ * @returns Time value in milliseconds
+ */
+export function nanosecondsToMilliseconds(nanoseconds: string): number {
+  return Number.parseInt(nanoseconds, 10) / 1e6;
 }
