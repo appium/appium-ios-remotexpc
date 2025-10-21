@@ -19,6 +19,7 @@ export type {
   MobileConfigService,
   SpringboardService,
   WebInspectorService,
+  MisagentService,
   SyslogService,
   SocketInfo,
   TunnelResult,
@@ -30,6 +31,7 @@ export type {
   MobileConfigServiceWithConnection,
   SpringboardServiceWithConnection,
   WebInspectorServiceWithConnection,
+  MisagentServiceWithConnection,
 } from './lib/types.js';
 export {
   createUsbmux,
