@@ -39,7 +39,7 @@ class PowerAssertionService
    * @returns Promise that resolves when the assertion is created
    */
   async createPowerAssertion(
-    type: PowerAssertionType | string,
+    type: PowerAssertionType,
     name: string,
     timeout: number,
     details?: string,

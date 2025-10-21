@@ -6,6 +6,7 @@ import { EventEmitter } from 'events';
 
 import type { ServiceConnection } from '../service-connection.js';
 import type { BaseService, Service } from '../services/ios/base-service.js';
+import type { PowerAssertionType } from '../services/ios/power-assertion/index.js';
 import type { InterfaceOrientation } from '../services/ios/springboard-service/index.js';
 import type { RemoteXpcConnection } from './remote-xpc/remote-xpc-connection.js';
 import type { Device } from './usbmux/index.js';
@@ -226,7 +227,7 @@ export interface PowerAssertionService extends BaseService {
    * @returns Promise that resolves when the assertion is created
    */
   createPowerAssertion(
-    type: string,
+    type: PowerAssertionType,
     name: string,
     timeout: number,
     details?: string,
