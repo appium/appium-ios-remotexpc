@@ -30,10 +30,6 @@ class PowerAssertionService
 
   private _conn: ServiceConnection | null = null;
 
-  constructor(address: [string, number]) {
-    super(address);
-  }
-
   /**
    * Create a power assertion to prevent system sleep
    * @param type The type of power assertion to create
