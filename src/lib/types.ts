@@ -214,6 +214,32 @@ export interface NotificationProxyService extends BaseService {
 }
 
 /**
+ * Represents the PowerAssertionService for preventing system sleep
+ */
+export interface PowerAssertionService extends BaseService {
+  /**
+   * Create a power assertion to prevent system sleep
+   * @param type The type of power assertion to create
+   * @param name A descriptive name for the assertion
+   * @param timeout Timeout in seconds for how long the assertion should last
+   * @param [details] Additional details about the assertion
+   * @returns Promise that resolves when the assertion is created
+   */
+  createPowerAssertion(
+    type: string,
+    name: string,
+    timeout: number,
+    details?: string,
+  ): Promise<PlistDictionary>;
+
+  /**
+   * Close the connection to the power assertion service
+   * @returns Promise that resolves when the connection is closed
+   */
+  close(): Promise<void>;
+}
+
+/**
  * Represents the static side of MobileConfigService
  */
 export interface MobileConfigService extends BaseService {
@@ -308,6 +334,17 @@ export interface NotificationProxyServiceWithConnection {
 export interface MobileConfigServiceWithConnection {
   /** The MobileConfigService instance */
   mobileConfigService: MobileConfigService;
+  /** The RemoteXPC connection that can be used to close the connection */
+  remoteXPC: RemoteXpcConnection;
+}
+
+/**
+ * Represents a PowerAssertionService instance with its associated RemoteXPC connection
+ * This allows callers to properly manage the connection lifecycle
+ */
+export interface PowerAssertionServiceWithConnection {
+  /** The PowerAssertionService instance */
+  powerAssertionService: PowerAssertionService;
   /** The RemoteXPC connection that can be used to close the connection */
   remoteXPC: RemoteXpcConnection;
 }
