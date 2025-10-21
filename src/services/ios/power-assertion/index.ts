@@ -1,6 +1,9 @@
 import { logger } from '@appium/support';
 
-import type { PlistDictionary } from '../../../lib/types.js';
+import type {
+  PlistDictionary,
+  PowerAssertionService as PowerAssertionServiceInterface,
+} from '../../../lib/types.js';
 import { ServiceConnection } from '../../../service-connection.js';
 import { BaseService } from '../base-service.js';
 
@@ -9,7 +12,7 @@ const log = logger.getLogger('PowerAssertionService');
 /**
  * Power assertion types that can be used to prevent system sleep
  */
-export enum PowerAssertionType {
+enum PowerAssertionType {
   WIRELESS_SYNC = 'AMDPowerAssertionTypeWirelessSync',
   PREVENT_USER_IDLE_SYSTEM_SLEEP = 'PreventUserIdleSystemSleep',
   PREVENT_SYSTEM_SLEEP = 'PreventSystemSleep',
@@ -18,7 +21,10 @@ export enum PowerAssertionType {
 /**
  * PowerAssertionService provides an API to create power assertions.
  */
-export class PowerAssertionService extends BaseService {
+class PowerAssertionService
+  extends BaseService
+  implements PowerAssertionServiceInterface
+{
   static readonly RSD_SERVICE_NAME =
     'com.apple.mobile.assertion_agent.shim.remote';
 
@@ -100,3 +106,5 @@ export class PowerAssertionService extends BaseService {
     return request;
   }
 }
+
+export { PowerAssertionService, PowerAssertionType };
