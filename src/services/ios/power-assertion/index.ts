@@ -41,7 +41,7 @@ export class PowerAssertionService extends BaseService {
     name: string,
     timeout: number,
     details?: string,
-  ): Promise<PlistDictionary> {
+  ): Promise<void> {
     if (!this._conn) {
       this._conn = await this.connectToPowerAssertionService();
     }
@@ -52,13 +52,10 @@ export class PowerAssertionService extends BaseService {
       timeout,
       details,
     );
-    // receive the StartService response first
-    await this._conn.sendPlistRequest(request as unknown as PlistDictionary);
-    const result = await this._conn.receive();
+    await this._conn.sendPlistRequest(request);
     log.info(
       `Power assertion created: type="${type}", name="${name}", timeout=${timeout}s`,
     );
-    return result;
   }
 
   /**

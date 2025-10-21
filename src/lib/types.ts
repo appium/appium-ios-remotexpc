@@ -230,7 +230,7 @@ export interface PowerAssertionService extends BaseService {
     name: string,
     timeout: number,
     details?: string,
-  ): Promise<PlistDictionary>;
+  ): Promise<void>;
 
   /**
    * Close the connection to the power assertion service
