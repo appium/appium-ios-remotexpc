@@ -6,6 +6,7 @@ import { EventEmitter } from 'events';
 
 import type { ServiceConnection } from '../service-connection.js';
 import type { BaseService, Service } from '../services/ios/base-service.js';
+import { ProvisioningProfile } from '../services/ios/misagent/provisioning-profile.js';
 import type { InterfaceOrientation } from '../services/ios/springboard-service/index.js';
 import type { RemoteXpcConnection } from './remote-xpc/remote-xpc-connection.js';
 import type { Device } from './usbmux/index.js';
@@ -732,5 +733,64 @@ export interface SpringboardServiceWithConnection {
   /** The SpringboardService instance */
   springboardService: SpringboardService;
   /** The RemoteXPC connection for service management */
+  remoteXPC: RemoteXpcConnection;
+}
+
+/**
+ * Represents the instance side of MisagentService
+ */
+export interface MisagentService extends BaseService {
+  /**
+   * Installs a provisioning profile from a file path
+   * @param path The file path of the provisioning profile
+   */
+  installProfileFromPath(path: string): Promise<void>;
+  /**
+   * Installs a provisioning profile from a buffer
+   * @param payload The buffer containing the provisioning profile data
+   */
+  installProfile(payload: Buffer): Promise<void>;
+  /**
+   * Removes a provisioning profile by its UUID
+   * @param uuid The uuid of the provisioning profile to remove
+   */
+  removeProfile(uuid: string): Promise<void>;
+
+  /**
+   * Copies all provisioning profiles from the device
+   * This can be used for listing installed provisioning profiles and backing them up
+   * @returns {Promise<ProvisioningProfile[]>}
+   * e.g.
+   *  [
+   *  {
+   *    "AppIDName": "Apple Development: John Doe (ABCDE12345)",
+   *    "ApplicationIdentifierPrefix": [
+   *       "ABCDE12345"
+   *     ],
+   *  "CreationDate": "2023-10-01T12:34:56Z",
+   *   "Platform": [
+   *    "iOS",
+   *    "xrOS",
+   *  ],
+   * IsXcodeManaged": false,
+   * "DeveloperCertificates": [ <Buffer ...> ],
+   * "Entitlements": {
+   *    "application-identifier": "ABCDE12345.com.example.app",
+   *    "get-task-allow": true,
+   *    ...
+   *  },
+   *  "ExpirationDate": "2024-10-01T12:34:56Z",
+   *  "Name": "Apple Development: John Doe (ABCDE12345)",
+   *  "UUID": "12345678-90AB-CDEF-1234-567890ABCDEF",
+   *  "Version": 1,
+   *  ...
+   * },
+   * ]
+   */
+  copyAll(): Promise<ProvisioningProfile[]>;
+}
+
+export interface MisagentServiceWithConnection {
+  misagentService: MisagentService;
   remoteXPC: RemoteXpcConnection;
 }
