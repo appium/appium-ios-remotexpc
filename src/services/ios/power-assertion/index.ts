@@ -2,7 +2,6 @@ import { logger } from '@appium/support';
 
 import type {
   PlistDictionary,
-  PowerAssertionOptions,
   PowerAssertionService as PowerAssertionServiceInterface,
 } from '../../../lib/types.js';
 import { ServiceConnection } from '../../../service-connection.js';
@@ -17,6 +16,16 @@ enum PowerAssertionType {
   WIRELESS_SYNC = 'AMDPowerAssertionTypeWirelessSync',
   PREVENT_USER_IDLE_SYSTEM_SLEEP = 'PreventUserIdleSystemSleep',
   PREVENT_SYSTEM_SLEEP = 'PreventSystemSleep',
+}
+
+/**
+ * Options for power assertion creation
+ */
+export interface PowerAssertionOptions {
+  type: PowerAssertionType;
+  name: string;
+  timeout: number; // timeout in seconds
+  details?: string;
 }
 
 /**
@@ -62,7 +71,7 @@ class PowerAssertionService
   private async connectToPowerAssertionService(): Promise<ServiceConnection> {
     const service = {
       serviceName: PowerAssertionService.RSD_SERVICE_NAME,
-      port: String(this.address[1]),
+      port: this.address[1].toString(),
     };
     log.debug(
       `Connecting to power assertion service at ${this.address[0]}:${this.address[1]}`,

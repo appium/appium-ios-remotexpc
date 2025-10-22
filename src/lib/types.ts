@@ -6,7 +6,7 @@ import { EventEmitter } from 'events';
 
 import type { ServiceConnection } from '../service-connection.js';
 import type { BaseService, Service } from '../services/ios/base-service.js';
-import type { PowerAssertionType } from '../services/ios/power-assertion/index.js';
+import type { PowerAssertionOptions } from '../services/ios/power-assertion/index.js';
 import type { InterfaceOrientation } from '../services/ios/springboard-service/index.js';
 import type { RemoteXpcConnection } from './remote-xpc/remote-xpc-connection.js';
 import type { Device } from './usbmux/index.js';
@@ -212,20 +212,6 @@ export interface NotificationProxyService extends BaseService {
    * @returns Promise resolving to the expected notification
    */
   expectNotification(timeout?: number): Promise<PlistMessage>;
-}
-
-/**
- * Options for creating a power assertion
- */
-export interface PowerAssertionOptions {
-  /** The type of power assertion to create */
-  type: PowerAssertionType;
-  /** A descriptive name for the assertion */
-  name: string;
-  /** Timeout in seconds for how long the assertion should last */
-  timeout: number;
-  /** Additional details about the assertion */
-  details?: string;
 }
 
 /**
