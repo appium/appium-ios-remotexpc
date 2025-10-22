@@ -11,6 +11,8 @@ import type { InterfaceOrientation } from '../services/ios/springboard-service/i
 import type { RemoteXpcConnection } from './remote-xpc/remote-xpc-connection.js';
 import type { Device } from './usbmux/index.js';
 
+export type { PowerAssertionOptions };
+
 /**
  * Represents a value that can be stored in a plist
  */
