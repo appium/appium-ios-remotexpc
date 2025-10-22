@@ -2,6 +2,7 @@ import { logger } from '@appium/support';
 
 import type {
   PlistDictionary,
+  PowerAssertionOptions,
   PowerAssertionService as PowerAssertionServiceInterface,
 } from '../../../lib/types.js';
 import { ServiceConnection } from '../../../service-connection.js';
@@ -32,31 +33,18 @@ class PowerAssertionService
 
   /**
    * Create a power assertion to prevent system sleep
-   * @param type The type of power assertion to create
-   * @param name A descriptive name for the assertion
-   * @param timeout Timeout in seconds for how long the assertion should last
-   * @param [details] Additional details about the assertion
+   * @param options Options for creating the power assertion
    * @returns Promise that resolves when the assertion is created
    */
-  async createPowerAssertion(
-    type: PowerAssertionType,
-    name: string,
-    timeout: number,
-    details?: string,
-  ): Promise<void> {
+  async createPowerAssertion(options: PowerAssertionOptions): Promise<void> {
     if (!this._conn) {
       this._conn = await this.connectToPowerAssertionService();
     }
 
-    const request = this.buildCreateAssertionRequest(
-      type,
-      name,
-      timeout,
-      details,
-    );
+    const request = this.buildCreateAssertionRequest(options);
     await this._conn.sendPlistRequest(request);
     log.info(
-      `Power assertion created: type="${type}", name="${name}", timeout=${timeout}s`,
+      `Power assertion created: type="${options.type}", name="${options.name}", timeout=${options.timeout}s`,
     );
   }
 
@@ -83,20 +71,17 @@ class PowerAssertionService
   }
 
   private buildCreateAssertionRequest(
-    type: string,
-    name: string,
-    timeout: number,
-    details?: string,
+    options: PowerAssertionOptions,
   ): PlistDictionary {
     const request: PlistDictionary = {
       CommandKey: 'CommandCreateAssertion',
-      AssertionTypeKey: type,
-      AssertionNameKey: name,
-      AssertionTimeoutKey: timeout,
+      AssertionTypeKey: options.type,
+      AssertionNameKey: options.name,
+      AssertionTimeoutKey: options.timeout,
     };
 
-    if (details !== undefined) {
-      request.AssertionDetailKey = details;
+    if (options.details !== undefined) {
+      request.AssertionDetailKey = options.details;
     }
 
     return request;

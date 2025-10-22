@@ -215,23 +215,29 @@ export interface NotificationProxyService extends BaseService {
 }
 
 /**
+ * Options for creating a power assertion
+ */
+export interface PowerAssertionOptions {
+  /** The type of power assertion to create */
+  type: PowerAssertionType;
+  /** A descriptive name for the assertion */
+  name: string;
+  /** Timeout in seconds for how long the assertion should last */
+  timeout: number;
+  /** Additional details about the assertion */
+  details?: string;
+}
+
+/**
  * Represents the PowerAssertionService for preventing system sleep
  */
 export interface PowerAssertionService extends BaseService {
   /**
    * Create a power assertion to prevent system sleep
-   * @param type The type of power assertion to create
-   * @param name A descriptive name for the assertion
-   * @param timeout Timeout in seconds for how long the assertion should last
-   * @param [details] Additional details about the assertion
+   * @param options Options for creating the power assertion
    * @returns Promise that resolves when the assertion is created
    */
-  createPowerAssertion(
-    type: PowerAssertionType,
-    name: string,
-    timeout: number,
-    details?: string,
-  ): Promise<void>;
+  createPowerAssertion(options: PowerAssertionOptions): Promise<void>;
 
   /**
    * Close the connection to the power assertion service

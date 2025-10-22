@@ -18,6 +18,7 @@ export type {
   NotificationProxyService,
   MobileConfigService,
   PowerAssertionService,
+  PowerAssertionOptions,
   SpringboardService,
   WebInspectorService,
   SyslogService,
