@@ -34,6 +34,7 @@ export type {
   SpringboardServiceWithConnection,
   WebInspectorServiceWithConnection,
 } from './lib/types.js';
+export { PowerAssertionType } from './lib/types.js';
 export {
   createUsbmux,
   Services,

@@ -7,11 +7,13 @@ import { EventEmitter } from 'events';
 import type { ServiceConnection } from '../service-connection.js';
 import type { BaseService, Service } from '../services/ios/base-service.js';
 import type { PowerAssertionOptions } from '../services/ios/power-assertion/index.js';
+import { PowerAssertionType } from '../services/ios/power-assertion/index.js';
 import type { InterfaceOrientation } from '../services/ios/springboard-service/index.js';
 import type { RemoteXpcConnection } from './remote-xpc/remote-xpc-connection.js';
 import type { Device } from './usbmux/index.js';
 
 export type { PowerAssertionOptions };
+export { PowerAssertionType };
 
 /**
  * Represents a value that can be stored in a plist

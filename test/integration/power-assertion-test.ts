@@ -1,8 +1,11 @@
 import { logger } from '@appium/support';
 
-import type { PowerAssertionService } from '../../src/index.js';
+import type {
+  PowerAssertionOptions,
+  PowerAssertionService,
+} from '../../src/index.js';
+import { PowerAssertionType } from '../../src/index.js';
 import * as Services from '../../src/services.js';
-import { PowerAssertionType } from '../../src/services/ios/power-assertion/index.js';
 
 const log = logger.getLogger('PowerAssertionService.test');
 log.level = 'debug';
@@ -38,12 +41,14 @@ describe('PowerAssertionService Integration', function () {
   it('should create power assertion and verify in syslog', async function () {
     const assertionName = 'KeepAwakeTest';
 
-    // Create power assertion of 2 seconds
-    await powerAssertionService.createPowerAssertion({
+    const options: PowerAssertionOptions = {
       type: PowerAssertionType.PREVENT_SYSTEM_SLEEP,
       name: assertionName,
-      timeout: 2,
-    });
+      timeout: 1,
+    };
+
+    // Create power assertion of 2 seconds
+    await powerAssertionService.createPowerAssertion(options);
   });
 
   it('should create power assertion with details', async function () {
