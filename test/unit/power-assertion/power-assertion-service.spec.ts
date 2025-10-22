@@ -16,11 +16,11 @@ describe('PowerAssertionService', function () {
   describe('buildCreateAssertionRequest', function () {
     it('should build request without details', function () {
       const service = new PowerAssertionService(['127.0.0.1', 12345]);
-      const request = (service as any).buildCreateAssertionRequest(
-        PowerAssertionType.PREVENT_USER_IDLE_SYSTEM_SLEEP,
-        'TestAssertion',
-        30,
-      );
+      const request = (service as any).buildCreateAssertionRequest({
+        type: PowerAssertionType.PREVENT_USER_IDLE_SYSTEM_SLEEP,
+        name: 'TestAssertion',
+        timeout: 30,
+      });
 
       expect(request).to.deep.equal({
         CommandKey: 'CommandCreateAssertion',
@@ -32,12 +32,12 @@ describe('PowerAssertionService', function () {
 
     it('should build request with details', function () {
       const service = new PowerAssertionService(['127.0.0.1', 12345]);
-      const request = (service as any).buildCreateAssertionRequest(
-        PowerAssertionType.PREVENT_SYSTEM_SLEEP,
-        'TestAssertion',
-        60,
-        'Running important task',
-      );
+      const request = (service as any).buildCreateAssertionRequest({
+        type: PowerAssertionType.PREVENT_SYSTEM_SLEEP,
+        name: 'TestAssertion',
+        timeout: 60,
+        details: 'Running important task',
+      });
 
       expect(request).to.deep.equal({
         CommandKey: 'CommandCreateAssertion',
