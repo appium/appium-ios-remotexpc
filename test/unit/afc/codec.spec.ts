@@ -3,6 +3,7 @@ import { expect } from 'chai';
 import {
   cstr,
   encodeHeader,
+  nanosecondsToMilliseconds,
   parseCStringArray,
   parseKeyValueNullList,
   readUInt64LE,
@@ -101,5 +102,11 @@ describe('AFC Codec Utilities', function () {
     expect(AFC_FOPEN_TEXTUAL_MODES['w+']).to.equal(AfcFopenMode.WR);
     expect(AFC_FOPEN_TEXTUAL_MODES['a']).to.equal(AfcFopenMode.APPEND);
     expect(AFC_FOPEN_TEXTUAL_MODES['a+']).to.equal(AfcFopenMode.RDAPPEND);
+  });
+
+  it('should convert nanoseconds to milliseconds without overflow', function () {
+    const ns = '1729866045000000000';
+    const ms = nanosecondsToMilliseconds(ns);
+    expect(ms).to.equal(1729866045000);
   });
 });

@@ -78,6 +78,32 @@ type SocketState = {
 
 const SOCKET_STATES = new WeakMap<net.Socket, SocketState>();
 
+function cleanupSocketState(socket: net.Socket, error?: Error): void {
+  const state = SOCKET_STATES.get(socket);
+  if (!state) {
+    return;
+  }
+
+  // Remove all event listeners to prevent memory leaks
+  socket.removeListener('data', state.onData);
+  socket.removeListener('error', state.onError);
+  socket.removeListener('close', state.onClose);
+  socket.removeListener('end', state.onClose);
+
+  // Reject any pending waiters
+  const err = error || new Error('Socket closed');
+  while (state.waiters.length) {
+    const w = state.waiters.shift()!;
+    if (w.timer) {
+      clearTimeout(w.timer);
+    }
+    w.reject(err);
+  }
+
+  // Remove from WeakMap
+  SOCKET_STATES.delete(socket);
+}
+
 function ensureSocketState(socket: net.Socket): SocketState {
   let state = SOCKET_STATES.get(socket);
   if (state) {
@@ -105,33 +131,10 @@ function ensureSocketState(socket: net.Socket): SocketState {
       }
     },
     onError: (err: Error) => {
-      const st = SOCKET_STATES.get(socket);
-      if (!st) {
-        return;
-      }
-      while (st.waiters.length) {
-        const w = st.waiters.shift()!;
-        if (w.timer) {
-          clearTimeout(w.timer);
-        }
-        w.reject(err);
-      }
-      SOCKET_STATES.delete(socket);
+      cleanupSocketState(socket, err);
     },
     onClose: () => {
-      const st = SOCKET_STATES.get(socket);
-      if (!st) {
-        return;
-      }
-      const err = new Error('Socket closed');
-      while (st.waiters.length) {
-        const w = st.waiters.shift()!;
-        if (w.timer) {
-          clearTimeout(w.timer);
-        }
-        w.reject(err);
-      }
-      SOCKET_STATES.delete(socket);
+      cleanupSocketState(socket);
     },
   };
 
@@ -357,5 +360,5 @@ export function nextReadChunkSize(left: bigint | number): number {
  * @returns Time value in milliseconds
  */
 export function nanosecondsToMilliseconds(nanoseconds: string): number {
-  return Number.parseInt(nanoseconds, 10) / 1e6;
+  return Number(BigInt(nanoseconds) / 1000000n);
 }

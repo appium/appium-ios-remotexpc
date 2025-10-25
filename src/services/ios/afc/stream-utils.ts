@@ -4,10 +4,18 @@ import { buildReadPayload, nextReadChunkSize, writeUInt64LE } from './codec.js';
 import { AFC_WRITE_THIS_LENGTH, MAXIMUM_READ_SIZE } from './constants.js';
 import { AfcError, AfcOpcode } from './enums.js';
 
+type AfcDispatcher = (op: AfcOpcode, payload: Buffer) => Promise<void>;
+
+type AfcWriteDispatcher = (
+  op: AfcOpcode,
+  payload: Buffer,
+  thisLenOverride?: number,
+) => Promise<void>;
+
 export function createAfcReadStream(
   handle: bigint,
   size: bigint,
-  dispatch: (op: AfcOpcode, payload: Buffer) => Promise<void>,
+  dispatch: AfcDispatcher,
   receive: () => Promise<{ status: AfcError; data: Buffer }>,
 ): Readable {
   let left = size;
@@ -48,21 +56,17 @@ export function createAfcReadStream(
 
 export function createAfcWriteStream(
   handle: bigint,
-  dispatch: (
-    op: AfcOpcode,
-    payload: Buffer,
-    thisLenOverride?: number,
-  ) => Promise<void>,
+  dispatch: AfcWriteDispatcher,
   receive: () => Promise<{ status: AfcError; data: Buffer }>,
   chunkSize?: number,
 ): Writable {
   const effectiveChunkSize = Math.min(
-    chunkSize ?? Number.MAX_SAFE_INTEGER,
+    chunkSize ?? MAXIMUM_READ_SIZE * 256,
     MAXIMUM_READ_SIZE * 256,
   );
 
   return new Writable({
-    async write(chunk: Buffer, encoding, callback) {
+    async write(chunk: Buffer, encoding: BufferEncoding, callback: (error?: Error | null) => void) {
       try {
         let offset = 0;
         while (offset < chunk.length) {

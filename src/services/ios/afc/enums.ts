@@ -62,3 +62,9 @@ export enum AfcFopenMode {
   APPEND = 0x00000005, // 'a'
   RDAPPEND = 0x00000006, // 'a+'
 }
+
+export enum AfcFileMode {
+  S_IFDIR = 'S_IFDIR',
+  S_IFREG = 'S_IFREG',
+  S_IFLNK = 'S_IFLNK',
+}

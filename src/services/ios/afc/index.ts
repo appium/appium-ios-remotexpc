@@ -26,13 +26,15 @@ import {
   AFC_WRITE_THIS_LENGTH,
   MAXIMUM_READ_SIZE,
 } from './constants.js';
-import { AfcError, AfcOpcode } from './enums.js';
+import { AfcError, AfcFileMode, AfcOpcode } from './enums.js';
 import { createAfcReadStream, createAfcWriteStream } from './stream-utils.js';
 
 const log = logger.getLogger('AfcService');
 
+const NON_LISTABLE_ENTRIES = ['', '.', '..'];
+
 export interface StatInfo {
-  st_ifmt: string;
+  st_ifmt: AfcFileMode;
   st_size: bigint;
   st_blocks: number;
   st_mtime: Date;
@@ -63,8 +65,7 @@ export class AfcService {
       buildStatPayload(dirPath),
     );
     const entries = parseCStringArray(data);
-    // Filter out '.' and '..' entries and empty strings
-    return entries.filter((x) => x !== '' && x !== '.' && x !== '..');
+    return entries.filter((x) => !NON_LISTABLE_ENTRIES.includes(x));
   }
 
   async stat(filePath: string, silent = false): Promise<StatInfo> {
@@ -99,7 +100,7 @@ export class AfcService {
 
   async isdir(filePath: string): Promise<boolean> {
     const st = await this.stat(filePath);
-    return st.st_ifmt === 'S_IFDIR';
+    return st.st_ifmt === AfcFileMode.S_IFDIR;
   }
 
   async exists(filePath: string): Promise<boolean> {
@@ -116,7 +117,7 @@ export class AfcService {
     mode: keyof typeof AFC_FOPEN_TEXTUAL_MODES = 'r',
   ): Promise<bigint> {
     const afcMode = AFC_FOPEN_TEXTUAL_MODES[mode];
-    if (afcMode == null) {
+    if (afcMode === null) {
       const allowedModes = Object.keys(AFC_FOPEN_TEXTUAL_MODES).join(', ');
       log.error(`Invalid fopen mode '${mode}'. Allowed modes: ${allowedModes}`);
       throw new Error(`Invalid fopen mode '${mode}'. Allowed: ${allowedModes}`);
@@ -178,7 +179,7 @@ export class AfcService {
   async fwrite(
     handle: bigint,
     data: Buffer,
-    chunkSize = Number.MAX_SAFE_INTEGER,
+    chunkSize = MAXIMUM_READ_SIZE * 256,
   ): Promise<void> {
     log.debug(`Writing ${data.length} bytes to handle ${handle}`);
     const effectiveChunkSize = Math.min(chunkSize, MAXIMUM_READ_SIZE * 256);
@@ -217,7 +218,7 @@ export class AfcService {
     log.debug(`Reading file contents: ${filePath}`);
     const resolved = await this._resolvePath(filePath);
     const st = await this.stat(resolved);
-    if (st.st_ifmt !== 'S_IFREG') {
+    if (st.st_ifmt !== AfcFileMode.S_IFREG) {
       log.error(
         `Path '${resolved}' is not a regular file (type: ${st.st_ifmt})`,
       );
@@ -239,6 +240,9 @@ export class AfcService {
     try {
       await this.fwrite(h, data);
       log.debug(`Successfully wrote file: ${filePath}`);
+    } catch (error) {
+      await this.rmSingle(filePath, true);
+      throw error;
     } finally {
       await this.fclose(h);
     }
@@ -248,23 +252,25 @@ export class AfcService {
     log.debug(`Creating read stream for: ${filePath}`);
     const resolved = await this._resolvePath(filePath);
     const st = await this.stat(resolved);
-    if (st.st_ifmt !== 'S_IFREG') {
+    if (st.st_ifmt !== AfcFileMode.S_IFREG) {
       throw new Error(`'${resolved}' isn't a regular file`);
     }
     const handle = await this.fopen(resolved, 'r');
     const stream = this.createReadStream(handle, st.st_size);
-    stream.on('end', () => this.fclose(handle).catch(() => {}));
-    stream.on('error', () => this.fclose(handle).catch(() => {}));
+    stream.once('close', () => this.fclose(handle).catch(() => {}));
     return stream;
   }
 
-  async setFileStream(filePath: string, stream: Readable): Promise<void> {
+  async writeFromStream(filePath: string, stream: Readable): Promise<void> {
     log.debug(`Writing stream to file: ${filePath}`);
     const handle = await this.fopen(filePath, 'w');
     const writeStream = this.createWriteStream(handle);
     try {
       await pipeline(stream, writeStream);
       log.debug(`Successfully wrote file: ${filePath}`);
+    } catch (error) {
+      await this.rmSingle(filePath, true);
+      throw error;
     } finally {
       await this.fclose(handle);
     }
@@ -302,10 +308,7 @@ export class AfcService {
 
   async rm(filePath: string, force = false): Promise<string[]> {
     if (!(await this.exists(filePath))) {
-      if (!(await this.rmSingle(filePath, force))) {
-        return [filePath];
-      }
-      return [];
+      return force ? [] : [filePath];
     }
 
     if (!(await this.isdir(filePath))) {
@@ -340,10 +343,7 @@ export class AfcService {
       }
     }
 
-    if (undeleted.length) {
-      throw new Error(`Failed to delete paths: ${JSON.stringify(undeleted)}`);
-    }
-    return [];
+    return undeleted;
   }
 
   async rename(src: string, dst: string): Promise<void> {
@@ -363,7 +363,7 @@ export class AfcService {
   async push(localSrc: string, remoteDst: string): Promise<void> {
     log.debug(`Pushing file from '${localSrc}' to '${remoteDst}'`);
     const readStream = fs.createReadStream(localSrc);
-    await this.setFileStream(remoteDst, readStream);
+    await this.writeFromStream(remoteDst, readStream);
     log.debug(`Successfully pushed file to '${remoteDst}'`);
   }
 
@@ -433,7 +433,7 @@ export class AfcService {
 
   private async _resolvePath(filePath: string): Promise<string> {
     const info = await this.stat(filePath);
-    if (info.st_ifmt === 'S_IFLNK' && info.LinkTarget) {
+    if (info.st_ifmt === AfcFileMode.S_IFLNK && info.LinkTarget) {
       const target = info.LinkTarget;
       if (target.startsWith('/')) {
         return target;
@@ -449,9 +449,7 @@ export class AfcService {
     thisLenOverride?: number,
   ): Promise<void> {
     const sock = await this._connect();
-    const cur = this.packetNum;
-    await sendAfcPacket(sock, op, cur, payload, thisLenOverride);
-    this.packetNum = cur + 1n;
+    await sendAfcPacket(sock, op, this.packetNum++, payload, thisLenOverride);
   }
 
   private async _receive(): Promise<{ status: AfcError; data: Buffer }> {
