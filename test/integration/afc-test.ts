@@ -1,12 +1,12 @@
 import { expect } from 'chai';
-import { Readable } from 'node:stream';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { Readable } from 'node:stream';
 
 import { Services } from '../../src/index.js';
-import AfcService from '../../src/services/ios/afc/index.js';
 import { AfcFileMode } from '../../src/services/ios/afc/enums.js';
+import AfcService from '../../src/services/ios/afc/index.js';
 
 describe('AFC Service', function () {
   // Allow extra time for device interaction
@@ -104,9 +104,15 @@ describe('AFC Service', function () {
   });
 
   it('should push and pull files between local and device', async function () {
-    const localSrcPath = path.join(os.tmpdir(), `afc_push_test_${Date.now()}.txt`);
+    const localSrcPath = path.join(
+      os.tmpdir(),
+      `afc_push_test_${Date.now()}.txt`,
+    );
     const remotePath = `/Downloads/afc_push_test_${Date.now()}.txt`;
-    const localDstPath = path.join(os.tmpdir(), `afc_pull_test_${Date.now()}.txt`);
+    const localDstPath = path.join(
+      os.tmpdir(),
+      `afc_pull_test_${Date.now()}.txt`,
+    );
     const testContent = 'push and pull test content';
 
     try {

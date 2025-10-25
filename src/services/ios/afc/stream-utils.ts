@@ -66,7 +66,11 @@ export function createAfcWriteStream(
   );
 
   return new Writable({
-    async write(chunk: Buffer, encoding: BufferEncoding, callback: (error?: Error | null) => void) {
+    async write(
+      chunk: Buffer,
+      encoding: BufferEncoding,
+      callback: (error?: Error | null) => void,
+    ) {
       try {
         let offset = 0;
         while (offset < chunk.length) {
