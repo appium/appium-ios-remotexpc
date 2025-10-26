@@ -49,8 +49,11 @@ export class AfcService {
 
   private socket: net.Socket | null = null;
   private packetNum: bigint = 0n;
+  private silent: boolean = false;
 
-  constructor(private readonly address: [string, number]) {}
+  constructor(private readonly address: [string, number], silent?: boolean) {
+    this.silent = silent ?? (process.env.NODE_ENV !== 'test');
+  }
 
   /**
    * List directory entries. Returned entries do not include '.' and '..'
@@ -64,7 +67,7 @@ export class AfcService {
     return entries.filter((x) => !NON_LISTABLE_ENTRIES.includes(x));
   }
 
-  async stat(filePath: string, silent = false): Promise<StatInfo> {
+  async stat(filePath: string): Promise<StatInfo> {
     log.debug(`Getting file info for: ${filePath}`);
     try {
       const data = await this._doOperation(
@@ -87,7 +90,7 @@ export class AfcService {
       }
       return out;
     } catch (error) {
-      if (!silent) {
+      if (!this.silent) {
         log.error(`Failed to stat file '${filePath}':`, error);
       }
       throw error;
@@ -101,7 +104,7 @@ export class AfcService {
 
   async exists(filePath: string): Promise<boolean> {
     try {
-      await this.stat(filePath, true);
+      await this.stat(filePath);
       return true;
     } catch {
       return false;
@@ -115,7 +118,9 @@ export class AfcService {
     const afcMode = AFC_FOPEN_TEXTUAL_MODES[mode];
     if (!afcMode) {
       const allowedModes = Object.keys(AFC_FOPEN_TEXTUAL_MODES).join(', ');
-      log.error(`Invalid fopen mode '${mode}'. Allowed modes: ${allowedModes}`);
+      if (!this.silent) {
+        log.error(`Invalid fopen mode '${mode}'. Allowed modes: ${allowedModes}`);
+      }
       throw new Error(`Invalid fopen mode '${mode}'. Allowed: ${allowedModes}`);
     }
 
@@ -130,10 +135,12 @@ export class AfcService {
       log.debug(`File opened successfully, handle: ${handle}`);
       return handle;
     } catch (error) {
-      log.error(
-        `Failed to open file '${filePath}' with mode '${mode}':`,
-        error,
-      );
+      if (!this.silent) {
+        log.error(
+          `Failed to open file '${filePath}' with mode '${mode}':`,
+          error,
+        );
+      }
       throw error;
     }
   }
@@ -195,9 +202,11 @@ export class AfcService {
       const { status } = await this._receive();
       if (status !== AfcError.SUCCESS) {
         const errorName = AfcError[status] || 'UNKNOWN';
-        log.error(
-          `Write operation failed at offset ${offset} with status ${errorName} (${status})`,
-        );
+        if (!this.silent) {
+          log.error(
+            `Write operation failed at offset ${offset} with status ${errorName} (${status})`,
+          );
+        }
         throw new Error(
           `fwrite chunk failed with ${errorName} (${status}) at offset ${offset}`,
         );
@@ -215,9 +224,11 @@ export class AfcService {
     const resolved = await this._resolvePath(filePath);
     const st = await this.stat(resolved);
     if (st.st_ifmt !== AfcFileMode.S_IFREG) {
-      log.error(
-        `Path '${resolved}' is not a regular file (type: ${st.st_ifmt})`,
-      );
+      if (!this.silent) {
+        log.error(
+          `Path '${resolved}' is not a regular file (type: ${st.st_ifmt})`,
+        );
+      }
       throw new Error(`'${resolved}' isn't a regular file`);
     }
     const h = await this.fopen(resolved, 'r');
@@ -297,7 +308,9 @@ export class AfcService {
         );
         return false;
       }
-      log.error(`Failed to remove '${filePath}':`, error);
+      if (!this.silent) {
+        log.error(`Failed to remove '${filePath}':`, error);
+      }
       throw error;
     }
   }
@@ -351,7 +364,9 @@ export class AfcService {
       );
       log.debug(`Successfully renamed '${src}' to '${dst}'`);
     } catch (error) {
-      log.error(`Failed to rename '${src}' to '${dst}':`, error);
+      if (!this.silent) {
+        log.error(`Failed to rename '${src}' to '${dst}':`, error);
+      }
       throw error;
     }
   }
@@ -475,9 +490,11 @@ export class AfcService {
         throw new Error(`AFC error: OBJECT_NOT_FOUND for operation ${opName}`);
       }
 
-      log.error(
-        `AFC operation ${opName} failed with status ${errorName} (${status})`,
-      );
+      if (!this.silent) {
+        log.error(
+          `AFC operation ${opName} failed with status ${errorName} (${status})`,
+        );
+      }
       throw new Error(
         `AFC operation ${opName} failed with ${errorName} (${status})`,
       );
