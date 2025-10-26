@@ -12,7 +12,7 @@ const log = logger.getLogger('PowerAssertionService');
 /**
  * Power assertion types that can be used to prevent system sleep
  */
-enum PowerAssertionType {
+export enum PowerAssertionType {
   WIRELESS_SYNC = 'AMDPowerAssertionTypeWirelessSync',
   PREVENT_USER_IDLE_SYSTEM_SLEEP = 'PreventUserIdleSystemSleep',
   PREVENT_SYSTEM_SLEEP = 'PreventSystemSleep',
@@ -97,4 +97,4 @@ class PowerAssertionService
   }
 }
 
-export { PowerAssertionService, PowerAssertionType };
+export { PowerAssertionService };
