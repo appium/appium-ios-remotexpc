@@ -25,3 +25,5 @@ export const AFC_HEADER_SIZE = 40;
 
 // Override for WRITE packets' this_length
 export const AFC_WRITE_THIS_LENGTH = 48;
+
+export const NULL_BYTE = Buffer.from([0]);

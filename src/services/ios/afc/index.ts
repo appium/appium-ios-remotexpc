@@ -21,11 +21,7 @@ import {
   sendAfcPacket,
   writeUInt64LE,
 } from './codec.js';
-import {
-  AFC_FOPEN_TEXTUAL_MODES,
-  AFC_WRITE_THIS_LENGTH,
-  MAXIMUM_READ_SIZE,
-} from './constants.js';
+import { AFC_FOPEN_TEXTUAL_MODES, AFC_WRITE_THIS_LENGTH } from './constants.js';
 import { AfcError, AfcFileMode, AfcOpcode } from './enums.js';
 import { createAfcReadStream, createAfcWriteStream } from './stream-utils.js';
 
@@ -117,7 +113,7 @@ export class AfcService {
     mode: keyof typeof AFC_FOPEN_TEXTUAL_MODES = 'r',
   ): Promise<bigint> {
     const afcMode = AFC_FOPEN_TEXTUAL_MODES[mode];
-    if (afcMode === null) {
+    if (!afcMode) {
       const allowedModes = Object.keys(AFC_FOPEN_TEXTUAL_MODES).join(', ');
       log.error(`Invalid fopen mode '${mode}'. Allowed modes: ${allowedModes}`);
       throw new Error(`Invalid fopen mode '${mode}'. Allowed: ${allowedModes}`);
@@ -179,10 +175,10 @@ export class AfcService {
   async fwrite(
     handle: bigint,
     data: Buffer,
-    chunkSize = MAXIMUM_READ_SIZE * 256,
+    chunkSize = data.length,
   ): Promise<void> {
     log.debug(`Writing ${data.length} bytes to handle ${handle}`);
-    const effectiveChunkSize = Math.min(chunkSize, MAXIMUM_READ_SIZE * 256);
+    const effectiveChunkSize = chunkSize;
     let offset = 0;
     let chunkCount = 0;
 
@@ -248,7 +244,7 @@ export class AfcService {
     }
   }
 
-  async getFileStream(filePath: string): Promise<Readable> {
+  async readToStream(filePath: string): Promise<Readable> {
     log.debug(`Creating read stream for: ${filePath}`);
     const resolved = await this._resolvePath(filePath);
     const st = await this.stat(resolved);
@@ -278,7 +274,7 @@ export class AfcService {
 
   async pull(remoteSrc: string, localDst: string): Promise<void> {
     log.debug(`Pulling file from '${remoteSrc}' to '${localDst}'`);
-    const stream = await this.getFileStream(remoteSrc);
+    const stream = await this.readToStream(remoteSrc);
     const writeStream = fs.createWriteStream(localDst);
     await pipeline(stream, writeStream);
     log.debug(`Successfully pulled file to '${localDst}'`);
@@ -318,32 +314,32 @@ export class AfcService {
       return [filePath];
     }
 
-    const undeleted: string[] = [];
+    const failedPaths: string[] = [];
     for (const entry of await this.listdir(filePath)) {
       const cur = path.posix.join(filePath, entry);
       if (await this.isdir(cur)) {
         const sub = await this.rm(cur, true);
-        undeleted.push(...sub);
+        failedPaths.push(...sub);
       } else {
         if (!(await this.rmSingle(cur, true))) {
-          undeleted.push(cur);
+          failedPaths.push(cur);
         }
       }
     }
 
     try {
       if (!(await this.rmSingle(filePath, force))) {
-        undeleted.push(filePath);
+        failedPaths.push(filePath);
       }
     } catch (err) {
-      if (undeleted.length) {
-        undeleted.push(filePath);
+      if (failedPaths.length) {
+        failedPaths.push(filePath);
       } else {
         throw err;
       }
     }
 
-    return undeleted;
+    return failedPaths;
   }
 
   async rename(src: string, dst: string): Promise<void> {

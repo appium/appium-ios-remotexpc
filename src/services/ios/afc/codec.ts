@@ -2,7 +2,7 @@ import net from 'node:net';
 
 import { createPlist } from '../../../lib/plist/plist-creator.js';
 import { parsePlist } from '../../../lib/plist/unified-plist-parser.js';
-import { AFCMAGIC, AFC_HEADER_SIZE, MAXIMUM_READ_SIZE } from './constants.js';
+import { AFCMAGIC, AFC_HEADER_SIZE, NULL_BYTE } from './constants.js';
 import { AfcError, AfcFopenMode, AfcOpcode } from './enums.js';
 
 export interface AfcHeader {
@@ -32,7 +32,7 @@ export function readUInt64LE(buf: Buffer, offset = 0): bigint {
 
 export function cstr(str: string): Buffer {
   const s = Buffer.from(str, 'utf8');
-  return Buffer.concat([s, Buffer.from([0])]);
+  return Buffer.concat([s, NULL_BYTE]);
 }
 
 export function encodeHeader(
@@ -253,22 +253,23 @@ export function parseCStringArray(buf: Buffer): string[] {
   if (start < buf.length) {
     parts.push(buf.subarray(start).toString('utf8'));
   }
+  while (parts.length && parts[parts.length - 1] === '') {
+    parts.pop();
+  }
   return parts;
 }
 
 export function parseKeyValueNullList(buf: Buffer): Record<string, string> {
   const arr = parseCStringArray(buf);
-  while (arr.length && arr[arr.length - 1] === '') {
-    arr.pop();
-  }
   if (arr.length % 2 !== 0) {
     throw new Error('Invalid key/value AFC list (odd number of entries)');
   }
-  const out: Record<string, string> = {};
-  for (let i = 0; i < arr.length; i += 2) {
-    out[arr[i]] = arr[i + 1];
-  }
-  return out;
+  return Object.fromEntries(
+    Array.from({ length: arr.length / 2 }, (_, i) => [
+      arr[i * 2],
+      arr[i * 2 + 1],
+    ]),
+  );
 }
 
 export function buildFopenPayload(mode: AfcFopenMode, path: string): Buffer {
@@ -351,7 +352,7 @@ export async function rsdHandshakeForRawService(
 
 export function nextReadChunkSize(left: bigint | number): number {
   const leftNum = typeof left === 'bigint' ? Number(left) : left;
-  return leftNum > MAXIMUM_READ_SIZE ? MAXIMUM_READ_SIZE : leftNum;
+  return leftNum;
 }
 
 /**

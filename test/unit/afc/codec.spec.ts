@@ -71,11 +71,11 @@ describe('AFC Codec Utilities', function () {
     expect(buf.subarray(0, buf.length - 1).toString('utf8')).to.equal('hello');
   });
 
-  it('should parse CString array including empty terminator', function () {
-    // "a\0b\0\0" => ['a', 'b', '']
+  it('should parse CString array without trailing empty terminator', function () {
+    // "a\0b\0\0" => ['a', 'b']
     const buf = Buffer.from([0x61, 0x00, 0x62, 0x00, 0x00]);
     const arr = parseCStringArray(buf);
-    expect(arr).to.deep.equal(['a', 'b', '']);
+    expect(arr).to.deep.equal(['a', 'b']);
   });
 
   it('should parse key/value null list with trailing empty', function () {

@@ -92,7 +92,7 @@ describe('AFC Service', function () {
     expect(stat.st_ifmt).to.equal(AfcFileMode.S_IFREG);
     expect(stat.st_size).to.equal(BigInt(testData.length));
 
-    const fileStream = await afc.getFileStream(testFileName);
+    const fileStream = await afc.readToStream(testFileName);
     const chunks: Buffer[] = [];
     for await (const chunk of fileStream) {
       chunks.push(chunk);
@@ -142,6 +142,52 @@ describe('AFC Service', function () {
         await afc.rm(remotePath);
       } catch {
         // ignore
+      }
+    }
+  });
+
+  it('should walk directories and include expected entries', async function () {
+    // Walk the root and verify known top-level dirs
+    const rootWalk = await afc.walk('/');
+    expect(rootWalk).to.be.an('array').and.not.empty;
+
+    const rootEntry = rootWalk.find((e) => e.dir === '/');
+    expect(rootEntry).to.exist;
+    expect(rootEntry!.dirs).to.be.an('array');
+    expect(rootEntry!.files).to.be.an('array');
+
+    // Reuse the same assumptions as the listdir("/") test
+    expect(rootEntry!.dirs).to.include('DCIM');
+    expect(rootEntry!.dirs).to.include('Downloads');
+    expect(rootEntry!.dirs).to.include('Books');
+
+    // Create deterministic files in Downloads and verify walk("/Downloads")
+    const ts = Date.now();
+    const fname1 = `afc_walk_test_${ts}_1.txt`;
+    const fname2 = `afc_walk_test_${ts}_2.txt`;
+    const p1 = `/Downloads/${fname1}`;
+    const p2 = `/Downloads/${fname2}`;
+    const data = Buffer.from('walk content');
+
+    try {
+      await afc.setFileContents(p1, data);
+      await afc.setFileContents(p2, data);
+
+      const dlWalk = await afc.walk('/Downloads');
+      const downloadsEntry = dlWalk.find((e) => e.dir === '/Downloads');
+      expect(downloadsEntry).to.exist;
+      expect(downloadsEntry!.files).to.include(fname1);
+      expect(downloadsEntry!.files).to.include(fname2);
+    } finally {
+      try {
+        await afc.rm(p1);
+      } catch {
+        /* ignore */
+      }
+      try {
+        await afc.rm(p2);
+      } catch {
+        /* ignore */
       }
     }
   });
