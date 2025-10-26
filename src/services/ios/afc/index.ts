@@ -51,8 +51,11 @@ export class AfcService {
   private packetNum: bigint = 0n;
   private silent: boolean = false;
 
-  constructor(private readonly address: [string, number], silent?: boolean) {
-    this.silent = silent ?? (process.env.NODE_ENV !== 'test');
+  constructor(
+    private readonly address: [string, number],
+    silent?: boolean,
+  ) {
+    this.silent = silent ?? process.env.NODE_ENV !== 'test';
   }
 
   /**
@@ -119,7 +122,9 @@ export class AfcService {
     if (!afcMode) {
       const allowedModes = Object.keys(AFC_FOPEN_TEXTUAL_MODES).join(', ');
       if (!this.silent) {
-        log.error(`Invalid fopen mode '${mode}'. Allowed modes: ${allowedModes}`);
+        log.error(
+          `Invalid fopen mode '${mode}'. Allowed modes: ${allowedModes}`,
+        );
       }
       throw new Error(`Invalid fopen mode '${mode}'. Allowed: ${allowedModes}`);
     }
