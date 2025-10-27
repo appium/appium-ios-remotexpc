@@ -1,0 +1,70 @@
+/**
+ * Enums for AFC protocol as defined by Apple's AFC service
+ */
+
+export enum AfcOpcode {
+  STATUS = 0x00000001,
+  DATA = 0x00000002,
+  READ_DIR = 0x00000003,
+  REMOVE_PATH = 0x00000008,
+  MAKE_DIR = 0x00000009,
+  GET_FILE_INFO = 0x0000000a,
+  GET_DEVINFO = 0x0000000b,
+  FILE_OPEN = 0x0000000d,
+  READ = 0x0000000f,
+  WRITE = 0x00000010,
+  FILE_CLOSE = 0x00000014,
+  RENAME_PATH = 0x00000018,
+  MAKE_LINK = 0x0000001c,
+}
+
+export enum AfcError {
+  SUCCESS = 0,
+  UNKNOWN_ERROR = 1,
+  OP_HEADER_INVALID = 2,
+  NO_RESOURCES = 3,
+  READ_ERROR = 4,
+  WRITE_ERROR = 5,
+  UNKNOWN_PACKET_TYPE = 6,
+  INVALID_ARG = 7,
+  OBJECT_NOT_FOUND = 8,
+  OBJECT_IS_DIR = 9,
+  PERM_DENIED = 10,
+  SERVICE_NOT_CONNECTED = 11,
+  OP_TIMEOUT = 12,
+  TOO_MUCH_DATA = 13,
+  END_OF_DATA = 14,
+  OP_NOT_SUPPORTED = 15,
+  OBJECT_EXISTS = 16,
+  OBJECT_BUSY = 17,
+  NO_SPACE_LEFT = 18,
+  OP_WOULD_BLOCK = 19,
+  IO_ERROR = 20,
+  OP_INTERRUPTED = 21,
+  OP_IN_PROGRESS = 22,
+  INTERNAL_ERROR = 23,
+  MUX_ERROR = 30,
+  NO_MEM = 31,
+  NOT_ENOUGH_DATA = 32,
+  DIR_NOT_EMPTY = 33,
+}
+
+export enum AfcLinkType {
+  HARDLINK = 1,
+  SYMLINK = 2,
+}
+
+export enum AfcFopenMode {
+  RDONLY = 0x00000001, // 'r'
+  RW = 0x00000002, // 'r+'
+  WRONLY = 0x00000003, // 'w'
+  WR = 0x00000004, // 'w+'
+  APPEND = 0x00000005, // 'a'
+  RDAPPEND = 0x00000006, // 'a+'
+}
+
+export enum AfcFileMode {
+  S_IFDIR = 'S_IFDIR',
+  S_IFREG = 'S_IFREG',
+  S_IFLNK = 'S_IFLNK',
+}

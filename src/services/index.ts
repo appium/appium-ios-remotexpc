@@ -2,6 +2,7 @@ import {
   TunnelRegistryServer,
   startTunnelRegistryServer,
 } from '../lib/tunnel/tunnel-registry-server.js';
+import * as afc from './ios/afc/index.js';
 import * as diagnostics from './ios/diagnostic-service/index.js';
 import * as mobileImageMounter from './ios/mobile-image-mounter/index.js';
 import * as powerAssertion from './ios/power-assertion/index.js';
@@ -15,6 +16,7 @@ export {
   powerAssertion,
   syslog,
   tunnel,
+  afc,
   webinspector,
   TunnelRegistryServer,
   startTunnelRegistryServer,

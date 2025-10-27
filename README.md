@@ -38,6 +38,7 @@ npm install appium-ios-remotexpc
     - System Log Service: Access device logs
     - Tunnel Service: Network tunneling to/from iOS devices
     - Diagnostic Service: Device diagnostics
+    - AFC Service: File system operations on iOS devices
 - **Pair Record Management**: Read and write device pairing records.
 - **Packet Streaming**: Stream packets between host and device for service communication.
 
