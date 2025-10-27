@@ -1,6 +1,6 @@
 {
   "name": "appium-ios-remotexpc",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "main": "build/src/index.js",
   "types": "build/src/index.d.ts",
   "type": "module",
@@ -34,6 +34,7 @@
     "test:springboard": "mocha test/integration/springboard-service-test.ts --exit --timeout 1m",
     "test:webinspector": "mocha test/integration/webinspector-test.ts --exit --timeout 1m",
     "test:misagent": "mocha test/integration/misagent-service-test.ts --exit --timeout 1m",
+    "test:power-assertion": "mocha test/integration/power-assertion-test.ts --exit --timeout 1m",
     "test:unit": "mocha 'test/unit/**/*.ts' --exit --timeout 2m",
     "test:tunnel-creation": "sudo tsx scripts/test-tunnel-creation.ts",
     "test:tunnel-creation:lsof": "sudo tsx scripts/test-tunnel-creation.ts --keep-open"
