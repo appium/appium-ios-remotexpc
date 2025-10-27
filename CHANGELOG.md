@@ -1,3 +1,21 @@
+## [0.10.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.9.0...v0.10.0) (2025-10-27)
+
+### Features
+
+* **afc:** add Apple File Conduit (AFC) service implementation ([#84](https://github.com/appium/appium-ios-remotexpc/issues/84)) ([07306c6](https://github.com/appium/appium-ios-remotexpc/commit/07306c611756c206ac07fed6917c70bfc9032757))
+
+## [0.9.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.8.0...v0.9.0) (2025-10-27)
+
+### Features
+
+* add power assertion agent shim service ([#87](https://github.com/appium/appium-ios-remotexpc/issues/87)) ([6c7aa54](https://github.com/appium/appium-ios-remotexpc/commit/6c7aa54be2aff1f2dadaf13250c59583a2e0617c))
+
+## [0.8.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.7.0...v0.8.0) (2025-10-17)
+
+### Features
+
+* implement `webinspector` shim service ([#81](https://github.com/appium/appium-ios-remotexpc/issues/81)) ([0abd6e3](https://github.com/appium/appium-ios-remotexpc/commit/0abd6e32ba3f6abdbc238bde7201abf96646cbcc))
+
 ## [0.7.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.6.2...v0.7.0) (2025-10-09)
 
 ### Features

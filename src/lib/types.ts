@@ -6,9 +6,14 @@ import { EventEmitter } from 'events';
 
 import type { ServiceConnection } from '../service-connection.js';
 import type { BaseService, Service } from '../services/ios/base-service.js';
+import type { PowerAssertionOptions } from '../services/ios/power-assertion/index.js';
+import { PowerAssertionType } from '../services/ios/power-assertion/index.js';
 import type { InterfaceOrientation } from '../services/ios/springboard-service/index.js';
 import type { RemoteXpcConnection } from './remote-xpc/remote-xpc-connection.js';
 import type { Device } from './usbmux/index.js';
+
+export type { PowerAssertionOptions };
+export { PowerAssertionType };
 
 /**
  * Represents a value that can be stored in a plist
@@ -214,6 +219,24 @@ export interface NotificationProxyService extends BaseService {
 }
 
 /**
+ * Represents the PowerAssertionService for preventing system sleep
+ */
+export interface PowerAssertionService extends BaseService {
+  /**
+   * Create a power assertion to prevent system sleep
+   * @param options Options for creating the power assertion
+   * @returns Promise that resolves when the assertion is created
+   */
+  createPowerAssertion(options: PowerAssertionOptions): Promise<void>;
+
+  /**
+   * Close the connection to the power assertion service
+   * @returns Promise that resolves when the connection is closed
+   */
+  close(): Promise<void>;
+}
+
+/**
  * Represents the static side of MobileConfigService
  */
 export interface MobileConfigService extends BaseService {
@@ -308,6 +331,132 @@ export interface NotificationProxyServiceWithConnection {
 export interface MobileConfigServiceWithConnection {
   /** The MobileConfigService instance */
   mobileConfigService: MobileConfigService;
+  /** The RemoteXPC connection that can be used to close the connection */
+  remoteXPC: RemoteXpcConnection;
+}
+
+/**
+ * Represents a PowerAssertionService instance with its associated RemoteXPC connection
+ * This allows callers to properly manage the connection lifecycle
+ */
+export interface PowerAssertionServiceWithConnection {
+  /** The PowerAssertionService instance */
+  powerAssertionService: PowerAssertionService;
+  /** The RemoteXPC connection that can be used to close the connection */
+  remoteXPC: RemoteXpcConnection;
+}
+
+/**
+ * Represents the WebInspectorService
+ */
+export interface WebInspectorService extends BaseService {
+  /**
+   * Send a message to the WebInspector service
+   * @param selector The RPC selector (e.g., '_rpc_reportIdentifier:')
+   * @param args The arguments dictionary for the message
+   * @returns Promise that resolves when the message is sent
+   */
+  sendMessage(selector: string, args?: PlistDictionary): Promise<void>;
+
+  /**
+   * Listen to messages from the WebInspector service using async generator
+   * @yields PlistMessage - Messages received from the WebInspector service
+   */
+  listenMessage(): AsyncGenerator<PlistMessage, void, unknown>;
+
+  /**
+   * Stop listening to messages
+   */
+  stopListening(): void;
+
+  /**
+   * Close the connection and clean up resources
+   */
+  close(): Promise<void>;
+
+  /**
+   * Get the connection ID being used for this service
+   * @returns The connection identifier
+   */
+  getConnectionId(): string;
+
+  /**
+   * Request application launch
+   * @param bundleId The bundle identifier of the application to launch
+   */
+  requestApplicationLaunch(bundleId: string): Promise<void>;
+
+  /**
+   * Get connected applications
+   */
+  getConnectedApplications(): Promise<void>;
+
+  /**
+   * Forward get listing for an application
+   * @param appId The application identifier
+   */
+  forwardGetListing(appId: string): Promise<void>;
+
+  /**
+   * Forward automation session request
+   * @param sessionId The session identifier
+   * @param appId The application identifier
+   * @param capabilities Optional session capabilities
+   */
+  forwardAutomationSessionRequest(
+    sessionId: string,
+    appId: string,
+    capabilities?: PlistDictionary,
+  ): Promise<void>;
+
+  /**
+   * Forward socket setup for inspector connection
+   * @param sessionId The session identifier
+   * @param appId The application identifier
+   * @param pageId The page identifier
+   * @param automaticallyPause Whether to automatically pause (defaults to true)
+   */
+  forwardSocketSetup(
+    sessionId: string,
+    appId: string,
+    pageId: number,
+    automaticallyPause?: boolean,
+  ): Promise<void>;
+
+  /**
+   * Forward socket data to a page
+   * @param sessionId The session identifier
+   * @param appId The application identifier
+   * @param pageId The page identifier
+   * @param data The data to send (will be JSON stringified)
+   */
+  forwardSocketData(
+    sessionId: string,
+    appId: string,
+    pageId: number,
+    data: any,
+  ): Promise<void>;
+
+  /**
+   * Forward indicate web view
+   * @param appId The application identifier
+   * @param pageId The page identifier
+   * @param enable Whether to enable indication
+   */
+  forwardIndicateWebView(
+    appId: string,
+    pageId: number,
+    enable: boolean,
+  ): Promise<void>;
+}
+
+/**
+ * Represents a WebInspectorService instance with its associated RemoteXPC connection
+ * This allows callers to properly manage the connection lifecycle
+ */
+export interface WebInspectorServiceWithConnection {
+  /** The WebInspectorService instance */
+  webInspectorService: WebInspectorService;
   /** The RemoteXPC connection that can be used to close the connection */
   remoteXPC: RemoteXpcConnection;
 }
