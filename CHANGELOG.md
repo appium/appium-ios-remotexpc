@@ -1,3 +1,9 @@
+## [0.10.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.9.0...v0.10.0) (2025-10-27)
+
+### Features
+
+* **afc:** add Apple File Conduit (AFC) service implementation ([#84](https://github.com/appium/appium-ios-remotexpc/issues/84)) ([07306c6](https://github.com/appium/appium-ios-remotexpc/commit/07306c611756c206ac07fed6917c70bfc9032757))
+
 ## [0.9.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.8.0...v0.9.0) (2025-10-27)
 
 ### Features
