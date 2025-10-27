@@ -105,7 +105,7 @@ export class AppleTVPairingService {
       return {
         success: false,
         deviceId: 'unknown',
-        error: error as Error,
+        error: error instanceof Error ? error : new Error(String(error)),
       };
     }
   }
@@ -113,7 +113,7 @@ export class AppleTVPairingService {
   async pairWithDevice(device: AppleTVDevice): Promise<string> {
     try {
       // Use IP if available, otherwise fall back to hostname
-      const connectionTarget = device.ip || device.hostname;
+      const connectionTarget = device.ip ?? device.hostname;
 
       if (!connectionTarget) {
         throw new PairingError(

@@ -86,6 +86,40 @@ export class PairingProtocol implements PairingProtocolInterface {
     }
   }
 
+  /**
+   * Fragments a buffer into TLV8 items of maximum fragment size
+   * @param buffer Buffer to fragment
+   * @param type TLV8 type identifier
+   * @returns Array of TLV8 items
+   */
+  private fragmentBuffer(buffer: Buffer, type: number): TLV8Item[] {
+    const fragments: TLV8Item[] = [];
+    for (
+      let i = 0;
+      i < buffer.length;
+      i += NETWORK_CONSTANTS.MAX_TLV_FRAGMENT_SIZE
+    ) {
+      fragments.push({
+        type,
+        data: buffer.subarray(i, i + NETWORK_CONSTANTS.MAX_TLV_FRAGMENT_SIZE),
+      });
+    }
+    return fragments;
+  }
+
+  /**
+   * Creates a nonce buffer with prefix padding
+   * @param nonceString The nonce string identifier
+   * @returns Padded nonce buffer
+   */
+  private createNonce(nonceString: string): Buffer {
+    return Buffer.concat([Buffer.alloc(4), Buffer.from(nonceString)]);
+  }
+
+  /**
+   * Performs initial handshake with Apple TV to establish connection
+   * Sends handshake request with host options and wire protocol version
+   */
   private async performHandshake(): Promise<void> {
     const request = this.createHandshakeRequest();
     await this.networkClient.sendPacket(request);
@@ -93,6 +127,10 @@ export class PairingProtocol implements PairingProtocolInterface {
     this.log.debug('Handshake completed');
   }
 
+  /**
+   * Attempts to verify existing pairing credentials with Apple TV
+   * Creates pair verification request and handles expected failure for new pairing flow
+   */
   private async attemptPairVerification(): Promise<void> {
     const request = this.createPairVerificationRequest();
     await this.networkClient.sendPacket(request);
@@ -103,6 +141,11 @@ export class PairingProtocol implements PairingProtocolInterface {
     this.log.debug('Pair verification attempt completed');
   }
 
+  /**
+   * Initiates manual pairing setup process with Apple TV
+   * Sends setup request and receives SRP challenge data
+   * @returns Response containing SRP salt and server public key
+   */
   private async setupManualPairing(): Promise<any> {
     const request = this.createSetupManualPairingRequest();
     await this.networkClient.sendPacket(request);
@@ -111,6 +154,12 @@ export class PairingProtocol implements PairingProtocolInterface {
     return response;
   }
 
+  /**
+   * Extracts and validates SRP pairing data from Apple TV response
+   * @param response Network response containing pairing data
+   * @returns Parsed TLV8 dictionary with SRP challenge components
+   * @throws PairingError if pairing data is missing or invalid
+   */
   private extractAndValidatePairingData(response: any): Record<number, Buffer> {
     const srpData =
       response.message?.plain?._0?.event?._0?.pairingData?._0?.data;
@@ -123,6 +172,13 @@ export class PairingProtocol implements PairingProtocolInterface {
     return parsedSRP;
   }
 
+  /**
+   * Performs SRP authentication using user-provided PIN
+   * Prompts for PIN, creates SRP client, sends proof, and validates response
+   * @param parsedSRP SRP challenge data from Apple TV
+   * @returns Authenticated SRP client with session key
+   * @throws PairingError if PIN is incorrect or authentication fails
+   */
   private async performSRPAuthentication(
     parsedSRP: Record<number, Buffer>,
   ): Promise<SRPClient> {
@@ -137,6 +193,11 @@ export class PairingProtocol implements PairingProtocolInterface {
     return srpClient;
   }
 
+  /**
+   * Receives and processes M6 pairing completion message from Apple TV
+   * Attempts to decrypt and validate final pairing state
+   * @param decryptKey Decryption key for M6 encrypted data
+   */
   private async receiveM6Completion(decryptKey: Buffer): Promise<void> {
     const m6Response = await this.networkClient.receiveResponse();
     this.log.info('M6 Response received');
@@ -151,6 +212,11 @@ export class PairingProtocol implements PairingProtocolInterface {
     }
   }
 
+  /**
+   * Constructs initial handshake request packet
+   * Includes host options and wire protocol version for pairing session
+   * @returns Handshake request with sequence number 0
+   */
   private createHandshakeRequest(): PairingRequest {
     return {
       message: {
@@ -174,6 +240,11 @@ export class PairingProtocol implements PairingProtocolInterface {
     };
   }
 
+  /**
+   * Creates pair verification request with X25519 public key
+   * Used to attempt verification of existing pairing credentials
+   * @returns Pair verification request with random X25519 key
+   */
   private createPairVerificationRequest(): PairingRequest {
     const x25519PublicKey = randomBytes(32);
     const pairingData = createPairVerificationData(x25519PublicKey);
@@ -201,6 +272,11 @@ export class PairingProtocol implements PairingProtocolInterface {
     };
   }
 
+  /**
+   * Creates pair verification failed event request
+   * Sent after verification attempt to proceed with manual pairing setup
+   * @returns Pair verify failed event packet
+   */
   private createPairVerifyFailedRequest(): PairingRequest {
     return {
       message: {
@@ -219,6 +295,11 @@ export class PairingProtocol implements PairingProtocolInterface {
     };
   }
 
+  /**
+   * Constructs manual pairing setup request packet
+   * Initiates M1/M2 exchange with setup pairing data
+   * @returns Setup manual pairing request with host information
+   */
   private createSetupManualPairingRequest(): PairingRequest {
     const setupData = createSetupManualPairingData();
 
@@ -246,6 +327,13 @@ export class PairingProtocol implements PairingProtocolInterface {
     };
   }
 
+  /**
+   * Parses base64-encoded TLV8 response into dictionary
+   * Decodes base64 string and converts TLV8 format to key-value pairs
+   * @param data Base64-encoded TLV8 data
+   * @returns Dictionary mapping TLV8 type numbers to buffer values
+   * @throws PairingError if TLV8 parsing fails
+   */
   private parseTLV8Response(data: string): Record<number, Buffer> {
     try {
       const buffer = Buffer.from(data, 'base64');
@@ -267,6 +355,12 @@ export class PairingProtocol implements PairingProtocolInterface {
     }
   }
 
+  /**
+   * Validates SRP response for errors and required challenge data
+   * Checks for error codes and verifies presence of salt and public key
+   * @param parsedSRP Parsed SRP response dictionary
+   * @throws PairingError if response contains errors or missing required data
+   */
   private validateSRPResponse(parsedSRP: Record<number, Buffer>): void {
     const errorBuffer = parsedSRP[PairingDataComponentType.ERROR];
     if (errorBuffer) {
@@ -292,6 +386,14 @@ export class PairingProtocol implements PairingProtocolInterface {
     }
   }
 
+  /**
+   * Initializes SRP client with PIN and server challenge data
+   * Sets up identity, salt, and server public key for proof computation
+   * @param pin User-provided pairing PIN
+   * @param parsedSRP SRP challenge data containing salt and server public key
+   * @returns Configured SRP client ready for proof generation
+   * @throws PairingError if required SRP data is missing
+   */
   private createSRPClient(
     pin: string,
     parsedSRP: Record<number, Buffer>,
@@ -299,10 +401,6 @@ export class PairingProtocol implements PairingProtocolInterface {
     try {
       const salt = parsedSRP[PairingDataComponentType.SALT];
       const serverPublicKey = parsedSRP[PairingDataComponentType.PUBLIC_KEY];
-
-      if (!salt || !serverPublicKey) {
-        throw new PairingError('Missing required SRP data', 'MISSING_SRP_DATA');
-      }
 
       const srpClient = new SRPClient();
       srpClient.setIdentity('Pair-Setup', pin);
@@ -318,6 +416,11 @@ export class PairingProtocol implements PairingProtocolInterface {
     }
   }
 
+  /**
+   * Sends M3 message containing SRP proof to Apple TV
+   * Includes client public key and computed proof for authentication
+   * @param srpClient Configured SRP client with computed proof
+   */
   private async sendSRPProof(srpClient: SRPClient): Promise<void> {
     const clientPublicKey = srpClient.publicKey;
     const clientProof = srpClient.computeProof();
@@ -327,25 +430,12 @@ export class PairingProtocol implements PairingProtocolInterface {
         type: PairingDataComponentType.STATE,
         data: Buffer.from([PAIRING_STATES.M3]),
       },
+      ...this.fragmentBuffer(
+        clientPublicKey,
+        PairingDataComponentType.PUBLIC_KEY,
+      ),
+      { type: PairingDataComponentType.PROOF, data: clientProof },
     ];
-
-    // Fragment public key if necessary
-    for (
-      let i = 0;
-      i < clientPublicKey.length;
-      i += NETWORK_CONSTANTS.MAX_TLV_FRAGMENT_SIZE
-    ) {
-      const fragment = clientPublicKey.slice(
-        i,
-        i + NETWORK_CONSTANTS.MAX_TLV_FRAGMENT_SIZE,
-      );
-      tlvItems.push({
-        type: PairingDataComponentType.PUBLIC_KEY,
-        data: fragment,
-      });
-    }
-
-    tlvItems.push({ type: PairingDataComponentType.PROOF, data: clientProof });
     const tlv = encodeTLV8(tlvItems);
 
     const request: PairingRequest = {
@@ -374,6 +464,12 @@ export class PairingProtocol implements PairingProtocolInterface {
     await this.networkClient.sendPacket(request);
   }
 
+  /**
+   * Validates M4 SRP proof response from Apple TV
+   * Checks for authentication errors indicating incorrect PIN
+   * @param response Network response containing SRP proof validation result
+   * @throws PairingError if PIN authentication failed
+   */
   private validateSRPProofResponse(response: any): void {
     if (response.message?.plain?._0?.event?._0?.pairingData?._0?.data) {
       const proofData = Buffer.from(
@@ -391,6 +487,16 @@ export class PairingProtocol implements PairingProtocolInterface {
     }
   }
 
+  /**
+   * Sends M5 exchange message with encrypted pairing credentials
+   * Includes long-term public key, signature, and device information encrypted with session key
+   * @param encryptKey Encryption key derived from session key
+   * @param devicePairingID Host device pairing identifier
+   * @param ltpk Long-term public key (Ed25519)
+   * @param ltsk Long-term secret key (Ed25519)
+   * @param sessionKey SRP session key for signature derivation
+   * @throws PairingError if M5 message creation fails
+   */
   private async sendM5Message(
     encryptKey: Buffer,
     devicePairingID: string,
@@ -426,39 +532,23 @@ export class PairingProtocol implements PairingProtocolInterface {
       ];
 
       const tlvData = encodeTLV8(tlvItems);
-      const nonce = Buffer.concat([
-        Buffer.alloc(4),
-        Buffer.from(PAIRING_MESSAGES.M5_NONCE),
-      ]);
+      const nonce = this.createNonce(PAIRING_MESSAGES.M5_NONCE);
       const encrypted = encryptChaCha20Poly1305({
         plaintext: tlvData,
         key: encryptKey,
         nonce,
       });
 
-      const encryptedTLVItems: TLV8Item[] = [];
-      for (
-        let i = 0;
-        i < encrypted.length;
-        i += NETWORK_CONSTANTS.MAX_TLV_FRAGMENT_SIZE
-      ) {
-        const fragment = encrypted.slice(
-          i,
-          Math.min(
-            i + NETWORK_CONSTANTS.MAX_TLV_FRAGMENT_SIZE,
-            encrypted.length,
-          ),
-        );
-        encryptedTLVItems.push({
-          type: PairingDataComponentType.ENCRYPTED_DATA,
-          data: fragment,
-        });
-      }
-
-      encryptedTLVItems.push({
-        type: PairingDataComponentType.STATE,
-        data: Buffer.from([PAIRING_STATES.M5]),
-      });
+      const encryptedTLVItems: TLV8Item[] = [
+        ...this.fragmentBuffer(
+          encrypted,
+          PairingDataComponentType.ENCRYPTED_DATA,
+        ),
+        {
+          type: PairingDataComponentType.STATE,
+          data: Buffer.from([PAIRING_STATES.M5]),
+        },
+      ];
       const encryptedTLV = encodeTLV8(encryptedTLVItems);
 
       const request: PairingRequest = {
@@ -490,6 +580,12 @@ export class PairingProtocol implements PairingProtocolInterface {
     }
   }
 
+  /**
+   * Processes and decrypts M6 completion response from Apple TV
+   * Validates pairing completion state and decrypts final exchange data
+   * @param m6Response Network response containing M6 completion message
+   * @param decryptKey Decryption key for M6 encrypted data
+   */
   private processM6Response(m6Response: any, decryptKey: Buffer): void {
     if (!m6Response.message?.plain?._0?.event?._0?.pairingData?._0?.data) {
       return;
@@ -512,10 +608,7 @@ export class PairingProtocol implements PairingProtocolInterface {
 
     const encryptedData = m6Parsed[PairingDataComponentType.ENCRYPTED_DATA];
     if (encryptedData) {
-      const nonce = Buffer.concat([
-        Buffer.alloc(4),
-        Buffer.from(PAIRING_MESSAGES.M6_NONCE),
-      ]);
+      const nonce = this.createNonce(PAIRING_MESSAGES.M6_NONCE);
       const decrypted = decryptChaCha20Poly1305({
         ciphertext: encryptedData,
         key: decryptKey,
@@ -526,6 +619,12 @@ export class PairingProtocol implements PairingProtocolInterface {
     }
   }
 
+  /**
+   * Derives encryption and decryption keys from SRP session key
+   * Uses HKDF with pairing-specific salt and info strings
+   * @param sessionKey SRP session key from authentication
+   * @returns Encryption keys for M5/M6 message exchange
+   */
   private deriveEncryptionKeys(sessionKey: Buffer): EncryptionKeys {
     const sharedKey = hkdf({
       ikm: sessionKey,
@@ -541,6 +640,14 @@ export class PairingProtocol implements PairingProtocolInterface {
     };
   }
 
+  /**
+   * Saves pairing credentials to storage and returns credential path
+   * Persists long-term public and private keys for future connections
+   * @param device Apple TV device information
+   * @param ltpk Long-term public key to save
+   * @param ltsk Long-term secret key to save
+   * @returns Path to saved pairing credentials file
+   */
   private createPairingResult(
     device: AppleTVDevice,
     ltpk: Buffer,

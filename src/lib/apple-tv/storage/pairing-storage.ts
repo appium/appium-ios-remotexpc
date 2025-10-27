@@ -1,5 +1,5 @@
 import { logger } from '@appium/support';
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { createXmlPlist } from '../../plist/index.js';
@@ -23,9 +23,7 @@ export class PairingStorage implements PairingStorageInterface {
       const projectRoot = join(import.meta.dirname, '../../../..');
       const pairingDir = join(projectRoot, this.config.pairingDirectory);
 
-      if (!existsSync(pairingDir)) {
-        mkdirSync(pairingDir, { recursive: true });
-      }
+      mkdirSync(pairingDir, { recursive: true });
 
       const pairingFile = join(pairingDir, `remote_${deviceId}.plist`);
       const plistContent = this.createPlistContent(
