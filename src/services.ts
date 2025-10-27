@@ -13,6 +13,7 @@ import type {
   SyslogService as SyslogServiceType,
   WebInspectorServiceWithConnection,
 } from './lib/types.js';
+import AfcService from './services/ios/afc/index.js';
 import DiagnosticsService from './services/ios/diagnostic-service/index.js';
 import { MobileConfigService } from './services/ios/mobile-config/index.js';
 import MobileImageMounterService from './services/ios/mobile-image-mounter/index.js';
@@ -72,6 +73,7 @@ export async function startMobileConfigService(
     ]),
   };
 }
+
 export async function startMobileImageMounterService(
   udid: string,
 ): Promise<MobileImageMounterServiceWithConnection> {
@@ -125,6 +127,19 @@ export async function startSyslogService(
 ): Promise<SyslogServiceType> {
   const { tunnelConnection } = await createRemoteXPCConnection(udid);
   return new SyslogService([tunnelConnection.host, tunnelConnection.port]);
+}
+
+/**
+ * Start AFC service over RemoteXPC shim.
+ * Resolves the AFC service port via RemoteXPC and returns a ready-to-use AfcService instance.
+ */
+export async function startAfcService(udid: string): Promise<AfcService> {
+  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
+  const afcDescriptor = remoteXPC.findService(AfcService.RSD_SERVICE_NAME);
+  return new AfcService([
+    tunnelConnection.host,
+    parseInt(afcDescriptor.port, 10),
+  ]);
 }
 
 export async function startWebInspectorService(
