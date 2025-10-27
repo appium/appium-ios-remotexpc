@@ -17,6 +17,8 @@ export type {
   MobileImageMounterService,
   NotificationProxyService,
   MobileConfigService,
+  PowerAssertionService,
+  PowerAssertionOptions,
   SpringboardService,
   WebInspectorService,
   SyslogService,
@@ -28,9 +30,11 @@ export type {
   MobileImageMounterServiceWithConnection,
   NotificationProxyServiceWithConnection,
   MobileConfigServiceWithConnection,
+  PowerAssertionServiceWithConnection,
   SpringboardServiceWithConnection,
   WebInspectorServiceWithConnection,
 } from './lib/types.js';
+export { PowerAssertionType } from './lib/types.js';
 export {
   createUsbmux,
   Services,
