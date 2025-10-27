@@ -25,9 +25,7 @@ class MisagentService extends BaseService implements MisagentServiceInterface {
 
   async installProfileFromPath(filePath: string): Promise<void> {
     // Check if file exists
-    try {
-      await fs.exists(filePath);
-    } catch (error) {
+    if (!(await fs.exists(filePath))) {
       throw new Error(`Profile filepath does not exist: ${filePath}`);
     }
     const fileExtension = path.extname(filePath).toLowerCase();
