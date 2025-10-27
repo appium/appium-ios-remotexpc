@@ -118,6 +118,10 @@ export async function startMisagentService(
     misagentService: new MisagentService([
       tunnelConnection.host,
       parseInt(misagentService.port, 10),
+    ]),
+  };
+}
+
 export async function startPowerAssertionService(
   udid: string,
 ): Promise<PowerAssertionServiceWithConnection> {
