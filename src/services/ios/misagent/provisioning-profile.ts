@@ -17,10 +17,7 @@ class ProvisioningProfile {
     }
 
     // Get XML content starting from '<?xml'
-    let xml = Buffer.concat([
-      xmlMarker,
-      buf.subarray(buf.indexOf(xmlMarker) + xmlMarker.length),
-    ]);
+    let xml = buf.subarray(buf.indexOf(xmlMarker));
 
     // Find '</plist>' and extract up to and including it
     const plistEnd = Buffer.from('</plist>');

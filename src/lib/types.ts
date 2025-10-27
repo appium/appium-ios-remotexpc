@@ -771,12 +771,17 @@ export interface SpringboardServiceWithConnection {
 }
 
 /**
- * Represents the instance side of MisagentService
+ * Represents the instance side of MisagentService where provisioning profiles can be managed
+ * @remarks
+ * Provisioning profiles are Apple configuration files (.mobileprovision) that contain:
+ * - Certificates, identifiers, and device information
+ * - App entitlements and permissions
+ * - Expiration dates and platform restrictions
  */
 export interface MisagentService extends BaseService {
   /**
    * Installs a provisioning profile from a file path
-   * @param path The file path of the provisioning profile
+   * @param path The file path of the provisioning profile (.mobileprovision file)
    */
   installProfileFromPath(path: string): Promise<void>;
   /**
@@ -820,6 +825,13 @@ export interface MisagentService extends BaseService {
    *  ...
    * },
    * ]
+   * @example
+   * const profiles = await misagentService.copyAll();
+   * profiles.forEach(profile => {
+   *   console.log(`Profile: ${profile.plist.Name}`);
+   *   console.log(`UUID: ${profile.plist.UUID}`);
+   *   console.log(`Expires: ${profile.plist.ExpirationDate}`);
+   * });
    */
   copyAll(): Promise<ProvisioningProfile[]>;
 }

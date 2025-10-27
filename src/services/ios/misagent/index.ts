@@ -13,10 +13,6 @@ class MisagentService extends BaseService implements MisagentServiceInterface {
   static readonly RSD_SERVICE_NAME = 'com.apple.misagent.shim.remote';
   private _conn: ServiceConnection | null = null;
 
-  constructor(address: [string, number]) {
-    super(address);
-  }
-
   async connectToMisagentService(): Promise<ServiceConnection> {
     if (this._conn) {
       return this._conn;
@@ -30,7 +26,7 @@ class MisagentService extends BaseService implements MisagentServiceInterface {
   async installProfileFromPath(filePath: string): Promise<void> {
     // Check if file exists
     try {
-      await fs.access(filePath);
+      await fs.exists(filePath);
     } catch (error) {
       throw new Error(`Profile filepath does not exist: ${filePath}`);
     }
