@@ -8,6 +8,7 @@ import type {
   MobileConfigServiceWithConnection,
   MobileImageMounterServiceWithConnection,
   NotificationProxyServiceWithConnection,
+  PowerAssertionServiceWithConnection,
   SpringboardServiceWithConnection,
   SyslogService as SyslogServiceType,
   WebInspectorServiceWithConnection,
@@ -17,6 +18,7 @@ import DiagnosticsService from './services/ios/diagnostic-service/index.js';
 import { MobileConfigService } from './services/ios/mobile-config/index.js';
 import MobileImageMounterService from './services/ios/mobile-image-mounter/index.js';
 import { NotificationProxyService } from './services/ios/notification-proxy/index.js';
+import { PowerAssertionService } from './services/ios/power-assertion/index.js';
 import { SpringBoardService } from './services/ios/springboard-service/index.js';
 import SyslogService from './services/ios/syslog-service/index.js';
 import { WebInspectorService } from './services/ios/webinspector/index.js';
@@ -100,6 +102,22 @@ export async function startSpringboardService(
     springboardService: new SpringBoardService([
       tunnelConnection.host,
       parseInt(springboardService.port, 10),
+    ]),
+  };
+}
+
+export async function startPowerAssertionService(
+  udid: string,
+): Promise<PowerAssertionServiceWithConnection> {
+  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
+  const powerAssertionService = remoteXPC.findService(
+    PowerAssertionService.RSD_SERVICE_NAME,
+  );
+  return {
+    remoteXPC: remoteXPC as RemoteXpcConnection,
+    powerAssertionService: new PowerAssertionService([
+      tunnelConnection.host,
+      parseInt(powerAssertionService.port, 10),
     ]),
   };
 }
