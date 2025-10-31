@@ -22,6 +22,8 @@ export type {
   SpringboardService,
   WebInspectorService,
   SyslogService,
+  DVTSecureSocketProxyService,
+  LocationSimulationService,
   SocketInfo,
   TunnelResult,
   TunnelRegistry,
@@ -33,6 +35,7 @@ export type {
   PowerAssertionServiceWithConnection,
   SpringboardServiceWithConnection,
   WebInspectorServiceWithConnection,
+  DVTServiceWithConnection,
 } from './lib/types.js';
 export { PowerAssertionType } from './lib/types.js';
 export {

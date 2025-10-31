@@ -5,6 +5,7 @@ import { TunnelManager } from './lib/tunnel/index.js';
 import { TunnelApiClient } from './lib/tunnel/tunnel-api-client.js';
 import type {
   DiagnosticsServiceWithConnection,
+  DVTServiceWithConnection,
   MobileConfigServiceWithConnection,
   MobileImageMounterServiceWithConnection,
   NotificationProxyServiceWithConnection,
@@ -15,6 +16,8 @@ import type {
 } from './lib/types.js';
 import AfcService from './services/ios/afc/index.js';
 import DiagnosticsService from './services/ios/diagnostic-service/index.js';
+import { DVTSecureSocketProxyService } from './services/ios/dvt/index.js';
+import { LocationSimulation } from './services/ios/dvt/instruments/location-simulation.js';
 import { MobileConfigService } from './services/ios/mobile-config/index.js';
 import MobileImageMounterService from './services/ios/mobile-image-mounter/index.js';
 import { NotificationProxyService } from './services/ios/notification-proxy/index.js';
@@ -155,6 +158,33 @@ export async function startWebInspectorService(
       tunnelConnection.host,
       parseInt(webInspectorService.port, 10),
     ]),
+  };
+}
+
+export async function startDVTService(
+  udid: string,
+): Promise<DVTServiceWithConnection> {
+  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
+  const dvtServiceDescriptor = remoteXPC.findService(
+    DVTSecureSocketProxyService.RSD_SERVICE_NAME,
+  );
+  
+  // Create DVT service instance
+  const dvtService = new DVTSecureSocketProxyService([
+    tunnelConnection.host,
+    parseInt(dvtServiceDescriptor.port, 10),
+  ]);
+  
+  // Connect to DVT service
+  await dvtService.connect();
+  
+  // Create location simulation service
+  const locationSimulation = new LocationSimulation(dvtService);
+  
+  return {
+    remoteXPC: remoteXPC as RemoteXpcConnection,
+    dvtService,
+    locationSimulation,
   };
 }
 

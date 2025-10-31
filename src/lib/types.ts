@@ -347,6 +347,63 @@ export interface PowerAssertionServiceWithConnection {
 }
 
 /**
+ * DVT (Developer Tools) service interface
+ */
+export interface DVTSecureSocketProxyService extends BaseService {
+  /**
+   * Connect to the DVT service
+   */
+  connect(): Promise<void>;
+
+  /**
+   * Get supported identifiers (capabilities)
+   */
+  getSupportedIdentifiers(): PlistDictionary;
+
+  /**
+   * Create a channel for a specific identifier
+   * @param identifier The channel identifier
+   * @returns The created channel
+   */
+  makeChannel(identifier: string): Promise<any>;
+
+  /**
+   * Close the DVT service connection
+   */
+  close(): Promise<void>;
+}
+
+/**
+ * Location simulation service interface
+ */
+export interface LocationSimulationService {
+  /**
+   * Set the simulated location
+   * @param latitude The latitude
+   * @param longitude The longitude
+   */
+  setLocation(latitude: number, longitude: number): Promise<void>;
+
+  /**
+   * Clear/stop location simulation
+   */
+  clear(): Promise<void>;
+}
+
+/**
+ * DVT service with connection
+ * This allows callers to properly manage the connection lifecycle
+ */
+export interface DVTServiceWithConnection {
+  /** The DVTSecureSocketProxyService instance */
+  dvtService: DVTSecureSocketProxyService;
+  /** The LocationSimulation service instance */
+  locationSimulation: LocationSimulationService;
+  /** The RemoteXPC connection that can be used to close the connection */
+  remoteXPC: RemoteXpcConnection;
+}
+
+/**
  * Represents the WebInspectorService
  */
 export interface WebInspectorService extends BaseService {
