@@ -7,7 +7,7 @@ import { MessageAux } from '../dtx-message.js';
 const log = logger.getLogger('LocationSimulation');
 
 /**
- * Location coordinates interface
+ * Geographic coordinates
  */
 export interface LocationCoordinates {
   latitude: number;
@@ -15,12 +15,11 @@ export interface LocationCoordinates {
 }
 
 /**
- * Location simulation service for simulating device location
- * Based on pymobiledevice3's LocationSimulation
+ * Location simulation service for simulating device GPS location
  */
 export class LocationSimulation {
   static readonly IDENTIFIER = 'com.apple.instruments.server.services.LocationSimulation';
-  
+
   private readonly dvt: DVTSecureSocketProxyService;
   private channel: Channel | null = null;
 
@@ -33,52 +32,42 @@ export class LocationSimulation {
    */
   async initialize(): Promise<void> {
     if (this.channel) {
-      log.debug('Location simulation channel already initialized');
       return;
     }
 
-    log.debug('Initializing location simulation channel');
     this.channel = await this.dvt.makeChannel(LocationSimulation.IDENTIFIER);
   }
 
   /**
-   * Set the simulated location
+   * Set the simulated GPS location
    * @param coordinates The location coordinates
    */
   async set(coordinates: LocationCoordinates): Promise<void> {
     await this.initialize();
 
-    const args = new MessageAux()
-      .appendObj(coordinates.latitude)
-      .appendObj(coordinates.longitude);
+    const args = new MessageAux().appendObj(coordinates.latitude).appendObj(coordinates.longitude);
 
-    // Send location simulation command
     await this.channel!.call('simulateLocationWithLatitude_longitude_')(args);
-    
-    // Wait for response
     await this.channel!.receivePlist();
 
     log.info(`Location set to: ${coordinates.latitude}, ${coordinates.longitude}`);
   }
 
   /**
-   * Set the simulated location using separate latitude and longitude parameters
-   * @param latitude The latitude
-   * @param longitude The longitude
+   * Set the simulated GPS location
+   * @param latitude The latitude coordinate
+   * @param longitude The longitude coordinate
    */
   async setLocation(latitude: number, longitude: number): Promise<void> {
     await this.set({ latitude, longitude });
   }
 
   /**
-   * Clear/stop location simulation
+   * Stop location simulation and restore actual device location
    */
   async clear(): Promise<void> {
     await this.initialize();
-
-    // Send stop location simulation command
     await this.channel!.call('stopLocationSimulation')();
-
     log.info('Location simulation stopped');
   }
 
