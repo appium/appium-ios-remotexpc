@@ -1,12 +1,10 @@
-import { EventEmitter } from 'events';
-
 import type { DTXMessageHeader } from './dtx-message.js';
 
 /**
  * Handles message fragmentation for DTX channels
  * Assembles fragmented messages and queues complete messages for retrieval
  */
-export class ChannelFragmenter extends EventEmitter {
+export class ChannelFragmenter {
   private messages: Buffer[] = [];
   private packetData: Buffer = Buffer.alloc(0);
   private streamPacketData: Buffer = Buffer.alloc(0);
@@ -19,26 +17,18 @@ export class ChannelFragmenter extends EventEmitter {
   }
 
   /**
-   * Check if messages are available
-   */
-  hasMessages(): boolean {
-    return this.messages.length > 0;
-  }
-
-  /**
-   * Add a message fragment
+   * Add a message fragment and assemble if complete
    * @param header The message header
    * @param chunk The message data chunk
    */
   addFragment(header: DTXMessageHeader, chunk: Buffer): void {
-    // Handle positive vs negative channel codes (stream vs regular data)
+    // Handle positive vs negative channel codes (regular vs stream data)
     if (header.channelCode >= 0) {
       this.packetData = Buffer.concat([this.packetData, chunk]);
 
       if (header.fragmentId === header.fragmentCount - 1) {
         this.messages.push(this.packetData);
         this.packetData = Buffer.alloc(0);
-        this.emit('message', header.channelCode);
       }
     } else {
       this.streamPacketData = Buffer.concat([this.streamPacketData, chunk]);
@@ -46,17 +36,7 @@ export class ChannelFragmenter extends EventEmitter {
       if (header.fragmentId === header.fragmentCount - 1) {
         this.messages.push(this.streamPacketData);
         this.streamPacketData = Buffer.alloc(0);
-        this.emit('message', Math.abs(header.channelCode));
       }
     }
-  }
-
-  /**
-   * Clear all pending messages and fragments
-   */
-  clear(): void {
-    this.messages = [];
-    this.packetData = Buffer.alloc(0);
-    this.streamPacketData = Buffer.alloc(0);
   }
 }

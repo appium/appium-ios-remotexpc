@@ -208,33 +208,8 @@ export class DVTSecureSocketProxyService extends BaseService {
 
     const [ret, _aux] = await this.recvPlist();
 
-    // Check for NSError response
-    if (ret && typeof ret === 'object' && '$objects' in ret) {
-      const objects = (ret as any).$objects;
-      if (Array.isArray(objects) && objects.length > 1) {
-        // Check if response is effectively null/empty
-        const isNullResponse =
-          objects.length <= 1 || objects.every((o: any) => o === '$null' || o === null);
-
-        if (!isNullResponse) {
-          // Check for error indicators
-          const hasError = objects.some(
-            (o: any) =>
-              typeof o === 'object' &&
-              o !== null &&
-              ('NSLocalizedDescription' in o || 'NSUserInfo' in o),
-          );
-          if (hasError) {
-            const errorMsg =
-              objects.find((o: any) => typeof o === 'string' && o.includes('Unable to invoke')) ||
-              'Unknown error';
-            throw new Error(`Failed to create channel: ${errorMsg}`);
-          }
-        }
-      }
-    } else if (ret && typeof ret === 'object' && ('NSLocalizedDescription' in ret || 'NSUserInfo' in ret)) {
-      throw new Error(`Failed to create channel: ${JSON.stringify(ret)}`);
-    }
+    // Check for NSError in response
+    this.checkForNSError(ret, 'Failed to create channel');
 
     const channel = new Channel(channelCode, this);
     this.channelCache.set(identifier, channel);
@@ -440,21 +415,45 @@ export class DVTSecureSocketProxyService extends BaseService {
   }
 
   /**
+   * Check if response contains an NSError and throw if present
+   */
+  private checkForNSError(response: any, context: string): void {
+    if (!response || typeof response !== 'object') {
+      return;
+    }
+
+    // Check NSKeyedArchiver format
+    if ('$objects' in response) {
+      const objects = (response as any).$objects;
+      if (!Array.isArray(objects) || objects.length <= 1) {
+        return;
+      }
+
+      // Look for error indicators in objects array
+      const errorObj = objects.find(
+        (o: any) =>
+          typeof o === 'object' &&
+          o !== null &&
+          ('NSLocalizedDescription' in o || 'NSUserInfo' in o || 'NSCode' in o),
+      );
+
+      if (errorObj) {
+        const errorMsg =
+          objects.find((o: any) => typeof o === 'string' && o.length > 20) || 'Unknown error';
+        throw new Error(`${context}: ${errorMsg}`);
+      }
+    }
+
+    // Check direct NSError format
+    if ('NSLocalizedDescription' in response || 'NSUserInfo' in response) {
+      throw new Error(`${context}: ${JSON.stringify(response)}`);
+    }
+  }
+
+  /**
    * Archive a value using NSKeyedArchiver format for DTX protocol
    */
   private archiveValue(value: any): Buffer {
-    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-      // Simple values: wrap in NSKeyedArchiver structure
-      const archived = {
-        '$version': 100000,
-        '$archiver': 'NSKeyedArchiver',
-        '$top': { root: new PlistUID(1) },
-        '$objects': ['$null', value],
-      };
-      return createBinaryPlist(archived);
-    }
-
-    // Complex objects: wrap in NSKeyedArchiver structure
     const archived = {
       '$version': 100000,
       '$archiver': 'NSKeyedArchiver',
@@ -537,98 +536,126 @@ export class DVTSecureSocketProxyService extends BaseService {
 
   /**
    * Parse auxiliary data from buffer
+   * 
+   * The auxiliary data format can be:
+   * 1. Standard format: [magic:8][size:8][items...]
+   * 2. NSKeyedArchiver bplist format (for handshake responses)
    */
   private parseAuxiliaryData(buffer: Buffer): any[] {
-    if (buffer.length === 0) {
+    if (buffer.length < 16) {
       return [];
     }
 
-    try {
-      let offset = 0;
-      const values: any[] = [];
+    const magic = buffer.readBigUInt64LE(0);
 
-      // Read magic
-      const magic = buffer.readBigUInt64LE(offset);
-      if (magic !== BigInt(DTX_CONSTANTS.MESSAGE_AUX_MAGIC)) {
-        // Auxiliary data might be in NSKeyedArchiver bplist format
-        // Search for bplist header
-        const hexStr = buffer.toString('ascii', 0, Math.min(100, buffer.length));
-        const bplistOffset = hexStr.indexOf('bplist00');
+    // Check if this is NSKeyedArchiver bplist format (handshake response)
+    if (magic !== BigInt(DTX_CONSTANTS.MESSAGE_AUX_MAGIC)) {
+      return this.parseAuxiliaryAsBplist(buffer);
+    }
 
-        if (bplistOffset >= 0) {
-          const plistBuffer = buffer.subarray(bplistOffset);
-          const auxPlist = parseBinaryPlist(plistBuffer);
+    // Standard auxiliary format
+    return this.parseAuxiliaryStandard(buffer);
+  }
 
-          if (Array.isArray(auxPlist)) {
-            return auxPlist;
-          }
-          return [auxPlist];
+  /**
+   * Parse auxiliary data in NSKeyedArchiver bplist format
+   */
+  private parseAuxiliaryAsBplist(buffer: Buffer): any[] {
+    // Find bplist header in buffer
+    const bplistMagic = 'bplist00';
+    for (let i = 0; i < Math.min(100, buffer.length - 8); i++) {
+      if (buffer.toString('ascii', i, i + 8) === bplistMagic) {
+        try {
+          const plistBuffer = buffer.subarray(i);
+          const parsed = parseBinaryPlist(plistBuffer);
+          return Array.isArray(parsed) ? parsed : [parsed];
+        } catch (error) {
+          log.warn('Failed to parse auxiliary bplist:', error);
         }
-        return [];
+        break;
       }
-      offset += 8;
+    }
+    return [];
+  }
 
-      // Read total size of auxiliary items
-      const totalSize = Number(buffer.readBigUInt64LE(offset));
-      offset += 8;
+  /**
+   * Parse auxiliary data in standard DTX format
+   */
+  private parseAuxiliaryStandard(buffer: Buffer): any[] {
+    const values: any[] = [];
+    let offset = 16; // Skip magic (8) + size (8)
 
-      const endOffset = offset + totalSize;
+    const totalSize = Number(buffer.readBigUInt64LE(8));
+    const endOffset = offset + totalSize;
 
-      // Parse each auxiliary item
-      while (offset < endOffset) {
-        // Skip empty dictionary marker
-        const emptyDict = buffer.readUInt32LE(offset);
-        offset += 4;
+    while (offset < endOffset && offset < buffer.length) {
+      // Read and validate empty dictionary marker
+      const marker = buffer.readUInt32LE(offset);
+      offset += 4;
 
-        if (emptyDict !== DTX_CONSTANTS.EMPTY_DICTIONARY) {
-          offset -= 4;
-        }
-
-        // Read type
-        const type = buffer.readUInt32LE(offset);
-        offset += 4;
-
-        // Read value
-        let value: any;
-        switch (type) {
-          case DTX_CONSTANTS.AUX_TYPE_INT32:
-            value = buffer.readUInt32LE(offset);
-            offset += 4;
-            break;
-
-          case DTX_CONSTANTS.AUX_TYPE_INT64:
-            value = Number(buffer.readBigUInt64LE(offset));
-            offset += 8;
-            break;
-
-          case DTX_CONSTANTS.AUX_TYPE_OBJECT: {
-            const length = buffer.readUInt32LE(offset);
-            offset += 4;
-
-            const plistData = buffer.subarray(offset, offset + length);
-            offset += length;
-
-            try {
-              value = parseBinaryPlist(plistData);
-            } catch (error) {
-              log.warn('Failed to parse plist in auxiliary data:', error);
-              value = plistData;
-            }
-            break;
-          }
-
-          default:
-            log.warn(`Unknown auxiliary type: ${type}`);
-            break;
-        }
-
-        values.push(value);
+      if (marker !== DTX_CONSTANTS.EMPTY_DICTIONARY) {
+        offset -= 4; // Rewind if not the expected marker
       }
 
-      return values;
-    } catch (error) {
-      log.warn('Failed to parse auxiliary data:', error);
-      return [];
+      // Read type
+      const type = buffer.readUInt32LE(offset);
+      offset += 4;
+
+      // Read value based on type
+      try {
+        const value = this.parseAuxiliaryValue(buffer, type, offset);
+        values.push(value.data);
+        offset = value.newOffset;
+      } catch (error) {
+        log.warn(`Failed to parse auxiliary value at offset ${offset}:`, error);
+        break;
+      }
+    }
+
+    return values;
+  }
+
+  /**
+   * Parse a single auxiliary value
+   */
+  private parseAuxiliaryValue(
+    buffer: Buffer,
+    type: number,
+    offset: number,
+  ): { data: any; newOffset: number } {
+    switch (type) {
+      case DTX_CONSTANTS.AUX_TYPE_INT32:
+        return {
+          data: buffer.readUInt32LE(offset),
+          newOffset: offset + 4,
+        };
+
+      case DTX_CONSTANTS.AUX_TYPE_INT64:
+        return {
+          data: Number(buffer.readBigUInt64LE(offset)),
+          newOffset: offset + 8,
+        };
+
+      case DTX_CONSTANTS.AUX_TYPE_OBJECT: {
+        const length = buffer.readUInt32LE(offset);
+        const plistData = buffer.subarray(offset + 4, offset + 4 + length);
+
+        let parsed: any;
+        try {
+          parsed = parseBinaryPlist(plistData);
+        } catch (error) {
+          log.warn('Failed to parse auxiliary object plist:', error);
+          parsed = plistData;
+        }
+
+        return {
+          data: parsed,
+          newOffset: offset + 4 + length,
+        };
+      }
+
+      default:
+        throw new Error(`Unknown auxiliary type: ${type}`);
     }
   }
 
