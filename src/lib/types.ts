@@ -18,6 +18,14 @@ export { PowerAssertionType };
 /**
  * Represents a value that can be stored in a plist
  */
+/**
+ * UID (Unique Identifier) class for plist references
+ * Used in NSKeyedArchiver format
+ */
+export class PlistUID {
+  constructor(public readonly value: number) {}
+}
+
 export type PlistValue =
   | string
   | number
@@ -25,6 +33,7 @@ export type PlistValue =
   | boolean
   | Date
   | Buffer
+  | PlistUID
   | PlistArray
   | PlistDictionary
   | null;

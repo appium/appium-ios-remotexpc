@@ -26,6 +26,8 @@ import {
   trimBeforeXmlDeclaration,
 } from './utils.js';
 
+export { PlistUID } from '../types.js';
+
 export {
   createPlist,
   createXmlPlist,
