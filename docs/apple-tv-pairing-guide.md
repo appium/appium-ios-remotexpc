@@ -17,7 +17,7 @@ Before beginning the pairing process, ensure you have:
 - Node.js and npm installed on your development machine
 - This project's dependencies installed (`npm install`)
 
-## Detailed Pairing Steps
+## Quick Start: Basic Pairing Steps
 
 ### Step 1: Ensure Same Network Connection
 
@@ -29,11 +29,6 @@ Before beginning the pairing process, ensure you have:
 3. On your development machine, verify you're connected to the same Wi-Fi network
 4. Ensure both devices have valid IP addresses in the same subnet
 5. Test network connectivity by pinging the Apple TV's IP address (if known)
-
-**Troubleshooting:**
-- If devices are on different VLANs, they may not discover each other
-- Enterprise networks with client isolation may block peer-to-peer communication
-- Some routers have "AP Isolation" enabled which prevents device communication
 
 ### Step 2: Enable Discovery Mode on Apple TV
 
@@ -69,6 +64,7 @@ npm run pair-appletv
 - Starts the device discovery service using Bonjour/mDNS
 - Searches for Apple TV devices on the local network
 - Lists available Apple TV devices found
+- Prompts you to select a device
 - Initiates the pairing protocol with the selected device
 - Prepares to receive and verify the pairing PIN
 
@@ -85,11 +81,7 @@ Waiting for PIN code...
 Enter the 4-digit PIN displayed on your Apple TV:
 ```
 
-**Troubleshooting:**
-- If no devices are found, verify both devices are on the same network
-- Check that the Apple TV is in discovery mode (Step 2)
-- Ensure your firewall isn't blocking mDNS traffic (port 5353 UDP)
-- Try restarting the Apple TV and running the command again
+![Device Selection Screenshot](../assets/images/device_selection.png)
 
 ### Step 4: Enter the Pairing PIN
 
@@ -118,12 +110,6 @@ Enter the 4-digit PIN displayed on your Apple TV:
 - You'll need to restart the process if the PIN expires or fails
 - The PIN ensures that only someone with physical access can pair
 
-**Troubleshooting:**
-- If the PIN is rejected, verify you entered it correctly
-- The PIN is case-sensitive (though typically numeric only)
-- If the PIN disappears from the TV screen, restart from Step 2
-- Network interruptions during this step will require restarting the process
-
 ### Step 5: Verify Pairing Success
 
 **Why this matters:** Successful pairing generates a pair record containing the cryptographic credentials needed for future secure communications with the Apple TV.
@@ -137,32 +123,34 @@ PIN verified successfully!
 Completing pairing handshake...
 Exchanging encryption keys...
 Pairing completed successfully!
-Pair record saved to: .pairing
+Pair record saved to: /path/to/strongbox/item
 ```
 
-The pairing process generates a file in your project's root directory:
+![Strongbox Record Save Screenshot](../assets/images/strongbox_record_save.png)
 
-```
-.pairing
-```
+**Secure Credential Storage:**
 
-![Pairing File Screenshot](../assets/images/successful_pairing.png)
+The pairing credentials are now stored securely using **Appium Strongbox**, which provides OS-level credential protection:
 
-**About the pair record:**
+- **macOS:** Credentials are stored in the system Keychain
+- **Linux:** Credentials are stored using Secret Service API (libsecret)
+- **Windows:** Credentials are stored in Windows Credential Manager
 
-The `.pairing` file contains:
+The strongbox item is named `appletv_pairing_<device_id>` and contains:
 - **Device identifier:** Unique ID for the paired Apple TV
 - **Public/private key pairs:** For establishing encrypted sessions
 - **Device metadata:** Name, IP address, and other identifying information
 - **Pairing credentials:** Shared secrets for authentication
 
-**File format:** The pair record is typically stored in JSON or binary plist format and contains sensitive cryptographic material.
+**File format:** The pair record is stored as an XML plist format within the secure credential store.
 
 **Security considerations:**
-- **Keep this file secure** - it allows full access to your Apple TV
-- Do not commit this file to version control (it's in `.gitignore`)
-- If compromised, unpair and re-pair the device
+- Credentials are protected by your operating system's credential management system
+- Access requires OS-level authentication (e.g., user login, keychain password)
+- Credentials are encrypted at rest using OS-provided encryption
+- No sensitive data is stored in plain text files
 - Each pairing is unique to a specific device combination
+- If you need to revoke access, delete the strongbox item or unpair and re-pair the device
 
 **What you can do now:**
 
@@ -172,9 +160,87 @@ With a successful pairing, you can:
 - Access Apple TV services remotely over the network
 - Perform testing and debugging without physical access
 
-## Common Issues and Solutions
+## Advanced: CLI Options for Automation
+
+The pairing script supports command-line options for automated workflows and CI/CD pipelines:
+
+### Available Options
+
+```bash
+# Interactive mode (default) - discover and select device
+npm run pair-appletv
+
+# Pair with a specific device by name
+npm run pair-appletv -- --device "Living Room"
+
+# Pair with a specific device by identifier
+npm run pair-appletv -- --device "AA:BB:CC:DD:EE:FF"
+
+# Pair with first discovered device (by index)
+npm run pair-appletv -- --device 0
+
+# Show help
+npm run pair-appletv -- --help
+```
+
+**Note:** The `--` before the flags is required to pass arguments through npm to the script.
+
+### Usage Examples
+
+**Example 1: Pair with device by name**
+```bash
+npm run pair-appletv -- --device "Living Room"
+```
+
+**Example 2: Pair with first discovered device (useful for single-device setups)**
+```bash
+npm run pair-appletv -- --device 0
+```
+
+**Example 3: Pair with device by identifier**
+```bash
+npm run pair-appletv -- --device "AA:BB:CC:DD:EE:FF"
+```
+
+### Expected Output with CLI Options
+
+When using the `--device` flag, the output will be more streamlined:
+
+```
+Discovering Apple TV devices...
+Found device: Living Room Apple TV (192.168.1.100)
+Initiating pairing with Living Room Apple TV...
+Waiting for PIN code...
+Enter the 4-digit PIN displayed on your Apple TV:
+```
+
+### CLI Option Notes
+
+- Device names are case-sensitive
+- If the specified device is not found, the script will exit with an error
+- Using device index (0, 1, 2, etc.) is useful when you know the discovery order
+- The `--help` flag displays all available options and examples
+
+## Re-pairing
+
+If you need to pair again (e.g., after resetting the Apple TV or changing networks):
+
+1. Delete the existing pairing credentials from your system credential store:
+   - **macOS:** Open Keychain Access and search for `appletv_pairing_<device_id>`, then delete the item
+   - **Linux:** Use your system's credential management tool to remove the item
+   - **Windows:** Open Credential Manager and remove the `appletv_pairing_<device_id>` credential
+2. Follow all pairing steps from the beginning
+3. A new pair record will be generated and stored securely
+
+## Troubleshooting
 
 ### Issue: No Apple TV devices found
+
+**Possible causes:**
+- Devices are on different networks
+- Apple TV is not in discovery mode
+- Firewall blocking mDNS traffic
+- Network has client isolation enabled
 
 **Solutions:**
 - Verify both devices are on the same Wi-Fi network
@@ -183,8 +249,27 @@ With a successful pairing, you can:
 - Restart the Apple TV and try again
 - Ensure the Apple TV is in discovery mode (Settings → Remotes and Devices)
 - Try temporarily disabling firewall on your development machine
+- Ensure your firewall isn't blocking mDNS traffic (port 5353 UDP)
+
+### Issue: Device not found when using --device flag
+
+**Possible causes:**
+- Device name doesn't match exactly (case-sensitive)
+- Device is not in discovery mode
+- Device identifier is incorrect
+
+**Solutions:**
+- Run without the `--device` flag first to see available devices
+- Ensure the device name matches exactly (including spaces and capitalization)
+- Verify the device is in discovery mode
+- Try using device index instead of name
 
 ### Issue: PIN verification fails
+
+**Possible causes:**
+- Incorrect PIN entered
+- PIN expired
+- Network interruption during verification
 
 **Solutions:**
 - Double-check you entered the correct PIN
@@ -192,43 +277,48 @@ With a successful pairing, you can:
 - Ensure there's no network interruption during verification
 - Try the pairing process again with a new PIN
 
-### Issue: Pairing completes but no .pairing file
+### Issue: Pairing completes but credentials not saved
+
+**Possible causes:**
+- No access to system credential store
+- Keychain/credential manager is locked
+- Permission issues
 
 **Solutions:**
-- Check file permissions in your project directory
-- Verify you have write access to the project root
-- Look for error messages in the terminal output
-- Check if the file was created in a different location
+- Check for error messages in the terminal output
+- Verify you have access to the system credential store (Keychain on macOS, etc.)
+- On macOS, ensure Keychain Access is not locked
+- On Linux, ensure the Secret Service is running
+- On Windows, verify Windows Credential Manager is accessible
 
 ### Issue: Cannot establish tunnel after pairing
 
+**Possible causes:**
+- Credentials missing or corrupted
+- Apple TV IP address changed
+- Network connectivity issues
+- Firewall blocking tunnel port
+
 **Solutions:**
-- Verify the .pairing file exists and is readable
+- Verify the pairing credentials exist in the system credential store
+- On macOS, check Keychain Access for `appletv_pairing_<device_id>` items
 - Ensure the Apple TV is still on the same network
 - The Apple TV's IP address may have changed - try pairing again
 - Check that no firewall is blocking the tunnel port
+- Try re-pairing if credentials may have been corrupted
 
-## Re-pairing
+### Issue: Network connectivity problems
 
-If you need to pair again (e.g., after resetting the Apple TV or changing networks):
+**Possible causes:**
+- VLANs separating devices
+- Enterprise network restrictions
+- Router AP isolation
 
-1. Delete the existing `.pairing` file
-2. Follow all steps from the beginning
-3. A new pair record will be generated
-
-## Technical Details
-
-**Protocols used:**
-- **mDNS/Bonjour:** For device discovery
-- **HAP (HomeKit Accessory Protocol):** Base protocol for pairing
-- **SRP (Secure Remote Password):** For password-authenticated key exchange
-- **Curve25519:** For key exchange
-- **ChaCha20-Poly1305:** For encrypted communication
-
-**Network requirements:**
-- UDP port 5353 (mDNS)
-- TCP/UDP ports for Apple TV services (varies)
-- No strict NAT or firewall blocking local network traffic
+**Solutions:**
+- If devices are on different VLANs, they may not discover each other
+- Enterprise networks with client isolation may block peer-to-peer communication
+- Some routers have "AP Isolation" enabled which prevents device communication
+- Test network connectivity by pinging the Apple TV's IP address
 
 ## Support
 
