@@ -51,6 +51,7 @@ export interface PairingRequest {
 /** Interface for handling user input during pairing process */
 export interface UserInputInterface {
   promptForPIN(): Promise<string>;
+  promptForInput(prompt: string): Promise<string>;
 }
 
 /** Interface for executing the Apple TV pairing protocol flow */

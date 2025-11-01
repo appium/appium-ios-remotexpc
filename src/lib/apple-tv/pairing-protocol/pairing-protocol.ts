@@ -38,7 +38,7 @@ import type {
 
 /** Implements the Apple TV pairing protocol including SRP authentication and key exchange */
 export class PairingProtocol implements PairingProtocolInterface {
-  private readonly log = logger.getLogger('PairingProtocol');
+  private static readonly log = logger.getLogger('PairingProtocol');
   private _sequenceNumber = 0;
 
   constructor(
@@ -81,9 +81,21 @@ export class PairingProtocol implements PairingProtocolInterface {
 
       return this.createPairingResult(device, ltpk, ltsk);
     } catch (error) {
-      this.log.error('Pairing flow failed:', error);
+      PairingProtocol.log.error('Pairing flow failed:', error);
       throw error;
     }
+  }
+
+  private createRequest(content: any, sequenceNumber?: number): PairingRequest {
+    return {
+      message: {
+        plain: {
+          _0: content,
+        },
+      },
+      originatedBy: 'host',
+      sequenceNumber: sequenceNumber ?? this._sequenceNumber++,
+    };
   }
 
   /**
@@ -124,7 +136,7 @@ export class PairingProtocol implements PairingProtocolInterface {
     const request = this.createHandshakeRequest();
     await this.networkClient.sendPacket(request);
     await this.networkClient.receiveResponse();
-    this.log.debug('Handshake completed');
+    PairingProtocol.log.debug('Handshake completed');
   }
 
   /**
@@ -138,7 +150,7 @@ export class PairingProtocol implements PairingProtocolInterface {
 
     const failedRequest = this.createPairVerifyFailedRequest();
     await this.networkClient.sendPacket(failedRequest);
-    this.log.debug('Pair verification attempt completed');
+    PairingProtocol.log.debug('Pair verification attempt completed');
   }
 
   /**
@@ -150,7 +162,7 @@ export class PairingProtocol implements PairingProtocolInterface {
     const request = this.createSetupManualPairingRequest();
     await this.networkClient.sendPacket(request);
     const response = await this.networkClient.receiveResponse();
-    this.log.debug('Manual pairing setup completed');
+    PairingProtocol.log.debug('Manual pairing setup completed');
     return response;
   }
 
@@ -189,7 +201,7 @@ export class PairingProtocol implements PairingProtocolInterface {
     const response = await this.networkClient.receiveResponse();
     this.validateSRPProofResponse(response);
 
-    this.log.debug('SRP authentication completed');
+    PairingProtocol.log.debug('SRP authentication completed');
     return srpClient;
   }
 
@@ -200,12 +212,12 @@ export class PairingProtocol implements PairingProtocolInterface {
    */
   private async receiveM6Completion(decryptKey: Buffer): Promise<void> {
     const m6Response = await this.networkClient.receiveResponse();
-    this.log.info('M6 Response received');
+    PairingProtocol.log.info('M6 Response received');
 
     try {
       this.processM6Response(m6Response, decryptKey);
     } catch (error) {
-      this.log.warn(
+      PairingProtocol.log.warn(
         'M6 decryption failed - but pairing may still be successful:',
         (error as Error).message,
       );
@@ -249,27 +261,19 @@ export class PairingProtocol implements PairingProtocolInterface {
     const x25519PublicKey = randomBytes(32);
     const pairingData = createPairVerificationData(x25519PublicKey);
 
-    return {
-      message: {
-        plain: {
-          _0: {
-            event: {
-              _0: {
-                pairingData: {
-                  _0: {
-                    data: pairingData,
-                    kind: 'verifyManualPairing',
-                    startNewSession: true,
-                  },
-                },
-              },
+    return this.createRequest({
+      event: {
+        _0: {
+          pairingData: {
+            _0: {
+              data: pairingData,
+              kind: 'verifyManualPairing',
+              startNewSession: true,
             },
           },
         },
       },
-      originatedBy: 'host',
-      sequenceNumber: this._sequenceNumber++,
-    };
+    });
   }
 
   /**
@@ -278,21 +282,13 @@ export class PairingProtocol implements PairingProtocolInterface {
    * @returns Pair verify failed event packet
    */
   private createPairVerifyFailedRequest(): PairingRequest {
-    return {
-      message: {
-        plain: {
-          _0: {
-            event: {
-              _0: {
-                pairVerifyFailed: {},
-              },
-            },
-          },
+    return this.createRequest({
+      event: {
+        _0: {
+          pairVerifyFailed: {},
         },
       },
-      originatedBy: 'host',
-      sequenceNumber: this._sequenceNumber++,
-    };
+    });
   }
 
   /**
@@ -303,28 +299,20 @@ export class PairingProtocol implements PairingProtocolInterface {
   private createSetupManualPairingRequest(): PairingRequest {
     const setupData = createSetupManualPairingData();
 
-    return {
-      message: {
-        plain: {
-          _0: {
-            event: {
-              _0: {
-                pairingData: {
-                  _0: {
-                    data: setupData,
-                    kind: 'setupManualPairing',
-                    sendingHost: hostname(),
-                    startNewSession: true,
-                  },
-                },
-              },
+    return this.createRequest({
+      event: {
+        _0: {
+          pairingData: {
+            _0: {
+              data: setupData,
+              kind: 'setupManualPairing',
+              sendingHost: hostname(),
+              startNewSession: true,
             },
           },
         },
       },
-      originatedBy: 'host',
-      sequenceNumber: this._sequenceNumber++,
-    };
+    });
   }
 
   /**
@@ -596,14 +584,16 @@ export class PairingProtocol implements PairingProtocolInterface {
     const m6TLVBuffer = Buffer.from(m6DataBase64, 'base64');
     const m6Parsed = decodeTLV8ToDict(m6TLVBuffer);
 
-    this.log.debug(
+    PairingProtocol.log.debug(
       'M6 TLV types received:',
       Object.keys(m6Parsed).map((k) => `0x${Number(k).toString(16)}`),
     );
 
     const stateData = m6Parsed[PairingDataComponentType.STATE];
     if (stateData && stateData[0] === PAIRING_STATES.M6) {
-      this.log.info('✅ Pairing completed successfully (STATE=0x06)');
+      PairingProtocol.log.info(
+        '✅ Pairing completed successfully (STATE=0x06)',
+      );
     }
 
     const encryptedData = m6Parsed[PairingDataComponentType.ENCRYPTED_DATA];
@@ -615,7 +605,10 @@ export class PairingProtocol implements PairingProtocolInterface {
         nonce,
       });
       const decryptedTLV = decodeTLV8ToDict(decrypted);
-      this.log.debug('M6 decrypted content types:', Object.keys(decryptedTLV));
+      PairingProtocol.log.debug(
+        'M6 decrypted content types:',
+        Object.keys(decryptedTLV),
+      );
     }
   }
 
@@ -633,7 +626,7 @@ export class PairingProtocol implements PairingProtocolInterface {
       length: 32,
     });
 
-    this.log.debug('Derived encryption keys');
+    PairingProtocol.log.debug('Derived encryption keys');
     return {
       encryptKey: sharedKey,
       decryptKey: sharedKey,
@@ -648,12 +641,12 @@ export class PairingProtocol implements PairingProtocolInterface {
    * @param ltsk Long-term secret key to save
    * @returns Path to saved pairing credentials file
    */
-  private createPairingResult(
+  private async createPairingResult(
     device: AppleTVDevice,
     ltpk: Buffer,
     ltsk: Buffer,
-  ): string {
+  ): Promise<string> {
     const storage = new PairingStorage(DEFAULT_PAIRING_CONFIG);
-    return storage.save(device.identifier || device.name, ltpk, ltsk);
+    return await storage.save(device.identifier || device.name, ltpk, ltsk);
   }
 }

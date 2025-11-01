@@ -5,5 +5,5 @@ export interface PairingStorageInterface {
     ltpk: Buffer,
     ltsk: Buffer,
     remoteUnlockHostKey?: string,
-  ): string;
+  ): Promise<string>;
 }

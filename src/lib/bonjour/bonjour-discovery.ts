@@ -522,6 +522,8 @@ export class BonjourDiscovery extends EventEmitter {
       return devices;
     } finally {
       this.stopBrowsing();
+      // Small delay to ensure cleanup logs are flushed before returning
+      await delay(100);
     }
   }
 
