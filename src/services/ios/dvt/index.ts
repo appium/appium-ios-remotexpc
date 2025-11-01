@@ -9,6 +9,7 @@ import { BaseService, type Service } from '../base-service.js';
 import { Channel } from './channel.js';
 import { ChannelFragmenter } from './channel-fragmenter.js';
 import { DTX_CONSTANTS, DTXMessage, MessageAux } from './dtx-message.js';
+import { decodeNSKeyedArchiver } from './nskeyedarchiver-decoder.js';
 
 const log = logger.getLogger('DVTSecureSocketProxyService');
 
@@ -290,6 +291,8 @@ export class DVTSecureSocketProxyService extends BaseService {
     if (data && data.length > 0) {
       try {
         decodedData = parseBinaryPlist(data);
+        // decode NSKeyedArchiver format
+        decodedData = decodeNSKeyedArchiver(decodedData);
       } catch (error) {
         log.warn('Failed to parse plist data:', error);
       }
@@ -699,4 +702,5 @@ export class DVTSecureSocketProxyService extends BaseService {
 }
 
 export { Channel, ChannelFragmenter, DTXMessage, MessageAux, DTX_CONSTANTS };
+export { decodeNSKeyedArchiver, NSKeyedArchiverDecoder } from './nskeyedarchiver-decoder.js';
 export type { DTXMessageHeader, DTXMessagePayloadHeader, MessageAuxValue } from './dtx-message.js';
