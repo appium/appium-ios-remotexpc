@@ -400,6 +400,45 @@ export interface LocationSimulationService {
 }
 
 /**
+ * Condition profile information
+ */
+export interface ConditionProfile {
+  identifier: string;
+  description?: string;
+  [key: string]: any;
+}
+
+/**
+ * Condition group information
+ */
+export interface ConditionGroup {
+  identifier: string;
+  profiles: ConditionProfile[];
+  [key: string]: any;
+}
+
+/**
+ * Condition inducer service interface
+ */
+export interface ConditionInducerService {
+  /**
+   * List all available condition inducers and their profiles
+   */
+  list(): Promise<ConditionGroup[]>;
+
+  /**
+   * Set a specific condition profile
+   * @param profileIdentifier The identifier of the profile to enable
+   */
+  set(profileIdentifier: string): Promise<void>;
+
+  /**
+   * Disable the currently active condition
+   */
+  disable(): Promise<void>;
+}
+
+/**
  * DVT service with connection
  * This allows callers to properly manage the connection lifecycle
  */
@@ -408,6 +447,8 @@ export interface DVTServiceWithConnection {
   dvtService: DVTSecureSocketProxyService;
   /** The LocationSimulation service instance */
   locationSimulation: LocationSimulationService;
+  /** The ConditionInducer service instance */
+  conditionInducer: ConditionInducerService;
   /** The RemoteXPC connection that can be used to close the connection */
   remoteXPC: RemoteXpcConnection;
 }
