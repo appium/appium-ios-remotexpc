@@ -90,9 +90,9 @@ export class AppleTVPairingService {
   ): Promise<AppleTVDevice> {
     // If no selector provided, always prompt user to choose (even for single device)
     if (!deviceSelector) {
-      this.log.debug(`Found ${devices.length} device(s):`);
+      this.log.info(`Found ${devices.length} device(s):`);
       devices.forEach((device, index) => {
-        this.log.debug(
+        this.log.info(
           `  [${index}] ${device.name} (${device.identifier}) - ${device.model} v${device.version}`,
         );
       });
