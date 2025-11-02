@@ -1,3 +1,9 @@
+## [0.10.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.10.0...v0.10.1) (2025-11-02)
+
+### Miscellaneous Chores
+
+* **deps:** bump actions/setup-node from 5.0.0 to 6.0.0 ([#90](https://github.com/appium/appium-ios-remotexpc/issues/90)) ([1f0748a](https://github.com/appium/appium-ios-remotexpc/commit/1f0748a6b333babd28d956f4fb4ea519fe5d2b7f))
+
 ## [0.10.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.9.0...v0.10.0) (2025-10-27)
 
 ### Features
