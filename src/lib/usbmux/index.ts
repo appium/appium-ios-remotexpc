@@ -1,8 +1,8 @@
-import { logger } from '@appium/support';
 import { Server, Socket, createConnection, createServer } from 'node:net';
 import { release } from 'node:os';
 
 import { BaseSocketService } from '../../base-socket-service.js';
+import { getLogger } from '../logger.js';
 import { type PairRecord, processPlistResponse } from '../pair-record/index.js';
 import { type RawPairRecordResponse } from '../pair-record/pair-record.js';
 import { LengthBasedSplitter, parsePlist } from '../plist/index.js';
@@ -32,7 +32,7 @@ export interface Device {
   Properties: DeviceProperties;
 }
 
-const log = logger.getLogger('Usbmux');
+const log = getLogger('Usbmux');
 
 export const USBMUXD_PORT = 27015;
 export const DEFAULT_USBMUXD_SOCKET = '/var/run/usbmuxd';

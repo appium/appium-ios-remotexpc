@@ -1,14 +1,14 @@
-import { logger } from '@appium/support';
 import { Socket } from 'node:net';
 import tls, { type ConnectionOptions, TLSSocket } from 'tls';
 
 import { BasePlistService } from '../../base-plist-service.js';
+import { getLogger } from '../logger.js';
 import { type PairRecord } from '../pair-record/index.js';
 import { PlistService } from '../plist/plist-service.js';
 import type { PlistMessage, PlistValue } from '../types.js';
 import { RelayService, createUsbmux } from '../usbmux/index.js';
 
-const log = logger.getLogger('Lockdown');
+const log = getLogger('Lockdown');
 
 // Constants
 const LABEL = 'appium-internal';
@@ -86,7 +86,7 @@ class DeviceNotFoundError extends Error {
 
 // TLS Manager for handling TLS operations
 class TLSManager {
-  private readonly log = logger.getLogger('TLSManager');
+  private readonly log = getLogger('TLSManager');
 
   /**
    * Upgrades a socket to TLS
@@ -127,7 +127,7 @@ class TLSManager {
 
 // Device Manager for handling device operations
 class DeviceManager {
-  private readonly log = logger.getLogger('DeviceManager');
+  private readonly log = getLogger('DeviceManager');
 
   /**
    * Lists all connected devices

@@ -1,5 +1,4 @@
-import { logger } from '@appium/support';
-
+import { getLogger } from '../../../lib/logger.js';
 import { PlistServiceDecoder } from '../../../lib/plist/plist-decoder.js';
 import type {
   DiagnosticsService as DiagnosticsServiceInterface,
@@ -7,7 +6,7 @@ import type {
 } from '../../../lib/types.js';
 import { BaseService } from '../base-service.js';
 
-const log = logger.getLogger('DiagnosticService');
+const log = getLogger('DiagnosticService');
 
 /**
  * DiagnosticsService provides an API to:
