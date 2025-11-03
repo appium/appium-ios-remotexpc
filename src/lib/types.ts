@@ -6,6 +6,7 @@ import { EventEmitter } from 'events';
 
 import type { ServiceConnection } from '../service-connection.js';
 import type { BaseService, Service } from '../services/ios/base-service.js';
+import type { LocationCoordinates } from '../services/ios/dvt/instruments/location-simulation.js';
 import type { PowerAssertionOptions } from '../services/ios/power-assertion/index.js';
 import { PowerAssertionType } from '../services/ios/power-assertion/index.js';
 import type { InterfaceOrientation } from '../services/ios/springboard-service/index.js';
@@ -392,6 +393,12 @@ export interface LocationSimulationService {
    * @param longitude The longitude
    */
   setLocation(latitude: number, longitude: number): Promise<void>;
+
+  /**
+   * Set the simulated location using the LocationCoordinates type.
+   * @param coordinates The location coordinates
+   */
+  set(coordinates: LocationCoordinates): Promise<void>;
 
   /**
    * Clear/stop location simulation

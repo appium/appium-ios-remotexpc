@@ -46,20 +46,17 @@ describe('Location Simulation Instrument', function () {
         longitude: -122.009102,
       };
 
-      await dvtServiceConnection!.locationSimulation.setLocation(
-        appleParkLocation.latitude,
-        appleParkLocation.longitude,
-      );
+      await dvtServiceConnection!.locationSimulation.set(appleParkLocation);
 
       // Wait to ensure location is set
       await new Promise((resolve) => setTimeout(resolve, 1000));
     });
 
     it('should clear location simulation', async () => {
-      await dvtServiceConnection!.locationSimulation.setLocation(
-        37.334606,
-        -122.009102,
-      );
+      await dvtServiceConnection!.locationSimulation.set({
+        latitude: 37.334606,
+        longitude: -122.009102,
+      });
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       await dvtServiceConnection!.locationSimulation.clear();
