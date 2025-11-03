@@ -14,7 +14,7 @@ describe('Condition Inducer Instrument', function () {
   this.timeout(30000);
 
   let dvtServiceConnection: DVTServiceWithConnection | null = null;
-  const udid = process.env.UDID || '00008030-001E290A3EF2402E';
+  const udid = process.env.UDID || '';
 
   before(async () => {
     if (!udid) {

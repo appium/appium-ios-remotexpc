@@ -68,136 +68,6 @@ export class DVTSecureSocketProxyService extends BaseService {
   }
 
   /**
-   * Perform DTX protocol handshake to establish connection and retrieve capabilities
-   */
-  private async performHandshake(): Promise<void> {
-    const args = new MessageAux();
-    args.appendObj({
-      'com.apple.private.DTXBlockCompression': 0,
-      'com.apple.private.DTXConnection': 1,
-    });
-
-    await this.sendMessage(0, '_notifyOfPublishedCapabilities:', args, false);
-
-    const [retData, aux] = await this.recvMessage();
-    const ret = retData ? parseBinaryPlist(retData) : null;
-
-    // Extract selector name from NSKeyedArchiver response
-    let selectorName: string;
-    if (typeof ret === 'string') {
-      selectorName = ret;
-    } else if (ret && typeof ret === 'object' && '$objects' in ret) {
-      const objects = (ret as any).$objects;
-      if (Array.isArray(objects) && objects.length > 1) {
-        selectorName = objects[1];
-      } else {
-        throw new Error('Invalid handshake response format');
-      }
-    } else {
-      throw new Error('Invalid handshake response');
-    }
-
-    if (selectorName !== '_notifyOfPublishedCapabilities:') {
-      throw new Error(`Invalid handshake response selector: ${selectorName}`);
-    }
-
-    if (!aux || aux.length === 0) {
-      throw new Error('Invalid handshake response: missing capabilities');
-    }
-
-    // Extract capabilities dictionary from NSKeyedArchiver auxiliary data
-    const capabilities = aux[0];
-
-    if (
-      capabilities &&
-      typeof capabilities === 'object' &&
-      '$objects' in capabilities
-    ) {
-      const objects = capabilities.$objects;
-
-      if (Array.isArray(objects) && objects.length > 1) {
-        const dictObj = objects[1];
-
-        if (
-          dictObj &&
-          typeof dictObj === 'object' &&
-          'NS.keys' in dictObj &&
-          'NS.objects' in dictObj
-        ) {
-          // NSDictionary format with key/value references
-          const keysRef = dictObj['NS.keys'];
-          const valuesRef = dictObj['NS.objects'];
-
-          if (Array.isArray(keysRef) && Array.isArray(valuesRef)) {
-            this.supportedIdentifiers = {};
-            for (let i = 0; i < keysRef.length; i++) {
-              const key = objects[keysRef[i]];
-              const value = objects[valuesRef[i]];
-              if (typeof key === 'string') {
-                this.supportedIdentifiers[key] = value;
-              }
-            }
-          }
-        } else {
-          // Array of capability strings
-          this.supportedIdentifiers = {};
-          for (let i = 1; i < objects.length; i++) {
-            const obj = objects[i];
-            if (typeof obj === 'string' && obj !== '$null') {
-              this.supportedIdentifiers[obj] = true;
-            }
-          }
-        }
-      } else {
-        this.supportedIdentifiers = {};
-      }
-    } else {
-      this.supportedIdentifiers = capabilities || {};
-    }
-
-    this.isHandshakeComplete = true;
-
-    log.debug(
-      `DVT handshake complete. Found ${Object.keys(this.supportedIdentifiers).length} supported identifiers`,
-    );
-
-    // Consume any additional messages buffered after handshake
-    await this.drainBufferedMessages();
-  }
-
-  /**
-   * Drain any buffered messages that arrived during handshake
-   */
-  private async drainBufferedMessages(): Promise<void> {
-    if (this.readBuffer.length === 0) {
-      return;
-    }
-
-    try {
-      while (this.readBuffer.length >= DTX_CONSTANTS.MESSAGE_HEADER_SIZE) {
-        const headerData = this.readBuffer.subarray(
-          0,
-          DTX_CONSTANTS.MESSAGE_HEADER_SIZE,
-        );
-        const header = DTXMessage.parseMessageHeader(headerData);
-
-        const totalSize = DTX_CONSTANTS.MESSAGE_HEADER_SIZE + header.length;
-        if (this.readBuffer.length >= totalSize) {
-          // Consume complete buffered message
-          this.readBuffer = this.readBuffer.subarray(
-            DTX_CONSTANTS.MESSAGE_HEADER_SIZE,
-          );
-          this.readBuffer = this.readBuffer.subarray(header.length);
-        } else {
-          break;
-        }
-      }
-    } catch (error) {
-      log.debug('Error while draining buffer:', error);
-    }
-  }
-
-  /**
    * Get supported service identifiers (capabilities)
    */
   getSupportedIdentifiers(): PlistDictionary {
@@ -368,6 +238,179 @@ export class DVTSecureSocketProxyService extends BaseService {
       objSize > 0 ? packetData.subarray(offset, offset + objSize) : null;
 
     return [data, aux];
+  }
+
+  /**
+   * Close the DVT service connection
+   */
+  async close(): Promise<void> {
+    if (!this.connection) {
+      return;
+    }
+
+    // Send channel cancellation for all active channels
+    const activeCodes = Array.from(this.channelMessages.keys()).filter(
+      (code) => code > 0,
+    );
+
+    if (activeCodes.length > 0) {
+      const args = new MessageAux();
+      for (const code of activeCodes) {
+        args.appendInt(code);
+      }
+
+      try {
+        await this.sendMessage(
+          DVTSecureSocketProxyService.BROADCAST_CHANNEL,
+          '_channelCanceled:',
+          args,
+          false,
+        );
+      } catch (error) {
+        log.debug('Error sending channel canceled message:', error);
+      }
+    }
+
+    this.connection.close();
+    this.connection = null;
+    this.socket = null;
+    this.isHandshakeComplete = false;
+    this.channelCache.clear();
+    this.channelMessages.clear();
+    this.channelMessages.set(
+      DVTSecureSocketProxyService.BROADCAST_CHANNEL,
+      new ChannelFragmenter(),
+    );
+  }
+
+  /**
+   * Perform DTX protocol handshake to establish connection and retrieve capabilities
+   */
+  private async performHandshake(): Promise<void> {
+    const args = new MessageAux();
+    args.appendObj({
+      'com.apple.private.DTXBlockCompression': 0,
+      'com.apple.private.DTXConnection': 1,
+    });
+
+    await this.sendMessage(0, '_notifyOfPublishedCapabilities:', args, false);
+
+    const [retData, aux] = await this.recvMessage();
+    const ret = retData ? parseBinaryPlist(retData) : null;
+
+    // Extract selector name from NSKeyedArchiver response
+    let selectorName: string;
+    if (typeof ret === 'string') {
+      selectorName = ret;
+    } else if (ret && typeof ret === 'object' && '$objects' in ret) {
+      const objects = (ret as any).$objects;
+      if (Array.isArray(objects) && objects.length > 1) {
+        selectorName = objects[1];
+      } else {
+        throw new Error('Invalid handshake response format');
+      }
+    } else {
+      throw new Error('Invalid handshake response');
+    }
+
+    if (selectorName !== '_notifyOfPublishedCapabilities:') {
+      throw new Error(`Invalid handshake response selector: ${selectorName}`);
+    }
+
+    if (!aux || aux.length === 0) {
+      throw new Error('Invalid handshake response: missing capabilities');
+    }
+
+    // Extract capabilities dictionary from NSKeyedArchiver auxiliary data
+    const capabilities = aux[0];
+
+    if (
+      capabilities &&
+      typeof capabilities === 'object' &&
+      '$objects' in capabilities
+    ) {
+      const objects = capabilities.$objects;
+
+      if (Array.isArray(objects) && objects.length > 1) {
+        const dictObj = objects[1];
+
+        if (
+          dictObj &&
+          typeof dictObj === 'object' &&
+          'NS.keys' in dictObj &&
+          'NS.objects' in dictObj
+        ) {
+          // NSDictionary format with key/value references
+          const keysRef = dictObj['NS.keys'];
+          const valuesRef = dictObj['NS.objects'];
+
+          if (Array.isArray(keysRef) && Array.isArray(valuesRef)) {
+            this.supportedIdentifiers = {};
+            for (let i = 0; i < keysRef.length; i++) {
+              const key = objects[keysRef[i]];
+              const value = objects[valuesRef[i]];
+              if (typeof key === 'string') {
+                this.supportedIdentifiers[key] = value;
+              }
+            }
+          }
+        } else {
+          // Array of capability strings
+          this.supportedIdentifiers = {};
+          for (let i = 1; i < objects.length; i++) {
+            const obj = objects[i];
+            if (typeof obj === 'string' && obj !== '$null') {
+              this.supportedIdentifiers[obj] = true;
+            }
+          }
+        }
+      } else {
+        this.supportedIdentifiers = {};
+      }
+    } else {
+      this.supportedIdentifiers = capabilities || {};
+    }
+
+    this.isHandshakeComplete = true;
+
+    log.debug(
+      `DVT handshake complete. Found ${Object.keys(this.supportedIdentifiers).length} supported identifiers`,
+    );
+
+    // Consume any additional messages buffered after handshake
+    await this.drainBufferedMessages();
+  }
+
+  /**
+   * Drain any buffered messages that arrived during handshake
+   */
+  private async drainBufferedMessages(): Promise<void> {
+    if (this.readBuffer.length === 0) {
+      return;
+    }
+
+    try {
+      while (this.readBuffer.length >= DTX_CONSTANTS.MESSAGE_HEADER_SIZE) {
+        const headerData = this.readBuffer.subarray(
+          0,
+          DTX_CONSTANTS.MESSAGE_HEADER_SIZE,
+        );
+        const header = DTXMessage.parseMessageHeader(headerData);
+
+        const totalSize = DTX_CONSTANTS.MESSAGE_HEADER_SIZE + header.length;
+        if (this.readBuffer.length >= totalSize) {
+          // Consume complete buffered message
+          this.readBuffer = this.readBuffer.subarray(
+            DTX_CONSTANTS.MESSAGE_HEADER_SIZE,
+          );
+          this.readBuffer = this.readBuffer.subarray(header.length);
+        } else {
+          break;
+        }
+      }
+    } catch (error) {
+      log.debug('Error while draining buffer:', error);
+    }
   }
 
   /**
@@ -698,49 +741,6 @@ export class DVTSecureSocketProxyService extends BaseService {
       default:
         throw new Error(`Unknown auxiliary type: ${type}`);
     }
-  }
-
-  /**
-   * Close the DVT service connection
-   */
-  async close(): Promise<void> {
-    if (!this.connection) {
-      return;
-    }
-
-    // Send channel cancellation for all active channels
-    const activeCodes = Array.from(this.channelMessages.keys()).filter(
-      (code) => code > 0,
-    );
-
-    if (activeCodes.length > 0) {
-      const args = new MessageAux();
-      for (const code of activeCodes) {
-        args.appendInt(code);
-      }
-
-      try {
-        await this.sendMessage(
-          DVTSecureSocketProxyService.BROADCAST_CHANNEL,
-          '_channelCanceled:',
-          args,
-          false,
-        );
-      } catch (error) {
-        log.debug('Error sending channel canceled message:', error);
-      }
-    }
-
-    this.connection.close();
-    this.connection = null;
-    this.socket = null;
-    this.isHandshakeComplete = false;
-    this.channelCache.clear();
-    this.channelMessages.clear();
-    this.channelMessages.set(
-      DVTSecureSocketProxyService.BROADCAST_CHANNEL,
-      new ChannelFragmenter(),
-    );
   }
 }
 
