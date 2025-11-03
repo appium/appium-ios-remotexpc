@@ -1,3 +1,9 @@
+## [0.10.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.10.1...v0.10.2) (2025-11-03)
+
+### Miscellaneous Chores
+
+* **cleanup:** remove MobileGestalt keys as service is deprecated ([#93](https://github.com/appium/appium-ios-remotexpc/issues/93)) ([bdc88a6](https://github.com/appium/appium-ios-remotexpc/commit/bdc88a66bd46c30237c6ea4c89196ab73ab39dfc))
+
 ## [0.10.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.10.0...v0.10.1) (2025-11-02)
 
 ### Miscellaneous Chores
