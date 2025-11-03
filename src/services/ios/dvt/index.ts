@@ -1,14 +1,17 @@
-import net from 'node:net';
 import { logger } from '@appium/support';
+import net from 'node:net';
 
-import { createBinaryPlist, parseBinaryPlist } from '../../../lib/plist/index.js';
+import {
+  createBinaryPlist,
+  parseBinaryPlist,
+} from '../../../lib/plist/index.js';
 import type { PlistDictionary } from '../../../lib/types.js';
 import { PlistUID } from '../../../lib/types.js';
 import { ServiceConnection } from '../../../service-connection.js';
 import { BaseService, type Service } from '../base-service.js';
-import { Channel } from './channel.js';
 import { ChannelFragmenter } from './channel-fragmenter.js';
-import { DTX_CONSTANTS, DTXMessage, MessageAux } from './dtx-message.js';
+import { Channel } from './channel.js';
+import { DTXMessage, DTX_CONSTANTS, MessageAux } from './dtx-message.js';
 import { decodeNSKeyedArchiver } from './nskeyedarchiver-decoder.js';
 
 const log = logger.getLogger('DVTSecureSocketProxyService');
@@ -33,7 +36,10 @@ export class DVTSecureSocketProxyService extends BaseService {
 
   constructor(address: [string, number]) {
     super(address);
-    this.channelMessages.set(DVTSecureSocketProxyService.BROADCAST_CHANNEL, new ChannelFragmenter());
+    this.channelMessages.set(
+      DVTSecureSocketProxyService.BROADCAST_CHANNEL,
+      new ChannelFragmenter(),
+    );
   }
 
   /**
@@ -85,10 +91,10 @@ export class DVTSecureSocketProxyService extends BaseService {
       if (Array.isArray(objects) && objects.length > 1) {
         selectorName = objects[1];
       } else {
-        throw new Error(`Invalid handshake response format`);
+        throw new Error('Invalid handshake response format');
       }
     } else {
-      throw new Error(`Invalid handshake response`);
+      throw new Error('Invalid handshake response');
     }
 
     if (selectorName !== '_notifyOfPublishedCapabilities:') {
@@ -102,13 +108,22 @@ export class DVTSecureSocketProxyService extends BaseService {
     // Extract capabilities dictionary from NSKeyedArchiver auxiliary data
     const capabilities = aux[0];
 
-    if (capabilities && typeof capabilities === 'object' && '$objects' in capabilities) {
+    if (
+      capabilities &&
+      typeof capabilities === 'object' &&
+      '$objects' in capabilities
+    ) {
       const objects = capabilities.$objects;
 
       if (Array.isArray(objects) && objects.length > 1) {
         const dictObj = objects[1];
 
-        if (dictObj && typeof dictObj === 'object' && 'NS.keys' in dictObj && 'NS.objects' in dictObj) {
+        if (
+          dictObj &&
+          typeof dictObj === 'object' &&
+          'NS.keys' in dictObj &&
+          'NS.objects' in dictObj
+        ) {
           // NSDictionary format with key/value references
           const keysRef = dictObj['NS.keys'];
           const valuesRef = dictObj['NS.objects'];
@@ -160,13 +175,18 @@ export class DVTSecureSocketProxyService extends BaseService {
 
     try {
       while (this.readBuffer.length >= DTX_CONSTANTS.MESSAGE_HEADER_SIZE) {
-        const headerData = this.readBuffer.subarray(0, DTX_CONSTANTS.MESSAGE_HEADER_SIZE);
+        const headerData = this.readBuffer.subarray(
+          0,
+          DTX_CONSTANTS.MESSAGE_HEADER_SIZE,
+        );
         const header = DTXMessage.parseMessageHeader(headerData);
 
         const totalSize = DTX_CONSTANTS.MESSAGE_HEADER_SIZE + header.length;
         if (this.readBuffer.length >= totalSize) {
           // Consume complete buffered message
-          this.readBuffer = this.readBuffer.subarray(DTX_CONSTANTS.MESSAGE_HEADER_SIZE);
+          this.readBuffer = this.readBuffer.subarray(
+            DTX_CONSTANTS.MESSAGE_HEADER_SIZE,
+          );
           this.readBuffer = this.readBuffer.subarray(header.length);
         } else {
           break;
@@ -239,7 +259,9 @@ export class DVTSecureSocketProxyService extends BaseService {
     this.curMessageId++;
 
     const auxBuffer = args ? this.buildAuxiliaryData(args) : Buffer.alloc(0);
-    const selectorBuffer = selector ? this.archiveSelector(selector) : Buffer.alloc(0);
+    const selectorBuffer = selector
+      ? this.archiveSelector(selector)
+      : Buffer.alloc(0);
 
     let flags = DTX_CONSTANTS.INSTRUMENTS_MESSAGE_TYPE;
     if (expectsReply) {
@@ -257,14 +279,22 @@ export class DVTSecureSocketProxyService extends BaseService {
       cb: DTX_CONSTANTS.MESSAGE_HEADER_SIZE,
       fragmentId: 0,
       fragmentCount: 1,
-      length: DTX_CONSTANTS.PAYLOAD_HEADER_SIZE + auxBuffer.length + selectorBuffer.length,
+      length:
+        DTX_CONSTANTS.PAYLOAD_HEADER_SIZE +
+        auxBuffer.length +
+        selectorBuffer.length,
       identifier: this.curMessageId,
       conversationIndex: 0,
       channelCode: channel,
       expectsReply: expectsReply ? 1 : 0,
     });
 
-    const message = Buffer.concat([messageHeader, payloadHeader, auxBuffer, selectorBuffer]);
+    const message = Buffer.concat([
+      messageHeader,
+      payloadHeader,
+      auxBuffer,
+      selectorBuffer,
+    ]);
 
     await new Promise<void>((resolve, reject) => {
       this.socket!.write(message, (err) => {
@@ -323,14 +353,19 @@ export class DVTSecureSocketProxyService extends BaseService {
     // Parse auxiliary data if present
     let aux: any[] = [];
     if (payloadHeader.auxiliaryLength > 0) {
-      const auxBuffer = packetData.subarray(offset, offset + payloadHeader.auxiliaryLength);
+      const auxBuffer = packetData.subarray(
+        offset,
+        offset + payloadHeader.auxiliaryLength,
+      );
       aux = this.parseAuxiliaryData(auxBuffer);
       offset += payloadHeader.auxiliaryLength;
     }
 
     // Extract object data
-    const objSize = Number(payloadHeader.totalLength) - payloadHeader.auxiliaryLength;
-    const data = objSize > 0 ? packetData.subarray(offset, offset + objSize) : null;
+    const objSize =
+      Number(payloadHeader.totalLength) - payloadHeader.auxiliaryLength;
+    const data =
+      objSize > 0 ? packetData.subarray(offset, offset + objSize) : null;
 
     return [data, aux];
   }
@@ -352,7 +387,9 @@ export class DVTSecureSocketProxyService extends BaseService {
       }
 
       // Read next message header
-      const headerData = await this.readExact(DTX_CONSTANTS.MESSAGE_HEADER_SIZE);
+      const headerData = await this.readExact(
+        DTX_CONSTANTS.MESSAGE_HEADER_SIZE,
+      );
       const header = DTXMessage.parseMessageHeader(headerData);
 
       const receivedChannel = Math.abs(header.channelCode);
@@ -442,7 +479,8 @@ export class DVTSecureSocketProxyService extends BaseService {
 
       if (errorObj) {
         const errorMsg =
-          objects.find((o: any) => typeof o === 'string' && o.length > 20) || 'Unknown error';
+          objects.find((o: any) => typeof o === 'string' && o.length > 20) ||
+          'Unknown error';
         throw new Error(`${context}: ${errorMsg}`);
       }
     }
@@ -458,10 +496,10 @@ export class DVTSecureSocketProxyService extends BaseService {
    */
   private archiveValue(value: any): Buffer {
     const archived = {
-      '$version': 100000,
-      '$archiver': 'NSKeyedArchiver',
-      '$top': { root: new PlistUID(1) },
-      '$objects': ['$null', value],
+      $version: 100000,
+      $archiver: 'NSKeyedArchiver',
+      $top: { root: new PlistUID(1) },
+      $objects: ['$null', value],
     };
 
     return createBinaryPlist(archived);
@@ -539,7 +577,7 @@ export class DVTSecureSocketProxyService extends BaseService {
 
   /**
    * Parse auxiliary data from buffer
-   * 
+   *
    * The auxiliary data format can be:
    * 1. Standard format: [magic:8][size:8][items...]
    * 2. NSKeyedArchiver bplist format (for handshake responses)
@@ -671,7 +709,9 @@ export class DVTSecureSocketProxyService extends BaseService {
     }
 
     // Send channel cancellation for all active channels
-    const activeCodes = Array.from(this.channelMessages.keys()).filter((code) => code > 0);
+    const activeCodes = Array.from(this.channelMessages.keys()).filter(
+      (code) => code > 0,
+    );
 
     if (activeCodes.length > 0) {
       const args = new MessageAux();
@@ -697,10 +737,20 @@ export class DVTSecureSocketProxyService extends BaseService {
     this.isHandshakeComplete = false;
     this.channelCache.clear();
     this.channelMessages.clear();
-    this.channelMessages.set(DVTSecureSocketProxyService.BROADCAST_CHANNEL, new ChannelFragmenter());
+    this.channelMessages.set(
+      DVTSecureSocketProxyService.BROADCAST_CHANNEL,
+      new ChannelFragmenter(),
+    );
   }
 }
 
 export { Channel, ChannelFragmenter, DTXMessage, MessageAux, DTX_CONSTANTS };
-export { decodeNSKeyedArchiver, NSKeyedArchiverDecoder } from './nskeyedarchiver-decoder.js';
-export type { DTXMessageHeader, DTXMessagePayloadHeader, MessageAuxValue } from './dtx-message.js';
+export {
+  decodeNSKeyedArchiver,
+  NSKeyedArchiverDecoder,
+} from './nskeyedarchiver-decoder.js';
+export type {
+  DTXMessageHeader,
+  DTXMessagePayloadHeader,
+  MessageAuxValue,
+} from './dtx-message.js';

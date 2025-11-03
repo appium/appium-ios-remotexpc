@@ -1,6 +1,9 @@
 import { expect } from 'chai';
 
-import { NSKeyedArchiverDecoder, decodeNSKeyedArchiver } from '../../src/services/ios/dvt/index.js';
+import {
+  NSKeyedArchiverDecoder,
+  decodeNSKeyedArchiver,
+} from '../../src/services/ios/dvt/index.js';
 
 describe('NSKeyedArchiver Decoder', () => {
   describe('isNSKeyedArchive', () => {
@@ -20,7 +23,8 @@ describe('NSKeyedArchiver Decoder', () => {
       expect(NSKeyedArchiverDecoder.isNSKeyedArchive(undefined)).to.be.false;
       expect(NSKeyedArchiverDecoder.isNSKeyedArchive('string')).to.be.false;
       expect(NSKeyedArchiverDecoder.isNSKeyedArchive([])).to.be.false;
-      expect(NSKeyedArchiverDecoder.isNSKeyedArchive({ someKey: 'value' })).to.be.false;
+      expect(NSKeyedArchiverDecoder.isNSKeyedArchive({ someKey: 'value' })).to
+        .be.false;
     });
   });
 
@@ -214,27 +218,39 @@ describe('NSKeyedArchiver Decoder', () => {
       };
 
       const result = decodeNSKeyedArchiver(archive);
-      
+
       expect(result).to.be.an('array');
       expect(result).to.have.lengthOf(2);
-      
+
       // Check first group
       expect(result[0]).to.have.property('identifier', 'NetworkLink');
       expect(result[0]).to.have.property('name', 'Network Link');
       expect(result[0]).to.have.property('profiles');
       expect(result[0].profiles).to.be.an('array');
       expect(result[0].profiles).to.have.lengthOf(1);
-      expect(result[0].profiles[0]).to.have.property('identifier', 'NetworkLink3G');
-      expect(result[0].profiles[0]).to.have.property('description', '3G Network');
-      
+      expect(result[0].profiles[0]).to.have.property(
+        'identifier',
+        'NetworkLink3G',
+      );
+      expect(result[0].profiles[0]).to.have.property(
+        'description',
+        '3G Network',
+      );
+
       // Check second group
       expect(result[1]).to.have.property('identifier', 'GPUPerformanceState');
       expect(result[1]).to.have.property('name', 'GPU Performance State');
       expect(result[1]).to.have.property('profiles');
       expect(result[1].profiles).to.be.an('array');
       expect(result[1].profiles).to.have.lengthOf(1);
-      expect(result[1].profiles[0]).to.have.property('identifier', 'GPUPerformanceStateMin');
-      expect(result[1].profiles[0]).to.have.property('description', 'Minimum GPU Performance');
+      expect(result[1].profiles[0]).to.have.property(
+        'identifier',
+        'GPUPerformanceStateMin',
+      );
+      expect(result[1].profiles[0]).to.have.property(
+        'description',
+        'Minimum GPU Performance',
+      );
     });
   });
 });

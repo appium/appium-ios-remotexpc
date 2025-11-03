@@ -23,20 +23,27 @@ export class Channel {
 
   /**
    * Call a method on this channel with automatic ObjectiveC selector conversion
-   * 
+   *
    * Converts method names to ObjectiveC selector format:
    * - 'methodName' -> 'methodName'
    * - 'method_name' -> 'method:name:'
    * - '_method_name' -> '_method:name:'
-   * 
+   *
    * @param methodName The method name
    * @returns A function that sends the message with optional arguments
    */
-  call(methodName: string): (args?: MessageAux, expectsReply?: boolean) => Promise<void> {
+  call(
+    methodName: string,
+  ): (args?: MessageAux, expectsReply?: boolean) => Promise<void> {
     const selector = this.convertToSelector(methodName);
 
     return async (args?: MessageAux, expectsReply: boolean = true) => {
-      await this.service.sendMessage(this.channelCode, selector, args, expectsReply);
+      await this.service.sendMessage(
+        this.channelCode,
+        selector,
+        args,
+        expectsReply,
+      );
     };
   }
 

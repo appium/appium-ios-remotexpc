@@ -4,8 +4,8 @@ import { RemoteXpcConnection } from './lib/remote-xpc/remote-xpc-connection.js';
 import { TunnelManager } from './lib/tunnel/index.js';
 import { TunnelApiClient } from './lib/tunnel/tunnel-api-client.js';
 import type {
-  DiagnosticsServiceWithConnection,
   DVTServiceWithConnection,
+  DiagnosticsServiceWithConnection,
   MobileConfigServiceWithConnection,
   MobileImageMounterServiceWithConnection,
   NotificationProxyServiceWithConnection,
@@ -169,20 +169,20 @@ export async function startDVTService(
   const dvtServiceDescriptor = remoteXPC.findService(
     DVTSecureSocketProxyService.RSD_SERVICE_NAME,
   );
-  
+
   // Create DVT service instance
   const dvtService = new DVTSecureSocketProxyService([
     tunnelConnection.host,
     parseInt(dvtServiceDescriptor.port, 10),
   ]);
-  
+
   // Connect to DVT service
   await dvtService.connect();
-  
+
   // Create instrument services
   const locationSimulation = new LocationSimulation(dvtService);
   const conditionInducer = new ConditionInducer(dvtService);
-  
+
   return {
     remoteXPC: remoteXPC as RemoteXpcConnection,
     dvtService,

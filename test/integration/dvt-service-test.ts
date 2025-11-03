@@ -43,8 +43,8 @@ describe('DVT Service Connection', function () {
     expect(Object.keys(supportedIdentifiers).length).to.be.greaterThan(0);
 
     // Verify location simulation is supported
-    const hasLocationSimulation = Object.keys(supportedIdentifiers).some((key) =>
-      key.includes('LocationSimulation'),
+    const hasLocationSimulation = Object.keys(supportedIdentifiers).some(
+      (key) => key.includes('LocationSimulation'),
     );
     expect(hasLocationSimulation).to.be.true;
   });

@@ -1,8 +1,8 @@
 import { logger } from '@appium/support';
 
 import type { Channel } from '../channel.js';
-import type { DVTSecureSocketProxyService } from '../index.js';
 import { MessageAux } from '../dtx-message.js';
+import type { DVTSecureSocketProxyService } from '../index.js';
 
 const log = logger.getLogger('LocationSimulation');
 
@@ -18,7 +18,8 @@ export interface LocationCoordinates {
  * Location simulation service for simulating device GPS location
  */
 export class LocationSimulation {
-  static readonly IDENTIFIER = 'com.apple.instruments.server.services.LocationSimulation';
+  static readonly IDENTIFIER =
+    'com.apple.instruments.server.services.LocationSimulation';
 
   private readonly dvt: DVTSecureSocketProxyService;
   private channel: Channel | null = null;
@@ -45,12 +46,16 @@ export class LocationSimulation {
   async set(coordinates: LocationCoordinates): Promise<void> {
     await this.initialize();
 
-    const args = new MessageAux().appendObj(coordinates.latitude).appendObj(coordinates.longitude);
+    const args = new MessageAux()
+      .appendObj(coordinates.latitude)
+      .appendObj(coordinates.longitude);
 
     await this.channel!.call('simulateLocationWithLatitude_longitude_')(args);
     await this.channel!.receivePlist();
 
-    log.info(`Location set to: ${coordinates.latitude}, ${coordinates.longitude}`);
+    log.info(
+      `Location set to: ${coordinates.latitude}, ${coordinates.longitude}`,
+    );
   }
 
   /**

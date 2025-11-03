@@ -1,8 +1,8 @@
 import { logger } from '@appium/support';
 
 import type { Channel } from '../channel.js';
-import type { DVTSecureSocketProxyService } from '../index.js';
 import { MessageAux } from '../dtx-message.js';
+import type { DVTSecureSocketProxyService } from '../index.js';
 
 const log = logger.getLogger('ConditionInducer');
 
@@ -29,7 +29,8 @@ export interface ConditionGroup {
  * such as network conditions, thermal states, etc.
  */
 export class ConditionInducer {
-  static readonly IDENTIFIER = 'com.apple.instruments.server.services.ConditionInducer';
+  static readonly IDENTIFIER =
+    'com.apple.instruments.server.services.ConditionInducer';
 
   private readonly dvt: DVTSecureSocketProxyService;
   private channel: Channel | null = null;
@@ -60,7 +61,9 @@ export class ConditionInducer {
 
     // Handle different response formats
     if (!result) {
-      log.warn('Received null/undefined response from availableConditionInducers');
+      log.warn(
+        'Received null/undefined response from availableConditionInducers',
+      );
       return [];
     }
 
@@ -69,7 +72,10 @@ export class ConditionInducer {
       return result as ConditionGroup[];
     }
 
-    log.warn('Unexpected response format from availableConditionInducers:', result);
+    log.warn(
+      'Unexpected response format from availableConditionInducers:',
+      result,
+    );
     return [];
   }
 

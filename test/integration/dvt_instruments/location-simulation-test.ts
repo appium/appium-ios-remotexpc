@@ -2,8 +2,8 @@ import { logger } from '@appium/support';
 import { expect } from 'chai';
 
 import type { DVTServiceWithConnection } from '../../../src/index.js';
-import type { LocationCoordinates } from '../../../src/services/ios/dvt/instruments/location-simulation.js';
 import * as Services from '../../../src/services.js';
+import type { LocationCoordinates } from '../../../src/services/ios/dvt/instruments/location-simulation.js';
 
 const log = logger.getLogger('LocationSimulation.test');
 log.level = 'debug';
@@ -56,7 +56,10 @@ describe('Location Simulation Instrument', function () {
     });
 
     it('should clear location simulation', async () => {
-      await dvtServiceConnection!.locationSimulation.setLocation(37.334606, -122.009102);
+      await dvtServiceConnection!.locationSimulation.setLocation(
+        37.334606,
+        -122.009102,
+      );
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       await dvtServiceConnection!.locationSimulation.clear();

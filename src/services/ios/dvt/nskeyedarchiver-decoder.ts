@@ -4,7 +4,7 @@ const log = logger.getLogger('NSKeyedArchiverDecoder');
 
 /**
  * Decode NSKeyedArchiver formatted data into native JavaScript objects
- * 
+ *
  * NSKeyedArchiver is Apple's serialization format that stores object graphs
  * with references. The format includes:
  * - $version: Archive version (typically 100000)
@@ -35,7 +35,7 @@ export class NSKeyedArchiverDecoder {
     if (!data || typeof data !== 'object') {
       return false;
     }
-    
+
     return (
       '$archiver' in data &&
       data.$archiver === 'NSKeyedArchiver' &&
@@ -62,7 +62,7 @@ export class NSKeyedArchiverDecoder {
         if (typeof root === 'number') {
           rootIndex = root;
         } else if (typeof root === 'object' && root && 'CF$UID' in root) {
-          rootIndex = (root as any)['CF$UID'];
+          rootIndex = (root as any).CF$UID;
         }
       }
     }
@@ -104,7 +104,7 @@ export class NSKeyedArchiverDecoder {
 
     // Handle UID references
     if ('CF$UID' in obj) {
-      return this.decodeObject(obj['CF$UID']);
+      return this.decodeObject(obj.CF$UID);
     }
 
     // Handle NSDictionary (NS.keys + NS.objects) - check this FIRST before NSArray
@@ -131,13 +131,17 @@ export class NSKeyedArchiverDecoder {
       if (typeof value === 'number') {
         // Could be a reference or primitive
         const referenced = this.objects[value];
-        if (referenced && typeof referenced === 'object' && referenced !== '$null') {
+        if (
+          referenced &&
+          typeof referenced === 'object' &&
+          referenced !== '$null'
+        ) {
           result[key] = this.decodeObject(value);
         } else {
           result[key] = value;
         }
       } else if (typeof value === 'object' && value && 'CF$UID' in value) {
-        const uid = (value as any)['CF$UID'];
+        const uid = (value as any).CF$UID;
         if (typeof uid === 'number') {
           result[key] = this.decodeObject(uid);
         } else {
@@ -164,7 +168,7 @@ export class NSKeyedArchiverDecoder {
       if (typeof ref === 'number') {
         return this.decodeObject(ref);
       } else if (typeof ref === 'object' && ref && 'CF$UID' in ref) {
-        return this.decodeObject(ref['CF$UID']);
+        return this.decodeObject(ref.CF$UID);
       }
       return ref;
     });
