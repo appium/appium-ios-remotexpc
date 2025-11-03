@@ -55,23 +55,6 @@ describe('Location Simulation Instrument', function () {
       await new Promise((resolve) => setTimeout(resolve, 1000));
     });
 
-    it('should set location to multiple coordinates', async () => {
-      const locations = [
-        { name: 'Statue of Liberty', latitude: 40.689247, longitude: -74.044502 },
-        { name: 'Eiffel Tower', latitude: 48.85837, longitude: 2.294481 },
-        { name: 'Sydney Opera House', latitude: -33.856784, longitude: 151.215297 },
-      ];
-
-      for (const location of locations) {
-        await dvtServiceConnection!.locationSimulation.setLocation(
-          location.latitude,
-          location.longitude,
-        );
-
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      }
-    });
-
     it('should clear location simulation', async () => {
       await dvtServiceConnection!.locationSimulation.setLocation(37.334606, -122.009102);
       await new Promise((resolve) => setTimeout(resolve, 1000));

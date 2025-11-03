@@ -74,8 +74,9 @@ describe('Condition Inducer Instrument', function () {
   });
 
   describe('Set Condition Profile', () => {
+    // to verify, increase the timeout and try accessing the internet on the device, you will notice network issues
     it('should set a condition profile if available and verify disable', async function () {
-      const networkProfile = "SlowNetwork100PctLoss"
+      const networkProfile = "SlowNetwork100PctLoss" // 100% packet loss
 
       // Set the condition
       await dvtServiceConnection!.conditionInducer.set(networkProfile);

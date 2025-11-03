@@ -32,7 +32,7 @@ describe('DVT Service Connection', function () {
     }
   });
 
-  it('should connect to DVT service and get supported identifiers', async () => {
+  it('should connect to DVT service and get supported identifiers/instruments', async () => {
     expect(dvtServiceConnection).to.not.be.null;
     expect(dvtServiceConnection!.dvtService).to.not.be.null;
     expect(dvtServiceConnection!.locationSimulation).to.not.be.null;

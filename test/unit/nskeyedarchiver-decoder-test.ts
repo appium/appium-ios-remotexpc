@@ -1,12 +1,6 @@
 import { expect } from 'chai';
 
-
-
 import { NSKeyedArchiverDecoder, decodeNSKeyedArchiver } from '../../src/services/ios/dvt/index.js';
-
-
-
-
 
 describe('NSKeyedArchiver Decoder', () => {
   describe('isNSKeyedArchive', () => {
