@@ -1,6 +1,7 @@
 import { strongbox } from '@appium/strongbox';
 import { logger } from '@appium/support';
 
+import { STRONGBOX_CONTAINER_NAME } from '../../../constants.js';
 import { createXmlPlist } from '../../plist/index.js';
 import { PairingError } from '../errors.js';
 import type { PairingConfig } from '../types.js';
@@ -12,7 +13,7 @@ export class PairingStorage implements PairingStorageInterface {
   private readonly box;
 
   constructor(private readonly config: PairingConfig) {
-    this.box = strongbox('appium-ios-remotexpc');
+    this.box = strongbox(STRONGBOX_CONTAINER_NAME);
   }
 
   async save(

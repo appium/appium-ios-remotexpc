@@ -6,75 +6,66 @@ import type { PairingConfig } from '../types.js';
 import { NETWORK_CONSTANTS } from './constants.js';
 import type { NetworkClientInterface } from './types.js';
 
+const log = logger.getLogger('NetworkClient');
+
 /** Handles TCP socket communication with Apple TV devices */
 export class NetworkClient implements NetworkClientInterface {
-  private static readonly log = logger.getLogger('NetworkClient');
   private socket: net.Socket | null = null;
   private connectionTimeoutId: NodeJS.Timeout | null = null;
 
   constructor(private readonly config: PairingConfig) {}
 
   async connect(ip: string, port: number): Promise<void> {
-    try {
-      NetworkClient.log.debug(`Connecting to ${ip}:${port}`);
+    log.debug(`Connecting to ${ip}:${port}`);
 
-      return new Promise((resolve, reject) => {
-        this.socket = new net.Socket();
-        this.socket.setTimeout(this.config.timeout);
+    return new Promise((resolve, reject) => {
+      this.socket = new net.Socket();
+      this.socket.setTimeout(this.config.timeout);
 
-        this.socket.once('connect', () => {
-          NetworkClient.log.debug('Connected successfully');
-          if (this.connectionTimeoutId) {
-            clearTimeout(this.connectionTimeoutId);
-            this.connectionTimeoutId = null;
-          }
-          resolve();
-        });
-
-        this.socket.once('error', (error) => {
-          NetworkClient.log.error('Connection error:', error);
-          if (this.connectionTimeoutId) {
-            clearTimeout(this.connectionTimeoutId);
-            this.connectionTimeoutId = null;
-          }
-          reject(new NetworkError(`Connection failed: ${error.message}`));
-        });
-
-        this.socket.once('timeout', () => {
-          NetworkClient.log.error('Socket timeout');
-          if (this.connectionTimeoutId) {
-            clearTimeout(this.connectionTimeoutId);
-            this.connectionTimeoutId = null;
-          }
-          reject(new NetworkError('Socket timeout'));
-        });
-
-        this.socket.once('close', () => {
-          if (this.connectionTimeoutId) {
-            clearTimeout(this.connectionTimeoutId);
-            this.connectionTimeoutId = null;
-          }
-        });
-
-        this.connectionTimeoutId = setTimeout(() => {
-          NetworkClient.log.error('Connection attempt timeout');
-          this.cleanup();
-          reject(
-            new NetworkError(
-              `Connection timeout after ${this.config.timeout}ms`,
-            ),
-          );
-        }, this.config.timeout);
-
-        this.socket.connect(port, ip);
+      this.socket.once('connect', () => {
+        log.debug('Connected successfully');
+        if (this.connectionTimeoutId) {
+          clearTimeout(this.connectionTimeoutId);
+          this.connectionTimeoutId = null;
+        }
+        resolve();
       });
-    } catch (error) {
-      this.cleanup();
-      NetworkClient.log.error('Connect failed:', error);
-      throw new NetworkError(
-        `Failed to initiate connection: ${(error as Error).message}`,
-      );
-    }
+
+      this.socket.once('error', (error) => {
+        log.error('Connection error:', error);
+        if (this.connectionTimeoutId) {
+          clearTimeout(this.connectionTimeoutId);
+          this.connectionTimeoutId = null;
+        }
+        reject(new NetworkError(`Connection failed: ${error.message}`));
+      });
+
+      this.socket.once('timeout', () => {
+        log.error('Socket timeout');
+        if (this.connectionTimeoutId) {
+          clearTimeout(this.connectionTimeoutId);
+          this.connectionTimeoutId = null;
+        }
+        reject(new NetworkError('Socket timeout'));
+      });
+
+      this.socket.once('close', () => {
+        if (this.connectionTimeoutId) {
+          clearTimeout(this.connectionTimeoutId);
+          this.connectionTimeoutId = null;
+        }
+      });
+
+      this.connectionTimeoutId = setTimeout(() => {
+        log.error('Connection attempt timeout');
+        this.cleanup();
+        reject(
+          new NetworkError(`Connection timeout after ${this.config.timeout}ms`),
+        );
+      }, this.config.timeout);
+
+      this.socket.connect(port, ip);
+    });
   }
 
   async sendPacket(data: any): Promise<void> {
@@ -82,29 +73,24 @@ export class NetworkClient implements NetworkClientInterface {
       throw new NetworkError('Socket not connected');
     }
 
-    try {
-      const packet = this.createRPPairingPacket(data);
-      NetworkClient.log.debug('Sending packet:', { size: packet.length });
+    const packet = this.createRPPairingPacket(data);
+    log.debug('Sending packet:', { size: packet.length });
 
-      return new Promise((resolve, reject) => {
-        if (!this.socket) {
-          reject(new NetworkError('Socket disconnected during send'));
-          return;
+    return new Promise((resolve, reject) => {
+      if (!this.socket) {
+        reject(new NetworkError('Socket disconnected during send'));
+        return;
+      }
+
+      this.socket.write(packet, (error) => {
+        if (error) {
+          log.error('Send packet error:', error);
+          reject(new NetworkError('Failed to send packet'));
+        } else {
+          resolve();
         }
-
-        this.socket.write(packet, (error) => {
-          if (error) {
-            NetworkClient.log.error('Send packet error:', error);
-            reject(new NetworkError('Failed to send packet'));
-          } else {
-            resolve();
-          }
-        });
       });
-    } catch (error) {
-      NetworkClient.log.error('Create packet error:', error);
-      throw new NetworkError('Failed to create packet');
-    }
+    });
   }
 
   async receiveResponse(): Promise<any> {
@@ -146,7 +132,7 @@ export class NetworkClient implements NetworkClientInterface {
               NETWORK_CONSTANTS.MAGIC_LENGTH,
             );
             headerRead = true;
-            NetworkClient.log.debug(
+            log.debug(
               `Response header parsed: expecting ${expectedLength} bytes`,
             );
           }
@@ -161,14 +147,12 @@ export class NetworkClient implements NetworkClientInterface {
               NETWORK_CONSTANTS.HEADER_LENGTH + expectedLength,
             );
             const response = JSON.parse(bodyBytes.toString('utf8'));
-            NetworkClient.log.debug(
-              'Response received and parsed successfully',
-            );
+            log.debug('Response received and parsed successfully');
             cleanup();
             resolve(response);
           }
         } catch (error) {
-          NetworkClient.log.error('Parse response error:', error);
+          log.error('Parse response error:', error);
           cleanup();
           reject(
             new NetworkError(
@@ -179,7 +163,7 @@ export class NetworkClient implements NetworkClientInterface {
       };
 
       const onError = (error: Error) => {
-        NetworkClient.log.error('Socket error during receive:', error);
+        log.error('Socket error during receive:', error);
         cleanup();
         reject(new NetworkError(`Socket error: ${error.message}`));
       };
@@ -191,14 +175,12 @@ export class NetworkClient implements NetworkClientInterface {
       };
 
       if (this.socket) {
-        this.socket.on('data', onData);
-        this.socket.on('error', onError);
+        this.socket.once('data', onData);
+        this.socket.once('error', onError);
         this.socket.once('close', onClose);
 
         timeoutId = setTimeout(() => {
-          NetworkClient.log.error(
-            `Response timeout after ${this.config.timeout}ms`,
-          );
+          log.error(`Response timeout after ${this.config.timeout}ms`);
           cleanup();
           reject(
             new NetworkError(`Response timeout after ${this.config.timeout}ms`),

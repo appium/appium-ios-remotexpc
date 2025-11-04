@@ -426,28 +426,20 @@ export class PairingProtocol implements PairingProtocolInterface {
     ];
     const tlv = encodeTLV8(tlvItems);
 
-    const request: PairingRequest = {
-      message: {
-        plain: {
-          _0: {
-            event: {
-              _0: {
-                pairingData: {
-                  _0: {
-                    data: tlv.toString('base64'),
-                    kind: 'setupManualPairing',
-                    sendingHost: hostname(),
-                    startNewSession: false,
-                  },
-                },
-              },
+    const request = this.createRequest({
+      event: {
+        _0: {
+          pairingData: {
+            _0: {
+              data: tlv.toString('base64'),
+              kind: 'setupManualPairing',
+              sendingHost: hostname(),
+              startNewSession: false,
             },
           },
         },
       },
-      originatedBy: 'host',
-      sequenceNumber: this._sequenceNumber++,
-    };
+    });
 
     await this.networkClient.sendPacket(request);
   }
@@ -539,28 +531,20 @@ export class PairingProtocol implements PairingProtocolInterface {
       ];
       const encryptedTLV = encodeTLV8(encryptedTLVItems);
 
-      const request: PairingRequest = {
-        message: {
-          plain: {
-            _0: {
-              event: {
-                _0: {
-                  pairingData: {
-                    _0: {
-                      data: encryptedTLV.toString('base64'),
-                      kind: 'setupManualPairing',
-                      sendingHost: hostname(),
-                      startNewSession: false,
-                    },
-                  },
-                },
+      const request = this.createRequest({
+        event: {
+          _0: {
+            pairingData: {
+              _0: {
+                data: encryptedTLV.toString('base64'),
+                kind: 'setupManualPairing',
+                sendingHost: hostname(),
+                startNewSession: false,
               },
             },
           },
         },
-        originatedBy: 'host',
-        sequenceNumber: this._sequenceNumber++,
-      };
+      });
 
       await this.networkClient.sendPacket(request);
     } catch (error) {
