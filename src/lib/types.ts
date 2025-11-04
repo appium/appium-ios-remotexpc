@@ -796,7 +796,7 @@ export interface MisagentService extends BaseService {
   removeProfile(uuid: string): Promise<void>;
 
   /**
-   * Copies all provisioning profiles from the device
+   * Fetching all provisioning profiles from the device
    * This can be used for listing installed provisioning profiles and backing them up
    * @returns {Promise<ProvisioningProfile[]>}
    * e.g.
@@ -826,14 +826,14 @@ export interface MisagentService extends BaseService {
    * },
    * ]
    * @example
-   * const profiles = await misagentService.copyAll();
+   * const profiles = await misagentService.fetchAll();
    * profiles.forEach(profile => {
    *   console.log(`Profile: ${profile.plist.Name}`);
    *   console.log(`UUID: ${profile.plist.UUID}`);
    *   console.log(`Expires: ${profile.plist.ExpirationDate}`);
    * });
    */
-  copyAll(): Promise<ProvisioningProfile[]>;
+  fetchAll(): Promise<ProvisioningProfile[]>;
 }
 
 export interface MisagentServiceWithConnection {

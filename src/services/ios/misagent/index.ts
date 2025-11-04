@@ -60,7 +60,7 @@ class MisagentService extends BaseService implements MisagentServiceInterface {
     );
   }
 
-  async copyAll(): Promise<ProvisioningProfile[]> {
+  async fetchAll(): Promise<ProvisioningProfile[]> {
     const response = await this.sendRequest(
       {
         MessageType: 'CopyAll',

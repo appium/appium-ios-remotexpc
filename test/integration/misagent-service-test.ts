@@ -47,7 +47,7 @@ describe('MisagentService', function () {
   describe('copyAll', function () {
     it('should copy all installed profiles', async function () {
       try {
-        const res = await misagentService.copyAll();
+        const res = await misagentService.fetchAll();
         log.info('CopyAll response:', JSON.stringify(res, null, 2));
         expect(res).to.be.an('array');
         res.forEach((profile) => {
