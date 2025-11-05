@@ -6,6 +6,7 @@ import { TunnelApiClient } from './lib/tunnel/tunnel-api-client.js';
 import type {
   DVTServiceWithConnection,
   DiagnosticsServiceWithConnection,
+  MisagentServiceWithConnection,
   MobileConfigServiceWithConnection,
   MobileImageMounterServiceWithConnection,
   NotificationProxyServiceWithConnection,
@@ -16,6 +17,7 @@ import type {
 } from './lib/types.js';
 import AfcService from './services/ios/afc/index.js';
 import DiagnosticsService from './services/ios/diagnostic-service/index.js';
+import { MisagentService } from './services/ios/misagent/index.js';
 import { DVTSecureSocketProxyService } from './services/ios/dvt/index.js';
 import { ConditionInducer } from './services/ios/dvt/instruments/condition-inducer.js';
 import { LocationSimulation } from './services/ios/dvt/instruments/location-simulation.js';
@@ -106,6 +108,22 @@ export async function startSpringboardService(
     springboardService: new SpringBoardService([
       tunnelConnection.host,
       parseInt(springboardService.port, 10),
+    ]),
+  };
+}
+
+export async function startMisagentService(
+  udid: string,
+): Promise<MisagentServiceWithConnection> {
+  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
+  const misagentService = remoteXPC.findService(
+    MisagentService.RSD_SERVICE_NAME,
+  );
+  return {
+    remoteXPC: remoteXPC as RemoteXpcConnection,
+    misagentService: new MisagentService([
+      tunnelConnection.host,
+      parseInt(misagentService.port, 10),
     ]),
   };
 }

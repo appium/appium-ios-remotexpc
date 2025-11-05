@@ -21,6 +21,7 @@ export type {
   PowerAssertionOptions,
   SpringboardService,
   WebInspectorService,
+  MisagentService,
   SyslogService,
   DVTSecureSocketProxyService,
   LocationSimulationService,
@@ -38,6 +39,7 @@ export type {
   PowerAssertionServiceWithConnection,
   SpringboardServiceWithConnection,
   WebInspectorServiceWithConnection,
+  MisagentServiceWithConnection,
   DVTServiceWithConnection,
 } from './lib/types.js';
 export { PowerAssertionType } from './lib/types.js';

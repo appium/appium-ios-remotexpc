@@ -1,3 +1,9 @@
+## [0.11.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.10.2...v0.11.0) (2025-11-05)
+
+### Features
+
+* implement misagent ([#88](https://github.com/appium/appium-ios-remotexpc/issues/88)) ([6b64908](https://github.com/appium/appium-ios-remotexpc/commit/6b64908b2d37759e2d6a4b9f619823293022ef4a))
+
 ## [0.10.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.10.1...v0.10.2) (2025-11-03)
 
 ### Miscellaneous Chores
