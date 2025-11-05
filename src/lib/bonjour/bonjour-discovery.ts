@@ -1,10 +1,10 @@
-import { logger } from '@appium/support';
 import { type ChildProcess, spawn } from 'node:child_process';
 import { lookup } from 'node:dns/promises';
 import { EventEmitter } from 'node:events';
 import { clearTimeout, setTimeout } from 'node:timers';
 import { setTimeout as delay } from 'node:timers/promises';
 
+import { getLogger } from '../logger.js';
 import {
   BONJOUR_DEFAULT_DOMAIN,
   BONJOUR_SERVICE_TYPES,
@@ -14,7 +14,7 @@ import {
   DNS_SD_PATTERNS,
 } from './constants.js';
 
-const log = logger.getLogger('BonjourDiscovery');
+const log = getLogger('BonjourDiscovery');
 
 const DNS_SD_COMMAND = 'dns-sd';
 

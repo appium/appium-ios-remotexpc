@@ -1,9 +1,9 @@
-import { logger } from '@appium/support';
 import { createHash } from 'crypto';
 import { Stats, promises as fs } from 'fs';
 import { performance } from 'perf_hooks';
 import { Readable } from 'stream';
 
+import { getLogger } from '../../../lib/logger.js';
 import { parseXmlPlist } from '../../../lib/plist/index.js';
 import { getManifestFromTSS } from '../../../lib/tss/index.js';
 import type {
@@ -13,7 +13,7 @@ import type {
 import { ServiceConnection } from '../../../service-connection.js';
 import { BaseService } from '../base-service.js';
 
-const log = logger.getLogger('MobileImageMounterService');
+const log = getLogger('MobileImageMounterService');
 
 /**
  * Base interface for service responses

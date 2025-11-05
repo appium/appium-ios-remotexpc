@@ -1,6 +1,6 @@
-import { logger } from '@appium/support';
 import { Transform, type TransformCallback } from 'stream';
 
+import { getLogger } from '../logger.js';
 import { UTF8_ENCODING } from './constants.js';
 import { parsePlist } from './unified-plist-parser.js';
 import {
@@ -10,7 +10,7 @@ import {
   hasUnicodeReplacementCharacter,
 } from './utils.js';
 
-const log = logger.getLogger('Plist');
+const log = getLogger('Plist');
 
 /**
  * Decodes plist format data with length prefix to JavaScript objects

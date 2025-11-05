@@ -1,9 +1,10 @@
-import { logger } from '@appium/support';
 import type { PacketConsumer, PacketData } from 'appium-ios-tuntap';
 import { EventEmitter } from 'events';
 import { type Server, type Socket, createServer } from 'net';
 
-const log = logger.getLogger('PacketStreamServer');
+import { getLogger } from '../logger.js';
+
+const log = getLogger('PacketStreamServer');
 
 /**
  * Interface for serialized packet message
