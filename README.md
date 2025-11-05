@@ -42,6 +42,34 @@ npm install appium-ios-remotexpc
 - **Pair Record Management**: Read and write device pairing records.
 - **Packet Streaming**: Stream packets between host and device for service communication.
 
+## Configuration
+
+### Environment Variables
+
+#### APPIUM_IOS_REMOTEXPC_LOG_LEVEL
+
+Controls the logging verbosity of the library.
+
+- **Default**: `info`
+- **Possible values**: Standard log levels supported by @appium/support logger
+  - `silly` - Most verbose, logs everything
+  - `verbose` - Very detailed logs
+  - `debug` - Detailed debugging information
+  - `info` - General informational messages (default)
+  - `warn` - Warning messages
+  - `error` - Error messages only
+- **Usage**:
+
+```bash
+# Set log level to debug for verbose output
+APPIUM_IOS_REMOTEXPC_LOG_LEVEL=debug npm test
+
+# Set log level to error for minimal output
+APPIUM_IOS_REMOTEXPC_LOG_LEVEL=error node your-script.js
+```
+
+This is particularly useful for debugging issues or reducing log noise in production environments.
+
 ## Architecture Flow
 
 The following diagram illustrates the high-level flow of how the tunnel is created:

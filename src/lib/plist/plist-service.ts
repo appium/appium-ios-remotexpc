@@ -1,14 +1,14 @@
-import { logger } from '@appium/support';
 import { Socket } from 'net';
 import { TLSSocket } from 'tls';
 
+import { getLogger } from '../logger.js';
 import type { PlistDictionary } from '../types.js';
 import { LengthBasedSplitter } from './length-based-splitter.js';
 import { PlistServiceDecoder } from './plist-decoder.js';
 import { PlistServiceEncoder } from './plist-encoder.js';
 
-const log = logger.getLogger('Plist');
-const errorLog = logger.getLogger('PlistError');
+const log = getLogger('Plist');
+const errorLog = getLogger('PlistError');
 
 const config = {
   verboseErrorLogging: false,

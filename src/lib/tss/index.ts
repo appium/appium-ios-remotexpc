@@ -1,11 +1,11 @@
-import { logger } from '@appium/support';
 import axios from 'axios';
 import { randomUUID } from 'node:crypto';
 
+import { getLogger } from '../logger.js';
 import { createPlist, parsePlist } from '../plist/index.js';
 import type { PlistDictionary } from '../types.js';
 
-const log = logger.getLogger('TSSRequestor');
+const log = getLogger('TSSRequestor');
 
 // TSS Constants
 const TSS_CONTROLLER_ACTION_URL = 'http://gs.apple.com/TSS/controller?action=2';

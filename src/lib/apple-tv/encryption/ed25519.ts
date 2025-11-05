@@ -1,14 +1,14 @@
-import { logger } from '@appium/support';
 import {
   type KeyPairKeyObjectResult,
   generateKeyPairSync,
   sign,
 } from 'node:crypto';
 
+import { getLogger } from '../../logger.js';
 import { CryptographyError } from '../errors.js';
 import type { PairingKeys } from '../types.js';
 
-const log = logger.getLogger('Ed25519');
+const log = getLogger('Ed25519');
 
 const ED25519_PUBLIC_KEY_LENGTH = 32;
 const ED25519_PRIVATE_KEY_LENGTH = 32;

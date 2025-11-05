@@ -1,12 +1,12 @@
-import { logger } from '@appium/support';
 import { randomUUID } from 'crypto';
 import { EventEmitter } from 'events';
 
+import { getLogger } from '../../../lib/logger.js';
 import type { PlistDictionary, PlistMessage } from '../../../lib/types.js';
 import { ServiceConnection } from '../../../service-connection.js';
 import { BaseService } from '../base-service.js';
 
-const log = logger.getLogger('WebInspectorService');
+const log = getLogger('WebInspectorService');
 
 /**
  * Interface for WebInspector message structure

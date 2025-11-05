@@ -1,7 +1,7 @@
-import { logger } from '@appium/support';
 import * as http from 'node:http';
 import { URL } from 'node:url';
 
+import { getLogger } from '../logger.js';
 import type { TunnelRegistry, TunnelRegistryEntry } from '../types.js';
 
 // Constants
@@ -9,7 +9,7 @@ const DEFAULT_TUNNEL_REGISTRY_PORT = 42314;
 const API_BASE_PATH = '/remotexpc/tunnels';
 
 // Logger instance
-const log = logger.getLogger('TunnelRegistryServer');
+const log = getLogger('TunnelRegistryServer');
 
 // Helper functions
 /**

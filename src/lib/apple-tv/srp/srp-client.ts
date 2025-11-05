@@ -1,6 +1,6 @@
-import { logger } from '@appium/support';
 import { randomBytes } from 'node:crypto';
 
+import { getLogger } from '../../logger.js';
 import {
   SRP_GENERATOR,
   SRP_KEY_LENGTH_BYTES,
@@ -22,7 +22,7 @@ import {
   hash,
 } from './crypto-utils.js';
 
-const log = logger.getLogger('SRPClient');
+const log = getLogger('SRPClient');
 
 /**
  * SRP (Secure Remote Password) client implementation following RFC 5054.

@@ -1,10 +1,10 @@
-import { logger } from '@appium/support';
 import fs from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
 import { Readable, Writable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
+import { getLogger } from '../../../lib/logger.js';
 import {
   buildClosePayload,
   buildFopenPayload,
@@ -25,7 +25,7 @@ import { AFC_FOPEN_TEXTUAL_MODES, AFC_WRITE_THIS_LENGTH } from './constants.js';
 import { AfcError, AfcFileMode, AfcOpcode } from './enums.js';
 import { createAfcReadStream, createAfcWriteStream } from './stream-utils.js';
 
-const log = logger.getLogger('AfcService');
+const log = getLogger('AfcService');
 
 const NON_LISTABLE_ENTRIES = ['', '.', '..'];
 

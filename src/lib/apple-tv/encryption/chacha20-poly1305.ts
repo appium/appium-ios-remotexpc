@@ -1,9 +1,9 @@
-import { logger } from '@appium/support';
 import { createCipheriv, createDecipheriv } from 'node:crypto';
 
+import { getLogger } from '../../logger.js';
 import { CryptographyError } from '../errors.js';
 
-const log = logger.getLogger('ChaCha20Poly1305');
+const log = getLogger('ChaCha20Poly1305');
 
 export interface ChaCha20Poly1305Params {
   plaintext?: Buffer;
