@@ -17,10 +17,10 @@ import type {
 } from './lib/types.js';
 import AfcService from './services/ios/afc/index.js';
 import DiagnosticsService from './services/ios/diagnostic-service/index.js';
-import { MisagentService } from './services/ios/misagent/index.js';
 import { DVTSecureSocketProxyService } from './services/ios/dvt/index.js';
 import { ConditionInducer } from './services/ios/dvt/instruments/condition-inducer.js';
 import { LocationSimulation } from './services/ios/dvt/instruments/location-simulation.js';
+import { MisagentService } from './services/ios/misagent/index.js';
 import { MobileConfigService } from './services/ios/mobile-config/index.js';
 import MobileImageMounterService from './services/ios/mobile-image-mounter/index.js';
 import { NotificationProxyService } from './services/ios/notification-proxy/index.js';

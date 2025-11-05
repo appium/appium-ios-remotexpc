@@ -6,8 +6,8 @@ import { EventEmitter } from 'events';
 
 import type { ServiceConnection } from '../service-connection.js';
 import type { BaseService, Service } from '../services/ios/base-service.js';
-import { ProvisioningProfile } from '../services/ios/misagent/provisioning-profile.js';
 import type { LocationCoordinates } from '../services/ios/dvt/instruments/location-simulation.js';
+import { ProvisioningProfile } from '../services/ios/misagent/provisioning-profile.js';
 import type { PowerAssertionOptions } from '../services/ios/power-assertion/index.js';
 import { PowerAssertionType } from '../services/ios/power-assertion/index.js';
 import type { InterfaceOrientation } from '../services/ios/springboard-service/index.js';
