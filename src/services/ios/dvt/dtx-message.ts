@@ -1,7 +1,3 @@
-import { logger } from '@appium/support';
-
-const log = logger.getLogger('DTXMessage');
-
 /**
  * DTX Message Header structure
  */

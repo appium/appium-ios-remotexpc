@@ -1,6 +1,6 @@
-import { logger } from '@appium/support';
+import { getLogger } from '../../../lib/logger.js';
 
-const log = logger.getLogger('NSKeyedArchiverDecoder');
+const log = getLogger('NSKeyedArchiverDecoder');
 
 /**
  * Decode NSKeyedArchiver formatted data into native JavaScript objects

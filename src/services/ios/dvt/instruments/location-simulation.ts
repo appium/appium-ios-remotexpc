@@ -1,10 +1,9 @@
-import { logger } from '@appium/support';
-
+import { getLogger } from '../../../../lib/logger.js';
 import type { Channel } from '../channel.js';
 import { MessageAux } from '../dtx-message.js';
 import type { DVTSecureSocketProxyService } from '../index.js';
 
-const log = logger.getLogger('LocationSimulation');
+const log = getLogger('LocationSimulation');
 
 /**
  * Geographic coordinates

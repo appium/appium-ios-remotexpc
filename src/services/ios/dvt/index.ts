@@ -1,6 +1,6 @@
-import { logger } from '@appium/support';
 import net from 'node:net';
 
+import { getLogger } from '../../../lib/logger.js';
 import {
   createBinaryPlist,
   parseBinaryPlist,
@@ -14,7 +14,7 @@ import { Channel } from './channel.js';
 import { DTXMessage, DTX_CONSTANTS, MessageAux } from './dtx-message.js';
 import { decodeNSKeyedArchiver } from './nskeyedarchiver-decoder.js';
 
-const log = logger.getLogger('DVTSecureSocketProxyService');
+const log = getLogger('DVTSecureSocketProxyService');
 
 /**
  * DVTSecureSocketProxyService provides access to Apple's DTServiceHub functionality
