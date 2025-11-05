@@ -5,6 +5,7 @@ import { TunnelManager } from './lib/tunnel/index.js';
 import { TunnelApiClient } from './lib/tunnel/tunnel-api-client.js';
 import type {
   DiagnosticsServiceWithConnection,
+  MisagentServiceWithConnection,
   MobileConfigServiceWithConnection,
   MobileImageMounterServiceWithConnection,
   NotificationProxyServiceWithConnection,
@@ -15,6 +16,7 @@ import type {
 } from './lib/types.js';
 import AfcService from './services/ios/afc/index.js';
 import DiagnosticsService from './services/ios/diagnostic-service/index.js';
+import { MisagentService } from './services/ios/misagent/index.js';
 import { MobileConfigService } from './services/ios/mobile-config/index.js';
 import MobileImageMounterService from './services/ios/mobile-image-mounter/index.js';
 import { NotificationProxyService } from './services/ios/notification-proxy/index.js';
@@ -102,6 +104,22 @@ export async function startSpringboardService(
     springboardService: new SpringBoardService([
       tunnelConnection.host,
       parseInt(springboardService.port, 10),
+    ]),
+  };
+}
+
+export async function startMisagentService(
+  udid: string,
+): Promise<MisagentServiceWithConnection> {
+  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
+  const misagentService = remoteXPC.findService(
+    MisagentService.RSD_SERVICE_NAME,
+  );
+  return {
+    remoteXPC: remoteXPC as RemoteXpcConnection,
+    misagentService: new MisagentService([
+      tunnelConnection.host,
+      parseInt(misagentService.port, 10),
     ]),
   };
 }
