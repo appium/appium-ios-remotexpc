@@ -1,6 +1,6 @@
 {
   "name": "appium-ios-remotexpc",
-  "version": "0.10.2",
+  "version": "0.11.0",
   "main": "build/src/index.js",
   "types": "build/src/index.d.ts",
   "type": "module",
@@ -36,6 +36,7 @@
     "tunnel-creation": "sudo tsx scripts/test-tunnel-creation.ts",
     "pair-appletv": "sudo tsx scripts/pair-appletv.ts",
     "test:webinspector": "mocha test/integration/webinspector-test.ts --exit --timeout 1m",
+    "test:misagent": "mocha test/integration/misagent-service-test.ts --exit --timeout 1m",
     "test:afc": "mocha test/integration/afc-test.ts --exit --timeout 1m",
     "test:power-assertion": "mocha test/integration/power-assertion-test.ts --exit --timeout 1m",
     "test:tunnel-creation": "sudo tsx scripts/test-tunnel-creation.ts",

@@ -22,6 +22,7 @@ export type {
   PowerAssertionOptions,
   SpringboardService,
   WebInspectorService,
+  MisagentService,
   SyslogService,
   SocketInfo,
   TunnelResult,
@@ -34,6 +35,7 @@ export type {
   PowerAssertionServiceWithConnection,
   SpringboardServiceWithConnection,
   WebInspectorServiceWithConnection,
+  MisagentServiceWithConnection,
 } from './lib/types.js';
 export { PowerAssertionType } from './lib/types.js';
 export {
