@@ -4,8 +4,7 @@
  * This module provides functionality to parse binary property lists (bplists)
  * commonly used in Apple's iOS and macOS systems.
  */
-import { logger } from '@appium/support';
-
+import { getLogger } from '../logger.js';
 import type { PlistArray, PlistDictionary, PlistValue } from '../types.js';
 import {
   APPLE_EPOCH_OFFSET,
@@ -14,7 +13,7 @@ import {
   BPLIST_TYPE,
 } from './constants.js';
 
-const log = logger.getLogger('Plist');
+const log = getLogger('Plist');
 
 /**
  * Represents a temporary object during binary plist parsing

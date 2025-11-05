@@ -1,3 +1,9 @@
+## [0.12.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.11.0...v0.12.0) (2025-11-05)
+
+### Features
+
+* add configurable log levels via LOG_LEVEL env var ([#92](https://github.com/appium/appium-ios-remotexpc/issues/92)) ([0a027a6](https://github.com/appium/appium-ios-remotexpc/commit/0a027a6377462ea0364e6eaf3de5c1321d8094c8))
+
 ## [0.11.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.10.2...v0.11.0) (2025-11-05)
 
 ### Features

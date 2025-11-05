@@ -1,14 +1,14 @@
-import { logger } from '@appium/support';
 import { TLSSocket } from 'tls';
 
 import {
   LockdownService,
   upgradeSocketToTLS,
 } from '../../../lib/lockdown/index.js';
+import { getLogger } from '../../../lib/logger.js';
 import { PlistService } from '../../../lib/plist/plist-service.js';
 import { createUsbmux } from '../../../lib/usbmux/index.js';
 
-const log = logger.getLogger('TunnelService');
+const log = getLogger('TunnelService');
 const LABEL = 'appium-internal';
 
 /**

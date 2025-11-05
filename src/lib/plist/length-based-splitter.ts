@@ -1,6 +1,6 @@
-import { logger } from '@appium/support';
 import { Transform, type TransformCallback } from 'stream';
 
+import { getLogger } from '../logger.js';
 import {
   BINARY_PLIST_HEADER_LENGTH,
   BINARY_PLIST_MAGIC,
@@ -16,7 +16,7 @@ import {
 } from './constants.js';
 import { isXmlPlistContent } from './utils.js';
 
-const log = logger.getLogger('Plist');
+const log = getLogger('Plist');
 
 // Constants
 const DEFAULT_MAX_FRAME_LENGTH = 100 * 1024 * 1024; // 100MB default for large IORegistry responses

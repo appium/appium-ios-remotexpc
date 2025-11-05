@@ -1,6 +1,6 @@
-import { logger } from '@appium/support';
 import { DOMParser, Element, Node } from '@xmldom/xmldom';
 
+import { getLogger } from '../logger.js';
 import type { PlistArray, PlistDictionary, PlistValue } from '../types.js';
 import { PlistService } from './plist-service.js';
 import {
@@ -14,7 +14,7 @@ import {
   trimBeforeXmlDeclaration,
 } from './utils.js';
 
-const errorLog = logger.getLogger('PlistError');
+const errorLog = getLogger('PlistError');
 
 /**
  * Parses an XML plist string into a JavaScript object

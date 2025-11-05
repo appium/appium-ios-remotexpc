@@ -1,5 +1,4 @@
-import { logger } from '@appium/support';
-
+import { getLogger } from '../../../lib/logger.js';
 import type {
   NotificationProxyService as NotificationProxyServiceInterface,
   PlistDictionary,
@@ -8,7 +7,7 @@ import type {
 import { ServiceConnection } from '../../../service-connection.js';
 import { BaseService } from '../base-service.js';
 
-const log = logger.getLogger('NotificationProxyService');
+const log = getLogger('NotificationProxyService');
 
 export interface ObserveNotificationRequest extends PlistDictionary {
   Command: 'ObserveNotification';

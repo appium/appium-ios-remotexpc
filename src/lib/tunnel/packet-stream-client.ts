@@ -1,9 +1,10 @@
-import { logger } from '@appium/support';
 import type { PacketConsumer, PacketData } from 'appium-ios-tuntap';
 import { EventEmitter } from 'events';
 import { type Socket, createConnection } from 'net';
 
-const log = logger.getLogger('PacketStreamClient');
+import { getLogger } from '../logger.js';
+
+const log = getLogger('PacketStreamClient');
 
 /**
  * Constants for packet stream protocol

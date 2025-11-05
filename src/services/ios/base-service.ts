@@ -1,8 +1,7 @@
-import { logger } from '@appium/support';
-
+import { getLogger } from '../../lib/logger.js';
 import { ServiceConnection } from '../../service-connection.js';
 
-const log = logger.getLogger('BaseService');
+const log = getLogger('BaseService');
 
 /**
  * Interface for service information

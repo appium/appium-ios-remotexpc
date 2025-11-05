@@ -1,10 +1,10 @@
-import { logger } from '@appium/support';
 import { createHmac } from 'node:crypto';
 
+import { getLogger } from '../../logger.js';
 import { HKDF_HASH_ALGORITHM, HKDF_HASH_LENGTH } from '../constants.js';
 import { CryptographyError } from '../errors.js';
 
-const log = logger.getLogger('HKDF');
+const log = getLogger('HKDF');
 
 export interface HKDFParams {
   ikm: Buffer;
