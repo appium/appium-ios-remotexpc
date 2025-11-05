@@ -1,6 +1,5 @@
-import { logger } from '@appium/support';
-
 import type { AppleTVDevice } from '../../bonjour/bonjour-discovery.js';
+import { getLogger } from '../../logger.js';
 import { DEFAULT_PAIRING_CONFIG } from '../constants.js';
 import { DeviceDiscoveryService } from '../discovery/index.js';
 import { PairingError } from '../errors.js';
@@ -9,9 +8,10 @@ import { PairingProtocol } from '../pairing-protocol/index.js';
 import type { UserInputInterface } from '../pairing-protocol/types.js';
 import type { PairingConfig, PairingResult } from '../types.js';
 
+const log = getLogger('AppleTVPairingService');
+
 /** Main service orchestrating Apple TV device discovery and pairing */
 export class AppleTVPairingService {
-  private readonly log = logger.getLogger('AppleTVPairingService');
   private readonly networkClient: NetworkClient;
   private readonly discoveryService: DeviceDiscoveryService;
   private readonly userInput: UserInputInterface;
@@ -37,7 +37,7 @@ export class AppleTVPairingService {
       if (devices.length === 0) {
         const errorMessage =
           'No Apple TV pairing devices found. Please ensure your Apple TV is on the same network and in pairing mode.';
-        this.log.error(errorMessage);
+        log.error(errorMessage);
         throw new PairingError(errorMessage, 'NO_DEVICES');
       }
 
@@ -50,7 +50,7 @@ export class AppleTVPairingService {
         pairingFile,
       };
     } catch (error) {
-      this.log.error('Pairing failed:', error);
+      log.error('Pairing failed:', error);
       return {
         success: false,
         deviceId: 'unknown',
@@ -71,13 +71,13 @@ export class AppleTVPairingService {
         );
       }
 
-      this.log.info(
+      log.info(
         `Connecting to device ${device.name} at ${connectionTarget}:${device.port}`,
       );
       await this.networkClient.connect(connectionTarget, device.port);
       return await this.pairingProtocol.executePairingFlow(device);
     } catch (error) {
-      this.log.error(`Pairing with device ${device.name} failed:`, error);
+      log.error(`Pairing with device ${device.name} failed:`, error);
       throw error;
     } finally {
       this.networkClient.disconnect();
@@ -90,9 +90,9 @@ export class AppleTVPairingService {
   ): Promise<AppleTVDevice> {
     // If no selector provided, always prompt user to choose (even for single device)
     if (!deviceSelector) {
-      this.log.info(`Found ${devices.length} device(s):`);
+      log.info(`Found ${devices.length} device(s):`);
       devices.forEach((device, index) => {
-        this.log.info(
+        log.info(
           `  [${index}] ${device.name} (${device.identifier}) - ${device.model} v${device.version}`,
         );
       });
@@ -107,7 +107,7 @@ export class AppleTVPairingService {
 
       // If user just presses Enter and there's only one device, select it
       if (trimmed === '' && devices.length === 1) {
-        this.log.info(
+        log.info(
           `Selected device: ${devices[0].name} (${devices[0].identifier})`,
         );
         return devices[0];
@@ -122,7 +122,7 @@ export class AppleTVPairingService {
         );
       }
 
-      this.log.info(
+      log.info(
         `Selected device: ${devices[index].name} (${devices[index].identifier})`,
       );
       return devices[index];
@@ -131,7 +131,7 @@ export class AppleTVPairingService {
     // Try to match by index first
     const indexMatch = parseInt(deviceSelector, 10);
     if (!isNaN(indexMatch) && indexMatch >= 0 && indexMatch < devices.length) {
-      this.log.info(
+      log.info(
         `Selected device by index ${indexMatch}: ${devices[indexMatch].name}`,
       );
       return devices[indexMatch];
@@ -142,7 +142,7 @@ export class AppleTVPairingService {
       (device) => device.name.toLowerCase() === deviceSelector.toLowerCase(),
     );
     if (nameMatch) {
-      this.log.info(
+      log.info(
         `Selected device by name: ${nameMatch.name} (${nameMatch.identifier})`,
       );
       return nameMatch;
@@ -154,7 +154,7 @@ export class AppleTVPairingService {
         device.identifier.toLowerCase() === deviceSelector.toLowerCase(),
     );
     if (identifierMatch) {
-      this.log.info(
+      log.info(
         `Selected device by identifier: ${identifierMatch.name} (${identifierMatch.identifier})`,
       );
       return identifierMatch;
