@@ -3,7 +3,6 @@ export const DEFAULT_PAIRING_CONFIG = {
   timeout: 30000,
   discoveryTimeout: 5000,
   maxRetries: 3,
-  pairingDirectory: '.pairing',
 } as const;
 
 // TLV8 component type identifiers used in pairing data exchange

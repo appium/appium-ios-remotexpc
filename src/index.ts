@@ -1,3 +1,4 @@
+import { STRONGBOX_CONTAINER_NAME } from './constants.js';
 import { createLockdownServiceByUDID } from './lib/lockdown/index.js';
 import {
   PacketStreamClient,
@@ -38,6 +39,7 @@ export type {
 } from './lib/types.js';
 export { PowerAssertionType } from './lib/types.js';
 export {
+  STRONGBOX_CONTAINER_NAME,
   createUsbmux,
   Services,
   Usbmux,
