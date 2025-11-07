@@ -19,41 +19,36 @@ export class NetworkClient implements NetworkClientInterface {
     log.debug(`Connecting to ${ip}:${port}`);
 
     return new Promise((resolve, reject) => {
+      const cancelTimeout = () => {
+        if (this.connectionTimeoutId) {
+          clearTimeout(this.connectionTimeoutId);
+          this.connectionTimeoutId = null;
+        }
+      };
+
       this.socket = new net.Socket();
       this.socket.setTimeout(this.config.timeout);
 
       this.socket.once('connect', () => {
         log.debug('Connected successfully');
-        if (this.connectionTimeoutId) {
-          clearTimeout(this.connectionTimeoutId);
-          this.connectionTimeoutId = null;
-        }
+        cancelTimeout();
         resolve();
       });
 
       this.socket.once('error', (error) => {
         log.error('Connection error:', error);
-        if (this.connectionTimeoutId) {
-          clearTimeout(this.connectionTimeoutId);
-          this.connectionTimeoutId = null;
-        }
+        cancelTimeout();
         reject(new NetworkError(`Connection failed: ${error.message}`));
       });
 
       this.socket.once('timeout', () => {
         log.error('Socket timeout');
-        if (this.connectionTimeoutId) {
-          clearTimeout(this.connectionTimeoutId);
-          this.connectionTimeoutId = null;
-        }
+        cancelTimeout();
         reject(new NetworkError('Socket timeout'));
       });
 
       this.socket.once('close', () => {
-        if (this.connectionTimeoutId) {
-          clearTimeout(this.connectionTimeoutId);
-          this.connectionTimeoutId = null;
-        }
+        cancelTimeout();
       });
 
       this.connectionTimeoutId = setTimeout(() => {

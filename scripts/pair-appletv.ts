@@ -68,15 +68,12 @@ async function main(): Promise<void> {
   if (result.success) {
     log.info(`Pairing successful! Record saved to: ${result.pairingFile}`);
   } else {
-    log.error(`Pairing failed: ${result.error?.message}`);
-    if (result.error) {
-      throw result.error;
-    }
-    process.exit(1);
+    const error = result.error ?? new Error('Pairing failed');
+    log.error(`Pairing failed: ${error.message}`);
+    throw error;
   }
 }
 
-main().catch((error) => {
-  console.error(error);
+main().catch(() => {
   process.exit(1);
 });
