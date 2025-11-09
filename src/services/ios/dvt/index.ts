@@ -292,27 +292,12 @@ export class DVTSecureSocketProxyService extends BaseService {
       'com.apple.private.DTXBlockCompression': 0,
       'com.apple.private.DTXConnection': 1,
     });
-
     await this.sendMessage(0, '_notifyOfPublishedCapabilities:', args, false);
 
     const [retData, aux] = await this.recvMessage();
     const ret = retData ? parseBinaryPlist(retData) : null;
 
-    // Extract selector name from NSKeyedArchiver response
-    let selectorName: string;
-    if (typeof ret === 'string') {
-      selectorName = ret;
-    } else if (ret && typeof ret === 'object' && '$objects' in ret) {
-      const objects = (ret as any).$objects;
-      if (Array.isArray(objects) && objects.length > 1) {
-        selectorName = objects[1];
-      } else {
-        throw new Error('Invalid handshake response format');
-      }
-    } else {
-      throw new Error('Invalid handshake response');
-    }
-
+    const selectorName = this.extractSelectorFromResponse(ret);
     if (selectorName !== '_notifyOfPublishedCapabilities:') {
       throw new Error(`Invalid handshake response selector: ${selectorName}`);
     }
@@ -321,55 +306,8 @@ export class DVTSecureSocketProxyService extends BaseService {
       throw new Error('Invalid handshake response: missing capabilities');
     }
 
-    // Extract capabilities dictionary from NSKeyedArchiver auxiliary data
-    const capabilities = aux[0];
-
-    if (
-      capabilities &&
-      typeof capabilities === 'object' &&
-      '$objects' in capabilities
-    ) {
-      const objects = capabilities.$objects;
-
-      if (Array.isArray(objects) && objects.length > 1) {
-        const dictObj = objects[1];
-
-        if (
-          dictObj &&
-          typeof dictObj === 'object' &&
-          'NS.keys' in dictObj &&
-          'NS.objects' in dictObj
-        ) {
-          // NSDictionary format with key/value references
-          const keysRef = dictObj['NS.keys'];
-          const valuesRef = dictObj['NS.objects'];
-
-          if (Array.isArray(keysRef) && Array.isArray(valuesRef)) {
-            this.supportedIdentifiers = {};
-            for (let i = 0; i < keysRef.length; i++) {
-              const key = objects[keysRef[i]];
-              const value = objects[valuesRef[i]];
-              if (typeof key === 'string') {
-                this.supportedIdentifiers[key] = value;
-              }
-            }
-          }
-        } else {
-          // Array of capability strings
-          this.supportedIdentifiers = {};
-          for (let i = 1; i < objects.length; i++) {
-            const obj = objects[i];
-            if (typeof obj === 'string' && obj !== '$null') {
-              this.supportedIdentifiers[obj] = true;
-            }
-          }
-        }
-      } else {
-        this.supportedIdentifiers = {};
-      }
-    } else {
-      this.supportedIdentifiers = capabilities || {};
-    }
+    // Extract server capabilities from auxiliary data
+    this.supportedIdentifiers = this.extractCapabilitiesFromAuxData(aux[0]);
 
     this.isHandshakeComplete = true;
 
@@ -379,6 +317,84 @@ export class DVTSecureSocketProxyService extends BaseService {
 
     // Consume any additional messages buffered after handshake
     await this.drainBufferedMessages();
+  }
+
+  private extractSelectorFromResponse(ret: any): string {
+    if (typeof ret === 'string') {
+      return ret;
+    }
+
+    if (ret && typeof ret === 'object' && '$objects' in ret) {
+      const objects = (ret as any).$objects;
+      if (Array.isArray(objects) && objects.length > 1) {
+        return objects[1];
+      }
+      throw new Error('Invalid handshake response format');
+    }
+
+    throw new Error('Invalid handshake response');
+  }
+
+  private extractCapabilitiesFromAuxData(
+    capabilitiesData: any,
+  ): PlistDictionary {
+    if (
+      !capabilitiesData ||
+      typeof capabilitiesData !== 'object' ||
+      !('$objects' in capabilitiesData)
+    ) {
+      return capabilitiesData || {};
+    }
+
+    const objects = capabilitiesData.$objects;
+    if (!Array.isArray(objects) || objects.length <= 1) {
+      return {};
+    }
+
+    const dictObj = objects[1];
+
+    // Handle NSDictionary format with key/value references
+    if (
+      dictObj &&
+      typeof dictObj === 'object' &&
+      'NS.keys' in dictObj &&
+      'NS.objects' in dictObj
+    ) {
+      return this.extractNSDictionary(dictObj, objects);
+    }
+
+    return this.extractCapabilityStrings(objects);
+  }
+
+  private extractNSDictionary(dictObj: any, objects: any[]): PlistDictionary {
+    const keysRef = dictObj['NS.keys'];
+    const valuesRef = dictObj['NS.objects'];
+
+    if (!Array.isArray(keysRef) || !Array.isArray(valuesRef)) {
+      return {};
+    }
+
+    const result: PlistDictionary = {};
+    for (let i = 0; i < keysRef.length; i++) {
+      const key = objects[keysRef[i]];
+      const value = objects[valuesRef[i]];
+      if (typeof key === 'string') {
+        result[key] = value;
+      }
+    }
+
+    return result;
+  }
+
+  private extractCapabilityStrings(objects: any[]): PlistDictionary {
+    const result: PlistDictionary = {};
+    for (let i = 1; i < objects.length; i++) {
+      const obj = objects[i];
+      if (typeof obj === 'string' && obj !== '$null') {
+        result[obj] = true;
+      }
+    }
+    return result;
   }
 
   /**
