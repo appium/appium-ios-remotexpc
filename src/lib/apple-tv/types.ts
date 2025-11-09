@@ -28,7 +28,6 @@ export interface PairingConfig {
   timeout: number;
   discoveryTimeout: number;
   maxRetries: number;
-  pairingDirectory: string;
 }
 
 // Represents a TLV8 data item with a type and binary data

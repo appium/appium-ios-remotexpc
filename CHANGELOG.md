@@ -1,3 +1,9 @@
+## [0.13.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.12.0...v0.13.0) (2025-11-07)
+
+### Features
+
+* appletv pairing ([#76](https://github.com/appium/appium-ios-remotexpc/issues/76)) ([f974b12](https://github.com/appium/appium-ios-remotexpc/commit/f974b12f137152421f359f667d60d7e116a89353))
+
 ## [0.12.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.11.0...v0.12.0) (2025-11-05)
 
 ### Features

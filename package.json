@@ -1,6 +1,6 @@
 {
   "name": "appium-ios-remotexpc",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "main": "build/src/index.js",
   "types": "build/src/index.d.ts",
   "type": "module",
@@ -32,6 +32,9 @@
     "test:image-mounter": "mocha test/integration/mobile-image-mounter-test.ts --exit --timeout 1m",
     "test:mobile-config": "mocha test/integration/mobile-config-test.ts --exit --timeout 1m",
     "test:springboard": "mocha test/integration/springboard-service-test.ts --exit --timeout 1m",
+    "test:unit": "NODE_ENV=test mocha 'test/unit/**/*.ts' --exit --timeout 2m",
+    "tunnel-creation": "sudo tsx scripts/test-tunnel-creation.ts",
+    "pair-appletv": "sudo tsx scripts/pair-appletv.ts",
     "test:webinspector": "mocha test/integration/webinspector-test.ts --exit --timeout 1m",
     "test:misagent": "mocha test/integration/misagent-service-test.ts --exit --timeout 1m",
     "test:afc": "mocha test/integration/afc-test.ts --exit --timeout 1m",
@@ -39,7 +42,6 @@
     "test:dvt": "mocha test/integration/dvt-service-test.ts --exit --timeout 1m",
     "test:location-simulation-dvt": "mocha test/integration/dvt_instruments/location-simulation-test.ts --exit --timeout 1m",
     "test:condition-inducer-dvt": "mocha test/integration/dvt_instruments/condition-inducer-test.ts --exit --timeout 1m",
-    "test:unit": "mocha 'test/unit/**/*.ts' --exit --timeout 2m",
     "test:tunnel-creation": "sudo tsx scripts/test-tunnel-creation.ts",
     "test:tunnel-creation:lsof": "sudo tsx scripts/test-tunnel-creation.ts --keep-open"
   },
