@@ -20,12 +20,9 @@ export class LocationSimulation {
   static readonly IDENTIFIER =
     'com.apple.instruments.server.services.LocationSimulation';
 
-  private readonly dvt: DVTSecureSocketProxyService;
   private channel: Channel | null = null;
 
-  constructor(dvt: DVTSecureSocketProxyService) {
-    this.dvt = dvt;
-  }
+  constructor(private readonly dvt: DVTSecureSocketProxyService) {}
 
   /**
    * Initialize the location simulation channel

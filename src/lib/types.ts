@@ -368,6 +368,16 @@ export interface DVTSecureSocketProxyService extends BaseService {
 
   /**
    * Get supported identifiers (capabilities)
+   * @example
+   * const capabilities = dvtService.getSupportedIdentifiers();
+   * // Example output:
+   * // {
+   * //   "com.apple.instruments.server.services.processcontrol.capability.memorylimits": 1,
+   * //   "com.apple.instruments.server.services.coreml.perfrunner": 4,
+   * //   "com.apple.instruments.server.services.processcontrolbydictionary": 4,
+   * //   "com.apple.instruments.server.services.graphics.coreanimation.immediate": 1,
+   * //   // ... more identifiers
+   * // }
    */
   getSupportedIdentifiers(): PlistDictionary;
 
@@ -431,12 +441,64 @@ export interface ConditionGroup {
 export interface ConditionInducerService {
   /**
    * List all available condition inducers and their profiles
+   *
+   * Each group in the response contains information about whether a condition
+   * is currently active via the `isActive` field and which profile is active
+   * via the `activeProfile` field.
+   *
+   * @returns Array of condition groups with their available profiles
+   *
+   * @example
+   * ```typescript
+   * const groups = await conditionInducer.list();
+   * // Example response:
+   * // [
+   * //   {
+   * //     "profiles": [
+   * //       {
+   * //         "name": "100% packet loss",
+   * //         "identifier": "SlowNetwork100PctLoss",
+   * //         "description": "Name: 100% Loss Scenario\nDownlink Bandwidth: 0 Mbps\nDownlink Latency: 0 ms\nDownlink Packet Loss Ratio: 100%\nUplink Bandwidth: 0 Mbps\nUplink Latency: 0 ms\nUplink Packet Loss Ratio: 100%"
+   * //       },
+   * //       // ... more profiles
+   * //     ],
+   * //     "profilesSorted": true,
+   * //     "identifier": "SlowNetworkCondition",
+   * //     "isDestructive": false,
+   * //     "isInternal": false,
+   * //     "activeProfile": "",
+   * //     "name": "Network Link",
+   * //     "isActive": false
+   * //   },
+   * //   // ... more groups
+   * // ]
+   * ```
    */
   list(): Promise<ConditionGroup[]>;
 
   /**
    * Set a specific condition profile
+   *
+   * Note: If a condition is already active, attempting to set a new one will
+   * throw an error: {'NSLocalizedDescription': 'A condition is already active.'}
+   * You must call disable() first before setting a different condition.
+   *
+   * Available profile identifiers include (but may vary by iOS version):
+   * - Network profiles: SlowNetwork100PctLoss, SlowNetworkVeryBadNetwork,
+   *   SlowNetworkEdgeBad, SlowNetworkEdgeAverage, SlowNetworkEdgeGood,
+   *   SlowNetworkEdge, SlowNetwork2GRural, SlowNetwork2GUrban,
+   *   SlowNetwork3GAverage, SlowNetwork3GGood, SlowNetwork3G,
+   *   SlowNetworkLTE, SlowNetworkWiFi, SlowNetworkWiFi80211AC,
+   *   SlowNetworkDSL, SlowNetworkHighLatencyDNS
+   * - Thermal profiles: ThermalFair, ThermalSerious, ThermalCritical
+   * - GPU profiles: GPUPerformanceStateMin, GPUPerformanceStateMid, GPUPerformanceStateMax
+   * - And others depending on device capabilities
+   *
+   * Use list() to see all available profiles for your device.
+   *
    * @param profileIdentifier The identifier of the profile to enable
+   * @throws Error if the profile identifier is not found
+   * @throws Error if a condition is already active
    */
   set(profileIdentifier: string): Promise<void>;
 

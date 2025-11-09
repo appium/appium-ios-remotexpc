@@ -31,12 +31,9 @@ export class ConditionInducer {
   static readonly IDENTIFIER =
     'com.apple.instruments.server.services.ConditionInducer';
 
-  private readonly dvt: DVTSecureSocketProxyService;
   private channel: Channel | null = null;
 
-  constructor(dvt: DVTSecureSocketProxyService) {
-    this.dvt = dvt;
-  }
+  constructor(private readonly dvt: DVTSecureSocketProxyService) {}
 
   /**
    * Initialize the condition inducer channel
@@ -82,6 +79,7 @@ export class ConditionInducer {
    * Set a specific condition profile
    * @param profileIdentifier The identifier of the profile to enable
    * @throws Error if the profile identifier is not found
+   * @throws Error if a condition is already active
    */
   async set(profileIdentifier: string): Promise<void> {
     await this.initialize();
@@ -92,32 +90,38 @@ export class ConditionInducer {
     for (const group of groups) {
       const profiles = group.profiles || [];
       for (const profile of profiles) {
-        if (profileIdentifier === profile.identifier) {
-          log.info(
-            `Enabling condition: ${profile.description || profile.identifier}`,
-          );
-
-          const args = new MessageAux()
-            .appendObj(group.identifier)
-            .appendObj(profile.identifier);
-
-          await this.channel!.call(
-            'enableConditionWithIdentifier_profileIdentifier_',
-          )(args);
-
-          // Wait for response which may be a raised NSError
-          await this.channel!.receivePlist();
-
-          log.info(
-            `Successfully enabled condition profile: ${profileIdentifier}`,
-          );
-          return;
+        if (profileIdentifier !== profile.identifier) {
+          continue;
         }
+
+        log.info(
+          `Enabling condition: ${profile.description || profile.identifier}`,
+        );
+
+        const args = new MessageAux()
+          .appendObj(group.identifier)
+          .appendObj(profile.identifier);
+
+        await this.channel!.call(
+          'enableConditionWithIdentifier_profileIdentifier_',
+        )(args);
+
+        // Wait for response which may be a raised NSError
+        await this.channel!.receivePlist();
+
+        log.info(
+          `Successfully enabled condition profile: ${profileIdentifier}`,
+        );
+        return;
       }
     }
 
+    const availableProfiles = groups.flatMap((group) =>
+      (group.profiles || []).map((p) => p.identifier),
+    );
+
     throw new Error(
-      `Invalid profile identifier: ${profileIdentifier}. Use list() to see available profiles.`,
+      `Invalid profile identifier: ${profileIdentifier}. Available profiles: ${availableProfiles.join(', ')}`,
     );
   }
 
