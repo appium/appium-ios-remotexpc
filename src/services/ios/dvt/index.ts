@@ -477,7 +477,9 @@ export class DVTSecureSocketProxyService extends BaseService {
    */
   private async readExact(length: number): Promise<Buffer> {
     if (!this.socket) {
-      throw new Error('Not connected');
+      throw new Error(
+        `${this.constructor.name} is not initialized. Call connect() before sending messages.`,
+      );
     }
 
     // Keep reading until we have enough data

@@ -1,6 +1,11 @@
 import type { MessageAux } from './dtx-message.js';
 import type { DVTSecureSocketProxyService } from './index.js';
 
+export type ChannelMethodCall = (
+  args?: MessageAux,
+  expectsReply?: boolean,
+) => Promise<void>;
+
 /**
  * Represents a DTX communication channel for a specific instrument service
  */
@@ -29,19 +34,16 @@ export class Channel {
    * @param methodName The method name
    * @returns A function that sends the message with optional arguments
    */
-  call(
-    methodName: string,
-  ): (args?: MessageAux, expectsReply?: boolean) => Promise<void> {
+  call(methodName: string): ChannelMethodCall {
     const selector = this.convertToSelector(methodName);
-
-    return async (args?: MessageAux, expectsReply: boolean = true) => {
+    return (async (args, expectsReply = true) => {
       await this.service.sendMessage(
         this.channelCode,
         selector,
         args,
         expectsReply,
       );
-    };
+    }) as ChannelMethodCall;
   }
 
   /**
