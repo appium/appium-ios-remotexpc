@@ -319,12 +319,20 @@ export class DVTSecureSocketProxyService extends BaseService {
     await this.drainBufferedMessages();
   }
 
+  private extractNSKeyedArchiverObjects(data: any): any[] | null {
+    if (!data || typeof data !== 'object' || !('$objects' in data)) {
+      return null;
+    }
+    const objects = data.$objects;
+    return Array.isArray(objects) && objects.length > 1 ? objects : null;
+  }
+
   private extractSelectorFromResponse(ret: any): string {
     if (typeof ret === 'string') {
       return ret;
     }
-    const objects = ret?.$objects;
-    if (Array.isArray(objects) && objects.length > 1) {
+    const objects = this.extractNSKeyedArchiverObjects(ret);
+    if (objects) {
       return objects[1];
     }
 
@@ -334,17 +342,9 @@ export class DVTSecureSocketProxyService extends BaseService {
   private extractCapabilitiesFromAuxData(
     capabilitiesData: any,
   ): PlistDictionary {
-    if (
-      !capabilitiesData ||
-      typeof capabilitiesData !== 'object' ||
-      !('$objects' in capabilitiesData)
-    ) {
+    const objects = this.extractNSKeyedArchiverObjects(capabilitiesData);
+    if (!objects) {
       return capabilitiesData || {};
-    }
-
-    const objects = capabilitiesData.$objects;
-    if (!Array.isArray(objects) || objects.length <= 1) {
-      return {};
     }
 
     const dictObj = objects[1];
@@ -520,12 +520,8 @@ export class DVTSecureSocketProxyService extends BaseService {
     }
 
     // Check NSKeyedArchiver format
-    if ('$objects' in response) {
-      const objects = (response as any).$objects;
-      if (!Array.isArray(objects) || objects.length <= 1) {
-        return;
-      }
-
+    const objects = this.extractNSKeyedArchiverObjects(response);
+    if (objects) {
       // Look for error indicators in objects array
       const errorObj = objects.find(
         (o: any) =>
