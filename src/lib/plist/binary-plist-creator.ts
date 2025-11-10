@@ -5,6 +5,7 @@
  * commonly used in Apple's iOS and macOS systems.
  */
 import type { PlistDictionary, PlistValue } from '../types.js';
+import { PlistUID } from '../types.js';
 import {
   APPLE_EPOCH_OFFSET,
   BPLIST_MAGIC_AND_VERSION,
@@ -218,6 +219,30 @@ class BinaryPlistCreator {
    */
   private _createBooleanData(value: boolean): Buffer {
     return Buffer.from([value ? BPLIST_TYPE.TRUE : BPLIST_TYPE.FALSE]);
+  }
+
+  /**
+   * Creates UID data for NSKeyedArchiver references
+   * @param value - The UID value to encode
+   * @returns Buffer containing the encoded UID
+   */
+  private _createUIDData(value: number): Buffer {
+    // UID format: 0x80 | length_marker, followed by the UID value
+    let buffer: Buffer;
+    if (value <= 255) {
+      buffer = Buffer.alloc(2);
+      buffer.writeUInt8(BPLIST_TYPE.UID | 0, 0);
+      buffer.writeUInt8(value, 1);
+    } else if (value <= 65535) {
+      buffer = Buffer.alloc(3);
+      buffer.writeUInt8(BPLIST_TYPE.UID | 1, 0);
+      buffer.writeUInt16BE(value, 1);
+    } else {
+      buffer = Buffer.alloc(5);
+      buffer.writeUInt8(BPLIST_TYPE.UID | 2, 0);
+      buffer.writeUInt32BE(value, 1);
+    }
+    return buffer;
   }
 
   /**
@@ -505,6 +530,11 @@ class BinaryPlistCreator {
     // Handle Buffer (DATA)
     if (Buffer.isBuffer(value)) {
       return this._createBufferData(value);
+    }
+
+    // Handle UID (for NSKeyedArchiver format)
+    if (value instanceof PlistUID) {
+      return this._createUIDData(value.value);
     }
 
     // Handle strings
