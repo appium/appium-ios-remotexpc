@@ -504,6 +504,9 @@ export interface ConditionInducerService {
 
   /**
    * Disable the currently active condition
+   *
+   * Note: This method is idempotent - calling it when no condition is active
+   * will not throw an error.
    */
   disable(): Promise<void>;
 }

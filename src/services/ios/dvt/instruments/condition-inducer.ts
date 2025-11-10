@@ -68,11 +68,10 @@ export class ConditionInducer {
       return result as ConditionGroup[];
     }
 
-    log.warn(
+    throw new Error(
       'Unexpected response format from availableConditionInducers:',
       result,
     );
-    return [];
   }
 
   /**
@@ -127,11 +126,36 @@ export class ConditionInducer {
 
   /**
    * Disable the currently active condition
+   *
+   * Note: This method is idempotent - calling it when no condition is active
+   * will not throw an error.
    */
   async disable(): Promise<void> {
     await this.initialize();
 
     await this.channel!.call('disableActiveCondition')();
-    log.info('Disabled active condition');
+    const response = await this.channel!.receivePlist();
+
+    // Response can be:
+    // - true (successfully disabled condition)
+    // - NSError object, when no condition is active
+    if (response === true) {
+      log.info('Disabled active condition');
+    } else if (this.isNSError(response)) {
+      log.debug('No active condition to disable');
+    } else {
+      throw new Error(
+        'Unexpected response from disableActiveCondition:',
+        response,
+      );
+    }
+  }
+
+  private isNSError(obj: any): boolean {
+    return (
+      obj &&
+      typeof obj === 'object' &&
+      ('NSCode' in obj || 'NSUserInfo' in obj || 'NSDomain' in obj)
+    );
   }
 }
