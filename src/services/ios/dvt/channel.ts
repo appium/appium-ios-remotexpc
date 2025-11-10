@@ -5,19 +5,16 @@ import type { DVTSecureSocketProxyService } from './index.js';
  * Represents a DTX communication channel for a specific instrument service
  */
 export class Channel {
-  private readonly channelCode: number;
-  private readonly service: DVTSecureSocketProxyService;
-
-  constructor(channelCode: number, service: DVTSecureSocketProxyService) {
-    this.channelCode = channelCode;
-    this.service = service;
-  }
+  constructor(
+    private readonly channelCode: number,
+    private readonly service: DVTSecureSocketProxyService,
+  ) {}
 
   /**
    * Receive a plist response from the channel
    */
   async receivePlist(): Promise<any> {
-    const [data, _aux] = await this.service.recvPlist(this.channelCode);
+    const [data] = await this.service.recvPlist(this.channelCode);
     return data;
   }
 

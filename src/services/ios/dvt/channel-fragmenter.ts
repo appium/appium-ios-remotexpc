@@ -5,7 +5,7 @@ import type { DTXMessageHeader } from './dtx-message.js';
  * Assembles fragmented messages and queues complete messages for retrieval
  */
 export class ChannelFragmenter {
-  private messages: Buffer[] = [];
+  private readonly messages: Buffer[] = [];
   private packetData: Buffer = Buffer.alloc(0);
   private streamPacketData: Buffer = Buffer.alloc(0);
 

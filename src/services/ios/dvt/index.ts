@@ -97,7 +97,7 @@ export class DVTSecureSocketProxyService extends BaseService {
 
     await this.sendMessage(0, '_requestChannelWithCode:identifier:', args);
 
-    const [ret, _aux] = await this.recvPlist();
+    const [ret] = await this.recvPlist();
 
     // Check for NSError in response
     this.checkForNSError(ret, 'Failed to create channel');
@@ -188,7 +188,7 @@ export class DVTSecureSocketProxyService extends BaseService {
     const [data, aux] = await this.recvMessage(channel);
 
     let decodedData = null;
-    if (data && data.length > 0) {
+    if (data?.length) {
       try {
         decodedData = parseBinaryPlist(data);
         // decode NSKeyedArchiver format
@@ -323,13 +323,9 @@ export class DVTSecureSocketProxyService extends BaseService {
     if (typeof ret === 'string') {
       return ret;
     }
-
-    if (ret && typeof ret === 'object' && '$objects' in ret) {
-      const objects = (ret as any).$objects;
-      if (Array.isArray(objects) && objects.length > 1) {
-        return objects[1];
-      }
-      throw new Error('Invalid handshake response format');
+    const objects = ret?.$objects;
+    if (Array.isArray(objects) && objects.length > 1) {
+      return objects[1];
     }
 
     throw new Error('Invalid handshake response');

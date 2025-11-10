@@ -1,27 +1,10 @@
 import { getLogger } from '../../../../lib/logger.js';
+import type { ConditionGroup } from '../../../../lib/types.js';
 import type { Channel } from '../channel.js';
 import { MessageAux } from '../dtx-message.js';
 import type { DVTSecureSocketProxyService } from '../index.js';
 
 const log = getLogger('ConditionInducer');
-
-/**
- * Condition profile information
- */
-export interface ConditionProfile {
-  identifier: string;
-  description?: string;
-  [key: string]: any;
-}
-
-/**
- * Condition group information
- */
-export interface ConditionGroup {
-  identifier: string;
-  profiles: ConditionProfile[];
-  [key: string]: any;
-}
 
 /**
  * Condition Inducer service for simulating various device conditions
