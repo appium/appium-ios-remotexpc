@@ -13,10 +13,9 @@ const log = getLogger('NSKeyedArchiverDecoder');
  * - $objects: Array of all objects with cross-references
  */
 export class NSKeyedArchiverDecoder {
-  private objects: any[];
-  private decoded: Map<number, any>;
-
-  private archive: any;
+  private readonly objects: any[];
+  private readonly decoded: Map<number, any>;
+  private readonly archive: any;
 
   constructor(data: any) {
     if (!NSKeyedArchiverDecoder.isNSKeyedArchive(data)) {

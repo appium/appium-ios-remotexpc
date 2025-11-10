@@ -29,8 +29,8 @@ export class DVTSecureSocketProxyService extends BaseService {
   private supportedIdentifiers: PlistDictionary = {};
   private lastChannelCode: number = 0;
   private curMessageId: number = 0;
-  private channelCache: Map<string, Channel> = new Map();
-  private channelMessages: Map<number, ChannelFragmenter> = new Map();
+  private readonly channelCache: Map<string, Channel> = new Map();
+  private readonly channelMessages: Map<number, ChannelFragmenter> = new Map();
   private isHandshakeComplete: boolean = false;
   private readBuffer: Buffer = Buffer.alloc(0);
 

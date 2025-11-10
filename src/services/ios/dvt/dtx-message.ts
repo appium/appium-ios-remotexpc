@@ -127,7 +127,7 @@ export class DTXMessage {
  * Message auxiliary builder for DTX protocol parameters
  */
 export class MessageAux {
-  private values: MessageAuxValue[] = [];
+  private readonly values: MessageAuxValue[] = [];
 
   /**
    * Append a 32-bit integer
