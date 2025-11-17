@@ -5,13 +5,13 @@
  * commonly used in Apple's iOS and macOS systems.
  */
 import type { PlistDictionary, PlistValue } from '../types.js';
-import { PlistUID } from '../types.js';
 import {
   APPLE_EPOCH_OFFSET,
   BPLIST_MAGIC_AND_VERSION,
   BPLIST_TRAILER_SIZE,
   BPLIST_TYPE,
 } from './constants.js';
+import { PlistUID } from './plist-uid.js';
 
 /**
  * Checks if a value is a plain object (not null, not an array, not a Date, not a Buffer)

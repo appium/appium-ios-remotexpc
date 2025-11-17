@@ -52,8 +52,7 @@ export class ConditionInducer {
     }
 
     throw new Error(
-      'Unexpected response format from availableConditionInducers:',
-      result,
+      `Unexpected response format from availableConditionInducers: ${JSON.stringify(result)}`,
     );
   }
 
@@ -128,17 +127,14 @@ export class ConditionInducer {
       log.debug('No active condition to disable');
     } else {
       throw new Error(
-        'Unexpected response from disableActiveCondition:',
-        response,
+        `Unexpected response from disableActiveCondition: ${JSON.stringify(response)}`,
       );
     }
   }
 
   private isNSError(obj: any): boolean {
-    return (
-      obj &&
-      typeof obj === 'object' &&
-      ('NSCode' in obj || 'NSUserInfo' in obj || 'NSDomain' in obj)
+    return ['NSCode', 'NSUserInfo', 'NSDomain'].some(
+      (prop) => obj?.[prop] !== undefined,
     );
   }
 }

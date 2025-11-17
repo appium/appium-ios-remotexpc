@@ -2,11 +2,11 @@ import net from 'node:net';
 
 import { getLogger } from '../../../lib/logger.js';
 import {
+  PlistUID,
   createBinaryPlist,
   parseBinaryPlist,
 } from '../../../lib/plist/index.js';
 import type { PlistDictionary } from '../../../lib/types.js';
-import { PlistUID } from '../../../lib/types.js';
 import { ServiceConnection } from '../../../service-connection.js';
 import { BaseService, type Service } from '../base-service.js';
 import { ChannelFragmenter } from './channel-fragmenter.js';
@@ -15,6 +15,8 @@ import { DTXMessage, DTX_CONSTANTS, MessageAux } from './dtx-message.js';
 import { decodeNSKeyedArchiver } from './nskeyedarchiver-decoder.js';
 
 const log = getLogger('DVTSecureSocketProxyService');
+
+const MIN_ERROR_DESCRIPTION_LENGTH = 20;
 
 /**
  * DVTSecureSocketProxyService provides access to Apple's DTServiceHub functionality
@@ -384,6 +386,7 @@ export class DVTSecureSocketProxyService extends BaseService {
 
   private extractCapabilityStrings(objects: any[]): PlistDictionary {
     const result: PlistDictionary = {};
+    // Start from index 1 because index 0 is always '$null' in NSKeyedArchiver format
     for (let i = 1; i < objects.length; i++) {
       const obj = objects[i];
       if (typeof obj === 'string' && obj !== '$null') {
@@ -522,18 +525,17 @@ export class DVTSecureSocketProxyService extends BaseService {
     // Check NSKeyedArchiver format
     const objects = this.extractNSKeyedArchiverObjects(response);
     if (objects) {
-      // Look for error indicators in objects array
-      const errorObj = objects.find(
-        (o: any) =>
-          typeof o === 'object' &&
-          o !== null &&
-          ('NSLocalizedDescription' in o || 'NSUserInfo' in o || 'NSCode' in o),
+      // Check for NSError indicators
+      const hasNSError = ['NSCode', 'NSUserInfo', 'NSDomain'].some((prop) =>
+        objects.some((o) => o?.[prop] !== undefined),
       );
 
-      if (errorObj) {
+      if (hasNSError) {
         const errorMsg =
-          objects.find((o: any) => typeof o === 'string' && o.length > 20) ||
-          'Unknown error';
+          objects.find(
+            (o: any) =>
+              typeof o === 'string' && o.length > MIN_ERROR_DESCRIPTION_LENGTH,
+          ) || 'Unknown error';
         throw new Error(`${context}: ${errorMsg}`);
       }
     }
@@ -679,8 +681,8 @@ export class DVTSecureSocketProxyService extends BaseService {
     const values: any[] = [];
     let offset = 16; // Skip magic (8) + size (8)
 
-    const totalSize = Number(buffer.readBigUInt64LE(8));
-    const endOffset = offset + totalSize;
+    const totalSize = buffer.readBigUInt64LE(8);
+    const endOffset = offset + Number(totalSize);
 
     while (offset < endOffset && offset < buffer.length) {
       // Read and validate empty dictionary marker
@@ -726,7 +728,7 @@ export class DVTSecureSocketProxyService extends BaseService {
 
       case DTX_CONSTANTS.AUX_TYPE_INT64:
         return {
-          data: Number(buffer.readBigUInt64LE(offset)),
+          data: buffer.readBigUInt64LE(offset),
           newOffset: offset + 8,
         };
 

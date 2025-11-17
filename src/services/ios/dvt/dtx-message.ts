@@ -138,9 +138,9 @@ export class MessageAux {
   }
 
   /**
-   * Append a 64-bit integer
+   * Append a 64-bit integer (bigint)
    */
-  appendLong(value: number): MessageAux {
+  appendLong(value: bigint): MessageAux {
     this.values.push({ type: DTX_CONSTANTS.AUX_TYPE_INT64, value });
     return this;
   }

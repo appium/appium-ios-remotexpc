@@ -18,14 +18,11 @@ export type { PowerAssertionOptions };
 export { PowerAssertionType };
 
 /**
- * Represents a value that can be stored in a plist
- */
-/**
- * UID (Unique Identifier) class for plist references
+ * UID (Unique Identifier) interface for plist references
  * Used in NSKeyedArchiver format
  */
-export class PlistUID {
-  constructor(public readonly value: number) {}
+export interface IPlistUID {
+  value: number;
 }
 
 export type PlistValue =
@@ -35,7 +32,7 @@ export type PlistValue =
   | boolean
   | Date
   | Buffer
-  | PlistUID
+  | IPlistUID
   | PlistArray
   | PlistDictionary
   | null;
@@ -413,6 +410,8 @@ export interface LocationSimulationService {
 
   /**
    * Clear/stop location simulation
+   *
+   * Note: This method is safe to call even if no location simulation is currently active.
    */
   clear(): Promise<void>;
 }

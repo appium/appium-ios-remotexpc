@@ -64,7 +64,9 @@ export class LocationSimulation {
   }
 
   /**
-   * Stop location simulation and restore actual device location
+   * Stop location simulation and restore the actual device location
+   *
+   * Note: This method is safe to call even if no location simulation is currently active.
    */
   async clear(): Promise<void> {
     await this.initialize();
