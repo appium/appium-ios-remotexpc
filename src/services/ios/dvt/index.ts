@@ -13,6 +13,13 @@ import { ChannelFragmenter } from './channel-fragmenter.js';
 import { Channel } from './channel.js';
 import { DTXMessage, DTX_CONSTANTS, MessageAux } from './dtx-message.js';
 import { decodeNSKeyedArchiver } from './nskeyedarchiver-decoder.js';
+import {
+  extractCapabilityStrings,
+  extractNSDictionary,
+  extractNSKeyedArchiverObjects,
+  hasNSErrorIndicators,
+  isNSDictionaryFormat,
+} from './utils.js';
 
 const log = getLogger('DVTSecureSocketProxyService');
 
@@ -321,19 +328,11 @@ export class DVTSecureSocketProxyService extends BaseService {
     await this.drainBufferedMessages();
   }
 
-  private extractNSKeyedArchiverObjects(data: any): any[] | null {
-    if (!data || typeof data !== 'object' || !('$objects' in data)) {
-      return null;
-    }
-    const objects = data.$objects;
-    return Array.isArray(objects) && objects.length > 1 ? objects : null;
-  }
-
   private extractSelectorFromResponse(ret: any): string {
     if (typeof ret === 'string') {
       return ret;
     }
-    const objects = this.extractNSKeyedArchiverObjects(ret);
+    const objects = extractNSKeyedArchiverObjects(ret);
     if (objects) {
       return objects[1];
     }
@@ -344,56 +343,18 @@ export class DVTSecureSocketProxyService extends BaseService {
   private extractCapabilitiesFromAuxData(
     capabilitiesData: any,
   ): PlistDictionary {
-    const objects = this.extractNSKeyedArchiverObjects(capabilitiesData);
+    const objects = extractNSKeyedArchiverObjects(capabilitiesData);
     if (!objects) {
       return capabilitiesData || {};
     }
 
     const dictObj = objects[1];
 
-    // Handle NSDictionary format with key/value references
-    if (
-      dictObj &&
-      typeof dictObj === 'object' &&
-      'NS.keys' in dictObj &&
-      'NS.objects' in dictObj
-    ) {
-      return this.extractNSDictionary(dictObj, objects);
+    if (isNSDictionaryFormat(dictObj)) {
+      return extractNSDictionary(dictObj, objects);
     }
 
-    return this.extractCapabilityStrings(objects);
-  }
-
-  private extractNSDictionary(dictObj: any, objects: any[]): PlistDictionary {
-    const keysRef = dictObj['NS.keys'];
-    const valuesRef = dictObj['NS.objects'];
-
-    if (!Array.isArray(keysRef) || !Array.isArray(valuesRef)) {
-      return {};
-    }
-
-    const result: PlistDictionary = {};
-    for (let i = 0; i < keysRef.length; i++) {
-      const key = objects[keysRef[i]];
-      const value = objects[valuesRef[i]];
-      if (typeof key === 'string') {
-        result[key] = value;
-      }
-    }
-
-    return result;
-  }
-
-  private extractCapabilityStrings(objects: any[]): PlistDictionary {
-    const result: PlistDictionary = {};
-    // Start from index 1 because index 0 is always '$null' in NSKeyedArchiver format
-    for (let i = 1; i < objects.length; i++) {
-      const obj = objects[i];
-      if (typeof obj === 'string' && obj !== '$null') {
-        result[obj] = true;
-      }
-    }
-    return result;
+    return extractCapabilityStrings(objects);
   }
 
   /**
@@ -523,12 +484,10 @@ export class DVTSecureSocketProxyService extends BaseService {
     }
 
     // Check NSKeyedArchiver format
-    const objects = this.extractNSKeyedArchiverObjects(response);
+    const objects = extractNSKeyedArchiverObjects(response);
     if (objects) {
-      // Check for NSError indicators
-      const hasNSError = ['NSCode', 'NSUserInfo', 'NSDomain'].some((prop) =>
-        objects.some((o) => o?.[prop] !== undefined),
-      );
+      // Check for NSError indicators in $objects
+      const hasNSError = objects.some((o) => hasNSErrorIndicators(o));
 
       if (hasNSError) {
         const errorMsg =
@@ -541,7 +500,7 @@ export class DVTSecureSocketProxyService extends BaseService {
     }
 
     // Check direct NSError format
-    if ('NSLocalizedDescription' in response || 'NSUserInfo' in response) {
+    if (hasNSErrorIndicators(response)) {
       throw new Error(`${context}: ${JSON.stringify(response)}`);
     }
   }
