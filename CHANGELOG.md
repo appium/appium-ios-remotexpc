@@ -1,3 +1,9 @@
+## [0.13.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.13.0...v0.13.1) (2025-11-15)
+
+### Miscellaneous Chores
+
+* publish via trusted publisher ([#97](https://github.com/appium/appium-ios-remotexpc/issues/97)) ([0f96a35](https://github.com/appium/appium-ios-remotexpc/commit/0f96a3576e726370a8f13b13d51ba5eaa6402bef))
+
 ## [0.13.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.12.0...v0.13.0) (2025-11-07)
 
 ### Features
