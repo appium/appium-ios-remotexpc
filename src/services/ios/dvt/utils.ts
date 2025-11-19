@@ -1,14 +1,11 @@
 import type { PlistDictionary } from '../../../lib/types.js';
 
-export function isObject(value: any): value is Record<string, any> {
+export function isPlainObject(value: any): value is Record<string, any> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
 export function hasProperties(obj: any, ...props: string[]): boolean {
-  if (!isObject(obj)) {
-    return false;
-  }
-  return props.every((prop) => prop in obj);
+  return isPlainObject(obj) ? props.every((prop) => prop in obj) : false;
 }
 
 export function isNSKeyedArchiverFormat(data: any): boolean {
@@ -24,7 +21,7 @@ export function isNSDictionaryFormat(obj: any): boolean {
 }
 
 export function hasNSErrorIndicators(obj: any): boolean {
-  if (!isObject(obj)) {
+  if (!isPlainObject(obj)) {
     return false;
   }
 
