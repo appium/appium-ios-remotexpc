@@ -1,3 +1,39 @@
+## [0.13.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.13.0...v0.13.1) (2025-11-15)
+
+### Miscellaneous Chores
+
+* publish via trusted publisher ([#97](https://github.com/appium/appium-ios-remotexpc/issues/97)) ([0f96a35](https://github.com/appium/appium-ios-remotexpc/commit/0f96a3576e726370a8f13b13d51ba5eaa6402bef))
+
+## [0.13.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.12.0...v0.13.0) (2025-11-07)
+
+### Features
+
+* appletv pairing ([#76](https://github.com/appium/appium-ios-remotexpc/issues/76)) ([f974b12](https://github.com/appium/appium-ios-remotexpc/commit/f974b12f137152421f359f667d60d7e116a89353))
+
+## [0.12.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.11.0...v0.12.0) (2025-11-05)
+
+### Features
+
+* add configurable log levels via LOG_LEVEL env var ([#92](https://github.com/appium/appium-ios-remotexpc/issues/92)) ([0a027a6](https://github.com/appium/appium-ios-remotexpc/commit/0a027a6377462ea0364e6eaf3de5c1321d8094c8))
+
+## [0.11.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.10.2...v0.11.0) (2025-11-05)
+
+### Features
+
+* implement misagent ([#88](https://github.com/appium/appium-ios-remotexpc/issues/88)) ([6b64908](https://github.com/appium/appium-ios-remotexpc/commit/6b64908b2d37759e2d6a4b9f619823293022ef4a))
+
+## [0.10.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.10.1...v0.10.2) (2025-11-03)
+
+### Miscellaneous Chores
+
+* **cleanup:** remove MobileGestalt keys as service is deprecated ([#93](https://github.com/appium/appium-ios-remotexpc/issues/93)) ([bdc88a6](https://github.com/appium/appium-ios-remotexpc/commit/bdc88a66bd46c30237c6ea4c89196ab73ab39dfc))
+
+## [0.10.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.10.0...v0.10.1) (2025-11-02)
+
+### Miscellaneous Chores
+
+* **deps:** bump actions/setup-node from 5.0.0 to 6.0.0 ([#90](https://github.com/appium/appium-ios-remotexpc/issues/90)) ([1f0748a](https://github.com/appium/appium-ios-remotexpc/commit/1f0748a6b333babd28d956f4fb4ea519fe5d2b7f))
+
 ## [0.10.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.9.0...v0.10.0) (2025-10-27)
 
 ### Features

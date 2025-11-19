@@ -1,8 +1,9 @@
-import { logger } from '@appium/support';
 import fs from 'fs';
 import path from 'path';
 
-const log = logger.getLogger('PairRecord');
+import { getLogger } from '../logger.js';
+
+const log = getLogger('PairRecord');
 
 /**
  * Interface defining the structure of a pair record.

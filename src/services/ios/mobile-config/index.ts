@@ -1,6 +1,7 @@
-import { fs, logger } from '@appium/support';
+import { fs } from '@appium/support';
 import path from 'node:path';
 
+import { getLogger } from '../../../lib/logger.js';
 import { SUPPORTED_EXTENSIONS } from '../../../lib/plist/constants.js';
 import { createPlist, parsePlist } from '../../../lib/plist/index.js';
 import {
@@ -11,7 +12,7 @@ import { ServiceConnection } from '../../../service-connection.js';
 import { BaseService } from '../base-service.js';
 
 const ERROR_CLOUD_CONFIGURATION_ALREADY_PRESENT = 14002;
-const log = logger.getLogger('MobileConfigService');
+const log = getLogger('MobileConfigService');
 
 /**
  * MobileConfigService provides an API to:

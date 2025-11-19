@@ -1,5 +1,4 @@
-import { logger } from '@appium/support';
-
+import { getLogger } from '../../../lib/logger.js';
 import type {
   PlistDictionary,
   PowerAssertionService as PowerAssertionServiceInterface,
@@ -7,7 +6,7 @@ import type {
 import { ServiceConnection } from '../../../service-connection.js';
 import { BaseService } from '../base-service.js';
 
-const log = logger.getLogger('PowerAssertionService');
+const log = getLogger('PowerAssertionService');
 
 /**
  * Power assertion types that can be used to prevent system sleep

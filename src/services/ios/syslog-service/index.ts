@@ -1,7 +1,7 @@
-import { logger } from '@appium/support';
 import type { PacketConsumer, PacketData } from 'appium-ios-tuntap';
 import { EventEmitter } from 'events';
 
+import { getLogger } from '../../../lib/logger.js';
 import { isBinaryPlist } from '../../../lib/plist/binary-plist-parser.js';
 import { parsePlist } from '../../../lib/plist/unified-plist-parser.js';
 import type {
@@ -12,8 +12,8 @@ import type {
 import { ServiceConnection } from '../../../service-connection.js';
 import { BaseService, type Service } from '../base-service.js';
 
-const syslogLog = logger.getLogger('SyslogMessages');
-const log = logger.getLogger('Syslog');
+const syslogLog = getLogger('SyslogMessages');
+const log = getLogger('Syslog');
 
 const MIN_PRINTABLE_RATIO = 0.5;
 const ASCII_PRINTABLE_MIN = 32;

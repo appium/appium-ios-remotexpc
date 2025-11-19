@@ -1,9 +1,9 @@
-import { logger } from '@appium/support';
 import net from 'node:net';
 
+import { getLogger } from '../logger.js';
 import Handshake from './handshake.js';
 
-const log = logger.getLogger('RemoteXpcConnection');
+const log = getLogger('RemoteXpcConnection');
 
 // Timeout constants
 const CONNECTION_TIMEOUT_MS = 30000; // 30 seconds
