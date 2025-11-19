@@ -6,6 +6,7 @@ import { EventEmitter } from 'events';
 
 import type { ServiceConnection } from '../service-connection.js';
 import type { BaseService, Service } from '../services/ios/base-service.js';
+import type { LocationCoordinates } from '../services/ios/dvt/instruments/location-simulation.js';
 import { ProvisioningProfile } from '../services/ios/misagent/provisioning-profile.js';
 import type { PowerAssertionOptions } from '../services/ios/power-assertion/index.js';
 import { PowerAssertionType } from '../services/ios/power-assertion/index.js';
@@ -17,8 +18,13 @@ export type { PowerAssertionOptions };
 export { PowerAssertionType };
 
 /**
- * Represents a value that can be stored in a plist
+ * UID (Unique Identifier) interface for plist references
+ * Used in NSKeyedArchiver format
  */
+export interface IPlistUID {
+  value: number;
+}
+
 export type PlistValue =
   | string
   | number
@@ -26,6 +32,7 @@ export type PlistValue =
   | boolean
   | Date
   | Buffer
+  | IPlistUID
   | PlistArray
   | PlistDictionary
   | null;
@@ -343,6 +350,177 @@ export interface MobileConfigServiceWithConnection {
 export interface PowerAssertionServiceWithConnection {
   /** The PowerAssertionService instance */
   powerAssertionService: PowerAssertionService;
+  /** The RemoteXPC connection that can be used to close the connection */
+  remoteXPC: RemoteXpcConnection;
+}
+
+/**
+ * DVT (Developer Tools) service interface
+ */
+export interface DVTSecureSocketProxyService extends BaseService {
+  /**
+   * Connect to the DVT service
+   */
+  connect(): Promise<void>;
+
+  /**
+   * Get supported identifiers (capabilities)
+   * @example
+   * const capabilities = dvtService.getSupportedIdentifiers();
+   * // Example output:
+   * // {
+   * //   "com.apple.instruments.server.services.processcontrol.capability.memorylimits": 1,
+   * //   "com.apple.instruments.server.services.coreml.perfrunner": 4,
+   * //   "com.apple.instruments.server.services.processcontrolbydictionary": 4,
+   * //   "com.apple.instruments.server.services.graphics.coreanimation.immediate": 1,
+   * //   // ... more identifiers
+   * // }
+   */
+  getSupportedIdentifiers(): PlistDictionary;
+
+  /**
+   * Create a channel for a specific identifier
+   * @param identifier The channel identifier
+   * @returns The created channel
+   */
+  makeChannel(identifier: string): Promise<any>;
+
+  /**
+   * Close the DVT service connection
+   */
+  close(): Promise<void>;
+}
+
+/**
+ * Location simulation service interface
+ */
+export interface LocationSimulationService {
+  /**
+   * Set the simulated location
+   * @param latitude The latitude
+   * @param longitude The longitude
+   */
+  setLocation(latitude: number, longitude: number): Promise<void>;
+
+  /**
+   * Set the simulated location using the LocationCoordinates type.
+   * @param coordinates The location coordinates
+   */
+  set(coordinates: LocationCoordinates): Promise<void>;
+
+  /**
+   * Clear/stop location simulation
+   *
+   * Note: This method is safe to call even if no location simulation is currently active.
+   */
+  clear(): Promise<void>;
+}
+
+/**
+ * Condition profile information
+ */
+export interface ConditionProfile {
+  identifier: string;
+  description?: string;
+  [key: string]: any;
+}
+
+/**
+ * Condition group information
+ */
+export interface ConditionGroup {
+  identifier: string;
+  profiles: ConditionProfile[];
+  [key: string]: any;
+}
+
+/**
+ * Condition inducer service interface
+ */
+export interface ConditionInducerService {
+  /**
+   * List all available condition inducers and their profiles
+   *
+   * Each group in the response contains information about whether a condition
+   * is currently active via the `isActive` field and which profile is active
+   * via the `activeProfile` field.
+   *
+   * @returns Array of condition groups with their available profiles
+   *
+   * @example
+   * ```typescript
+   * const groups = await conditionInducer.list();
+   * // Example response:
+   * // [
+   * //   {
+   * //     "profiles": [
+   * //       {
+   * //         "name": "100% packet loss",
+   * //         "identifier": "SlowNetwork100PctLoss",
+   * //         "description": "Name: 100% Loss Scenario\nDownlink Bandwidth: 0 Mbps\nDownlink Latency: 0 ms\nDownlink Packet Loss Ratio: 100%\nUplink Bandwidth: 0 Mbps\nUplink Latency: 0 ms\nUplink Packet Loss Ratio: 100%"
+   * //       },
+   * //       // ... more profiles
+   * //     ],
+   * //     "profilesSorted": true,
+   * //     "identifier": "SlowNetworkCondition",
+   * //     "isDestructive": false,
+   * //     "isInternal": false,
+   * //     "activeProfile": "",
+   * //     "name": "Network Link",
+   * //     "isActive": false
+   * //   },
+   * //   // ... more groups
+   * // ]
+   * ```
+   */
+  list(): Promise<ConditionGroup[]>;
+
+  /**
+   * Set a specific condition profile
+   *
+   * Note: If a condition is already active, attempting to set a new one will
+   * throw an error: {'NSLocalizedDescription': 'A condition is already active.'}
+   * You must call disable() first before setting a different condition.
+   *
+   * Available profile identifiers include (but may vary by iOS version):
+   * - Network profiles: SlowNetwork100PctLoss, SlowNetworkVeryBadNetwork,
+   *   SlowNetworkEdgeBad, SlowNetworkEdgeAverage, SlowNetworkEdgeGood,
+   *   SlowNetworkEdge, SlowNetwork2GRural, SlowNetwork2GUrban,
+   *   SlowNetwork3GAverage, SlowNetwork3GGood, SlowNetwork3G,
+   *   SlowNetworkLTE, SlowNetworkWiFi, SlowNetworkWiFi80211AC,
+   *   SlowNetworkDSL, SlowNetworkHighLatencyDNS
+   * - Thermal profiles: ThermalFair, ThermalSerious, ThermalCritical
+   * - GPU profiles: GPUPerformanceStateMin, GPUPerformanceStateMid, GPUPerformanceStateMax
+   * - And others depending on device capabilities
+   *
+   * Use list() to see all available profiles for your device.
+   *
+   * @param profileIdentifier The identifier of the profile to enable
+   * @throws Error if the profile identifier is not found
+   * @throws Error if a condition is already active
+   */
+  set(profileIdentifier: string): Promise<void>;
+
+  /**
+   * Disable the currently active condition
+   *
+   * Note: This method is idempotent - calling it when no condition is active
+   * will not throw an error.
+   */
+  disable(): Promise<void>;
+}
+
+/**
+ * DVT service with connection
+ * This allows callers to properly manage the connection lifecycle
+ */
+export interface DVTServiceWithConnection {
+  /** The DVTSecureSocketProxyService instance */
+  dvtService: DVTSecureSocketProxyService;
+  /** The LocationSimulation service instance */
+  locationSimulation: LocationSimulationService;
+  /** The ConditionInducer service instance */
+  conditionInducer: ConditionInducerService;
   /** The RemoteXPC connection that can be used to close the connection */
   remoteXPC: RemoteXpcConnection;
 }

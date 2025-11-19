@@ -39,6 +39,9 @@
     "test:misagent": "mocha test/integration/misagent-service-test.ts --exit --timeout 1m",
     "test:afc": "mocha test/integration/afc-test.ts --exit --timeout 1m",
     "test:power-assertion": "mocha test/integration/power-assertion-test.ts --exit --timeout 1m",
+    "test:dvt": "mocha test/integration/dvt-service-test.ts --exit --timeout 1m",
+    "test:location-simulation-dvt": "mocha test/integration/dvt_instruments/location-simulation-test.ts --exit --timeout 1m",
+    "test:condition-inducer-dvt": "mocha test/integration/dvt_instruments/condition-inducer-test.ts --exit --timeout 1m",
     "test:tunnel-creation": "sudo tsx scripts/test-tunnel-creation.ts",
     "test:tunnel-creation:lsof": "sudo tsx scripts/test-tunnel-creation.ts --keep-open"
   },

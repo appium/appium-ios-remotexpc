@@ -24,6 +24,11 @@ export type {
   WebInspectorService,
   MisagentService,
   SyslogService,
+  DVTSecureSocketProxyService,
+  LocationSimulationService,
+  ConditionInducerService,
+  ConditionProfile,
+  ConditionGroup,
   SocketInfo,
   TunnelResult,
   TunnelRegistry,
@@ -36,6 +41,7 @@ export type {
   SpringboardServiceWithConnection,
   WebInspectorServiceWithConnection,
   MisagentServiceWithConnection,
+  DVTServiceWithConnection,
 } from './lib/types.js';
 export { PowerAssertionType } from './lib/types.js';
 export {
