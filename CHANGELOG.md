@@ -1,3 +1,9 @@
+## [0.13.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.13.1...v0.13.2) (2025-11-19)
+
+### Miscellaneous Chores
+
+* remove `engine-strict=true` from .npmrc ([#99](https://github.com/appium/appium-ios-remotexpc/issues/99)) ([5564109](https://github.com/appium/appium-ios-remotexpc/commit/5564109d5139763d03df8a22fe68a5aae9ad719e))
+
 ## [0.13.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.13.0...v0.13.1) (2025-11-15)
 
 ### Miscellaneous Chores
