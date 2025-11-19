@@ -1,3 +1,9 @@
+## [0.14.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.13.2...v0.14.0) (2025-11-19)
+
+### Features
+
+* add DVT service with location simulation and condition inducer instruments ([#94](https://github.com/appium/appium-ios-remotexpc/issues/94)) ([3ec70b3](https://github.com/appium/appium-ios-remotexpc/commit/3ec70b38465228051c49554e569527dff780b917))
+
 ## [0.13.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.13.1...v0.13.2) (2025-11-19)
 
 ### Miscellaneous Chores
