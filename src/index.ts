@@ -27,6 +27,7 @@ export type {
   DVTSecureSocketProxyService,
   LocationSimulationService,
   ConditionInducerService,
+  ScreenshotService,
   ConditionProfile,
   ConditionGroup,
   SocketInfo,
