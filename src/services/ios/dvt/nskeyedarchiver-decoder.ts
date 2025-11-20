@@ -210,11 +210,6 @@ export function decodeNSKeyedArchiver(data: any): any {
     return data;
   }
 
-  // Handle Buffer/binary data (eg. screenshots)
-  if (Buffer.isBuffer(data)) {
-    return data;
-  }
-
   // Check if this is NSKeyedArchiver format
   if (!NSKeyedArchiverDecoder.isNSKeyedArchive(data)) {
     return data;
