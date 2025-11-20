@@ -16,10 +16,9 @@ export class Screenshot {
   constructor(private readonly dvt: DVTSecureSocketProxyService) {}
 
   async initialize(): Promise<void> {
-    if (this.channel) {
-      return;
+    if (!this.channel) {
+      this.channel = await this.dvt.makeChannel(Screenshot.IDENTIFIER);
     }
-    this.channel = await this.dvt.makeChannel(Screenshot.IDENTIFIER);
   }
 
   /**
