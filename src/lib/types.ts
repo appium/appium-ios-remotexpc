@@ -516,7 +516,7 @@ export interface ConditionInducerService {
 export interface ScreenshotService {
   /**
    * Capture a screenshot from the device
-   * @returns The screenshot data as a Buffer
+   * @returns The screenshot data as a Buffer in PNG format, unscaled with the same dimensions as the device resolution
    */
   getScreenshot(): Promise<Buffer>;
 }
