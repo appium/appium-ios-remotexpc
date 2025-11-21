@@ -1,3 +1,9 @@
+## [0.15.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.14.0...v0.15.0) (2025-11-21)
+
+### Features
+
+* implement screenshot DVT instrument ([#102](https://github.com/appium/appium-ios-remotexpc/issues/102)) ([ee63586](https://github.com/appium/appium-ios-remotexpc/commit/ee63586c49001e77464d1a645ca75fc01c843a68))
+
 ## [0.14.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.13.2...v0.14.0) (2025-11-19)
 
 ### Features
