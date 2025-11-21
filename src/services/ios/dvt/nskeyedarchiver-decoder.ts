@@ -101,6 +101,12 @@ export class NSKeyedArchiverDecoder {
       return obj;
     }
 
+    // Handle Buffer/binary data (eg. screenshots)
+    if (Buffer.isBuffer(obj)) {
+      this.decoded.set(index, obj);
+      return obj;
+    }
+
     // Handle UID references
     if ('CF$UID' in obj) {
       return this.decodeObject(obj.CF$UID);

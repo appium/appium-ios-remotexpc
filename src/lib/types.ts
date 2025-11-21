@@ -511,6 +511,17 @@ export interface ConditionInducerService {
 }
 
 /**
+ * Screenshot service interface
+ */
+export interface ScreenshotService {
+  /**
+   * Capture a screenshot from the device
+   * @returns The screenshot data as a Buffer in PNG format, unscaled with the same dimensions as the device resolution
+   */
+  getScreenshot(): Promise<Buffer>;
+}
+
+/**
  * DVT service with connection
  * This allows callers to properly manage the connection lifecycle
  */
@@ -521,6 +532,8 @@ export interface DVTServiceWithConnection {
   locationSimulation: LocationSimulationService;
   /** The ConditionInducer service instance */
   conditionInducer: ConditionInducerService;
+  /** The Screenshot service instance */
+  screenshot: ScreenshotService;
   /** The RemoteXPC connection that can be used to close the connection */
   remoteXPC: RemoteXpcConnection;
 }
