@@ -18,6 +18,7 @@ import type {
 import AfcService from './services/ios/afc/index.js';
 import DiagnosticsService from './services/ios/diagnostic-service/index.js';
 import { DVTSecureSocketProxyService } from './services/ios/dvt/index.js';
+import { ApplicationListing } from './services/ios/dvt/instruments/application-listing.js';
 import { ConditionInducer } from './services/ios/dvt/instruments/condition-inducer.js';
 import { LocationSimulation } from './services/ios/dvt/instruments/location-simulation.js';
 import { Screenshot } from './services/ios/dvt/instruments/screenshot.js';
@@ -202,6 +203,7 @@ export async function startDVTService(
   const locationSimulation = new LocationSimulation(dvtService);
   const conditionInducer = new ConditionInducer(dvtService);
   const screenshot = new Screenshot(dvtService);
+  const appListing = new ApplicationListing(dvtService);
 
   return {
     remoteXPC: remoteXPC as RemoteXpcConnection,
@@ -209,6 +211,7 @@ export async function startDVTService(
     locationSimulation,
     conditionInducer,
     screenshot,
+    appListing,
   };
 }
 

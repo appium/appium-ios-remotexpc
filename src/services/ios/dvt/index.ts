@@ -509,11 +509,15 @@ export class DVTSecureSocketProxyService extends BaseService {
    * Archive a value using NSKeyedArchiver format for DTX protocol
    */
   private archiveValue(value: any): Buffer {
+    // Handle null values by referencing the $null marker
+    const rootIndex = value === null ? 0 : 1;
+    const objects = value === null ? ['$null'] : ['$null', value];
+
     const archived = {
       $version: 100000,
       $archiver: 'NSKeyedArchiver',
-      $top: { root: new PlistUID(1) },
-      $objects: ['$null', value],
+      $top: { root: new PlistUID(rootIndex) },
+      $objects: objects,
     };
 
     return createBinaryPlist(archived);

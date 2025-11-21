@@ -6,6 +6,7 @@ import { EventEmitter } from 'events';
 
 import type { ServiceConnection } from '../service-connection.js';
 import type { BaseService, Service } from '../services/ios/base-service.js';
+import type { iOSApplication } from '../services/ios/dvt/instruments/application-listing.js';
 import type { LocationCoordinates } from '../services/ios/dvt/instruments/location-simulation.js';
 import { ProvisioningProfile } from '../services/ios/misagent/provisioning-profile.js';
 import type { PowerAssertionOptions } from '../services/ios/power-assertion/index.js';
@@ -522,6 +523,33 @@ export interface ScreenshotService {
 }
 
 /**
+ * Application listing service interface
+ */
+export interface AppListService {
+  /**
+   * Get the list of iOS applications on the device
+   * @returns {Promise<iOSApplication>}
+   * e.g.
+   * [
+   *  {
+   *    ExtensionDictionary: { NSExtensionPointIdentifier: 'com.apple.mlhost.worker', ... },
+   *    Version: '1.0',
+   *    DisplayName: 'ModelMonitoringLighthousePlugin',
+   *    CFBundleIdentifier: 'com.apple.aeroml.ModelMonitoringLighthouse.ModelMonitoringLighthousePlugin',
+   *    BundlePath: '/System/Library/ExtensionKit/Extensions/ModelMonitoringLighthousePlugin.appex',
+   *    ExecutableName: 'ModelMonitoringLighthousePlugin',
+   *    Restricted: 1,
+   *    Type: 'PluginKit',
+   *    PluginIdentifier: 'com.apple.aeroml.ModelMonitoringLighthouse.ModelMonitoringLighthousePlugin',
+   *    PluginUUID: 'AF17A1FE-E454-57C8-B963-0832FD71AB08'
+   *   },
+   *   ...
+   * ]
+   */
+  list(): Promise<iOSApplication[]>;
+}
+
+/**
  * DVT service with connection
  * This allows callers to properly manage the connection lifecycle
  */
@@ -534,6 +562,8 @@ export interface DVTServiceWithConnection {
   conditionInducer: ConditionInducerService;
   /** The Screenshot service instance */
   screenshot: ScreenshotService;
+  /** The Application Listing service instance */
+  appListing: AppListService;
   /** The RemoteXPC connection that can be used to close the connection */
   remoteXPC: RemoteXpcConnection;
 }
