@@ -90,17 +90,6 @@ export class ApplicationListing {
       return result;
     }
 
-    // Check if this is an NSError response
-    if (result && typeof result === 'object' && result._isNSError) {
-      const errorInfo =
-        result.NSUserInfo?.NSLocalizedDescription || 'Unknown error';
-      const domain = result.NSDomain || 'Unknown domain';
-      const code = result.NSCode || 0;
-      throw new Error(
-        `Device returned error from installedApplicationsMatching: ${errorInfo} (Domain: ${domain}, Code: ${code})`,
-      );
-    }
-
     throw new Error(
       `Unexpected response format from installedApplicationsMatching: ${JSON.stringify(result)}`,
     );
