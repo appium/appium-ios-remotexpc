@@ -40,6 +40,7 @@
     "test:afc": "mocha test/integration/afc-test.ts --exit --timeout 1m",
     "test:power-assertion": "mocha test/integration/power-assertion-test.ts --exit --timeout 1m",
     "test:dvt": "mocha test/integration/dvt-service-test.ts --exit --timeout 1m",
+    "test:dvt:graphics": "mocha test/integration/dvt_instruments/graphics-test.ts --exit --timeout 1m",
     "test:dvt:location-simulation": "mocha test/integration/dvt_instruments/location-simulation-test.ts --exit --timeout 1m",
     "test:dvt:condition-inducer": "mocha test/integration/dvt_instruments/condition-inducer-test.ts --exit --timeout 1m",
     "test:dvt:screenshot": "mocha test/integration/dvt_instruments/screenshot-test.ts --exit --timeout 1m",

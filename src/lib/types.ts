@@ -522,6 +522,16 @@ export interface ScreenshotService {
 }
 
 /**
+ * Graphics service interface for OpenGL/graphics monitoring
+ */
+export interface GraphicsService {
+  /**
+   * Async iterator for graphics logging
+   */
+  [Symbol.asyncIterator](): AsyncGenerator<unknown, void, unknown>;
+}
+
+/**
  * DVT service with connection
  * This allows callers to properly manage the connection lifecycle
  */
@@ -534,6 +544,8 @@ export interface DVTServiceWithConnection {
   conditionInducer: ConditionInducerService;
   /** The Screenshot service instance */
   screenshot: ScreenshotService;
+  /** The Graphics service instance */
+  graphics: GraphicsService;
   /** The RemoteXPC connection that can be used to close the connection */
   remoteXPC: RemoteXpcConnection;
 }
