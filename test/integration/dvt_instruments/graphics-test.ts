@@ -62,7 +62,6 @@ describe('Graphics', function () {
       }
     });
 
-
     it('should handle break in iteration properly', async () => {
       const graphics = dvtServiceConnection!.graphics;
 
@@ -80,4 +79,3 @@ describe('Graphics', function () {
     });
   });
 });
-
