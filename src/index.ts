@@ -28,6 +28,8 @@ export type {
   LocationSimulationService,
   ConditionInducerService,
   ScreenshotService,
+  DeviceInfoService,
+  ProcessInfo,
   ConditionProfile,
   ConditionGroup,
   SocketInfo,

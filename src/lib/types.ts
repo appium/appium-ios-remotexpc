@@ -522,6 +522,118 @@ export interface ScreenshotService {
 }
 
 /**
+ * Process information
+ */
+export interface ProcessInfo {
+  /** Process identifier (may be negative for system services) */
+  pid: number;
+
+  /** Process name */
+  name?: string;
+
+  /** Indicates whether the process is an application */
+  isApplication: boolean;
+
+  /** Bundle identifier for application processes */
+  bundleIdentifier?: string;
+
+  /** Full path to the executable */
+  realAppName?: string;
+
+  /** Raw device start timestamp */
+  startDate?: {
+    /** Mach-based timestamp value */
+    'NS.time': number;
+  };
+
+  /** Whether crash analysis should include corpse sampling */
+  shouldAnalyzeWithCorpse?: boolean;
+}
+
+/**
+ * DeviceInfo service interface for accessing device information,
+ * file system, and process management
+ */
+export interface DeviceInfoService {
+  /**
+   * List directory contents
+   * @param path The directory path to list
+   * @returns Array of filenames
+   */
+  ls(path: string): Promise<string[]>;
+
+  /**
+   * Get executable path for a process
+   * @param pid The process identifier
+   * @returns The full path to the executable
+   */
+  execnameForPid(pid: number): Promise<string>;
+
+  /**
+   * Get list of running processes
+   * @returns Array of process information
+   */
+  proclist(): Promise<ProcessInfo[]>;
+
+  /**
+   * Check if a process is running
+   * @param pid The process identifier
+   * @returns true if running, false otherwise
+   */
+  isRunningPid(pid: number): Promise<boolean>;
+
+  /**
+   * Get hardware information
+   * @returns Hardware information object
+   */
+  hardwareInformation(): Promise<any>;
+
+  /**
+   * Get network information
+   * @returns Network information object
+   */
+  networkInformation(): Promise<any>;
+
+  /**
+   * Get mach time information
+   * @returns Mach time info object
+   */
+  machTimeInfo(): Promise<any>;
+
+  /**
+   * Get mach kernel name
+   * @returns Kernel name string
+   */
+  machKernelName(): Promise<string>;
+
+  /**
+   * Get kernel performance event database
+   * @returns KPEP database object or null
+   */
+  kpepDatabase(): Promise<any | null>;
+
+  /**
+   * Get trace code mappings
+   * @returns Object mapping trace codes to descriptions
+   */
+  traceCodes(): Promise<Record<number, string>>;
+
+  /**
+   * Get username for UID
+   * @param uid The user identifier
+   * @returns Username string
+   */
+  nameForUid(uid: number): Promise<string>;
+
+  /**
+   * Get group name for GID
+   * @param gid The group identifier
+   * @returns Group name string
+   */
+  nameForGid(gid: number): Promise<string>;
+}
+
+/**
  * DVT service with connection
  * This allows callers to properly manage the connection lifecycle
  */
@@ -534,6 +646,8 @@ export interface DVTServiceWithConnection {
   conditionInducer: ConditionInducerService;
   /** The Screenshot service instance */
   screenshot: ScreenshotService;
+  /** The DeviceInfo service instance */
+  deviceInfo: DeviceInfoService;
   /** The RemoteXPC connection that can be used to close the connection */
   remoteXPC: RemoteXpcConnection;
 }
