@@ -11,7 +11,7 @@ describe('Graphics', function () {
   this.timeout(30000);
 
   let dvtServiceConnection: DVTServiceWithConnection | null = null;
-  const udid = process.env.UDID || '00008030-000318693E32402E';
+  const udid = process.env.UDID || '';
 
   before(async () => {
     if (!udid) {
