@@ -32,7 +32,7 @@ export class Graphics {
     await this.channel!.call('stopSampling')();
   }
 
-  async *[Symbol.asyncIterator](): AsyncGenerator<unknown, void, unknown> {
+  async *messages(): AsyncGenerator<unknown, void, unknown> {
     log.debug('Graphics logging started');
     await this.start();
 

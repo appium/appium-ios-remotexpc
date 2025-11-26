@@ -38,7 +38,7 @@ describe('Graphics', function () {
       const messages: unknown[] = [];
       const maxMessages = 5;
 
-      for await (const msg of graphics) {
+      for await (const msg of graphics.messages()) {
         // Skip null messages which are sent initially
         if (msg === null) {
           log.debug('Skipping null message');
@@ -67,7 +67,7 @@ describe('Graphics', function () {
 
       let iterationCount = 0;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      for await (const _msg of graphics) {
+      for await (const _msg of graphics.messages()) {
         iterationCount++;
 
         if (iterationCount === 2) {
