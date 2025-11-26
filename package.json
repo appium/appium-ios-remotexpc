@@ -43,6 +43,7 @@
     "test:dvt:location-simulation": "mocha test/integration/dvt_instruments/location-simulation-test.ts --exit --timeout 1m",
     "test:dvt:condition-inducer": "mocha test/integration/dvt_instruments/condition-inducer-test.ts --exit --timeout 1m",
     "test:dvt:screenshot": "mocha test/integration/dvt_instruments/screenshot-test.ts --exit --timeout 1m",
+    "test:dvt:device-info": "mocha test/integration/dvt_instruments/device-info-test.ts --exit --timeout 1m",
     "test:tunnel-creation": "sudo tsx scripts/test-tunnel-creation.ts",
     "test:tunnel-creation:lsof": "sudo tsx scripts/test-tunnel-creation.ts --keep-open"
   },
