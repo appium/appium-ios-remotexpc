@@ -614,9 +614,9 @@ export interface DeviceInfoService {
 
   /**
    * Get trace code mappings
-   * @returns Object mapping trace codes to descriptions
+   * @returns Object mapping trace codes (as hex strings) to descriptions
    */
-  traceCodes(): Promise<Record<number, string>>;
+  traceCodes(): Promise<Record<string, string>>;
 
   /**
    * Get username for UID

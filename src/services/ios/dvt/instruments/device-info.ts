@@ -49,12 +49,10 @@ export class DeviceInfo {
    * @throws {Error} If the directory doesn't exist or cannot be accessed
    */
   async ls(path: string): Promise<string[]> {
-    await this.initialize();
-
-    const args = new MessageAux().appendObj(path);
-    await this.channel!.call('directoryListingForPath_')(args);
-
-    const result = await this.channel!.receivePlist();
+    const result = await this.requestInformation(
+      'directoryListingForPath_',
+      path,
+    );
 
     if (result === null || result === undefined) {
       throw new Error(`Failed to list directory: ${path}`);
@@ -70,13 +68,10 @@ export class DeviceInfo {
    * @returns The full path to the executable
    */
   async execnameForPid(pid: number): Promise<string> {
-    await this.initialize();
-
-    const args = new MessageAux().appendObj(pid);
-    await this.channel!.call('execnameForPid_')(args);
-
-    const result = await this.channel!.receivePlist();
-    return result as string;
+    return (await this.requestInformation(
+      'execnameForPid_',
+      pid,
+    )) as Promise<string>;
   }
 
   /**
@@ -84,10 +79,7 @@ export class DeviceInfo {
    * @returns Array of process information objects
    */
   async proclist(): Promise<ProcessInfo[]> {
-    await this.initialize();
-
-    await this.channel!.call('runningProcesses')();
-    const result = await this.channel!.receivePlist();
+    const result = await this.requestInformation('runningProcesses');
 
     if (!Array.isArray(result)) {
       throw new Error('Expected array of processes from runningProcesses');
@@ -103,13 +95,10 @@ export class DeviceInfo {
    * @returns true if the process is running, false otherwise
    */
   async isRunningPid(pid: number): Promise<boolean> {
-    await this.initialize();
-
-    const args = new MessageAux().appendObj(pid);
-    await this.channel!.call('isRunningPid_')(args);
-
-    const result = await this.channel!.receivePlist();
-    return result as boolean;
+    return (await this.requestInformation(
+      'isRunningPid_',
+      pid,
+    )) as Promise<boolean>;
   }
 
   /**
@@ -117,7 +106,7 @@ export class DeviceInfo {
    * @returns Object containing hardware information
    */
   async hardwareInformation(): Promise<any> {
-    return this.requestInformation('hardwareInformation');
+    return await this.requestInformation('hardwareInformation');
   }
 
   /**
@@ -125,7 +114,7 @@ export class DeviceInfo {
    * @returns Object containing network information
    */
   async networkInformation(): Promise<any> {
-    return this.requestInformation('networkInformation');
+    return await this.requestInformation('networkInformation');
   }
 
   /**
@@ -133,7 +122,7 @@ export class DeviceInfo {
    * @returns Object containing mach time info
    */
   async machTimeInfo(): Promise<any> {
-    return this.requestInformation('machTimeInfo');
+    return await this.requestInformation('machTimeInfo');
   }
 
   /**
@@ -141,7 +130,7 @@ export class DeviceInfo {
    * @returns The kernel name string
    */
   async machKernelName(): Promise<string> {
-    return this.requestInformation('machKernelName');
+    return await this.requestInformation('machKernelName');
   }
 
   /**
@@ -170,41 +159,25 @@ export class DeviceInfo {
 
   /**
    * Get trace code mappings.
-   * @returns Object mapping trace codes (as numbers) to descriptions
+   * @returns Object mapping trace codes (as hex strings) to descriptions
    */
-  async traceCodes(): Promise<Record<number, string>> {
+  async traceCodes(): Promise<Record<string, string>> {
     const codesFile = await this.requestInformation('traceCodesFile');
 
-    if (!codesFile || typeof codesFile !== 'string') {
+    if (typeof codesFile !== 'string') {
       return {};
     }
 
-    // Parse the trace codes file format: "hexcode description"
-    const codes: Record<number, string> = {};
-    const lines = codesFile.split('\n');
+    const codes: Record<string, string> = {};
 
-    for (const line of lines) {
+    for (const line of codesFile.split('\n')) {
       const trimmed = line.trim();
-      if (!trimmed) {
-        continue;
-      }
+      if (!trimmed) {continue;}
 
-      // Split on whitespace (one or more spaces/tabs)
-      const match = trimmed.match(/^(\S+)\s+(.+)$/);
-      if (match) {
-        const hexCode = match[1];
-        const description = match[2];
+      const [hex, ...rest] = trimmed.split(/\s+/);
+      if (!hex || rest.length === 0) {continue;}
 
-        try {
-          // Parse hex string to number
-          const codeNum = parseInt(hexCode, 16);
-          if (!isNaN(codeNum)) {
-            codes[codeNum] = description;
-          }
-        } catch (error) {
-          log.debug(`Failed to parse trace code: ${hexCode}`);
-        }
-      }
+      codes[hex] = rest.join(' ');
     }
 
     log.debug(`Retrieved ${Object.keys(codes).length} trace codes`);
@@ -217,13 +190,10 @@ export class DeviceInfo {
    * @returns The username string
    */
   async nameForUid(uid: number): Promise<string> {
-    await this.initialize();
-
-    const args = new MessageAux().appendObj(uid);
-    await this.channel!.call('nameForUID_')(args);
-
-    const result = await this.channel!.receivePlist();
-    return result as string;
+    return (await this.requestInformation(
+      'nameForUID_',
+      uid,
+    )) as Promise<string>;
   }
 
   /**
@@ -232,25 +202,30 @@ export class DeviceInfo {
    * @returns The group name string
    */
   async nameForGid(gid: number): Promise<string> {
-    await this.initialize();
-
-    const args = new MessageAux().appendObj(gid);
-    await this.channel!.call('nameForGID_')(args);
-
-    const result = await this.channel!.receivePlist();
-    return result as string;
+    return (await this.requestInformation(
+      'nameForGID_',
+      gid,
+    )) as Promise<string>;
   }
 
   /**
    * Generic method to request information from the device.
    * @param selectorName - The selector name to call
+   * @param arg - Optional argument to pass to the selector
    * @returns The information object or value returned by the selector
    * @private
    */
-  private async requestInformation(selectorName: string): Promise<any> {
+  private async requestInformation(
+    selectorName: string,
+    arg?: any,
+  ): Promise<any> {
     await this.initialize();
-    await this.channel!.call(selectorName)();
 
-    return await this.channel!.receivePlist();
+    const call = this.channel!.call(selectorName);
+    const args =
+      arg !== undefined ? new MessageAux().appendObj(arg) : undefined;
+
+    await call(args);
+    return this.channel!.receivePlist();
   }
 }
