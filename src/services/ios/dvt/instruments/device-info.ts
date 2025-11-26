@@ -30,7 +30,6 @@ export class DeviceInfo {
     'com.apple.instruments.server.services.deviceinfo';
 
   private channel: Channel | null = null;
-
   constructor(private readonly dvt: DVTSecureSocketProxyService) {}
 
   /**
@@ -82,7 +81,9 @@ export class DeviceInfo {
     const result = await this.requestInformation('runningProcesses');
 
     if (!Array.isArray(result)) {
-      throw new Error('Expected array of processes from runningProcesses');
+      throw new Error(
+        `proclist returned invalid data: expected an array, got ${typeof result} (${JSON.stringify(result)})`,
+      );
     }
 
     log.debug(`Retrieved ${result.length} running processes`);
@@ -163,7 +164,6 @@ export class DeviceInfo {
    */
   async traceCodes(): Promise<Record<string, string>> {
     const codesFile = await this.requestInformation('traceCodesFile');
-
     if (typeof codesFile !== 'string') {
       return {};
     }
@@ -171,13 +171,11 @@ export class DeviceInfo {
     const codes: Record<string, string> = {};
 
     for (const line of codesFile.split('\n')) {
-      const trimmed = line.trim();
-      if (!trimmed) {continue;}
-
-      const [hex, ...rest] = trimmed.split(/\s+/);
-      if (!hex || rest.length === 0) {continue;}
-
-      codes[hex] = rest.join(' ');
+      const match = line.trim().match(/^(\S+)\s+(.+)$/);
+      if (match) {
+        const [, hex, description] = match;
+        codes[hex] = description;
+      }
     }
 
     log.debug(`Retrieved ${Object.keys(codes).length} trace codes`);
