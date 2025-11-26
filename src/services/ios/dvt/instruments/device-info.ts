@@ -58,7 +58,7 @@ export class DeviceInfo {
     }
 
     log.debug(`Listed directory ${path}: ${result.length} entries`);
-    return result as string[];
+    return result;
   }
 
   /**
@@ -67,10 +67,7 @@ export class DeviceInfo {
    * @returns The full path to the executable
    */
   async execnameForPid(pid: number): Promise<string> {
-    return (await this.requestInformation(
-      'execnameForPid_',
-      pid,
-    )) as Promise<string>;
+    return this.requestInformation('execnameForPid_', pid);
   }
 
   /**
@@ -87,7 +84,7 @@ export class DeviceInfo {
     }
 
     log.debug(`Retrieved ${result.length} running processes`);
-    return result as ProcessInfo[];
+    return result;
   }
 
   /**
@@ -96,10 +93,7 @@ export class DeviceInfo {
    * @returns true if the process is running, false otherwise
    */
   async isRunningPid(pid: number): Promise<boolean> {
-    return (await this.requestInformation(
-      'isRunningPid_',
-      pid,
-    )) as Promise<boolean>;
+    return this.requestInformation('isRunningPid_', pid);
   }
 
   /**
@@ -107,7 +101,7 @@ export class DeviceInfo {
    * @returns Object containing hardware information
    */
   async hardwareInformation(): Promise<any> {
-    return await this.requestInformation('hardwareInformation');
+    return this.requestInformation('hardwareInformation');
   }
 
   /**
@@ -115,7 +109,7 @@ export class DeviceInfo {
    * @returns Object containing network information
    */
   async networkInformation(): Promise<any> {
-    return await this.requestInformation('networkInformation');
+    return this.requestInformation('networkInformation');
   }
 
   /**
@@ -123,7 +117,7 @@ export class DeviceInfo {
    * @returns Object containing mach time info
    */
   async machTimeInfo(): Promise<any> {
-    return await this.requestInformation('machTimeInfo');
+    return this.requestInformation('machTimeInfo');
   }
 
   /**
@@ -131,7 +125,7 @@ export class DeviceInfo {
    * @returns The kernel name string
    */
   async machKernelName(): Promise<string> {
-    return await this.requestInformation('machKernelName');
+    return this.requestInformation('machKernelName');
   }
 
   /**
@@ -188,10 +182,7 @@ export class DeviceInfo {
    * @returns The username string
    */
   async nameForUid(uid: number): Promise<string> {
-    return (await this.requestInformation(
-      'nameForUID_',
-      uid,
-    )) as Promise<string>;
+    return this.requestInformation('nameForUID_', uid);
   }
 
   /**
@@ -200,10 +191,7 @@ export class DeviceInfo {
    * @returns The group name string
    */
   async nameForGid(gid: number): Promise<string> {
-    return (await this.requestInformation(
-      'nameForGID_',
-      gid,
-    )) as Promise<string>;
+    return this.requestInformation('nameForGID_', gid);
   }
 
   /**

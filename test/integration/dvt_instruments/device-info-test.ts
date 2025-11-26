@@ -181,6 +181,8 @@ describe('DeviceInfo Instrument', function () {
         expect(execPath).to.be.a('string');
         expect(execPath).to.include('SpringBoard');
         expect(springboard.pid).to.be.a('number');
+      } else {
+        this.skip();
       }
     });
   });
