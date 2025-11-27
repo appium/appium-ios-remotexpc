@@ -45,7 +45,7 @@ describe('Graphics', function () {
           continue;
         }
 
-        log.info('Graphics message:', msg);
+        log.info('Graphics message:', JSON.stringify(msg));
         messages.push(msg);
 
         if (messages.length >= maxMessages) {

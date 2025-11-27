@@ -14,10 +14,9 @@ export class Graphics {
   constructor(private readonly dvt: DVTSecureSocketProxyService) {}
 
   async initialize(): Promise<void> {
-    if (this.channel) {
-      return;
+    if (!this.channel) {
+      this.channel = await this.dvt.makeChannel(Graphics.IDENTIFIER);
     }
-    this.channel = await this.dvt.makeChannel(Graphics.IDENTIFIER);
   }
 
   async start(): Promise<void> {
@@ -33,7 +32,7 @@ export class Graphics {
   }
 
   async *messages(): AsyncGenerator<unknown, void, unknown> {
-    log.debug('Graphics logging started');
+    log.debug('logging started');
     await this.start();
 
     try {
@@ -41,7 +40,7 @@ export class Graphics {
         yield await this.channel!.receivePlist();
       }
     } finally {
-      log.debug('Graphics logging stopped');
+      log.debug('logging stopped');
       await this.stop();
     }
   }
