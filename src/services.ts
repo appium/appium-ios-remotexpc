@@ -20,6 +20,7 @@ import DiagnosticsService from './services/ios/diagnostic-service/index.js';
 import { DVTSecureSocketProxyService } from './services/ios/dvt/index.js';
 import { ApplicationListing } from './services/ios/dvt/instruments/application-listing.js';
 import { ConditionInducer } from './services/ios/dvt/instruments/condition-inducer.js';
+import { Graphics } from './services/ios/dvt/instruments/graphics.js';
 import { LocationSimulation } from './services/ios/dvt/instruments/location-simulation.js';
 import { Screenshot } from './services/ios/dvt/instruments/screenshot.js';
 import { MisagentService } from './services/ios/misagent/index.js';
@@ -204,6 +205,7 @@ export async function startDVTService(
   const conditionInducer = new ConditionInducer(dvtService);
   const screenshot = new Screenshot(dvtService);
   const appListing = new ApplicationListing(dvtService);
+  const graphics = new Graphics(dvtService);
 
   return {
     remoteXPC: remoteXPC as RemoteXpcConnection,
@@ -212,6 +214,7 @@ export async function startDVTService(
     conditionInducer,
     screenshot,
     appListing,
+    graphics,
   };
 }
 

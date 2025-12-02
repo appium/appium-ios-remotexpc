@@ -1,3 +1,9 @@
+## [0.16.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.15.0...v0.16.0) (2025-12-02)
+
+### Features
+
+* **dvt:** add graphics ([#104](https://github.com/appium/appium-ios-remotexpc/issues/104)) ([668f1f7](https://github.com/appium/appium-ios-remotexpc/commit/668f1f771419ddbf36d6f3bf865416abd1f74103))
+
 ## [0.15.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.14.0...v0.15.0) (2025-11-21)
 
 ### Features
