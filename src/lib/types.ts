@@ -547,6 +547,8 @@ export interface AppListService {
    * ]
    */
   list(): Promise<iOSApplication[]>;
+}
+/**
  * Graphics service interface for OpenGL/graphics monitoring
  */
 export interface GraphicsService {
