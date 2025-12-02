@@ -1,6 +1,7 @@
 import { getLogger } from '../../../lib/logger.js';
 
 const log = getLogger('NSKeyedArchiverDecoder');
+const MAX_DECODE_DEPTH = 1000;
 
 /**
  * Decode NSKeyedArchiver formatted data into native JavaScript objects
@@ -85,7 +86,7 @@ export class NSKeyedArchiverDecoder {
     depth: number = 0,
   ): any {
     // Prevent stack overflow with depth limit
-    if (depth > 1000) {
+    if (depth > MAX_DECODE_DEPTH) {
       log.warn(`Maximum decode depth exceeded at index ${index}`);
       return null;
     }
@@ -151,41 +152,6 @@ export class NSKeyedArchiverDecoder {
       this.decoded.set(index, result);
       visited.delete(index);
       return result;
-    }
-
-    // Handle NSError objects specifically
-    if ('$class' in obj) {
-      const classInfo = this.objects[obj.$class];
-      if (classInfo && classInfo.$classname === 'NSError') {
-        const result: any = { _isNSError: true };
-
-        // Decode NSError properties safely
-        for (const [key, value] of Object.entries(obj)) {
-          if (key === '$class') {
-            continue;
-          }
-
-          if (
-            typeof value === 'number' &&
-            value < this.objects.length &&
-            value >= 0 &&
-            !visited.has(value)
-          ) {
-            try {
-              result[key] = this.decodeObject(value, visited, depth + 1);
-            } catch {
-              // If decoding fails, store the raw value
-              result[key] = value;
-            }
-          } else {
-            result[key] = value;
-          }
-        }
-
-        this.decoded.set(index, result);
-        visited.delete(index);
-        return result;
-      }
     }
 
     // Handle regular objects - just return as-is but resolve references
