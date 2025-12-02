@@ -28,6 +28,7 @@ export type {
   LocationSimulationService,
   ConditionInducerService,
   ScreenshotService,
+  GraphicsService,
   ConditionProfile,
   ConditionGroup,
   SocketInfo,
