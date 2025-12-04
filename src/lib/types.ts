@@ -522,6 +522,32 @@ export interface ScreenshotService {
 }
 
 /**
+ * Graphics service interface for OpenGL/graphics monitoring
+ */
+export interface GraphicsService {
+  /**
+   * Async iterator for graphics logging
+   * Eg: {
+   *  'Device Utilization %': 27,
+   *  lastRecoveryTime: 0,
+   *  'Renderer Utilization %': 26,
+   *  'Alloc system memory': 99909632,
+   *  'In use system memory (driver)': 0,
+   *  recoveryCount: 0,
+   *  'Tiler Utilization %': 27,
+   *  SplitSceneCount: 0,
+   *  'Allocated PB Size': 2097152,
+   *  XRVideoCardRunTimeStamp: 1088,
+   *  'In use system memory': 28180480,
+   *  TiledSceneBytes: 327680,
+   *  IOGLBundleName: 'Built-In',
+   *  CoreAnimationFramesPerSecond: 0
+   * }
+   */
+  messages(): AsyncGenerator<unknown, void, unknown>;
+}
+
+/**
  * Process information
  */
 export interface ProcessInfo {
@@ -646,6 +672,8 @@ export interface DVTServiceWithConnection {
   conditionInducer: ConditionInducerService;
   /** The Screenshot service instance */
   screenshot: ScreenshotService;
+  /** The Graphics service instance */
+  graphics: GraphicsService;
   /** The DeviceInfo service instance */
   deviceInfo: DeviceInfoService;
   /** The RemoteXPC connection that can be used to close the connection */
