@@ -1,3 +1,15 @@
+## [0.17.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.16.1...v0.17.0) (2025-12-05)
+
+### Features
+
+* **dvt:** implement app list ([#103](https://github.com/appium/appium-ios-remotexpc/issues/103)) ([b33b836](https://github.com/appium/appium-ios-remotexpc/commit/b33b8362af261a9d9f6b8ad3c4e937f1f0dfd811))
+
+## [0.16.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.16.0...v0.16.1) (2025-12-05)
+
+### Miscellaneous Chores
+
+* **deps:** bump actions/checkout from 5.0.0 to 6.0.0 ([#106](https://github.com/appium/appium-ios-remotexpc/issues/106)) ([151ba4e](https://github.com/appium/appium-ios-remotexpc/commit/151ba4e668009c4936541fb7001feaf84f7a315f))
+
 ## [0.16.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.15.0...v0.16.0) (2025-12-02)
 
 ### Features
