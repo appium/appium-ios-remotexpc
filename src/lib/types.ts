@@ -575,6 +575,228 @@ export interface GraphicsService {
 }
 
 /**
+ * Process information
+ */
+export interface ProcessInfo {
+  /** Process identifier (may be negative for system services) */
+  pid: number;
+
+  /** Process name */
+  name?: string;
+
+  /** Indicates whether the process is an application */
+  isApplication: boolean;
+
+  /** Bundle identifier for application processes */
+  bundleIdentifier?: string;
+
+  /** Full path to the executable */
+  realAppName?: string;
+
+  /** Raw device start timestamp */
+  startDate?: {
+    /** Mach-based timestamp value */
+    'NS.time': number;
+  };
+
+  /** Whether crash analysis should include corpse sampling */
+  shouldAnalyzeWithCorpse?: boolean;
+}
+
+/**
+ * DeviceInfo service interface for accessing device information,
+ * file system, and process management
+ */
+export interface DeviceInfoService {
+  /**
+   * List directory contents
+   * @param path The directory path to list
+   * @returns Array of filenames
+   */
+  ls(path: string): Promise<string[]>;
+
+  /**
+   * Get executable path for a process
+   * @param pid The process identifier
+   * @returns The full path to the executable
+   */
+  execnameForPid(pid: number): Promise<string>;
+
+  /**
+   * Get list of running processes
+   * @returns Array of process information
+   * @example
+   * ```typescript
+   * const processes = await deviceInfo.proclist();
+   * // Example response:
+   * // [
+   * //   {
+   * //     name: 'audioaccessoryd',
+   * //     startDate: { 'NS.time': 786563887.8186979 },
+   * //     isApplication: false,
+   * //     pid: 77,
+   * //     realAppName: '/usr/libexec/audioaccessoryd'
+   * //   },
+   * //   {
+   * //     name: 'dmd',
+   * //     startDate: { 'NS.time': 786563890.2724509 },
+   * //     isApplication: false,
+   * //     pid: -102,
+   * //     realAppName: '/usr/libexec/dmd'
+   * //   },
+   * //   ...
+   * // ]
+   * ```
+   */
+  proclist(): Promise<ProcessInfo[]>;
+
+  /**
+   * Check if a process is running
+   * @param pid The process identifier
+   * @returns true if running, false otherwise
+   */
+  isRunningPid(pid: number): Promise<boolean>;
+
+  /**
+   * Get hardware information
+   * @returns Hardware information object
+   * @example
+   * ```typescript
+   * const hwInfo = await deviceInfo.hardwareInformation();
+   * // Example response:
+   * // {
+   * //   numberOfPhysicalCpus: 6,
+   * //   hwCPUsubtype: 2,
+   * //   numberOfCpus: 6,
+   * //   hwCPUtype: 16777228,
+   * //   hwCPU64BitCapable: 1,
+   * //   ProcessorTraceState: {
+   * //     HWTraceVersion: '{\n  "lib_ver": "libhwtrace @ tag libhwtrace-118.1",\n  "api_ver": 21,\n  ...\n}',
+   * //     Streaming: false,
+   * //     ProdTraceSupported: false,
+   * //     AllocatedBufferSize: 0,
+   * //     HWSupported: false,
+   * //     HWConfigured: false,
+   * //     RequestedBufferSize: 0,
+   * //     DevTraceSupported: false
+   * //   }
+   * // }
+   * ```
+   */
+  hardwareInformation(): Promise<any>;
+
+  /**
+   * Get network information
+   * @returns Network information object
+   * @example
+   * ```typescript
+   * const networkInfo = await deviceInfo.networkInformation();
+   * // Example response:
+   * // {
+   * //   en2: 'Ethernet Adapter (en2)',
+   * //   en0: 'Wi-Fi',
+   * //   en1: 'Ethernet Adapter (en1)',
+   * //   lo0: 'Loopback'
+   * // }
+   * ```
+   */
+  networkInformation(): Promise<any>;
+
+  /**
+   * Get mach time information
+   * @returns Mach time info array containing [machAbsoluteTime, numer, denom, machContinuousTime, systemTime, timezone]
+   * @example
+   * ```typescript
+   * const machTime = await deviceInfo.machTimeInfo();
+   * // Example response:
+   * // [
+   * //   1536005260807,      // machAbsoluteTime
+   * //   125,                // numer
+   * //   3,                  // denom
+   * //   1713684132688,      // machContinuousTime
+   * //   1764942215.065243,  // systemTime
+   * //   'Asia/Kolkata'      // timezone
+   * // ]
+   * ```
+   */
+  machTimeInfo(): Promise<any>;
+
+  /**
+   * Get mach kernel name
+   * @returns Kernel name string
+   * @example
+   * ```typescript
+   * const kernelName = await deviceInfo.machKernelName();
+   * // Example response:
+   * // '/mach.release.t8030'
+   * ```
+   */
+  machKernelName(): Promise<string>;
+
+  /**
+   * Get kernel performance event database
+   * @returns KPEP database object or null
+   * @example
+   * ```typescript
+   * const kpep = await deviceInfo.kpepDatabase();
+   * // Example response:
+   * // {
+   * //   system: {
+   * //     cpu: {
+   * //       config_counters: 1020,
+   * //       marketing_name: 'Apple A13',
+   * //       fixed_counters: 3,
+   * //       aliases: { ... },
+   * //       events: { ... },
+   * //       architecture: 'arm64',
+   * //       power_counters: -32
+   * //     }
+   * //   },
+   * //   internal: false,
+   * //   id: 'cpu_100000c_2_462504d2',
+   * //   name: 'a13',
+   * //   version: [1, 0]
+   * // }
+   * ```
+   */
+  kpepDatabase(): Promise<any | null>;
+
+  /**
+   * Get trace code mappings
+   * @returns Object mapping trace codes (as hex strings) to descriptions
+   * @example
+   * ```typescript
+   * const codes = await deviceInfo.traceCodes();
+   * // Example response:
+   * // {
+   * //   '0x1020000': 'KTrap_DivideError',
+   * //   '0x1020004': 'KTrap_Debug',
+   * //   '0x1020008': 'KTrap_NMI',
+   * //   '0x102000c': 'KTrap_Int3',
+   * //   '0x1020010': 'KTrap_Overflow',
+   * //   '0x1020014': 'KTrap_BoundRange',
+   * //   ...
+   * // }
+   * ```
+   */
+  traceCodes(): Promise<Record<string, string>>;
+
+  /**
+   * Get username for UID
+   * @param uid The user identifier
+   * @returns Username string
+   */
+  nameForUid(uid: number): Promise<string>;
+
+  /**
+   * Get group name for GID
+   * @param gid The group identifier
+   * @returns Group name string
+   */
+  nameForGid(gid: number): Promise<string>;
+}
+
+/**
  * DVT service with connection
  * This allows callers to properly manage the connection lifecycle
  */
@@ -591,6 +813,8 @@ export interface DVTServiceWithConnection {
   appListing: AppListService;
   /** The Graphics service instance */
   graphics: GraphicsService;
+  /** The DeviceInfo service instance */
+  deviceInfo: DeviceInfoService;
   /** The RemoteXPC connection that can be used to close the connection */
   remoteXPC: RemoteXpcConnection;
 }

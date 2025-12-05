@@ -29,6 +29,8 @@ export type {
   ConditionInducerService,
   ScreenshotService,
   GraphicsService,
+  DeviceInfoService,
+  ProcessInfo,
   ConditionProfile,
   ConditionGroup,
   SocketInfo,
