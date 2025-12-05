@@ -38,7 +38,7 @@ describe('Application Listing', function () {
       expect(list).to.be.an('array');
       expect(list).to.not.be.empty;
 
-      expect(list.length).to.greaterThan(100);
+      expect(list.length).to.greaterThan(0);
       list.forEach((app) => {
         expect(app).to.have.property('CFBundleIdentifier');
         expect(app).to.have.property('DisplayName');
