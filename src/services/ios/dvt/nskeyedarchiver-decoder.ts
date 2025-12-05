@@ -1,6 +1,7 @@
 import { getLogger } from '../../../lib/logger.js';
 
 const log = getLogger('NSKeyedArchiverDecoder');
+const MAX_DECODE_DEPTH = 1000;
 
 /**
  * Decode NSKeyedArchiver formatted data into native JavaScript objects
@@ -79,9 +80,23 @@ export class NSKeyedArchiverDecoder {
   /**
    * Decode an object at a specific index
    */
-  private decodeObject(index: number): any {
+  private decodeObject(
+    index: number,
+    visited: Set<number> = new Set(),
+    depth: number = 0,
+  ): any {
+    // Prevent stack overflow with depth limit
+    if (depth > MAX_DECODE_DEPTH) {
+      log.warn(`Maximum decode depth exceeded at index ${index}`);
+      return null;
+    }
     if (index < 0 || index >= this.objects.length) {
       return null;
+    }
+
+    // Prevent infinite recursion
+    if (visited.has(index)) {
+      return null; // Return null for circular references
     }
 
     // Check cache
@@ -89,40 +104,53 @@ export class NSKeyedArchiverDecoder {
       return this.decoded.get(index);
     }
 
+    visited.add(index);
     const obj = this.objects[index];
 
     // Handle null marker
     if (obj === '$null' || obj === null) {
+      visited.delete(index);
       return null;
     }
 
     // Handle primitive types
     if (typeof obj !== 'object') {
+      visited.delete(index);
       return obj;
     }
 
     // Handle Buffer/binary data (eg. screenshots)
     if (Buffer.isBuffer(obj)) {
       this.decoded.set(index, obj);
+      visited.delete(index);
       return obj;
     }
 
     // Handle UID references
     if ('CF$UID' in obj) {
-      return this.decodeObject(obj.CF$UID);
+      const result = this.decodeObject(obj.CF$UID, visited, depth + 1);
+      visited.delete(index);
+      return result;
     }
 
     // Handle NSDictionary (NS.keys + NS.objects) - check this FIRST before NSArray
     if ('NS.keys' in obj && 'NS.objects' in obj) {
-      const result = this.decodeDictionary(obj['NS.keys'], obj['NS.objects']);
+      const result = this.decodeDictionary(
+        obj['NS.keys'],
+        obj['NS.objects'],
+        visited,
+        depth,
+      );
       this.decoded.set(index, result);
+      visited.delete(index);
       return result;
     }
 
     // Handle NSArray (NS.objects only, without NS.keys)
     if ('NS.objects' in obj) {
-      const result = this.decodeArray(obj['NS.objects']);
+      const result = this.decodeArray(obj['NS.objects'], visited, depth);
       this.decoded.set(index, result);
+      visited.delete(index);
       return result;
     }
 
@@ -135,20 +163,25 @@ export class NSKeyedArchiverDecoder {
 
       if (typeof value === 'number') {
         // Could be a reference or primitive
-        const referenced = this.objects[value];
-        if (
-          referenced &&
-          typeof referenced === 'object' &&
-          referenced !== '$null'
-        ) {
-          result[key] = this.decodeObject(value);
+        if (value < this.objects.length && value >= 0) {
+          const referenced = this.objects[value];
+          if (
+            referenced &&
+            typeof referenced === 'object' &&
+            referenced !== '$null' &&
+            !visited.has(value)
+          ) {
+            result[key] = this.decodeObject(value, visited, depth + 1);
+          } else {
+            result[key] = value;
+          }
         } else {
           result[key] = value;
         }
       } else if (typeof value === 'object' && value && 'CF$UID' in value) {
         const uid = (value as any).CF$UID;
-        if (typeof uid === 'number') {
-          result[key] = this.decodeObject(uid);
+        if (typeof uid === 'number' && !visited.has(uid)) {
+          result[key] = this.decodeObject(uid, visited, depth + 1);
         } else {
           result[key] = value;
         }
@@ -158,22 +191,27 @@ export class NSKeyedArchiverDecoder {
     }
 
     this.decoded.set(index, result);
+    visited.delete(index);
     return result;
   }
 
   /**
    * Decode an NSArray
    */
-  private decodeArray(refs: any): any[] {
+  private decodeArray(
+    refs: any,
+    visited: Set<number> = new Set(),
+    depth: number = 0,
+  ): any[] {
     if (!Array.isArray(refs)) {
       return [];
     }
 
     return refs.map((ref) => {
       if (typeof ref === 'number') {
-        return this.decodeObject(ref);
+        return this.decodeObject(ref, visited, depth + 1);
       } else if (typeof ref === 'object' && ref && 'CF$UID' in ref) {
-        return this.decodeObject(ref.CF$UID);
+        return this.decodeObject(ref.CF$UID, visited, depth + 1);
       }
       return ref;
     });
@@ -182,7 +220,12 @@ export class NSKeyedArchiverDecoder {
   /**
    * Decode an NSDictionary
    */
-  private decodeDictionary(keyRefs: any, valueRefs: any): any {
+  private decodeDictionary(
+    keyRefs: any,
+    valueRefs: any,
+    visited: Set<number> = new Set(),
+    depth: number = 0,
+  ): any {
     if (!Array.isArray(keyRefs) || !Array.isArray(valueRefs)) {
       return {};
     }
@@ -190,8 +233,8 @@ export class NSKeyedArchiverDecoder {
     const result: any = {};
 
     for (let i = 0; i < keyRefs.length && i < valueRefs.length; i++) {
-      const key = this.decodeObject(keyRefs[i]);
-      const value = this.decodeObject(valueRefs[i]);
+      const key = this.decodeObject(keyRefs[i], visited, depth + 1);
+      const value = this.decodeObject(valueRefs[i], visited, depth + 1);
 
       if (typeof key === 'string') {
         result[key] = value;
