@@ -1,3 +1,9 @@
+## [0.18.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.17.0...v0.18.0) (2025-12-05)
+
+### Features
+
+* **dvt:** implement device info DVT instrument ([#105](https://github.com/appium/appium-ios-remotexpc/issues/105)) ([91e8cbd](https://github.com/appium/appium-ios-remotexpc/commit/91e8cbd824071e97d580f7cd6c8516b6434ac455))
+
 ## [0.17.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.16.1...v0.17.0) (2025-12-05)
 
 ### Features
