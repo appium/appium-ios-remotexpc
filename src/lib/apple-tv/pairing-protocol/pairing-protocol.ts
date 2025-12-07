@@ -1,8 +1,8 @@
-import { logger } from '@appium/support';
 import { randomBytes } from 'node:crypto';
 import { hostname } from 'node:os';
 
 import type { AppleTVDevice } from '../../bonjour/bonjour-discovery.js';
+import { getLogger } from '../../logger.js';
 import {
   DEFAULT_PAIRING_CONFIG,
   PairingDataComponentType,
@@ -38,7 +38,7 @@ import type {
 
 /** Implements the Apple TV pairing protocol including SRP authentication and key exchange */
 export class PairingProtocol implements PairingProtocolInterface {
-  private static readonly log = logger.getLogger('PairingProtocol');
+  private static readonly log = getLogger('PairingProtocol');
   private _sequenceNumber = 0;
 
   constructor(

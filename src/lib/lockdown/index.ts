@@ -43,13 +43,6 @@ interface SessionInfo {
   enableSessionSSL: boolean;
 }
 
-interface StartSessionRequest {
-  Label: string;
-  Request: string;
-  HostID: string;
-  SystemBUID: string;
-}
-
 interface StartSessionResponse {
   Request?: string;
   SessionID?: PlistValue;
@@ -371,9 +364,9 @@ export class LockdownService extends BasePlistService {
   private validatePairRecord(record: PairRecord): boolean {
     return Boolean(
       record?.HostCertificate &&
-      record.HostPrivateKey &&
-      record.HostID &&
-      record.SystemBUID,
+        record.HostPrivateKey &&
+        record.HostID &&
+        record.SystemBUID,
     );
   }
 
