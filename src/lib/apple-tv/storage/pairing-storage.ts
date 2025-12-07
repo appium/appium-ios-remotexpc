@@ -97,6 +97,8 @@ export class PairingStorage implements PairingStorageInterface {
       if (!this.strongboxDir) {
         const dummyItem = await this.box.createItem('_temp');
         this.strongboxDir = dirname(dummyItem.id);
+        // Clean up the temporary item after extracting the directory path
+        await dummyItem.clear();
       }
 
       const files = await readdir(this.strongboxDir);

@@ -13,7 +13,7 @@ import { PairingStorage } from '../src/lib/apple-tv/storage/pairing-storage.js';
 import type { PairRecord } from '../src/lib/apple-tv/storage/types.js';
 import { TunnelService } from '../src/lib/apple-tv/tunnel/tunnel-service.js';
 import { BonjourDiscovery, type AppleTVDevice } from '../src/lib/bonjour/bonjour-discovery.js';
-import { TunnelManager, PacketStreamServer } from '../src/index.js';
+import { TunnelManager, PacketStreamServer, type TunnelConnection } from '../src/index.js';
 import type { TunnelRegistry } from '../src/index.js';
 import { startTunnelRegistryServer } from '../src/lib/tunnel/tunnel-registry-server.js';
 
@@ -27,11 +27,7 @@ class AppleTVTunnelService {
   private sequenceNumber = 0;
 
   constructor() {
-    this.networkClient = new NetworkClient({
-      timeout: 10000,
-      discoveryTimeout: 10000,
-      maxRetries: 3,
-    });
+    this.networkClient = new NetworkClient(DEFAULT_PAIRING_CONFIG);
     this.storage = new PairingStorage(DEFAULT_PAIRING_CONFIG);
   }
 
@@ -74,7 +70,7 @@ class AppleTVTunnelService {
           `Device with identifier ${specificDeviceIdentifier} not found. Please check available devices above.`
         );
       }
-      
+
       this.logger.info(`\nFiltered to specific device: ${specificDeviceIdentifier}`);
     }
 
@@ -156,7 +152,7 @@ class AppleTVTunnelService {
     const discovery = new BonjourDiscovery();
 
     await discovery.startBrowsing('_remotepairing._tcp', 'local');
-    await new Promise((resolve) => setTimeout(resolve, 10000));
+    await new Promise((resolve) => setTimeout(resolve, DEFAULT_PAIRING_CONFIG.discoveryTimeout));
 
     const services = discovery.getDiscoveredServices();
     const devices: AppleTVDevice[] = [];
@@ -283,12 +279,12 @@ async function main(): Promise<void> {
   }
 
   const tunnelService = new AppleTVTunnelService();
-  let tunnel: any = null;
+  let tunnel: TunnelConnection | null = null;
   let tlsSocket: tls.TLSSocket | undefined;
   let deviceInfo: AppleTVDevice | undefined;
   let packetStreamServer: PacketStreamServer | null = null;
 
-  const cleanup = async (signal: string) => {
+  const cleanup = async (signal: string): Promise<boolean> => {
     log.warn(`\nReceived ${signal}. Cleaning up...`);
 
     try {
@@ -311,11 +307,11 @@ async function main(): Promise<void> {
 
       tunnelService.disconnect();
 
-      log.info('Cleanup completed. Exiting...');
-      process.exit(0);
+      log.info('Cleanup completed.');
+      return true;
     } catch (err) {
       log.error('Error during cleanup:', err);
-      process.exit(1);
+      return false;
     }
   };
 
@@ -323,14 +319,14 @@ async function main(): Promise<void> {
   process.on('SIGTERM', () => cleanup('SIGTERM'));
   process.on('SIGHUP', () => cleanup('SIGHUP'));
 
-  process.on('uncaughtException', async (error) => {
+  process.on('uncaughtException', (error) => {
     log.error('Uncaught Exception:', error);
-    await cleanup('Uncaught Exception');
+    cleanup('Uncaught Exception');
   });
 
-  process.on('unhandledRejection', async (reason, promise) => {
+  process.on('unhandledRejection', (reason, promise) => {
     log.error('Unhandled Rejection at:', promise, 'reason:', reason);
-    await cleanup('Unhandled Rejection');
+    cleanup('Unhandled Rejection');
   });
 
   try {
@@ -351,7 +347,7 @@ async function main(): Promise<void> {
     try {
       packetStreamServer = new PacketStreamServer(PACKET_STREAM_PORT);
       await packetStreamServer.start();
-      
+
       // Attach packet consumer to tunnel to receive packet data
       const consumer = packetStreamServer.getPacketConsumer();
       if (consumer && tunnel.addPacketConsumer) {

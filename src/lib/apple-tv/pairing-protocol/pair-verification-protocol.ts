@@ -1,3 +1,4 @@
+import { type KeyObject } from 'node:crypto';
 import { hostname } from 'node:os';
 
 import { getLogger } from '../../logger.js';
@@ -127,7 +128,7 @@ export class PairVerificationProtocol {
   }
 
   private computeSharedSecret(
-    privateKey: any,
+    privateKey: KeyObject,
     devicePublicKey: Buffer,
   ): Buffer {
     return performX25519DiffieHellman(privateKey, devicePublicKey);
