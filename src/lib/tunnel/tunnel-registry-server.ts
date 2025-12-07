@@ -5,7 +5,7 @@ import { getLogger } from '../logger.js';
 import type { TunnelRegistry, TunnelRegistryEntry } from '../types.js';
 
 // Constants
-const DEFAULT_TUNNEL_REGISTRY_PORT = 42314;
+export const DEFAULT_TUNNEL_REGISTRY_PORT = 42314;
 const API_BASE_PATH = '/remotexpc/tunnels';
 
 // Logger instance

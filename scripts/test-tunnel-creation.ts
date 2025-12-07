@@ -15,7 +15,7 @@ import {
   startCoreDeviceProxy,
   TunnelRegistry,
 } from '../src/index.js';
-import { startTunnelRegistryServer } from '../src/lib/tunnel/tunnel-registry-server.js';
+import { startTunnelRegistryServer, DEFAULT_TUNNEL_REGISTRY_PORT } from '../src/lib/tunnel/tunnel-registry-server.js';
 import type { Device } from '../src/lib/usbmux/index.js';
 
 const log = logger.getLogger('TunnelCreation');
@@ -356,12 +356,12 @@ async function main(): Promise<void> {
       log.info('   - GET /remotexpc/tunnels/metadata - Get registry metadata');
 
       log.info('\n💡 Example usage:');
-      log.info('   curl http://localhost:4723/remotexpc/tunnels');
-      log.info('   curl http://localhost:4723/remotexpc/tunnels/metadata');
+      log.info(`   curl http://localhost:${DEFAULT_TUNNEL_REGISTRY_PORT}/remotexpc/tunnels`);
+      log.info(`   curl http://localhost:${DEFAULT_TUNNEL_REGISTRY_PORT}/remotexpc/tunnels/metadata`);
       if (successful.length > 0) {
         const firstUdid = successful[0].device.Properties.SerialNumber;
         log.info(
-          `   curl http://localhost:4723/remotexpc/tunnels/${firstUdid}`,
+          `   curl http://localhost:${DEFAULT_TUNNEL_REGISTRY_PORT}/remotexpc/tunnels/${firstUdid}`,
         );
       }
     }

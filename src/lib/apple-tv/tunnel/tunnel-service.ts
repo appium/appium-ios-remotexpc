@@ -8,7 +8,7 @@ import {
 import { PairingError } from '../errors.js';
 import type { NetworkClientInterface } from '../network/types.js';
 import type { VerificationKeys } from '../pairing-protocol/pair-verification-protocol.js';
-import type { TcpListenerInfo } from './types.js';
+import type { TcpListenerInfo, TlsPskConnectionOptions } from './types.js';
 
 export class TunnelService {
   private static readonly log = getLogger('TunnelService');
@@ -111,12 +111,7 @@ export class TunnelService {
     );
 
     return new Promise((resolve, reject) => {
-      const options: tls.ConnectionOptions & {
-        pskCallback?: (hint: string | null) => {
-          psk: Buffer;
-          identity: string;
-        };
-      } = {
+      const options: TlsPskConnectionOptions = {
         host: hostname,
         port,
         pskCallback: (hint: string | null) => {
@@ -129,11 +124,18 @@ export class TunnelService {
         ciphers:
           'PSK-AES256-CBC-SHA:PSK-AES128-CBC-SHA:PSK-3DES-EDE-CBC-SHA:PSK-RC4-SHA:PSK',
         secureProtocol: 'TLSv1_2_method',
+        // SECURITY NOTE: Disabling certificate validation is intentional and safe in this context.
+        // This connection uses TLS-PSK (Pre-Shared Key) authentication, where the pre-shared key
+        // itself provides mutual authentication between client and server. Traditional X.509
+        // certificate validation is not used in PSK-based TLS connections. The encryption key
+        // was securely established during the pairing process (which involves PIN verification),
+        // and this key authenticates both parties. This is the standard approach for Apple TV's
+        // RemoteXPC protocol and should NOT be changed to use certificate validation.
         rejectUnauthorized: false,
         checkServerIdentity: () => undefined,
       };
 
-      const socket = tls.connect(options as any, () => {
+      const socket = tls.connect(options, () => {
         TunnelService.log.debug('TLS-PSK connection established');
         resolve(socket);
       });

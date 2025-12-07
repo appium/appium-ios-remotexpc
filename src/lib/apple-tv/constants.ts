@@ -1,11 +1,12 @@
 // Default configuration values for Apple TV pairing behavior
 // These can be overridden via environment variables:
 // - APPLETV_TIMEOUT: Network operation timeout in milliseconds (default: 30000)
-// - APPLETV_DISCOVERY_TIMEOUT: Device discovery timeout in milliseconds (default: 5000)
+// - APPLETV_DISCOVERY_TIMEOUT: Device discovery timeout in milliseconds (default: 10000)
+//   10 seconds provides reliable Apple TV discovery via mDNS/Bonjour across various network conditions
 // - APPLETV_MAX_RETRIES: Maximum retry attempts (default: 3)
 export const DEFAULT_PAIRING_CONFIG = {
   timeout: Number(process.env.APPLETV_TIMEOUT) || 30000,
-  discoveryTimeout: Number(process.env.APPLETV_DISCOVERY_TIMEOUT) || 5000,
+  discoveryTimeout: Number(process.env.APPLETV_DISCOVERY_TIMEOUT) || 10000,
   maxRetries: Number(process.env.APPLETV_MAX_RETRIES) || 3,
 } as const;
 

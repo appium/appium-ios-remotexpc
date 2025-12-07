@@ -15,7 +15,7 @@ import { TunnelService } from '../src/lib/apple-tv/tunnel/tunnel-service.js';
 import { BonjourDiscovery, type AppleTVDevice } from '../src/lib/bonjour/bonjour-discovery.js';
 import { TunnelManager, PacketStreamServer, type TunnelConnection } from '../src/index.js';
 import type { TunnelRegistry } from '../src/index.js';
-import { startTunnelRegistryServer } from '../src/lib/tunnel/tunnel-registry-server.js';
+import { startTunnelRegistryServer, DEFAULT_TUNNEL_REGISTRY_PORT } from '../src/lib/tunnel/tunnel-registry-server.js';
 
 const log = getLogger('WiFiTunnel');
 const PACKET_STREAM_PORT = 50100;
@@ -284,7 +284,7 @@ async function main(): Promise<void> {
   let deviceInfo: AppleTVDevice | undefined;
   let packetStreamServer: PacketStreamServer | null = null;
 
-  const cleanup = async (signal: string): Promise<boolean> => {
+  const cleanup = async (signal: string): Promise<void> => {
     log.warn(`\nReceived ${signal}. Cleaning up...`);
 
     try {
@@ -307,11 +307,11 @@ async function main(): Promise<void> {
 
       tunnelService.disconnect();
 
-      log.info('Cleanup completed.');
-      return true;
+      log.info('Cleanup completed. Exiting...');
+      process.exit(0);
     } catch (err) {
       log.error('Error during cleanup:', err);
-      return false;
+      process.exit(1);
     }
   };
 
@@ -394,7 +394,7 @@ async function main(): Promise<void> {
     log.info('==========================');
 
     log.info('\n📁 Tunnel registry API:');
-    log.info('   http://localhost:4723/remotexpc/tunnels');
+    log.info(`   http://localhost:${DEFAULT_TUNNEL_REGISTRY_PORT}/remotexpc/tunnels`);
     log.info('   - GET /remotexpc/tunnels - List all tunnels');
     log.info(`   - GET /remotexpc/tunnels/${deviceInfo.identifier} - Get tunnel by identifier`);
     log.info('   - GET /remotexpc/tunnels/metadata - Get registry metadata');

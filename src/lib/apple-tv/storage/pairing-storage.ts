@@ -1,6 +1,6 @@
 import { strongbox } from '@appium/strongbox';
 import { readdir } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname } from 'node:path';
 
 import { STRONGBOX_CONTAINER_NAME } from '../../../constants.js';
 import { getLogger } from '../../logger.js';
