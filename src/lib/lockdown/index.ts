@@ -364,9 +364,9 @@ export class LockdownService extends BasePlistService {
   private validatePairRecord(record: PairRecord): boolean {
     return Boolean(
       record?.HostCertificate &&
-        record.HostPrivateKey &&
-        record.HostID &&
-        record.SystemBUID,
+      record.HostPrivateKey &&
+      record.HostID &&
+      record.SystemBUID,
     );
   }
 
