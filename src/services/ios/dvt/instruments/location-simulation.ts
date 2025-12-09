@@ -1,7 +1,6 @@
 import { getLogger } from '../../../../lib/logger.js';
-import type { Channel } from '../channel.js';
 import { MessageAux } from '../dtx-message.js';
-import type { DVTSecureSocketProxyService } from '../index.js';
+import { BaseInstrument } from './base-instrument.js';
 
 const log = getLogger('LocationSimulation');
 
@@ -16,24 +15,9 @@ export interface LocationCoordinates {
 /**
  * Location simulation service for simulating device GPS location
  */
-export class LocationSimulation {
+export class LocationSimulation extends BaseInstrument {
   static readonly IDENTIFIER =
     'com.apple.instruments.server.services.LocationSimulation';
-
-  private channel: Channel | null = null;
-
-  constructor(private readonly dvt: DVTSecureSocketProxyService) {}
-
-  /**
-   * Initialize the location simulation channel
-   */
-  async initialize(): Promise<void> {
-    if (this.channel) {
-      return;
-    }
-
-    this.channel = await this.dvt.makeChannel(LocationSimulation.IDENTIFIER);
-  }
 
   /**
    * Set the simulated GPS location

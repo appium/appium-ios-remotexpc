@@ -1,7 +1,6 @@
 import { getLogger } from '../../../../lib/logger.js';
-import type { Channel } from '../channel.js';
 import { MessageAux } from '../dtx-message.js';
-import type { DVTSecureSocketProxyService } from '../index.js';
+import { BaseInstrument } from './base-instrument.js';
 
 const log = getLogger('ApplicationListing');
 
@@ -46,23 +45,9 @@ export interface iOSApplication {
 /**
  * Application Listing service for retrieving installed applications
  */
-export class ApplicationListing {
+export class ApplicationListing extends BaseInstrument {
   static readonly IDENTIFIER =
     'com.apple.instruments.server.services.device.applictionListing';
-
-  private channel: Channel | null = null;
-
-  constructor(private readonly dvt: DVTSecureSocketProxyService) {}
-
-  /**
-   * Initialize the application listing channel
-   */
-  async initialize(): Promise<void> {
-    if (this.channel) {
-      return;
-    }
-    this.channel = await this.dvt.makeChannel(ApplicationListing.IDENTIFIER);
-  }
 
   /**
    * Get the list of installed applications from the device
