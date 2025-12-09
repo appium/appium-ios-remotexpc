@@ -670,6 +670,40 @@ export interface NetworkMonitorService {
   /**
    * Async iterator for network events.
    * Yields interface detection, connection detection, and connection update events.
+   *
+   * @example
+   * const networkMonitor = device.networkMonitor();
+   * for await (const event of networkMonitor.events()) {
+   *   console.log(event);
+   * }
+   *
+   * // Example output:
+   * // { type: 0, interfaceIndex: 25, name: 'utun5' }
+   * // {
+   * //   type: 1,
+   * //   localAddress: {
+   * //     len: 28,
+   * //     family: 30,
+   * //     port: 50063,
+   * //     address: 'fdc2:1118:d2ac:0:0:0:0:1',
+   * //     flowInfo: 0,
+   * //     scopeId: 0
+   * //   },
+   * //   remoteAddress: {
+   * //     len: 28,
+   * //     family: 30,
+   * //     port: 65334,
+   * //     address: 'fdc2:1118:d2ac:0:0:0:0:2',
+   * //     flowInfo: 0,
+   * //     scopeId: 0
+   * //   },
+   * //   interfaceIndex: 25,
+   * //   pid: -2,
+   * //   recvBufferSize: 397120,
+   * //   recvBufferUsed: 0,
+   * //   serialNumber: 0,
+   * //   kind: 1
+   * // }
    */
   events(): AsyncGenerator<NetworkEvent, void, unknown>;
 }

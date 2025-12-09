@@ -20,9 +20,6 @@ export const NetworkMessageType = {
   CONNECTION_UPDATE: 2,
 } as const;
 
-export type NetworkMessageTypeValue =
-  (typeof NetworkMessageType)[keyof typeof NetworkMessageType];
-
 /**
  * NetworkMonitor provides real-time network activity monitoring on iOS devices.
  *
@@ -72,7 +69,6 @@ export class NetworkMonitor {
       while (true) {
         const message = await this.channel!.receivePlist();
 
-        // Skip null messages
         if (message === null) {
           continue;
         }
@@ -218,59 +214,28 @@ export class NetworkMonitor {
    * - For IPv6 (len=0x1C): Bytes 4-7 flow info, 8-23 address, 24-27 scope ID
    */
   private parseAddress(raw: Buffer | Uint8Array): NetworkAddress {
-    const buffer = Buffer.isBuffer(raw) ? raw : Buffer.from(raw);
+    const buf = Buffer.isBuffer(raw) ? raw : Buffer.from(raw);
 
-    const len = buffer.readUInt8(0);
-    const family = buffer.readUInt8(1);
-    const port = buffer.readUInt16BE(2);
+    const len = buf[0];
+    const family = buf[1];
+    const port = buf.readUInt16BE(2);
 
-    let address: string;
-    let flowInfo: number | undefined;
-    let scopeId: number | undefined;
+    const result: NetworkAddress = { len, family, port, address: '0.0.0.0' };
 
     if (len === 0x1c) {
-      // IPv6 (28 bytes)
-      flowInfo = buffer.readUInt32LE(4);
-      const ipv6Bytes = buffer.subarray(8, 24);
-      address = this.formatIPv6(ipv6Bytes);
-      scopeId = buffer.readUInt32LE(24);
+      // IPv6: 8 groups of 16-bit hex values
+      result.flowInfo = buf.readUInt32LE(4);
+      result.address = Array.from({ length: 8 }, (_, i) =>
+        buf.readUInt16BE(8 + i * 2).toString(16),
+      ).join(':');
+      result.scopeId = buf.readUInt32LE(24);
     } else if (len === 0x10) {
-      // IPv4 (16 bytes)
-      const ipv4Bytes = buffer.subarray(4, 8);
-      address = this.formatIPv4(ipv4Bytes);
+      // IPv4: 4 octets as decimal
+      result.address = Array.from(buf.subarray(4, 8)).join('.');
     } else {
-      // Unknown format, try to interpret as best as possible
       log.warn(`Unknown address length: ${len}`);
-      address = '0.0.0.0';
     }
 
-    return {
-      len,
-      family,
-      port,
-      address,
-      ...(flowInfo !== undefined && { flowInfo }),
-      ...(scopeId !== undefined && { scopeId }),
-    };
-  }
-
-  /**
-   * Format IPv4 address bytes as a dotted decimal string
-   */
-  private formatIPv4(bytes: Buffer): string {
-    return `${bytes[0]}.${bytes[1]}.${bytes[2]}.${bytes[3]}`;
-  }
-
-  /**
-   * Format IPv6 address bytes as a standard IPv6 string
-   */
-  private formatIPv6(bytes: Buffer): string {
-    const groups: string[] = [];
-    for (let i = 0; i < 16; i += 2) {
-      const value = bytes.readUInt16BE(i);
-      groups.push(value.toString(16));
-    }
-
-    return groups.join(':');
+    return result;
   }
 }

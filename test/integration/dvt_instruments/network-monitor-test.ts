@@ -15,7 +15,7 @@ describe('NetworkMonitor', function () {
   this.timeout(60000);
 
   let dvtServiceConnection: DVTServiceWithConnection | null = null;
-  const udid = process.env.UDID || '00008030-001E290A3EF2402E';
+  const udid = process.env.UDID || '';
 
   before(async () => {
     if (!udid) {
@@ -43,7 +43,6 @@ describe('NetworkMonitor', function () {
       const maxEvents = 10;
 
       for await (const event of networkMonitor.events()) {
-        // log.info('Network event:', JSON.stringify(event, null, 2));
         events.push(event);
 
         if (events.length >= maxEvents) {
@@ -68,11 +67,10 @@ describe('NetworkMonitor', function () {
       const networkMonitor = dvtServiceConnection!.networkMonitor;
       let interfaceEvent: NetworkEvent | null = null;
       let eventCount = 0;
-      const maxAttempts = 150;
+      const maxAttempts = 150; // to ensure interface detection event is received
 
       for await (const event of networkMonitor.events()) {
         eventCount++;
-        // log.debug(`Event ${eventCount}:`, JSON.stringify(event));
 
         if (event.type === NetworkMessageType.INTERFACE_DETECTION) {
           interfaceEvent = event;
@@ -90,34 +88,22 @@ describe('NetworkMonitor', function () {
         );
         expect(interfaceEvent).to.have.property('interfaceIndex');
         expect(interfaceEvent).to.have.property('name');
-        log.info(
-          `Interface detected: ${interfaceEvent.name} (index: ${interfaceEvent.interfaceIndex})`,
-        );
       } else {
         log.warn('No interface detection events received within timeout');
       }
     });
 
-    it('should receive connection detection events with address info', async () => {
+    it('should receive connection detection events', async () => {
       const networkMonitor = dvtServiceConnection!.networkMonitor;
       let connectionEvent: NetworkEvent | null = null;
       let eventCount = 0;
       const maxAttempts = 30;
 
-      log.info(
-        'Waiting for connection events - ensure device has network activity',
-      );
-
       for await (const event of networkMonitor.events()) {
-        log.debug(`Event ${eventCount}:`, JSON.stringify(event));
         eventCount++;
 
         if (event.type === NetworkMessageType.CONNECTION_DETECTION) {
           connectionEvent = event;
-          log.info(
-            `Connection detected: ${event.localAddress.address}:${event.localAddress.port} -> ` +
-              `${event.remoteAddress.address}:${event.remoteAddress.port} (PID: ${event.pid})`,
-          );
           break;
         }
 
@@ -141,26 +127,17 @@ describe('NetworkMonitor', function () {
       }
     });
 
-    it('should receive connection update events with statistics', async () => {
+    it('should receive connection update events', async () => {
       const networkMonitor = dvtServiceConnection!.networkMonitor;
       let updateEvent: NetworkEvent | null = null;
       let eventCount = 0;
-      const maxAttempts = 500;
-
-      log.info(
-        'Waiting for connection update events - ensure device has active network traffic',
-      );
+      const maxAttempts = 100;
 
       for await (const event of networkMonitor.events()) {
         eventCount++;
 
         if (event.type === NetworkMessageType.CONNECTION_UPDATE) {
           updateEvent = event;
-          log.debug(`Event ${eventCount}:`, JSON.stringify(event));
-          log.info(
-            `Connection update: serial=${event.connectionSerial}, ` +
-              `rx=${event.rxBytes} bytes, tx=${event.txBytes} bytes`,
-          );
           break;
         }
 
