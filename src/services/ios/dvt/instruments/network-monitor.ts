@@ -6,8 +6,7 @@ import type {
   NetworkAddress,
   NetworkEvent,
 } from '../../../../lib/types.js';
-import type { Channel } from '../channel.js';
-import type { DVTSecureSocketProxyService } from '../index.js';
+import { BaseInstrument } from './base-instrument.js';
 
 const log = getLogger('NetworkMonitor');
 
@@ -28,19 +27,9 @@ export const NetworkMessageType = {
  * - Connection detection events (new TCP/UDP connections)
  * - Connection update events (traffic statistics updates)
  */
-export class NetworkMonitor {
+export class NetworkMonitor extends BaseInstrument {
   static readonly IDENTIFIER =
     'com.apple.instruments.server.services.networking';
-
-  private channel: Channel | null = null;
-
-  constructor(private readonly dvt: DVTSecureSocketProxyService) {}
-
-  async initialize(): Promise<void> {
-    if (!this.channel) {
-      this.channel = await this.dvt.makeChannel(NetworkMonitor.IDENTIFIER);
-    }
-  }
 
   async start(): Promise<void> {
     await this.initialize();
