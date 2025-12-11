@@ -1312,3 +1312,62 @@ export interface MisagentServiceWithConnection {
   misagentService: MisagentService;
   remoteXPC: RemoteXpcConnection;
 }
+
+export interface CrashReportsPullOptions {
+  erase?: boolean;
+  match?: RegExp | string;
+}
+
+/**
+ * CrashReportsService provides an API to manage crash reports on iOS devices
+ */
+export interface CrashReportsService extends BaseService {
+  /**
+   * List files and folders in the crash report's directory
+   * @param dirPath Path to list, defaults to "/"
+   * @param depth Listing depth: 1 for immediate children, -1 for infinite
+   * @returns List of file paths
+   */
+  ls(dirPath?: string, depth?: number): Promise<string[]>;
+
+  /**
+   * Pull crash reports from device to local machine
+   * @param out Local directory path
+   * @param entry Remote path on device, defaults to "/"
+   * @param options Pull options (erase, match pattern)
+   */
+  pull(
+    out: string,
+    entry?: string,
+    options?: CrashReportsPullOptions,
+  ): Promise<void>;
+
+  /**
+   * Clear all crash reports from the device
+   */
+  clear(): Promise<void>;
+
+  /**
+   * Flush pending crash reports into CrashReports directory
+   */
+  flush(): Promise<void>;
+
+  /**
+   * Close the service and release resources
+   */
+  close(): void;
+}
+
+export interface CrashReportsServiceConstructor {
+  readonly RSD_COPY_MOBILE_NAME: string;
+  readonly RSD_CRASH_MOVER_NAME: string;
+  new (
+    afcAddress: [string, number],
+    crashMoverAddress: [string, number],
+  ): CrashReportsService;
+}
+
+export interface CrashReportsServiceWithConnection {
+  crashReportsService: CrashReportsService;
+  remoteXPC: RemoteXpcConnection;
+}
