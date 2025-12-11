@@ -1,25 +1,14 @@
 import { getLogger } from '../../../../lib/logger.js';
-import type { Channel } from '../channel.js';
-import type { DVTSecureSocketProxyService } from '../index.js';
+import { BaseInstrument } from './base-instrument.js';
 
 const log = getLogger('Screenshot');
 
 /**
  * Screenshot service for capturing device screenshots
  */
-export class Screenshot {
+export class Screenshot extends BaseInstrument {
   static readonly IDENTIFIER =
     'com.apple.instruments.server.services.screenshot';
-
-  private channel: Channel | null = null;
-
-  constructor(private readonly dvt: DVTSecureSocketProxyService) {}
-
-  async initialize(): Promise<void> {
-    if (!this.channel) {
-      this.channel = await this.dvt.makeChannel(Screenshot.IDENTIFIER);
-    }
-  }
 
   /**
    * Capture a screenshot from the device
