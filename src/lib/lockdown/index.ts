@@ -43,13 +43,6 @@ interface SessionInfo {
   enableSessionSSL: boolean;
 }
 
-interface StartSessionRequest {
-  Label: string;
-  Request: string;
-  HostID: string;
-  SystemBUID: string;
-}
-
 interface StartSessionResponse {
   Request?: string;
   SessionID?: PlistValue;

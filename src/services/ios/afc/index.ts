@@ -8,12 +8,10 @@ import { getLogger } from '../../../lib/logger.js';
 import {
   buildClosePayload,
   buildFopenPayload,
-  buildReadPayload,
   buildRemovePayload,
   buildRenamePayload,
   buildStatPayload,
   nanosecondsToMilliseconds,
-  nextReadChunkSize,
   parseCStringArray,
   parseKeyValueNullList,
   readAfcResponse,

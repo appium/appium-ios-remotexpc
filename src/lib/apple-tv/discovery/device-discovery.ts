@@ -1,15 +1,14 @@
-import { logger } from '@appium/support';
-
 import {
   type AppleTVDevice,
   BonjourDiscovery,
 } from '../../bonjour/bonjour-discovery.js';
+import { getLogger } from '../../logger.js';
 import { PairingError } from '../errors.js';
 import type { PairingConfig } from '../types.js';
 
 /** Discovers Apple TV devices on the local network using Bonjour */
 export class DeviceDiscoveryService {
-  private readonly log = logger.getLogger('DeviceDiscoveryService');
+  private readonly log = getLogger('DeviceDiscoveryService');
 
   constructor(private readonly config: PairingConfig) {}
 

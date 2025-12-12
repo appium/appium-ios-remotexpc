@@ -1,12 +1,12 @@
-import { logger } from '@appium/support';
 import * as net from 'node:net';
 
+import { getLogger } from '../../logger.js';
 import { NetworkError } from '../errors.js';
 import type { PairingConfig } from '../types.js';
 import { NETWORK_CONSTANTS } from './constants.js';
 import type { NetworkClientInterface } from './types.js';
 
-const log = logger.getLogger('NetworkClient');
+const log = getLogger('NetworkClient');
 
 /** Handles TCP socket communication with Apple TV devices */
 export class NetworkClient implements NetworkClientInterface {

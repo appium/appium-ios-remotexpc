@@ -93,13 +93,6 @@ export class LengthBasedSplitter extends Transform {
       // Add the new chunk to our buffer
       this.buffer = Buffer.concat([this.buffer, chunk]);
 
-      // Check if this is XML data or binary plist before doing any other processing
-      const bufferString = this.buffer.toString(
-        UTF8_ENCODING,
-        0,
-        Math.min(MAX_PREVIEW_LENGTH, this.buffer.length),
-      );
-
       // Check for binary plist format (bplist00 or Ibplist00)
       if (this.buffer.length >= BINARY_PLIST_HEADER_LENGTH) {
         const possibleBplistHeader = this.buffer.toString(
@@ -236,26 +229,11 @@ export class LengthBasedSplitter extends Transform {
           if (alternateLength > 0 && alternateLength <= this.maxFrameLength) {
             messageLength = alternateLength;
           } else {
-            // If length is still invalid, check if this might actually be XML
-            const suspiciousData = this.buffer.toString(
-              UTF8_ENCODING,
-              0,
-              Math.min(MAX_PREVIEW_LENGTH, this.buffer.length),
-            );
-
             // Invalid length - skip one byte and try again
             this.buffer = this.buffer.slice(1);
             continue;
           }
         } else {
-          // For non-4-byte length fields, just use the original approach
-          // If length is invalid, check if this might actually be XML
-          const suspiciousData = this.buffer.toString(
-            UTF8_ENCODING,
-            0,
-            Math.min(MAX_PREVIEW_LENGTH, this.buffer.length),
-          );
-
           // Invalid length - skip one byte and try again
           this.buffer = this.buffer.slice(1);
           continue;

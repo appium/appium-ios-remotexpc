@@ -20,14 +20,6 @@ interface TunnelRegistryEntry {
 }
 
 /**
- * Interface for tunnel and RemoteXPC connection result
- */
-interface TunnelResult {
-  tunnel: TunnelConnection;
-  remoteXPC: RemoteXpcConnection;
-}
-
-/**
  * A wrapper around the tunnel connection that
  * maintains a registry of active tunnels that can be reused.
  */

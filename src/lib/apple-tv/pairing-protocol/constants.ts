@@ -15,5 +15,23 @@ export const PAIRING_MESSAGES = {
   M6_NONCE: 'PS-Msg06',
 } as const;
 
+export const PAIR_VERIFY_MESSAGES = {
+  ENCRYPT_SALT: 'Pair-Verify-Encrypt-Salt',
+  ENCRYPT_INFO: 'Pair-Verify-Encrypt-Info',
+  STATE_03_NONCE: 'PV-Msg03',
+} as const;
+
+export const PAIR_VERIFY_STATES = {
+  STATE_01: 0x01,
+  STATE_02: 0x02,
+  STATE_03: 0x03,
+  STATE_04: 0x04,
+} as const;
+
+export const ENCRYPTION_MESSAGES = {
+  CLIENT_ENCRYPT: 'ClientEncrypt-main',
+  SERVER_ENCRYPT: 'ServerEncrypt-main',
+} as const;
+
 /** TLV type for device info */
 export const INFO_TYPE = 0x11;
