@@ -8,6 +8,7 @@ import type { ServiceConnection } from '../service-connection.js';
 import type { BaseService, Service } from '../services/ios/base-service.js';
 import type { iOSApplication } from '../services/ios/dvt/instruments/application-listing.js';
 import type { LocationCoordinates } from '../services/ios/dvt/instruments/location-simulation.js';
+import { NotificationMessage } from '../services/ios/dvt/instruments/notifications';
 import { ProvisioningProfile } from '../services/ios/misagent/provisioning-profile.js';
 import type { PowerAssertionOptions } from '../services/ios/power-assertion/index.js';
 import { PowerAssertionType } from '../services/ios/power-assertion/index.js';
@@ -797,6 +798,52 @@ export interface DeviceInfoService {
 }
 
 /**
+ * Notification service monitor memory and app notifications
+ */
+export interface NotificationService {
+  /**
+   * Yields notification from memory and application state changes
+   * @example:
+   * {
+   *   selector: 'applicationStateNotification:',
+   *   data: [
+   *     {
+   *       mach_absolute_time: 58061793038,
+   *       execName: '/Applications/Spotlight.app',
+   *       appName: 'Spotlight',
+   *       pid: 327,
+   *       state_description: 'Suspended'
+   *     }
+   *   ]
+   * },
+   * {
+   *   selector: 'applicationStateNotification:',
+   *   data: [
+   *     {
+   *       mach_absolute_time: 58061827502,
+   *       execName: '/private/var/containers/Bundle/Application/28AF0B11-363A-4242-9164-CF690064402B/MobileCal.app',
+   *       appName: 'MobileCal',
+   *       pid: 449,
+   *       state_description: 'Suspended'
+   *     }
+   *   ]
+   * },
+   * {
+   *   selector: 'memoryLevelNotification:',
+   *   data: [
+   *     {
+   *       code: 3,
+   *       mach_absolute_time: 101524320437,
+   *       timestamp: [Object],
+   *       pid: -1
+   *     }
+   *   ]
+   * }
+   */
+  messages(): AsyncGenerator<NotificationMessage, void, NotificationMessage>;
+}
+
+/**
  * DVT service with connection
  * This allows callers to properly manage the connection lifecycle
  */
@@ -815,6 +862,8 @@ export interface DVTServiceWithConnection {
   graphics: GraphicsService;
   /** The DeviceInfo service instance */
   deviceInfo: DeviceInfoService;
+  /** The Notifications service instance */
+  notification: NotificationService;
   /** The RemoteXPC connection that can be used to close the connection */
   remoteXPC: RemoteXpcConnection;
 }
