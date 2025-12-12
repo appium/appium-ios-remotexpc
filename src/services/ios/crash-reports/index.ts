@@ -98,14 +98,10 @@ export class CrashReportsService extends BaseService {
    * @param entry Remote path on device, defaults to "/"
    * @param options Pull options (erase, match pattern)
    */
-  async pull(
-    out: string,
-    entry = '/',
-    options?: PullOptions,
-  ): Promise<void> {
+  async pull(out: string, entry = '/', options?: PullOptions): Promise<void> {
     const { erase = false, match } = options ?? {};
     const matchPattern =
-      typeof match === 'string' ? new RegExp(match) : match ?? null;
+      typeof match === 'string' ? new RegExp(match) : (match ?? null);
 
     log.debug(
       `Pulling crash reports from '${entry}' to '${out}', erase: ${erase}`,
@@ -150,21 +146,23 @@ export class CrashReportsService extends BaseService {
   }
 
   /**
-   * Trigger com.apple.crashreportmover to flush all products into CrashReports directory
+   * Helper to perform RSD handshake and read raw bytes response
+   * Used for services that send plist messages followed by raw bytes
    */
-  async flush(): Promise<void> {
-    log.debug('Flushing crash reports');
-
-    const port = this.crashMoverAddress[1].toString();
-    const hostname = this.crashMoverAddress[0];
-
-    // Create raw TCP connection without plist pipeline to handle mixed plist/raw protocol
+  private async rsdHandshakeAndReadRaw(
+    hostname: string,
+    port: string,
+    expectedBytes: number,
+  ): Promise<Buffer> {
     const socket = await new Promise<net.Socket>((resolve, reject) => {
-      const conn = net.createConnection({ host: hostname, port: Number(port) }, () => {
-        conn.setTimeout(0);
-        conn.setKeepAlive(true);
-        resolve(conn);
-      });
+      const conn = net.createConnection(
+        { host: hostname, port: Number(port) },
+        () => {
+          conn.setTimeout(0);
+          conn.setKeepAlive(true);
+          resolve(conn);
+        },
+      );
       conn.setTimeout(10000, () => {
         conn.destroy();
         reject(new Error('Connection timed out'));
@@ -173,111 +171,102 @@ export class CrashReportsService extends BaseService {
     });
 
     try {
-      // Buffer manager for reading from socket
       let buffer = Buffer.alloc(0);
-      const dataChunks: Buffer[] = [];
-      let dataResolver: ((value: void) => void) | null = null;
-
-      socket.on('data', (chunk: Buffer) => {
-        dataChunks.push(chunk);
-        if (dataResolver) {
-          dataResolver();
-          dataResolver = null;
-        }
-      });
-
-      const ensureData = async (): Promise<void> => {
-        if (dataChunks.length > 0) {
-          buffer = Buffer.concat([buffer, ...dataChunks]);
-          dataChunks.length = 0;
-          return;
-        }
-        
-        await new Promise<void>((resolve, reject) => {
-          dataResolver = resolve;
-          const timeoutId = setTimeout(() => {
-            dataResolver = null;
-            reject(new Error('Timeout waiting for data'));
-          }, 10000);
-
-          socket.once('error', (err) => {
+      const ensureData = (minBytes: number, timeout: number): Promise<void> => {
+        if (buffer.length >= minBytes) {return Promise.resolve();}
+        return new Promise((resolve, reject) => {
+          const onData = (chunk: Buffer) => {
+            buffer = Buffer.concat([buffer, chunk]);
+            if (buffer.length >= minBytes) {
+              socket.removeListener('data', onData);
+              socket.removeListener('error', onError);
+              clearTimeout(timeoutId);
+              resolve();
+            }
+          };
+          const onError = (err: Error) => {
+            socket.removeListener('data', onData);
+            socket.removeListener('error', onError);
             clearTimeout(timeoutId);
-            dataResolver = null;
             reject(err);
-          });
+          };
+          socket.on('data', onData);
+          socket.on('error', onError);
+          const timeoutId = setTimeout(() => {
+            socket.removeListener('data', onData);
+            socket.removeListener('error', onError);
+            reject(new Error(`Timeout waiting for ${minBytes} bytes`));
+          }, timeout);
         });
-
-        buffer = Buffer.concat([buffer, ...dataChunks]);
-        dataChunks.length = 0;
       };
 
-      const readBytes = async (length: number): Promise<Buffer> => {
-        while (buffer.length < length) {
-          await ensureData();
-        }
-        const result = buffer.slice(0, length);
-        buffer = buffer.slice(length);
-        return result;
+      const readBytes = (numBytes: number): Buffer => {
+        const data = buffer.slice(0, numBytes);
+        buffer = buffer.slice(numBytes);
+        return data;
       };
 
       const receivePlist = async (): Promise<any> => {
-        const lengthBuf = await readBytes(4);
-        const payloadLength = lengthBuf.readUInt32BE(0);
-        const payloadBuf = await readBytes(payloadLength);
-        return parsePlist(payloadBuf);
+        await ensureData(4, 5000);
+        const length = readBytes(4).readUInt32BE(0);
+        await ensureData(length, 5000);
+        return parsePlist(readBytes(length));
       };
 
-      // Send RSDCheckin as plist
-      const checkin = {
+      // Send RSDCheckin
+      const checkinPlist = createBinaryPlist({
         Label: 'appium-internal',
         ProtocolVersion: '2',
         Request: 'RSDCheckin',
-      };
+      });
+      const header = Buffer.alloc(4);
+      header.writeUInt32BE(checkinPlist.length, 0);
+      socket.write(Buffer.concat([header, checkinPlist]));
 
-      log.debug('Sending RSDCheckin for flush');
-      const checkinPlist = createBinaryPlist(checkin);
-      const checkinHeader = Buffer.alloc(4);
-      checkinHeader.writeUInt32BE(checkinPlist.length, 0);
-      socket.write(Buffer.concat([checkinHeader, checkinPlist]));
-
-      // Receive RSDCheckin response
+      // Receive and validate RSDCheckin response
       const checkinResponse = await receivePlist();
-      log.debug(`Flush RSDCheckin response: ${JSON.stringify(checkinResponse)}`);
-
       if (checkinResponse?.Request !== 'RSDCheckin') {
         throw new Error(
-          `Invalid response for RSDCheckin: ${JSON.stringify(checkinResponse)}. Expected "RSDCheckin"`,
+          `Invalid RSDCheckin response: ${JSON.stringify(checkinResponse)}`,
         );
       }
 
-      // Receive StartService response
-      log.debug('Consuming StartService response');
+      // Receive and validate StartService response
       const startServiceResponse = await receivePlist();
-      log.debug(`Flush StartService response: ${JSON.stringify(startServiceResponse)}`);
-
       if (startServiceResponse?.Request !== 'StartService') {
         throw new Error(
-          `Invalid response for StartService: ${JSON.stringify(startServiceResponse)}. Expected "StartService"`,
+          `Invalid StartService response: ${JSON.stringify(startServiceResponse)}`,
         );
       }
 
-      // Now read raw bytes: "ping\0"
-      const expectedAck = Buffer.from('ping\0', 'utf8');
-      log.debug('Waiting for ping acknowledgment (raw bytes)');
-
-      const ack = await readBytes(expectedAck.length);
-      log.debug(`Received ack: ${ack.toString('hex')}`);
-
-      if (!ack.equals(expectedAck)) {
-        log.warn(
-          `Unexpected flush acknowledgment. Expected: ${expectedAck.toString('hex')}, Got: ${ack.toString('hex')}`,
-        );
-      } else {
-        log.debug('Successfully flushed crash reports');
-      }
+      // Read raw bytes
+      await ensureData(expectedBytes, 10000);
+      return readBytes(expectedBytes);
     } finally {
       socket.destroy();
     }
+  }
+
+  /**
+   * Trigger com.apple.crashreportmover to flush all products into CrashReports directory
+   */
+  async flush(): Promise<void> {
+    log.debug('Flushing crash reports');
+
+    const ack = await this.rsdHandshakeAndReadRaw(
+      this.crashMoverAddress[0],
+      this.crashMoverAddress[1].toString(),
+      5,
+    );
+
+    const expectedAck = Buffer.from('ping\0', 'utf8');
+    if (!ack.equals(expectedAck)) {
+      throw new Error(
+        `Unexpected flush acknowledgment. Expected: ${expectedAck.toString('hex')}, Got: ${ack.toString('hex')}`,
+      );
+    }
+
+    log.debug('Successfully flushed crash reports');
   }
 
   /**
@@ -359,7 +348,12 @@ export class CrashReportsService extends BaseService {
 
         for (const entry of entries) {
           const entryPath = posixpath.join(remotePath, entry);
-          await this._pullRecursive(entryPath, localDirPath, matchPattern, erase);
+          await this._pullRecursive(
+            entryPath,
+            localDirPath,
+            matchPattern,
+            erase,
+          );
         }
       } catch (error) {
         log.error(`Failed to list directory '${remotePath}': ${error}`);

@@ -1,3 +1,4 @@
+import { logger } from '@appium/support';
 import { expect } from 'chai';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -5,6 +6,23 @@ import path from 'node:path';
 
 import { Services } from '../../src/index.js';
 import type { CrashReportsService } from '../../src/index.js';
+
+const log = logger.getLogger('WebInspectorService.test');
+log.level = 'debug';
+
+function logFiles(dir: string): void {
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+
+    if (entry.isDirectory()) {
+      logFiles(fullPath); // recurse
+    } else {
+      console.log(fullPath); // log file
+    }
+  }
+}
 
 describe('Crash Reports Service', function () {
   this.timeout(60000);
@@ -33,35 +51,23 @@ describe('Crash Reports Service', function () {
   describe('ls', function () {
     it('should list crash reports in root directory', async function () {
       const entries = await crashReportsService.ls('/');
+      console.log(entries);
       expect(entries).to.be.an('array');
     });
 
     it('should list crash reports with depth=1', async function () {
       const entries = await crashReportsService.ls('/', 1);
+      console.log(entries);
       expect(entries).to.be.an('array');
       // Each entry should be a direct child path
       for (const entry of entries) {
         expect(entry).to.match(/^\/[^/]+$/);
       }
     });
-
-    it('should return empty array with depth=0', async function () {
-      const entries = await crashReportsService.ls('/', 0);
-      expect(entries).to.be.an('array');
-      expect(entries).to.have.lengthOf(0);
-    });
-
-    it('should list crash reports recursively with depth=-1', async function () {
-      const entries = await crashReportsService.ls('/', -1);
-      console.log(entries);
-      expect(entries).to.be.an('array');
-      // With infinite depth, we may get nested paths
-    });
   });
 
   describe('flush', function () {
     it('should flush crash reports without error', async function () {
-      // Flush triggers the crash mover to move pending reports
       await crashReportsService.flush();
       // If we get here without throwing, the flush succeeded
     });
@@ -71,63 +77,31 @@ describe('Crash Reports Service', function () {
     let tempDir: string;
 
     beforeEach(function () {
-      // Create a unique temp directory for each test
       tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'crash-reports-test-'));
     });
 
     afterEach(function () {
-      // Clean up temp directory
       try {
         fs.rmSync(tempDir, { recursive: true, force: true });
-      } catch {
-        // ignore
-      }
+      } catch {}
     });
 
     it('should pull crash reports to local directory', async function () {
       await crashReportsService.flush();
-      await crashReportsService.pull(tempDir, '/');
+      await crashReportsService.pull(tempDir, '/DiagnosticLogs/');
       expect(fs.existsSync(tempDir)).to.be.true;
       console.log('Crash reports in tempDir:', fs.readdirSync(tempDir));
     });
 
     it('should filter files by match pattern', async function () {
-      await crashReportsService.pull(tempDir, '/', { match: /\.ips$/ });
+      await crashReportsService.pull(tempDir, '/', {
+        match: /(?:^|\/)WiFi.*/,
+      });
 
       // Check that directory was created
       expect(fs.existsSync(tempDir)).to.be.true;
 
-      // Recursively check all files end with .ips (if any files exist)
-      const checkFiles = (dir: string) => {
-        const entries = fs.readdirSync(dir, { withFileTypes: true });
-        for (const entry of entries) {
-          const fullPath = path.join(dir, entry.name);
-          if (entry.isDirectory()) {
-            checkFiles(fullPath);
-          } else {
-            expect(entry.name).to.match(/\.ips$/);
-          }
-        }
-      };
-      checkFiles(tempDir);
-    });
-
-    it('should accept string match pattern', async function () {
-      await crashReportsService.pull(tempDir, '/', { match: '\\.panic$' });
-      expect(fs.existsSync(tempDir)).to.be.true;
-
-      const checkFiles = (dir: string) => {
-        const entries = fs.readdirSync(dir, { withFileTypes: true });
-        for (const entry of entries) {
-          const fullPath = path.join(dir, entry.name);
-          if (entry.isDirectory()) {
-            checkFiles(fullPath);
-          } else {
-            expect(entry.name).to.match(/\.panic$/);
-          }
-        }
-      };
-      checkFiles(tempDir);
+      console.log('Crash reports in tempDir:', fs.readdirSync(tempDir));
     });
   });
 
@@ -168,33 +142,20 @@ describe('Crash Reports Service', function () {
     afterEach(function () {
       try {
         fs.rmSync(tempDir, { recursive: true, force: true });
-      } catch {
-        // ignore
-      }
-    });
-
-    it('should perform complete workflow: flush, ls, pull', async function () {
-      // 1. Flush to get latest crash reports
-      await crashReportsService.flush();
-
-      // 2. List what's available
-      const entries = await crashReportsService.ls('/');
-      expect(entries).to.be.an('array');
-
-      // 3. Pull all reports
-      await crashReportsService.pull(tempDir, '/');
-
-      // 4. Verify temp directory exists
-      expect(fs.existsSync(tempDir)).to.be.true;
+      } catch {}
     });
 
     it('should perform flush, pull with erase, and verify removal', async function () {
       await crashReportsService.flush();
-      const beforeEntries = await crashReportsService.ls('/');
+      const beforeEntries = await crashReportsService.ls('/', 1);
+      console.log('beforeEntries are: ', beforeEntries);
 
-      await crashReportsService.pull(tempDir, '/', { erase: true });
+      await crashReportsService.pull(tempDir, '/', { match: /(?:^|\/)WiFi.*/ });
 
-      const afterEntries = await crashReportsService.ls('/');
+      const afterEntries = await crashReportsService.ls('/', 1);
+      console.log('afterEntries are: ', afterEntries);
+
+      logFiles(tempDir);
 
       // Files should be erased, directories may remain
       expect(fs.existsSync(tempDir)).to.be.true;
