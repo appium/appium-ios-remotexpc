@@ -10,7 +10,7 @@ const log = getLogger('Notifications');
  */
 export interface ApplicationStateNotificationData {
   /** High-precision Mach absolute time timestamp */
-  mach_absolute_time: number;
+  mach_absolute_time: number | bigint;
   /** Full path to the executable (e.g., '/private/var/containers/Bundle/Application/.../MobileCal.app') */
   execName: string;
   /** Short application name (e.g., 'MobileCal') */
@@ -28,7 +28,7 @@ export interface MemoryLevelNotificationData {
   /** Memory pressure level code (0=Normal, 1=Warning, 2=Critical, 3=...) */
   code: number;
   /** High-precision Mach absolute time timestamp */
-  mach_absolute_time: number;
+  mach_absolute_time: number | bigint;
   /** NSDate timestamp object with NS.time property */
   timestamp: number;
   /** Process ID (-1 for system-wide notifications) */
