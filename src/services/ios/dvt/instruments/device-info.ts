@@ -1,9 +1,8 @@
 import { getLogger } from '../../../../lib/logger.js';
 import { parseBinaryPlist } from '../../../../lib/plist/index.js';
 import type { ProcessInfo } from '../../../../lib/types.js';
-import type { Channel } from '../channel.js';
 import { MessageAux } from '../dtx-message.js';
-import type { DVTSecureSocketProxyService } from '../index.js';
+import { BaseInstrument } from './base-instrument.js';
 
 const log = getLogger('DeviceInfo');
 
@@ -25,21 +24,9 @@ const log = getLogger('DeviceInfo');
  * - nameForUid(uid): Get username for UID
  * - nameForGid(gid): Get group name for GID
  */
-export class DeviceInfo {
+export class DeviceInfo extends BaseInstrument {
   static readonly IDENTIFIER =
     'com.apple.instruments.server.services.deviceinfo';
-
-  private channel: Channel | null = null;
-  constructor(private readonly dvt: DVTSecureSocketProxyService) {}
-
-  /**
-   * Initialize the device info channel
-   */
-  async initialize(): Promise<void> {
-    if (!this.channel) {
-      this.channel = await this.dvt.makeChannel(DeviceInfo.IDENTIFIER);
-    }
-  }
 
   /**
    * List directory contents at the specified path.

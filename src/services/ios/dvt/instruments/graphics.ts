@@ -1,23 +1,12 @@
 import { getLogger } from '../../../../lib/logger.js';
-import type { Channel } from '../channel.js';
 import { MessageAux } from '../dtx-message.js';
-import type { DVTSecureSocketProxyService } from '../index.js';
+import { BaseInstrument } from './base-instrument.js';
 
 const log = getLogger('Graphics');
 
-export class Graphics {
+export class Graphics extends BaseInstrument {
   static readonly IDENTIFIER =
     'com.apple.instruments.server.services.graphics.opengl';
-
-  private channel: Channel | null = null;
-
-  constructor(private readonly dvt: DVTSecureSocketProxyService) {}
-
-  async initialize(): Promise<void> {
-    if (!this.channel) {
-      this.channel = await this.dvt.makeChannel(Graphics.IDENTIFIER);
-    }
-  }
 
   async start(): Promise<void> {
     await this.initialize();

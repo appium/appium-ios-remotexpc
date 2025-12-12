@@ -1,8 +1,7 @@
 import { getLogger } from '../../../../lib/logger.js';
 import type { ConditionGroup } from '../../../../lib/types.js';
-import type { Channel } from '../channel.js';
 import { MessageAux } from '../dtx-message.js';
-import type { DVTSecureSocketProxyService } from '../index.js';
+import { BaseInstrument } from './base-instrument.js';
 
 const log = getLogger('ConditionInducer');
 
@@ -10,23 +9,9 @@ const log = getLogger('ConditionInducer');
  * Condition Inducer service for simulating various device conditions
  * such as network conditions, thermal states, etc.
  */
-export class ConditionInducer {
+export class ConditionInducer extends BaseInstrument {
   static readonly IDENTIFIER =
     'com.apple.instruments.server.services.ConditionInducer';
-
-  private channel: Channel | null = null;
-
-  constructor(private readonly dvt: DVTSecureSocketProxyService) {}
-
-  /**
-   * Initialize the condition inducer channel
-   */
-  async initialize(): Promise<void> {
-    if (this.channel) {
-      return;
-    }
-    this.channel = await this.dvt.makeChannel(ConditionInducer.IDENTIFIER);
-  }
 
   /**
    * List all available condition inducers and their profiles
