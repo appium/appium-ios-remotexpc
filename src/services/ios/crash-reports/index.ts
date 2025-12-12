@@ -4,9 +4,10 @@ import path from 'node:path';
 import posixpath from 'node:path/posix';
 
 import { getLogger } from '../../../lib/logger.js';
-import { createBinaryPlist, parsePlist } from '../../../lib/plist/index.js';
 import AfcService from '../afc/index.js';
+import { readExact, rsdHandshakeForRawService } from '../afc/codec.js';
 import { BaseService } from '../base-service.js';
+import type { CrashReportsPullOptions } from '../../../lib/types.js';
 
 const log = getLogger('CrashReportsService');
 
@@ -14,14 +15,6 @@ const log = getLogger('CrashReportsService');
  * Path that is sometimes auto-created after deletion
  */
 const APPSTORED_PATH = '/com.apple.appstored';
-
-/**
- * Options for the pull operation
- */
-export interface PullOptions {
-  erase?: boolean;
-  match?: RegExp | string;
-}
 
 /**
  * CrashReportsService provides an API to:
@@ -98,7 +91,7 @@ export class CrashReportsService extends BaseService {
    * @param entry Remote path on device, defaults to "/"
    * @param options Pull options (erase, match pattern)
    */
-  async pull(out: string, entry = '/', options?: PullOptions): Promise<void> {
+  async pull(out: string, entry = '/', options?: CrashReportsPullOptions): Promise<void> {
     const { erase = false, match } = options ?? {};
     const matchPattern =
       typeof match === 'string' ? new RegExp(match) : (match ?? null);
@@ -171,77 +164,11 @@ export class CrashReportsService extends BaseService {
     });
 
     try {
-      let buffer = Buffer.alloc(0);
-      const ensureData = (minBytes: number, timeout: number): Promise<void> => {
-        if (buffer.length >= minBytes) {return Promise.resolve();}
-        return new Promise((resolve, reject) => {
-          const onData = (chunk: Buffer) => {
-            buffer = Buffer.concat([buffer, chunk]);
-            if (buffer.length >= minBytes) {
-              socket.removeListener('data', onData);
-              socket.removeListener('error', onError);
-              clearTimeout(timeoutId);
-              resolve();
-            }
-          };
-          const onError = (err: Error) => {
-            socket.removeListener('data', onData);
-            socket.removeListener('error', onError);
-            clearTimeout(timeoutId);
-            reject(err);
-          };
-          socket.on('data', onData);
-          socket.on('error', onError);
-          const timeoutId = setTimeout(() => {
-            socket.removeListener('data', onData);
-            socket.removeListener('error', onError);
-            reject(new Error(`Timeout waiting for ${minBytes} bytes`));
-          }, timeout);
-        });
-      };
-
-      const readBytes = (numBytes: number): Buffer => {
-        const data = buffer.slice(0, numBytes);
-        buffer = buffer.slice(numBytes);
-        return data;
-      };
-
-      const receivePlist = async (): Promise<any> => {
-        await ensureData(4, 5000);
-        const length = readBytes(4).readUInt32BE(0);
-        await ensureData(length, 5000);
-        return parsePlist(readBytes(length));
-      };
-
-      // Send RSDCheckin
-      const checkinPlist = createBinaryPlist({
-        Label: 'appium-internal',
-        ProtocolVersion: '2',
-        Request: 'RSDCheckin',
-      });
-      const header = Buffer.alloc(4);
-      header.writeUInt32BE(checkinPlist.length, 0);
-      socket.write(Buffer.concat([header, checkinPlist]));
-
-      // Receive and validate RSDCheckin response
-      const checkinResponse = await receivePlist();
-      if (checkinResponse?.Request !== 'RSDCheckin') {
-        throw new Error(
-          `Invalid RSDCheckin response: ${JSON.stringify(checkinResponse)}`,
-        );
-      }
-
-      // Receive and validate StartService response
-      const startServiceResponse = await receivePlist();
-      if (startServiceResponse?.Request !== 'StartService') {
-        throw new Error(
-          `Invalid StartService response: ${JSON.stringify(startServiceResponse)}`,
-        );
-      }
+      // Perform RSD handshake (sends RSDCheckin, validates responses)
+      await rsdHandshakeForRawService(socket);
 
       // Read raw bytes
-      await ensureData(expectedBytes, 10000);
-      return readBytes(expectedBytes);
+      return await readExact(socket, expectedBytes, 10000);
     } finally {
       socket.destroy();
     }

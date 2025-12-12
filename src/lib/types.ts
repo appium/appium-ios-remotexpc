@@ -1358,15 +1358,6 @@ export interface CrashReportsService extends BaseService {
   close(): void;
 }
 
-export interface CrashReportsServiceConstructor {
-  readonly RSD_COPY_MOBILE_NAME: string;
-  readonly RSD_CRASH_MOVER_NAME: string;
-  new (
-    afcAddress: [string, number],
-    crashMoverAddress: [string, number],
-  ): CrashReportsService;
-}
-
 export interface CrashReportsServiceWithConnection {
   crashReportsService: CrashReportsService;
   remoteXPC: RemoteXpcConnection;
