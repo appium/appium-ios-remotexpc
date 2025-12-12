@@ -331,6 +331,15 @@ export class AfcService {
     );
   }
 
+  /**
+   * Create a directory on the device.
+   *
+   * Note: Unlike `fs.mkdir` with `{ recursive: true }`, this does **not**
+   * create parent directories automatically.
+   *
+   * @param dirPath - Path of the directory to create.
+   * @returns A promise that resolves when the directory has been created.
+   */
   async mkdir(dirPath: string): Promise<void> {
     await this._doOperation(AfcOpcode.MAKE_DIR, buildMkdirPayload(dirPath));
     log.debug(`Successfully created directory: ${dirPath}`);
