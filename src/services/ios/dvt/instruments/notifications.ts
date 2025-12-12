@@ -106,11 +106,7 @@ export class Notifications extends BaseInstrument {
   /**
    * Yields notification messages from the iOS device
    */
-  async *messages(): AsyncGenerator<
-    NotificationMessage,
-    void,
-    NotificationMessage
-  > {
+  async *messages(): AsyncGenerator<NotificationMessage, void, undefined> {
     log.debug('logging started');
     await this.start();
 

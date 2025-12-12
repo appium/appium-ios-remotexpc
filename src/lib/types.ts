@@ -8,7 +8,7 @@ import type { ServiceConnection } from '../service-connection.js';
 import type { BaseService, Service } from '../services/ios/base-service.js';
 import type { iOSApplication } from '../services/ios/dvt/instruments/application-listing.js';
 import type { LocationCoordinates } from '../services/ios/dvt/instruments/location-simulation.js';
-import { NotificationMessage } from '../services/ios/dvt/instruments/notifications.js';
+import type { NotificationMessage } from '../services/ios/dvt/instruments/notifications.js';
 import { ProvisioningProfile } from '../services/ios/misagent/provisioning-profile.js';
 import type { PowerAssertionOptions } from '../services/ios/power-assertion/index.js';
 import { PowerAssertionType } from '../services/ios/power-assertion/index.js';
@@ -840,7 +840,7 @@ export interface NotificationService {
    *   ]
    * }
    */
-  messages(): AsyncGenerator<NotificationMessage, void, NotificationMessage>;
+  messages(): AsyncGenerator<NotificationMessage, void, undefined>;
 }
 
 /**
