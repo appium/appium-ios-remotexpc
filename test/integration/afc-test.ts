@@ -191,4 +191,49 @@ describe('AFC Service', function () {
       }
     }
   });
+
+  it('should recursively pull directory with files', async function () {
+    const ts = Date.now();
+    const testData = Buffer.from('recursive pull test data');
+
+    await afc.mkdir('/Downloads/child_dir');
+
+    const file1 = `/Downloads/file1_${ts}.txt`;
+    const file2 = `/Downloads/child_dir/file2_${ts}.log`;
+
+    try {
+      await afc.setFileContents(file1, testData);
+      await afc.setFileContents(file2, testData);
+
+      await afc.pullRecursive('/Downloads', os.tmpdir(), {
+        match: `.*_${ts}\\.(txt|log)`,
+      });
+
+      const localDownloads = path.join(os.tmpdir(), 'Downloads');
+      expect(fs.existsSync(path.join(localDownloads, `file1_${ts}.txt`))).to.be
+        .true;
+      expect(
+        fs.existsSync(path.join(localDownloads, `/child_dir/file2_${ts}.log`)),
+      ).to.be.true;
+
+      // Verify file contents
+      const localData = fs.readFileSync(
+        path.join(localDownloads, `file1_${ts}.txt`),
+      );
+      expect(Buffer.compare(localData, testData)).to.equal(0);
+    } finally {
+      try {
+        await afc.rm(file1);
+      } catch {}
+      try {
+        await afc.rm(file2);
+      } catch {}
+      try {
+        const localDownloads = path.join(os.tmpdir(), 'Downloads');
+        if (fs.existsSync(localDownloads)) {
+          fs.rmSync(localDownloads, { recursive: true, force: true });
+        }
+      } catch {}
+    }
+  });
 });

@@ -8,6 +8,7 @@ import { getLogger } from '../../../lib/logger.js';
 import {
   buildClosePayload,
   buildFopenPayload,
+  buildMkdirPayload,
   buildReadPayload,
   buildRemovePayload,
   buildRenamePayload,
@@ -290,10 +291,49 @@ export class AfcService {
 
   async pull(remoteSrc: string, localDst: string): Promise<void> {
     log.debug(`Pulling file from '${remoteSrc}' to '${localDst}'`);
-    const stream = await this.readToStream(remoteSrc);
-    const writeStream = fs.createWriteStream(localDst);
-    await pipeline(stream, writeStream);
-    log.debug(`Successfully pulled file to '${localDst}'`);
+    const resolved = await this._resolvePath(remoteSrc);
+    const st = await this.stat(resolved);
+    if (st.st_ifmt !== AfcFileMode.S_IFREG) {
+      throw new Error(`'${resolved}' isn't a regular file`);
+    }
+    const handle = await this.fopen(resolved, 'r');
+    try {
+      const stream = this.createReadStream(handle, st.st_size);
+      const writeStream = fs.createWriteStream(localDst);
+      await pipeline(stream, writeStream);
+      log.debug(`Successfully pulled file to '${localDst}'`);
+    } finally {
+      await this.fclose(handle);
+    }
+  }
+
+  async pullRecursive(
+    remoteSrc: string,
+    localDst: string,
+    options?: {
+      match?: RegExp | string;
+      callback?: (
+        remotePath: string,
+        localPath: string,
+      ) => void | Promise<void>;
+    },
+  ): Promise<void> {
+    const { match, callback } = options ?? {};
+    const matchPattern = typeof match === 'string' ? new RegExp(match) : match;
+
+    log.debug(`Starting recursive pull from '${remoteSrc}' to '${localDst}'`);
+
+    await this._pullRecursiveInternal(
+      remoteSrc,
+      localDst,
+      matchPattern,
+      callback,
+    );
+  }
+
+  async mkdir(dirPath: string): Promise<void> {
+    await this._doOperation(AfcOpcode.MAKE_DIR, buildMkdirPayload(dirPath));
+    log.debug(`Successfully created directory: ${dirPath}`);
   }
 
   async rmSingle(filePath: string, force = false): Promise<boolean> {
@@ -416,6 +456,54 @@ export class AfcService {
       log.debug('Error while closing socket (ignored):', error);
     }
     this.socket = null;
+  }
+
+  private async _pullRecursiveInternal(
+    remotePath: string,
+    localDst: string,
+    matchPattern?: RegExp,
+    callback?: (remotePath: string, localPath: string) => void | Promise<void>,
+  ): Promise<void> {
+    const isDir = await this.isdir(remotePath);
+    const baseName = path.posix.basename(remotePath);
+
+    // Handle file
+    if (!isDir) {
+      if (matchPattern && !matchPattern.test(baseName)) {
+        return;
+      }
+
+      const targetPath =
+        fs.existsSync(localDst) && fs.statSync(localDst).isDirectory()
+          ? path.join(localDst, baseName)
+          : localDst;
+
+      await this.pull(remotePath, targetPath);
+
+      if (callback) {
+        await callback(remotePath, targetPath);
+      }
+      return;
+    }
+
+    // Handle directory
+    const localDirPath =
+      fs.existsSync(localDst) && fs.statSync(localDst).isDirectory()
+        ? path.join(localDst, baseName)
+        : localDst;
+
+    fs.mkdirSync(localDirPath, { recursive: true });
+
+    const entries = await this.listdir(remotePath);
+    for (const entry of entries) {
+      const entryPath = path.posix.join(remotePath, entry);
+      await this._pullRecursiveInternal(
+        entryPath,
+        localDirPath,
+        matchPattern,
+        callback,
+      );
+    }
   }
 
   /**
