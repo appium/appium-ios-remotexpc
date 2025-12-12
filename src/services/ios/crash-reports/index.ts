@@ -1,13 +1,12 @@
 import fs from 'node:fs';
-import net from 'node:net';
 import path from 'node:path';
 import posixpath from 'node:path/posix';
 
 import { getLogger } from '../../../lib/logger.js';
-import AfcService from '../afc/index.js';
-import { readExact, rsdHandshakeForRawService } from '../afc/codec.js';
-import { BaseService } from '../base-service.js';
 import type { CrashReportsPullOptions } from '../../../lib/types.js';
+import { createRawServiceSocket, readExact } from '../afc/codec.js';
+import AfcService from '../afc/index.js';
+import { BaseService } from '../base-service.js';
 
 const log = getLogger('CrashReportsService');
 
@@ -91,7 +90,11 @@ export class CrashReportsService extends BaseService {
    * @param entry Remote path on device, defaults to "/"
    * @param options Pull options (erase, match pattern)
    */
-  async pull(out: string, entry = '/', options?: CrashReportsPullOptions): Promise<void> {
+  async pull(
+    out: string,
+    entry = '/',
+    options?: CrashReportsPullOptions,
+  ): Promise<void> {
     const { erase = false, match } = options ?? {};
     const matchPattern =
       typeof match === 'string' ? new RegExp(match) : (match ?? null);
@@ -139,61 +142,27 @@ export class CrashReportsService extends BaseService {
   }
 
   /**
-   * Helper to perform RSD handshake and read raw bytes response
-   * Used for services that send plist messages followed by raw bytes
-   */
-  private async rsdHandshakeAndReadRaw(
-    hostname: string,
-    port: string,
-    expectedBytes: number,
-  ): Promise<Buffer> {
-    const socket = await new Promise<net.Socket>((resolve, reject) => {
-      const conn = net.createConnection(
-        { host: hostname, port: Number(port) },
-        () => {
-          conn.setTimeout(0);
-          conn.setKeepAlive(true);
-          resolve(conn);
-        },
-      );
-      conn.setTimeout(10000, () => {
-        conn.destroy();
-        reject(new Error('Connection timed out'));
-      });
-      conn.on('error', reject);
-    });
-
-    try {
-      // Perform RSD handshake (sends RSDCheckin, validates responses)
-      await rsdHandshakeForRawService(socket);
-
-      // Read raw bytes
-      return await readExact(socket, expectedBytes, 10000);
-    } finally {
-      socket.destroy();
-    }
-  }
-
-  /**
    * Trigger com.apple.crashreportmover to flush all products into CrashReports directory
    */
   async flush(): Promise<void> {
     log.debug('Flushing crash reports');
 
-    const ack = await this.rsdHandshakeAndReadRaw(
+    const socket = await createRawServiceSocket(
       this.crashMoverAddress[0],
-      this.crashMoverAddress[1].toString(),
-      5,
+      this.crashMoverAddress[1],
     );
-
-    const expectedAck = Buffer.from('ping\0', 'utf8');
-    if (!ack.equals(expectedAck)) {
-      throw new Error(
-        `Unexpected flush acknowledgment. Expected: ${expectedAck.toString('hex')}, Got: ${ack.toString('hex')}`,
-      );
+    try {
+      const ack = await readExact(socket, 5, 10000);
+      const expectedAck = Buffer.from('ping\0', 'utf8');
+      if (!ack.equals(expectedAck)) {
+        throw new Error(
+          `Unexpected flush acknowledgment. Expected: ${expectedAck.toString('hex')}, Got: ${ack.toString('hex')}`,
+        );
+      }
+      log.debug('Successfully flushed crash reports');
+    } finally {
+      socket.destroy();
     }
-
-    log.debug('Successfully flushed crash reports');
   }
 
   /**
@@ -203,9 +172,7 @@ export class CrashReportsService extends BaseService {
     log.debug('Closing CrashReportsService');
     try {
       this.afc.close();
-    } catch {
-      // Ignore close errors
-    }
+    } catch {}
   }
 
   /**
