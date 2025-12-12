@@ -10,18 +10,21 @@ import type { CrashReportsService } from '../../src/index.js';
 const log = logger.getLogger('WebInspectorService.test');
 log.level = 'debug';
 
-function logFiles(dir: string): void {
+function logFiles(dir: string): number {
+  let count = 0;
   const entries = fs.readdirSync(dir, { withFileTypes: true });
 
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
 
     if (entry.isDirectory()) {
-      logFiles(fullPath); // recurse
+      count += logFiles(fullPath); // recurse
     } else {
       console.log(fullPath); // log file
+      count++;
     }
   }
+  return count;
 }
 
 describe('Crash Reports Service', function () {
@@ -50,7 +53,7 @@ describe('Crash Reports Service', function () {
 
   describe('ls', function () {
     it('should list crash reports in root directory', async function () {
-      const entries = await crashReportsService.ls('/');
+      const entries = await crashReportsService.ls('/', 3);
       console.log(entries);
       expect(entries).to.be.an('array');
     });
@@ -88,20 +91,24 @@ describe('Crash Reports Service', function () {
 
     it('should pull crash reports to local directory', async function () {
       await crashReportsService.flush();
-      await crashReportsService.pull(tempDir, '/DiagnosticLogs/');
+      await crashReportsService.pull(tempDir, '/');
       expect(fs.existsSync(tempDir)).to.be.true;
       console.log('Crash reports in tempDir:', fs.readdirSync(tempDir));
+      logFiles(tempDir);
     });
 
     it('should filter files by match pattern', async function () {
       await crashReportsService.pull(tempDir, '/', {
-        match: /(?:^|\/)WiFi.*/,
+        match: /(?:^|\/)Siri.*/,
       });
 
       // Check that directory was created
       expect(fs.existsSync(tempDir)).to.be.true;
 
-      console.log('Crash reports in tempDir:', fs.readdirSync(tempDir));
+      const num = logFiles(tempDir);
+      console.log('number of files in tempDir: ', num);
+
+      // console.log('Crash reports in tempDir:', fs.readdirSync(tempDir));
     });
   });
 
@@ -109,17 +116,20 @@ describe('Crash Reports Service', function () {
     it('should clear all crash reports without error', async function () {
       // First check what exists
       const beforeEntries = await crashReportsService.ls('/');
+      console.log('beforeEntries are: ', beforeEntries);
 
       // Clear all crash reports
       await crashReportsService.clear();
 
       // After clearing, root should be empty or contain only auto-created paths
       const afterEntries = await crashReportsService.ls('/');
+      console.log('afterEntries are: ', afterEntries);
 
       // All entries should be gone, except possibly auto-created ones
       const significantEntries = afterEntries.filter(
         (e) => !e.includes('com.apple.appstored'),
       );
+      console.log('significantEntries are: ', significantEntries);
 
       // Note: The directory might not be completely empty due to auto-created paths
       // or files created immediately after deletion
@@ -147,15 +157,19 @@ describe('Crash Reports Service', function () {
 
     it('should perform flush, pull with erase, and verify removal', async function () {
       await crashReportsService.flush();
-      const beforeEntries = await crashReportsService.ls('/', 1);
+      const beforeEntries = await crashReportsService.ls('/', 4);
       console.log('beforeEntries are: ', beforeEntries);
 
-      await crashReportsService.pull(tempDir, '/', { match: /(?:^|\/)WiFi.*/ });
+      await crashReportsService.pull(tempDir, '/', {
+        erase: true,
+        match: /(?:^|\/)SiriSearchFeedback.*/,
+      });
 
-      const afterEntries = await crashReportsService.ls('/', 1);
+      const afterEntries = await crashReportsService.ls('/', 4);
       console.log('afterEntries are: ', afterEntries);
 
-      logFiles(tempDir);
+      const count = logFiles(tempDir);
+      console.log('number of files in tempDir: ', count);
 
       // Files should be erased, directories may remain
       expect(fs.existsSync(tempDir)).to.be.true;
