@@ -176,7 +176,7 @@ export class CrashReportsService extends BaseService {
   }
 
   /**
-   * Recursive helper for pulling files and directories
+   * Recursive helper for pulling files and directories.
    */
   private async _pullRecursive(
     remotePath: string,
@@ -184,75 +184,59 @@ export class CrashReportsService extends BaseService {
     matchPattern: RegExp | null,
     erase: boolean,
   ): Promise<void> {
-    log.debug(`_pullRecursive: remotePath=${remotePath}, localDir=${localDir}`);
-
     let isDir: boolean;
     try {
       isDir = await this.afc.isdir(remotePath);
-      log.debug(`Path ${remotePath} isDir: ${isDir}`);
     } catch (error) {
       log.error(`Failed to check if ${remotePath} is directory: ${error}`);
       throw error;
     }
 
-    if (!isDir) {
-      const fileName = posixpath.basename(remotePath);
-      log.debug(`Processing file: ${fileName}`);
+    const baseName = posixpath.basename(remotePath);
 
-      if (matchPattern && !matchPattern.test(fileName)) {
-        log.debug(`File ${fileName} does not match pattern, skipping`);
+    if (!isDir) {
+      if (matchPattern && !matchPattern.test(baseName)) {
         return;
       }
 
-      const localPath = path.join(localDir, fileName);
+      const localPath = path.join(localDir, baseName);
       try {
-        log.debug(`Pulling file: ${remotePath} -> ${localPath}`);
         await this.afc.pull(remotePath, localPath);
-        log.debug(`Successfully pulled: ${remotePath}`);
-
+        
         if (erase) {
-          log.debug(`Erasing remote file: ${remotePath}`);
           await this.afc.rmSingle(remotePath, true);
         }
       } catch (error) {
         log.error(`Failed to pull file '${remotePath}': ${error}`);
-        // Continue with other files (ignore_errors behavior)
+        // Continue with other files
       }
-    } else {
-      const dirName = posixpath.basename(remotePath);
-      log.debug(`Processing directory: ${dirName}`);
+      return;
+    }
 
-      if (matchPattern && !matchPattern.test(dirName) && remotePath !== '/') {
-        log.debug(`Directory ${dirName} does not match pattern, skipping`);
-        return;
-      }
+    if (matchPattern && remotePath !== '/' && !matchPattern.test(baseName)) {
+      return;
+    }
 
-      const localDirPath =
-        remotePath === '/' ? localDir : path.join(localDir, dirName);
+    const localDirPath =
+      remotePath === '/' ? localDir : path.join(localDir, baseName);
 
-      if (!fs.existsSync(localDirPath)) {
-        log.debug(`Creating local directory: ${localDirPath}`);
-        fs.mkdirSync(localDirPath, { recursive: true });
-      }
+    fs.mkdirSync(localDirPath, { recursive: true });
 
-      try {
-        log.debug(`Listing directory: ${remotePath}`);
-        const entries = await this.afc.listdir(remotePath);
-        log.debug(`Found ${entries.length} entries in ${remotePath}`);
+    let entries: string[];
+    try {
+      entries = await this.afc.listdir(remotePath);
+    } catch (error) {
+      log.error(`Failed to list directory '${remotePath}': ${error}`);
+      return; // Continue with other directories
+    }
 
-        for (const entry of entries) {
-          const entryPath = posixpath.join(remotePath, entry);
-          await this._pullRecursive(
-            entryPath,
-            localDirPath,
-            matchPattern,
-            erase,
-          );
-        }
-      } catch (error) {
-        log.error(`Failed to list directory '${remotePath}': ${error}`);
-        // Continue with other directories
-      }
+    if (entries.length === 0) {
+      return;
+    }
+
+    for (const entry of entries) {
+      const entryPath = posixpath.join(remotePath, entry);
+      await this._pullRecursive(entryPath, localDirPath, matchPattern, erase);
     }
   }
 }
