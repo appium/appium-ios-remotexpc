@@ -213,7 +213,7 @@ describe('AFC Service', function () {
       expect(fs.existsSync(path.join(localDownloads, `file1_${ts}.txt`))).to.be
         .true;
       expect(
-        fs.existsSync(path.join(localDownloads, `/child_dir/file2_${ts}.log`)),
+        fs.existsSync(path.join(localDownloads, `child_dir/file2_${ts}.log`)),
       ).to.be.true;
 
       // Verify file contents
@@ -227,6 +227,9 @@ describe('AFC Service', function () {
       } catch {}
       try {
         await afc.rm(file2);
+      } catch {}
+      try {
+        await afc.rm('/Downloads/child_dir');
       } catch {}
       try {
         const localDownloads = path.join(os.tmpdir(), 'Downloads');
