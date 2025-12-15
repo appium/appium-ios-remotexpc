@@ -316,6 +316,7 @@ export class AfcService {
    * @param localDst - Local destination path
    * @param options - Optional configuration
    * @param options.match - Glob pattern to filter files (e.g., '*.txt', '**\/*.log')
+   * @param options.overwrite - If false, throws error when localDst exists (default: true)
    * @param options.callback - Called for each pulled file with remotePath and localPath
    */
   async pullRecursive(
@@ -323,13 +324,14 @@ export class AfcService {
     localDst: string,
     options?: {
       match?: string;
+      overwrite?: boolean;
       callback?: (
         remotePath: string,
         localPath: string,
       ) => void | Promise<void>;
     },
   ): Promise<void> {
-    const { match, callback } = options ?? {};
+    const { match, overwrite = true, callback } = options ?? {};
 
     log.debug(`Starting recursive pull from '${remoteSrc}' to '${localDst}'`);
 
@@ -337,7 +339,13 @@ export class AfcService {
       throw new Error(`Remote path does not exist: ${remoteSrc}`);
     }
 
-    await this._pullRecursiveInternal(remoteSrc, localDst, match, callback);
+    await this._pullRecursiveInternal(
+      remoteSrc,
+      localDst,
+      match,
+      overwrite,
+      callback,
+    );
   }
 
   /**
@@ -479,6 +487,7 @@ export class AfcService {
     remotePath: string,
     localDst: string,
     matchPattern?: string,
+    overwrite = true,
     callback?: (remotePath: string, localPath: string) => void | Promise<void>,
   ): Promise<void> {
     const isDir = await this.isdir(remotePath);
@@ -494,6 +503,10 @@ export class AfcService {
       const targetPath = localDstIsDirectory
         ? path.join(localDst, baseName)
         : localDst;
+
+      if (!overwrite && (await this._localFileExists(targetPath))) {
+        throw new Error(`Local file already exists: ${targetPath}`);
+      }
 
       await this.pull(remotePath, targetPath);
 
@@ -518,6 +531,7 @@ export class AfcService {
         entryPath,
         localDirPath,
         matchPattern,
+        overwrite,
         callback,
       );
     }
@@ -532,6 +546,21 @@ export class AfcService {
       return stats.isDirectory();
     } catch {
       return false;
+    }
+  }
+
+  /**
+   * Helper to check if a local file exists.
+   */
+  private async _localFileExists(localPath: string): Promise<boolean> {
+    try {
+      await fsp.access(localPath, fsp.constants.F_OK);
+      return true;
+    } catch (err: any) {
+      if (err.code === 'ENOENT') {
+        return false;
+      }
+      throw err;
     }
   }
 

@@ -241,4 +241,49 @@ describe('AFC Service', function () {
       } catch {}
     }
   });
+
+  it('should respect overwrite option when pulling files', async function () {
+    const ts = Date.now();
+    const testData = Buffer.from('test data for overwrite');
+    const file1 = `/Downloads/overwrite_test_${ts}.txt`;
+    const localDownloads = path.join(os.tmpdir(), 'Downloads');
+    const localFilePath = path.join(localDownloads, `overwrite_test_${ts}.txt`);
+
+    try {
+      await afc.setFileContents(file1, testData);
+
+      await afc.pullRecursive('/Downloads', os.tmpdir(), {
+        match: `overwrite_test_${ts}.txt`,
+      });
+
+      expect(fs.existsSync(localFilePath)).to.be.true;
+
+      // Second pull with overwrite=false should throw
+      try {
+        await afc.pullRecursive('/Downloads', os.tmpdir(), {
+          match: `overwrite_test_${ts}.txt`,
+          overwrite: false,
+        });
+      } catch (error: any) {
+        expect(error.message).to.include('Local file already exists');
+      }
+
+      // Third pull with overwrite=true (default) should succeed
+      await afc.pullRecursive('/Downloads', os.tmpdir(), {
+        match: `overwrite_test_${ts}.txt`,
+        overwrite: true,
+      });
+
+      expect(fs.existsSync(localFilePath)).to.be.true;
+    } finally {
+      try {
+        await afc.rm(file1);
+      } catch {}
+      try {
+        if (fs.existsSync(localDownloads)) {
+          fs.rmSync(localDownloads, { recursive: true, force: true });
+        }
+      } catch {}
+    }
+  });
 });
