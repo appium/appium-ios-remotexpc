@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import fsp from 'node:fs/promises';
 import net from 'node:net';
 import path from 'node:path';
 import { Readable, Writable } from 'node:stream';
@@ -482,10 +483,10 @@ export class AfcService {
         return;
       }
 
-      const targetPath =
-        fs.existsSync(localDst) && fs.statSync(localDst).isDirectory()
-          ? path.join(localDst, baseName)
-          : localDst;
+      const localDstIsDirectory = await this._isLocalDirectory(localDst);
+      const targetPath = localDstIsDirectory
+        ? path.join(localDst, baseName)
+        : localDst;
 
       await this.pull(remotePath, targetPath);
 
@@ -496,12 +497,12 @@ export class AfcService {
     }
 
     // Handle directory
-    const localDirPath =
-      fs.existsSync(localDst) && fs.statSync(localDst).isDirectory()
-        ? path.join(localDst, baseName)
-        : localDst;
+    const localDstIsDirectory = await this._isLocalDirectory(localDst);
+    const localDirPath = localDstIsDirectory
+      ? path.join(localDst, baseName)
+      : localDst;
 
-    fs.mkdirSync(localDirPath, { recursive: true });
+    await fsp.mkdir(localDirPath, { recursive: true });
 
     const entries = await this.listdir(remotePath);
     for (const entry of entries) {
@@ -512,6 +513,18 @@ export class AfcService {
         matchPattern,
         callback,
       );
+    }
+  }
+
+  /**
+   * Helper to check if a local filesystem path exists and is a directory.
+   */
+  private async _isLocalDirectory(localPath: string): Promise<boolean> {
+    try {
+      const stats = await fsp.stat(localPath);
+      return stats.isDirectory();
+    } catch {
+      return false;
     }
   }
 
