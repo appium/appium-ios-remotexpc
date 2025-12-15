@@ -1,5 +1,6 @@
 import { logger } from '@appium/support';
 import { expect } from 'chai';
+import sinon from 'sinon';
 
 import type { DVTServiceWithConnection } from '../../../src/lib/types.js';
 import * as Services from '../../../src/services.js';
@@ -42,10 +43,6 @@ describe('Notifications', function () {
       const notifications = dvtServiceConnection!.notification;
 
       for await (const msg of notifications.messages()) {
-        if (msg.selector === null) {
-          log.debug('Skipping null message');
-          continue;
-        }
         expect(msg).to.exist;
         expect(msg).to.have.property('selector');
         expect(msg).to.have.property('data');
@@ -65,18 +62,39 @@ describe('Notifications', function () {
 
     it('should stop messages generator after breaking from a loop', async () => {
       const notifications = dvtServiceConnection!.notification;
+      const sandbox = sinon.createSandbox();
+      const logCalls: string[] = [];
+
+      // Stub a stream and capture output
+      const stubStream = (stream: NodeJS.WriteStream) => {
+        const original = stream.write.bind(stream);
+        sandbox.stub(stream, 'write').callsFake(function (
+          chunk: any,
+          ...args: any[]
+        ) {
+          logCalls.push(chunk.toString());
+          return original(chunk, ...args);
+        } as any);
+      };
+
+      stubStream(process.stderr);
 
       let iterationCount = 0;
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      for await (const _msg of notifications.messages()) {
-        iterationCount++;
-
-        if (iterationCount === 2) {
-          break;
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        for await (const _msg of notifications.messages()) {
+          if (++iterationCount === 2) break;
         }
-      }
 
-      expect(iterationCount).to.equal(2);
+        expect(iterationCount).to.equal(2);
+        expect(logCalls.length).to.be.greaterThan(0);
+
+        const allLogs = logCalls.join('');
+        expect(allLogs).to.include('Network monitoring has started');
+        expect(allLogs).to.include('Network monitoring has ended');
+      } finally {
+        sandbox.restore();
+      }
     });
   });
 });
