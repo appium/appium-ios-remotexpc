@@ -27,7 +27,7 @@ export class Channel {
    * Receive a plist response from the channel with auxiliaries
    * @returns Tuple of [selector, auxiliaries]
    */
-  async receivePlistWithAux(): Promise<[any, any[]]> {
+  async receivePlistWithAux(): Promise<[string, any[]]> {
     return await this.service.recvPlist(this.channelCode);
   }
 

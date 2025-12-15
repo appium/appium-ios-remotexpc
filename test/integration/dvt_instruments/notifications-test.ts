@@ -51,19 +51,19 @@ describe('Notifications', function () {
         expect(msg).to.have.property('data');
 
         expect(msg.selector).to.be.a('string');
-        expect(msg.data).to.be.an('array');
+        expect(msg.data).to.be.an('object');
 
         if (msg.selector === 'memoryLevelNotification:') {
-          expect(msg.data[0]).to.have.property('code');
+          expect(msg.data).to.have.property('code');
           break;
         } else if (msg.selector === 'applicationStateNotification:') {
-          expect(msg.data[0]).to.have.property('appName');
+          expect(msg.data).to.have.property('appName');
           break;
         }
       }
     });
 
-    it('should handle break in iteration properly', async () => {
+    it('should stop messages generator after breaking from a loop', async () => {
       const notifications = dvtServiceConnection!.notification;
 
       let iterationCount = 0;

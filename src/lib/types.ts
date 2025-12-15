@@ -806,7 +806,7 @@ export interface NotificationService {
    * @example:
    * {
    *   selector: 'applicationStateNotification:',
-   *   data: [
+   *   data:
    *     {
    *       mach_absolute_time: 58061793038,
    *       execName: '/Applications/Spotlight.app',
@@ -814,11 +814,10 @@ export interface NotificationService {
    *       pid: 327,
    *       state_description: 'Suspended'
    *     }
-   *   ]
    * },
    * {
    *   selector: 'applicationStateNotification:',
-   *   data: [
+   *   data:
    *     {
    *       mach_absolute_time: 58061827502,
    *       execName: '/private/var/containers/Bundle/Application/28AF0B11-363A-4242-9164-CF690064402B/MobileCal.app',
@@ -826,18 +825,17 @@ export interface NotificationService {
    *       pid: 449,
    *       state_description: 'Suspended'
    *     }
-   *   ]
    * },
    * {
    *   selector: 'memoryLevelNotification:',
-   *   data: [
+   *   data:
    *     {
    *       code: 3,
    *       mach_absolute_time: 101524320437,
    *       timestamp: [Object],
    *       pid: -1
    *     }
-   *   ]
+   *
    * }
    */
   messages(): AsyncGenerator<NotificationMessage, void, undefined>;

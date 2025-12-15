@@ -10,7 +10,7 @@ const log = getLogger('Notifications');
  */
 export interface ApplicationStateNotificationData {
   /** High-precision Mach absolute time timestamp */
-  mach_absolute_time: number | bigint;
+  mach_absolute_time: bigint;
   /** Full path to the executable (e.g., '/private/var/containers/Bundle/Application/.../MobileCal.app') */
   execName: string;
   /** Short application name (e.g., 'MobileCal') */
@@ -28,7 +28,7 @@ export interface MemoryLevelNotificationData {
   /** Memory pressure level code (0=Normal, 1=Warning, 2=Critical, 3=...) */
   code: number;
   /** High-precision Mach absolute time timestamp */
-  mach_absolute_time: number | bigint;
+  mach_absolute_time: bigint;
   /** NSDate timestamp object with NS.time property */
   timestamp: number;
   /** Process ID (-1 for system-wide notifications) */
@@ -40,7 +40,7 @@ export interface MemoryLevelNotificationData {
  */
 export interface ApplicationStateNotification {
   selector: 'applicationStateNotification:';
-  data: ApplicationStateNotificationData[];
+  data: ApplicationStateNotificationData;
 }
 
 /**
@@ -48,7 +48,7 @@ export interface ApplicationStateNotification {
  */
 export interface MemoryLevelNotification {
   selector: 'memoryLevelNotification:';
-  data: MemoryLevelNotificationData[];
+  data: MemoryLevelNotificationData;
 }
 
 /**
@@ -60,7 +60,7 @@ export interface MemoryLevelNotification {
  *   if (!msg) continue;
  *
  *   if (msg.selector === 'applicationStateNotification:') {
- *     const notif = msg.data[0];
+ *     const notif = msg.data;
  *     console.log(`${notif.appName} is ${notif.state_description}`);
  *   }
  * }
@@ -79,7 +79,7 @@ export type NotificationMessage =
  *   if (!msg) continue;
  *
  *   if (msg.selector === 'applicationStateNotification:') {
- *     const app = msg.data[0];
+ *     const app = msg.data;
  *     console.log(`${app.appName}: ${app.state_description}`);
  *   }
  * }
@@ -107,7 +107,7 @@ export class Notifications extends BaseInstrument {
    * Yields notification messages from the iOS device
    */
   async *messages(): AsyncGenerator<NotificationMessage, void, undefined> {
-    log.debug('logging started');
+    log.debug('Network monitoring has started');
     await this.start();
 
     try {
@@ -115,31 +115,29 @@ export class Notifications extends BaseInstrument {
         const [selector, auxiliaries] =
           await this.channel!.receivePlistWithAux();
 
-        // Decode NSKeyedArchiver format in auxiliaries
-        const decodedData = auxiliaries.map((aux) => {
-          if (
-            aux &&
-            typeof aux === 'object' &&
-            aux.$archiver === 'NSKeyedArchiver'
-          ) {
-            try {
-              return decodeNSKeyedArchiver(aux);
-            } catch (error) {
-              log.warn('Failed to decode NSKeyedArchiver data:', error);
-            }
+        // Decode NSKeyedArchiver format in auxiliaries first index
+        const decodedData = auxiliaries[0];
+        if (
+          decodedData &&
+          typeof decodedData === 'object' &&
+          decodedData.$archiver === 'NSKeyedArchiver'
+        ) {
+          try {
+            const data = decodeNSKeyedArchiver(decodedData);
+            yield {
+              selector: selector as
+                | 'applicationStateNotification:'
+                | 'memoryLevelNotification:',
+              data,
+            } as NotificationMessage;
+          } catch (error) {
+            log.warn('Failed to decode NSKeyedArchiver data:', error);
+            await this.stop();
           }
-          return aux;
-        });
-
-        yield {
-          selector: selector as
-            | 'applicationStateNotification:'
-            | 'memoryLevelNotification:',
-          data: decodedData,
-        } as NotificationMessage;
+        }
       }
     } finally {
-      log.debug('logging stopped');
+      log.debug('Network monitoring has ended');
       await this.stop();
     }
   }
