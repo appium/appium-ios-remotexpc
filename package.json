@@ -88,6 +88,7 @@
     "@xmldom/xmldom": "^0.9.8",
     "appium-ios-tuntap": "^0.x",
     "axios": "^1.12.0",
+    "minimatch": "^10.1.1",
     "npm-run-all2": "^8.0.4"
   },
   "files": [

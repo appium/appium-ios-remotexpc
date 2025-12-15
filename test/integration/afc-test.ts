@@ -196,24 +196,26 @@ describe('AFC Service', function () {
     const ts = Date.now();
     const testData = Buffer.from('recursive pull test data');
 
-    await afc.mkdir('/Downloads/child_dir');
+    await afc.mkdir('/Downloads/parent_dir/child_dir');
 
     const file1 = `/Downloads/file1_${ts}.txt`;
-    const file2 = `/Downloads/child_dir/file2_${ts}.log`;
+    const file2 = `/Downloads/parent_dir/child_dir/file2_${ts}.log`;
 
     try {
       await afc.setFileContents(file1, testData);
       await afc.setFileContents(file2, testData);
 
       await afc.pullRecursive('/Downloads', os.tmpdir(), {
-        match: `.*_${ts}\\.(txt|log)`,
+        match: `*_${ts}.@(txt|log)`,
       });
 
       const localDownloads = path.join(os.tmpdir(), 'Downloads');
       expect(fs.existsSync(path.join(localDownloads, `file1_${ts}.txt`))).to.be
         .true;
       expect(
-        fs.existsSync(path.join(localDownloads, `child_dir/file2_${ts}.log`)),
+        fs.existsSync(
+          path.join(localDownloads, `parent_dir/child_dir/file2_${ts}.log`),
+        ),
       ).to.be.true;
 
       // Verify file contents

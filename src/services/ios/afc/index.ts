@@ -1,3 +1,4 @@
+import { minimatch } from 'minimatch';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import net from 'node:net';
@@ -308,11 +309,20 @@ export class AfcService {
     }
   }
 
+  /**
+   * Recursively pull files/directories from the device to the local filesystem.
+   *
+   * @param remoteSrc - Remote path on the device (file or directory)
+   * @param localDst - Local destination path
+   * @param options - Optional configuration
+   * @param options.match - Glob pattern to filter files (e.g., '*.txt', '**\/*.log')
+   * @param options.callback - Called for each pulled file with remotePath and localPath
+   */
   async pullRecursive(
     remoteSrc: string,
     localDst: string,
     options?: {
-      match?: RegExp | string;
+      match?: string;
       callback?: (
         remotePath: string,
         localPath: string,
@@ -320,23 +330,20 @@ export class AfcService {
     },
   ): Promise<void> {
     const { match, callback } = options ?? {};
-    const matchPattern = typeof match === 'string' ? new RegExp(match) : match;
 
     log.debug(`Starting recursive pull from '${remoteSrc}' to '${localDst}'`);
 
-    await this._pullRecursiveInternal(
-      remoteSrc,
-      localDst,
-      matchPattern,
-      callback,
-    );
+    if (!(await this.exists(remoteSrc))) {
+      throw new Error(`Remote path does not exist: ${remoteSrc}`);
+    }
+
+    await this._pullRecursiveInternal(remoteSrc, localDst, match, callback);
   }
 
   /**
    * Create a directory on the device.
    *
-   * Note: Unlike `fs.mkdir` with `{ recursive: true }`, this does **not**
-   * create parent directories automatically.
+   * Creates parent directories automatically and is idempotent (no error if the directory exists).
    *
    * @param dirPath - Path of the directory to create.
    * @returns A promise that resolves when the directory has been created.
@@ -471,7 +478,7 @@ export class AfcService {
   private async _pullRecursiveInternal(
     remotePath: string,
     localDst: string,
-    matchPattern?: RegExp,
+    matchPattern?: string,
     callback?: (remotePath: string, localPath: string) => void | Promise<void>,
   ): Promise<void> {
     const isDir = await this.isdir(remotePath);
@@ -479,7 +486,7 @@ export class AfcService {
 
     // Handle file
     if (!isDir) {
-      if (matchPattern && !matchPattern.test(baseName)) {
+      if (matchPattern && !minimatch(baseName, matchPattern)) {
         return;
       }
 
