@@ -1,7 +1,4 @@
-import {
-  generateKeyPairSync,
-  sign,
-} from 'node:crypto';
+import { generateKeyPairSync, sign } from 'node:crypto';
 
 import { getLogger } from '../../logger.js';
 import { CryptographyError } from '../errors.js';
