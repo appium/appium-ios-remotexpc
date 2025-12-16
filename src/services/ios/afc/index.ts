@@ -518,6 +518,19 @@ export class AfcService {
     this.socket = null;
   }
 
+  /**
+   * Recursively pull directory contents from device to local filesystem.
+   *
+   * @remarks
+   * This method is intended for directories only. Caller must validate that remotePath
+   * is a directory before invoking. Recursively traverses subdirectories and pulls matching files.
+   *
+   * @param remotePath - Remote directory path (must be a directory)
+   * @param localDst - Local destination path
+   * @param matchPattern - Optional glob pattern to filter files
+   * @param overwrite - Whether to overwrite existing local files
+   * @param callback - Optional callback invoked for each pulled file
+   */
   private async _pullRecursiveInternal(
     remotePath: string,
     localDst: string,
