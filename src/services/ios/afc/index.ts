@@ -32,6 +32,11 @@ const log = getLogger('AfcService');
 
 const NON_LISTABLE_ENTRIES = ['', '.', '..'];
 
+export type PullRecursiveCallback = (
+  remotePath: string,
+  localPath: string,
+) => void | Promise<void>;
+
 export interface StatInfo {
   st_ifmt: AfcFileMode;
   st_size: bigint;
@@ -325,10 +330,7 @@ export class AfcService {
     options?: {
       match?: string;
       overwrite?: boolean;
-      callback?: (
-        remotePath: string,
-        localPath: string,
-      ) => void | Promise<void>;
+      callback?: PullRecursiveCallback;
     },
   ): Promise<void> {
     const { match, overwrite = true, callback } = options ?? {};
@@ -488,7 +490,7 @@ export class AfcService {
     localDst: string,
     matchPattern?: string,
     overwrite = true,
-    callback?: (remotePath: string, localPath: string) => void | Promise<void>,
+    callback?: PullRecursiveCallback,
   ): Promise<void> {
     const isDir = await this.isdir(remotePath);
     const baseName = path.posix.basename(remotePath);
