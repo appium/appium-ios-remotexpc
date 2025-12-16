@@ -1,3 +1,9 @@
+## [0.18.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.18.0...v0.18.1) (2025-12-16)
+
+### Miscellaneous Chores
+
+* **deps:** bump @types/node from 24.10.4 to 25.0.2 ([#114](https://github.com/appium/appium-ios-remotexpc/issues/114)) ([0435e18](https://github.com/appium/appium-ios-remotexpc/commit/0435e183cfc80aff4ed4459f313b1d481295f0d2))
+
 ## [0.18.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.17.0...v0.18.0) (2025-12-05)
 
 ### Features

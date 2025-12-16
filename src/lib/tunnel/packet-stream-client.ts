@@ -47,7 +47,7 @@ export class PacketStreamClient extends EventEmitter {
       );
 
       this.socket.on('data', (data) => {
-        this.handleData(data);
+        this.handleData(Buffer.isBuffer(data) ? data : Buffer.from(data));
       });
 
       this.socket.once('close', () => {

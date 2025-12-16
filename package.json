@@ -1,6 +1,6 @@
 {
   "name": "appium-ios-remotexpc",
-  "version": "0.18.0",
+  "version": "0.18.1",
   "main": "build/src/index.js",
   "types": "build/src/index.d.ts",
   "type": "module",
@@ -84,7 +84,7 @@
   "dependencies": {
     "@appium/strongbox": "^1.0.0-rc.1",
     "@appium/support": "^7.0.0-rc.1",
-    "@types/node": "^24.0.10",
+    "@types/node": "^25.0.2",
     "@xmldom/xmldom": "^0.9.8",
     "appium-ios-tuntap": "^0.x",
     "axios": "^1.12.0",
