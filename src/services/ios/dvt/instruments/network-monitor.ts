@@ -10,6 +10,33 @@ import { BaseInstrument } from './base-instrument.js';
 
 const log = getLogger('NetworkMonitor');
 
+type InterfaceDetectionMessage = [number, string];
+
+type ConnectionDetectionMessage = [
+  Buffer,
+  Buffer,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+];
+
+type ConnectionUpdateMessage = [
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+];
+
 /**
  * Message types for network monitoring events
  */
@@ -78,7 +105,6 @@ export class NetworkMonitor extends BaseInstrument {
    */
   private parseMessage(message: unknown): NetworkEvent | null {
     if (!Array.isArray(message) || message.length < 2) {
-      log.warn('Invalid message format:', message);
       return null;
     }
 
@@ -92,7 +118,6 @@ export class NetworkMonitor extends BaseInstrument {
       case NetworkMessageType.CONNECTION_UPDATE:
         return this.parseConnectionUpdate(data);
       default:
-        log.warn(`Unsupported event type: ${messageType}`);
         return null;
     }
   }
@@ -100,8 +125,10 @@ export class NetworkMonitor extends BaseInstrument {
   /**
    * Parse interface detection event data
    */
-  private parseInterfaceDetection(data: unknown): InterfaceDetectionEvent {
-    const [interfaceIndex, name] = data as [number, string];
+  private parseInterfaceDetection(
+    data: InterfaceDetectionMessage,
+  ): InterfaceDetectionEvent {
+    const [interfaceIndex, name] = data;
     return {
       type: NetworkMessageType.INTERFACE_DETECTION,
       interfaceIndex,
@@ -112,7 +139,9 @@ export class NetworkMonitor extends BaseInstrument {
   /**
    * Parse connection detection event data
    */
-  private parseConnectionDetection(data: unknown): ConnectionDetectionEvent {
+  private parseConnectionDetection(
+    data: ConnectionDetectionMessage,
+  ): ConnectionDetectionEvent {
     const [
       localAddressRaw,
       remoteAddressRaw,
@@ -122,16 +151,7 @@ export class NetworkMonitor extends BaseInstrument {
       recvBufferUsed,
       serialNumber,
       kind,
-    ] = data as [
-      Buffer,
-      Buffer,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-    ];
+    ] = data;
 
     return {
       type: NetworkMessageType.CONNECTION_DETECTION,
@@ -149,7 +169,9 @@ export class NetworkMonitor extends BaseInstrument {
   /**
    * Parse connection update event data
    */
-  private parseConnectionUpdate(data: unknown): ConnectionUpdateEvent {
+  private parseConnectionUpdate(
+    data: ConnectionUpdateMessage,
+  ): ConnectionUpdateEvent {
     const [
       rxPackets,
       rxBytes,
@@ -162,19 +184,7 @@ export class NetworkMonitor extends BaseInstrument {
       avgRtt,
       connectionSerial,
       time,
-    ] = data as [
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-      number,
-    ];
+    ] = data;
 
     return {
       type: NetworkMessageType.CONNECTION_UPDATE,

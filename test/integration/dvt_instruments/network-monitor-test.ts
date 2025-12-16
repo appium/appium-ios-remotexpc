@@ -37,7 +37,7 @@ async function findEventOfType<K extends NetworkEvent['type']>(
 }
 
 describe('NetworkMonitor', function () {
-  this.timeout(20000);
+  this.timeout(60000);
 
   let dvtServiceConnection: DVTServiceWithConnection | null = null;
   const udid = process.env.UDID || '';
@@ -61,6 +61,8 @@ describe('NetworkMonitor', function () {
     }
   });
 
+  // When running the tests, perform some network activity on the device like opening Safari and navigating to a website.
+  // Some event types may take time to be received, increase maxAttempts and timeoutMs accordingly.
   describe('Network Monitoring', function () {
     it('should receive network events through async iterator', async function () {
       const networkMonitor = dvtServiceConnection!.networkMonitor;
@@ -94,7 +96,7 @@ describe('NetworkMonitor', function () {
       const interfaceEvent = await findEventOfType(
         networkMonitor,
         NetworkMessageType.INTERFACE_DETECTION,
-        150,
+        250,
       );
 
       expect(interfaceEvent.type).to.equal(
@@ -127,7 +129,7 @@ describe('NetworkMonitor', function () {
       const updateEvent = await findEventOfType(
         networkMonitor,
         NetworkMessageType.CONNECTION_UPDATE,
-        100,
+        200,
       );
 
       expect(updateEvent).to.have.property('rxPackets');
