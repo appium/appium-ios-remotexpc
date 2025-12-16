@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import fs from 'node:fs';
+import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { Readable } from 'node:stream';
@@ -116,7 +116,7 @@ describe('AFC Service', function () {
     const testContent = 'push and pull test content';
 
     try {
-      fs.writeFileSync(localSrcPath, testContent, 'utf8');
+      await fs.writeFile(localSrcPath, testContent, 'utf8');
 
       await afc.push(localSrcPath, remotePath);
 
@@ -125,16 +125,16 @@ describe('AFC Service', function () {
 
       await afc.pull(remotePath, localDstPath);
 
-      const pulledContent = fs.readFileSync(localDstPath, 'utf8');
+      const pulledContent = await fs.readFile(localDstPath, 'utf8');
       expect(pulledContent).to.equal(testContent);
     } finally {
       try {
-        fs.unlinkSync(localSrcPath);
+        await fs.unlink(localSrcPath);
       } catch {
         // ignore
       }
       try {
-        fs.unlinkSync(localDstPath);
+        await fs.unlink(localDstPath);
       } catch {
         // ignore
       }
@@ -210,16 +210,13 @@ describe('AFC Service', function () {
       });
 
       const localDownloads = path.join(os.tmpdir(), 'Downloads');
-      expect(fs.existsSync(path.join(localDownloads, `file1_${ts}.txt`))).to.be
-        .true;
-      expect(
-        fs.existsSync(
-          path.join(localDownloads, `parent_dir/child_dir/file2_${ts}.log`),
-        ),
-      ).to.be.true;
+      await fs.access(path.join(localDownloads, `file1_${ts}.txt`));
+      await fs.access(
+        path.join(localDownloads, `parent_dir/child_dir/file2_${ts}.log`),
+      );
 
       // Verify file contents
-      const localData = fs.readFileSync(
+      const localData = await fs.readFile(
         path.join(localDownloads, `file1_${ts}.txt`),
       );
       expect(Buffer.compare(localData, testData)).to.equal(0);
@@ -235,9 +232,7 @@ describe('AFC Service', function () {
       } catch {}
       try {
         const localDownloads = path.join(os.tmpdir(), 'Downloads');
-        if (fs.existsSync(localDownloads)) {
-          fs.rmSync(localDownloads, { recursive: true, force: true });
-        }
+        await fs.rm(localDownloads, { recursive: true, force: true });
       } catch {}
     }
   });
@@ -256,7 +251,7 @@ describe('AFC Service', function () {
         match: `overwrite_test_${ts}.txt`,
       });
 
-      expect(fs.existsSync(localFilePath)).to.be.true;
+      await fs.access(localFilePath);
 
       // Second pull with overwrite=false should throw
       try {
@@ -274,15 +269,13 @@ describe('AFC Service', function () {
         overwrite: true,
       });
 
-      expect(fs.existsSync(localFilePath)).to.be.true;
+      await fs.access(localFilePath);
     } finally {
       try {
         await afc.rm(file1);
       } catch {}
       try {
-        if (fs.existsSync(localDownloads)) {
-          fs.rmSync(localDownloads, { recursive: true, force: true });
-        }
+        await fs.rm(localDownloads, { recursive: true, force: true });
       } catch {}
     }
   });
