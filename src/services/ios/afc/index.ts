@@ -296,58 +296,91 @@ export class AfcService {
     }
   }
 
-  async pull(remoteSrc: string, localDst: string): Promise<void> {
-    log.debug(`Pulling file from '${remoteSrc}' to '${localDst}'`);
-    const resolved = await this._resolvePath(remoteSrc);
-    const st = await this.stat(resolved);
-    if (st.st_ifmt !== AfcFileMode.S_IFREG) {
-      throw new Error(`'${resolved}' isn't a regular file`);
-    }
-    const handle = await this.fopen(resolved, 'r');
-    try {
-      const stream = this.createReadStream(handle, st.st_size);
-      const writeStream = fs.createWriteStream(localDst);
-      await pipeline(stream, writeStream);
-      log.debug(`Successfully pulled file to '${localDst}'`);
-    } finally {
-      await this.fclose(handle);
-    }
-  }
-
   /**
-   * Recursively pull files/directories from the device to the local filesystem.
+   * Pull file(s) or directory from the device to the local filesystem.
    *
    * @param remoteSrc - Remote path on the device (file or directory)
    * @param localDst - Local destination path
    * @param options - Optional configuration
-   * @param options.match - Glob pattern to filter files (e.g., '*.txt', '**\/*.log')
+   * @param options.recursive - If true, recursively pull directories (default: false)
+   * @param options.match - Glob pattern to filter files when recursive (e.g., '*.txt', '**\/*.log')
    * @param options.overwrite - If false, throws error when localDst exists (default: true)
-   * @param options.callback - Called for each pulled file with remotePath and localPath
+   * @param options.callback - Called for each pulled file with remotePath and localPath (only used when recursive)
    */
-  async pullRecursive(
+  async pull(
     remoteSrc: string,
     localDst: string,
     options?: {
+      recursive?: boolean;
       match?: string;
       overwrite?: boolean;
       callback?: PullRecursiveCallback;
     },
   ): Promise<void> {
-    const { match, overwrite = true, callback } = options ?? {};
-
-    log.debug(`Starting recursive pull from '${remoteSrc}' to '${localDst}'`);
-
-    if (!(await this.exists(remoteSrc))) {
-      throw new Error(`Remote path does not exist: ${remoteSrc}`);
-    }
-
-    await this._pullRecursiveInternal(
-      remoteSrc,
-      localDst,
+    const {
+      recursive = false,
       match,
-      overwrite,
+      overwrite = true,
       callback,
-    );
+    } = options ?? {};
+
+    if (recursive) {
+      log.debug(`Starting recursive pull from '${remoteSrc}' to '${localDst}'`);
+
+      if (!(await this.exists(remoteSrc))) {
+        throw new Error(`Remote path does not exist: ${remoteSrc}`);
+      }
+
+      const isDir = await this.isdir(remoteSrc);
+
+      if (!isDir) {
+        const baseName = path.posix.basename(remoteSrc);
+
+        if (match && !minimatch(baseName, match)) {
+          return;
+        }
+
+        const localDstIsDirectory = await this._isLocalDirectory(localDst);
+        const targetPath = localDstIsDirectory
+          ? path.join(localDst, baseName)
+          : localDst;
+
+        if (!overwrite && (await this._localFileExists(targetPath))) {
+          throw new Error(`Local file already exists: ${targetPath}`);
+        }
+
+        await this.pull(remoteSrc, targetPath);
+
+        if (callback) {
+          await callback(remoteSrc, targetPath);
+        }
+        return;
+      }
+
+      await this._pullRecursiveInternal(
+        remoteSrc,
+        localDst,
+        match,
+        overwrite,
+        callback,
+      );
+    } else {
+      log.debug(`Pulling file from '${remoteSrc}' to '${localDst}'`);
+      const resolved = await this._resolvePath(remoteSrc);
+      const st = await this.stat(resolved);
+      if (st.st_ifmt !== AfcFileMode.S_IFREG) {
+        throw new Error(`'${resolved}' isn't a regular file`);
+      }
+      const handle = await this.fopen(resolved, 'r');
+      try {
+        const stream = this.createReadStream(handle, st.st_size);
+        const writeStream = fs.createWriteStream(localDst);
+        await pipeline(stream, writeStream);
+        log.debug(`Successfully pulled file to '${localDst}'`);
+      } finally {
+        await this.fclose(handle);
+      }
+    }
   }
 
   /**
@@ -492,33 +525,7 @@ export class AfcService {
     overwrite = true,
     callback?: PullRecursiveCallback,
   ): Promise<void> {
-    const isDir = await this.isdir(remotePath);
     const baseName = path.posix.basename(remotePath);
-
-    // Handle file
-    if (!isDir) {
-      if (matchPattern && !minimatch(baseName, matchPattern)) {
-        return;
-      }
-
-      const localDstIsDirectory = await this._isLocalDirectory(localDst);
-      const targetPath = localDstIsDirectory
-        ? path.join(localDst, baseName)
-        : localDst;
-
-      if (!overwrite && (await this._localFileExists(targetPath))) {
-        throw new Error(`Local file already exists: ${targetPath}`);
-      }
-
-      await this.pull(remotePath, targetPath);
-
-      if (callback) {
-        await callback(remotePath, targetPath);
-      }
-      return;
-    }
-
-    // Handle directory
     const localDstIsDirectory = await this._isLocalDirectory(localDst);
     const localDirPath = localDstIsDirectory
       ? path.join(localDst, baseName)
@@ -529,13 +536,32 @@ export class AfcService {
     const entries = await this.listdir(remotePath);
     for (const entry of entries) {
       const entryPath = path.posix.join(remotePath, entry);
-      await this._pullRecursiveInternal(
-        entryPath,
-        localDirPath,
-        matchPattern,
-        overwrite,
-        callback,
-      );
+      const isEntryDir = await this.isdir(entryPath);
+
+      if (isEntryDir) {
+        await this._pullRecursiveInternal(
+          entryPath,
+          localDirPath,
+          matchPattern,
+          overwrite,
+          callback,
+        );
+      } else {
+        if (matchPattern && !minimatch(entry, matchPattern)) {
+          continue;
+        }
+
+        const targetPath = path.join(localDirPath, entry);
+        if (!overwrite && (await this._localFileExists(targetPath))) {
+          throw new Error(`Local file already exists: ${targetPath}`);
+        }
+
+        await this.pull(entryPath, targetPath);
+
+        if (callback) {
+          await callback(entryPath, targetPath);
+        }
+      }
     }
   }
 

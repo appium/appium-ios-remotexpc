@@ -205,7 +205,8 @@ describe('AFC Service', function () {
       await afc.setFileContents(file1, testData);
       await afc.setFileContents(file2, testData);
 
-      await afc.pullRecursive('/Downloads', os.tmpdir(), {
+      await afc.pull('/Downloads', os.tmpdir(), {
+        recursive: true,
         match: `*_${ts}.@(txt|log)`,
       });
 
@@ -247,7 +248,8 @@ describe('AFC Service', function () {
     try {
       await afc.setFileContents(file1, testData);
 
-      await afc.pullRecursive('/Downloads', os.tmpdir(), {
+      await afc.pull('/Downloads', os.tmpdir(), {
+        recursive: true,
         match: `overwrite_test_${ts}.txt`,
       });
 
@@ -255,7 +257,8 @@ describe('AFC Service', function () {
 
       // Second pull with overwrite=false should throw
       try {
-        await afc.pullRecursive('/Downloads', os.tmpdir(), {
+        await afc.pull('/Downloads', os.tmpdir(), {
+          recursive: true,
           match: `overwrite_test_${ts}.txt`,
           overwrite: false,
         });
@@ -264,7 +267,8 @@ describe('AFC Service', function () {
       }
 
       // Third pull with overwrite=true (default) should succeed
-      await afc.pullRecursive('/Downloads', os.tmpdir(), {
+      await afc.pull('/Downloads', os.tmpdir(), {
+        recursive: true,
         match: `overwrite_test_${ts}.txt`,
         overwrite: true,
       });
