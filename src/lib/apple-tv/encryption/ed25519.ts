@@ -1,8 +1,4 @@
-import {
-  type KeyPairKeyObjectResult,
-  generateKeyPairSync,
-  sign,
-} from 'node:crypto';
+import { generateKeyPairSync, sign } from 'node:crypto';
 
 import { getLogger } from '../../logger.js';
 import { CryptographyError } from '../errors.js';
@@ -24,7 +20,7 @@ const ED25519_PKCS8_PREFIX = Buffer.from(
  */
 export function generateEd25519KeyPair(): PairingKeys {
   try {
-    const keyPair: KeyPairKeyObjectResult = generateKeyPairSync('ed25519');
+    const keyPair = generateKeyPairSync('ed25519');
 
     const publicKeyDer = keyPair.publicKey.export({
       type: 'spki',
