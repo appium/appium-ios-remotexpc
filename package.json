@@ -46,6 +46,7 @@
     "test:dvt:screenshot": "mocha test/integration/dvt_instruments/screenshot-test.ts --exit --timeout 1m",
     "test:dvt:device-info": "mocha test/integration/dvt_instruments/device-info-test.ts --exit --timeout 1m",
     "test:dvt:applist": "mocha test/integration/dvt_instruments/app-listing-test.ts --exit --timeout 1m",
+    "test:dvt:notification": "mocha test/integration/dvt_instruments/notifications-test.ts --exit --timeout 1m",
     "test:tunnel-creation": "sudo tsx scripts/test-tunnel-creation.ts",
     "test:tunnel-creation:lsof": "sudo tsx scripts/test-tunnel-creation.ts --keep-open"
   },
@@ -69,6 +70,7 @@
     "@types/chai": "^5.2.1",
     "@types/chai-as-promised": "^8.0.2",
     "@types/mocha": "^10.0.10",
+    "@types/sinon": "^21.0.0",
     "chai": "^6.0.1",
     "chai-as-promised": "^8.0.1",
     "conventional-changelog-conventionalcommits": "^9.1.0",
@@ -77,6 +79,7 @@
     "prettier": "^3.5.3",
     "rimraf": "^6.0.1",
     "semantic-release": "^25.0.2",
+    "sinon": "^21.0.0",
     "ts-node": "^10.9.2",
     "tsx": "^4.7.0",
     "typescript": "^5.2.2"
