@@ -39,11 +39,17 @@ export type PullRecursiveCallback = (
 
 /** Options for the pull method. */
 export interface PullOptions {
-  /** If true, recursively pull directories. */
+  /**
+   * If true, recursively pull directories.
+   * @default false
+   */
   recursive?: boolean;
   /** Glob pattern to filter files (e.g., '*.txt', '**\/*.log'). */
   match?: string;
-  /** If false, throws error when local file exists (default: true). */
+  /**
+   * If false, throws error when local file exists.
+   * @default true
+   */
   overwrite?: boolean;
   /** Callback invoked for each pulled file. */
   callback?: PullRecursiveCallback;
@@ -314,6 +320,13 @@ export class AfcService {
    * @param remoteSrc - Remote path on the device (file or directory)
    * @param localDst - Local destination path
    * @param options - Optional configuration
+   *
+   * @throws {Error} If the remote source path does not exist
+   * @throws {Error} If overwrite is false and local file already exists
+   *
+   * @remarks
+   * When pulling a directory with `recursive: true`, the directory itself will be created
+   * inside the destination. For example, pulling `/Downloads` to `/tmp` will create `/tmp/Downloads`.
    */
   async pull(
     remoteSrc: string,
@@ -327,12 +340,12 @@ export class AfcService {
       callback,
     } = options ?? {};
 
+    if (!(await this.exists(remoteSrc))) {
+      throw new Error(`Remote path does not exist: ${remoteSrc}`);
+    }
+
     if (recursive) {
       log.debug(`Starting recursive pull from '${remoteSrc}' to '${localDst}'`);
-
-      if (!(await this.exists(remoteSrc))) {
-        throw new Error(`Remote path does not exist: ${remoteSrc}`);
-      }
 
       const isDir = await this.isdir(remoteSrc);
 
@@ -373,6 +386,10 @@ export class AfcService {
       }
 
       await this._pullFile(remoteSrc, localDst);
+
+      if (callback) {
+        await callback(remoteSrc, localDst);
+      }
     }
   }
 
@@ -532,7 +549,9 @@ export class AfcService {
       const stream = this.createReadStream(handle, st.st_size);
       const writeStream = fs.createWriteStream(localDst);
       await pipeline(stream, writeStream);
-      log.debug(`Successfully pulled file to '${localDst}'`);
+      log.debug(
+        `Successfully pulled file to '${localDst}' (${st.st_size} bytes)`,
+      );
     } finally {
       await this.fclose(handle);
     }
