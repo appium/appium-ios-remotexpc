@@ -32,6 +32,15 @@ const log = getLogger('AfcService');
 
 const NON_LISTABLE_ENTRIES = ['', '.', '..'];
 
+/**
+ * Callback invoked for each file successfully pulled from the device.
+ *
+ * @param remotePath - The remote file path on the device
+ * @param localPath - The local file path where it was saved
+ *
+ * @remarks
+ * If the callback throws an error, the pull operation will be aborted immediately.
+ */
 export type PullRecursiveCallback = (
   remotePath: string,
   localPath: string,
@@ -344,6 +353,23 @@ export class AfcService {
       throw new Error(`Remote path does not exist: ${remoteSrc}`);
     }
 
+    const pullSingleFile = async (
+      remoteFilePath: string,
+      localFilePath: string,
+    ): Promise<void> => {
+      log.debug(`Pulling file from '${remoteFilePath}' to '${localFilePath}'`);
+
+      if (!overwrite && (await this._localPathExists(localFilePath))) {
+        throw new Error(`Local file already exists: ${localFilePath}`);
+      }
+
+      await this._pullFile(remoteFilePath, localFilePath);
+
+      if (callback) {
+        await callback(remoteFilePath, localFilePath);
+      }
+    };
+
     if (recursive) {
       log.debug(`Starting recursive pull from '${remoteSrc}' to '${localDst}'`);
 
@@ -361,15 +387,7 @@ export class AfcService {
           ? path.join(localDst, baseName)
           : localDst;
 
-        if (!overwrite && (await this._localPathExists(targetPath))) {
-          throw new Error(`Local file already exists: ${targetPath}`);
-        }
-
-        await this._pullFile(remoteSrc, targetPath);
-
-        if (callback) {
-          await callback(remoteSrc, targetPath);
-        }
+        await pullSingleFile(remoteSrc, targetPath);
         return;
       }
 
@@ -379,17 +397,7 @@ export class AfcService {
         callback,
       });
     } else {
-      log.debug(`Pulling file from '${remoteSrc}' to '${localDst}'`);
-
-      if (!overwrite && (await this._localPathExists(localDst))) {
-        throw new Error(`Local file already exists: ${localDst}`);
-      }
-
-      await this._pullFile(remoteSrc, localDst);
-
-      if (callback) {
-        await callback(remoteSrc, localDst);
-      }
+      await pullSingleFile(remoteSrc, localDst);
     }
   }
 
