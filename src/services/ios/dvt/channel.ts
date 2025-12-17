@@ -24,6 +24,14 @@ export class Channel {
   }
 
   /**
+   * Receive a plist response from the channel with auxiliaries
+   * @returns Tuple of [selector, auxiliaries]
+   */
+  async receivePlistWithAux(): Promise<[string, any[]]> {
+    return await this.service.recvPlist(this.channelCode);
+  }
+
+  /**
    * Call a method on this channel with automatic ObjectiveC selector conversion
    *
    * Converts method names to ObjectiveC selector format:
