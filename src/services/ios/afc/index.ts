@@ -352,7 +352,7 @@ export class AfcService {
           throw new Error(`Local file already exists: ${targetPath}`);
         }
 
-        await this.pull(remoteSrc, targetPath);
+        await this._pullFile(remoteSrc, targetPath);
 
         if (callback) {
           await callback(remoteSrc, targetPath);
@@ -367,20 +367,12 @@ export class AfcService {
       });
     } else {
       log.debug(`Pulling file from '${remoteSrc}' to '${localDst}'`);
-      const resolved = await this._resolvePath(remoteSrc);
-      const st = await this.stat(resolved);
-      if (st.st_ifmt !== AfcFileMode.S_IFREG) {
-        throw new Error(`'${resolved}' isn't a regular file`);
+
+      if (!overwrite && (await this._localPathExists(localDst))) {
+        throw new Error(`Local file already exists: ${localDst}`);
       }
-      const handle = await this.fopen(resolved, 'r');
-      try {
-        const stream = this.createReadStream(handle, st.st_size);
-        const writeStream = fs.createWriteStream(localDst);
-        await pipeline(stream, writeStream);
-        log.debug(`Successfully pulled file to '${localDst}'`);
-      } finally {
-        await this.fclose(handle);
-      }
+
+      await this._pullFile(remoteSrc, localDst);
     }
   }
 
@@ -520,6 +512,33 @@ export class AfcService {
   }
 
   /**
+   * Private primitive to pull a single file from device to local filesystem.
+   *
+   * @param remoteSrc - Remote file path on the device (must be a file)
+   * @param localDst - Local destination file path
+   */
+  private async _pullFile(remoteSrc: string, localDst: string): Promise<void> {
+    log.debug(`Pulling file from '${remoteSrc}' to '${localDst}'`);
+
+    const resolved = await this._resolvePath(remoteSrc);
+    const st = await this.stat(resolved);
+
+    if (st.st_ifmt !== AfcFileMode.S_IFREG) {
+      throw new Error(`'${resolved}' isn't a regular file`);
+    }
+
+    const handle = await this.fopen(resolved, 'r');
+    try {
+      const stream = this.createReadStream(handle, st.st_size);
+      const writeStream = fs.createWriteStream(localDst);
+      await pipeline(stream, writeStream);
+      log.debug(`Successfully pulled file to '${localDst}'`);
+    } finally {
+      await this.fclose(handle);
+    }
+  }
+
+  /**
    * Recursively pull directory contents from device to local filesystem.
    *
    * @remarks
@@ -540,7 +559,9 @@ export class AfcService {
 
       if (!localDstIsDirectory) {
         const stat = await fsp.stat(localDstDir).catch((err) => {
-          if (err.code === 'ENOENT') {return null;}
+          if (err.code === 'ENOENT') {
+            return null;
+          }
           throw err;
         });
         if (stat?.isFile()) {
@@ -583,7 +604,7 @@ export class AfcService {
           throw new Error(`Local file already exists: ${targetPath}`);
         }
 
-        await this.pull(entryPath, targetPath);
+        await this._pullFile(entryPath, targetPath);
 
         if (callback) {
           await callback(entryPath, targetPath);
