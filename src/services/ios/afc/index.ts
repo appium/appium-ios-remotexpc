@@ -35,7 +35,19 @@ const NON_LISTABLE_ENTRIES = ['', '.', '..'];
 export type PullRecursiveCallback = (
   remotePath: string,
   localPath: string,
-) => void | Promise<void>;
+) => unknown | Promise<unknown>;
+
+/** Options for the pull method. */
+export interface PullOptions {
+  /** If true, recursively pull directories. */
+  recursive?: boolean;
+  /** Glob pattern to filter files (e.g., '*.txt', '**\/*.log'). */
+  match?: string;
+  /** If false, throws error when local file exists (default: true). */
+  overwrite?: boolean;
+  /** Callback invoked for each pulled file. */
+  callback?: PullRecursiveCallback;
+}
 
 export interface StatInfo {
   st_ifmt: AfcFileMode;
@@ -302,20 +314,11 @@ export class AfcService {
    * @param remoteSrc - Remote path on the device (file or directory)
    * @param localDst - Local destination path
    * @param options - Optional configuration
-   * @param options.recursive - If true, recursively pull directories (default: false)
-   * @param options.match - Glob pattern to filter files when recursive (e.g., '*.txt', '**\/*.log')
-   * @param options.overwrite - If false, throws error when localDst exists (default: true)
-   * @param options.callback - Called for each pulled file with remotePath and localPath (only used when recursive)
    */
   async pull(
     remoteSrc: string,
     localDst: string,
-    options?: {
-      recursive?: boolean;
-      match?: string;
-      overwrite?: boolean;
-      callback?: PullRecursiveCallback;
-    },
+    options?: PullOptions,
   ): Promise<void> {
     const {
       recursive = false,
@@ -345,7 +348,7 @@ export class AfcService {
           ? path.join(localDst, baseName)
           : localDst;
 
-        if (!overwrite && (await this._localFileExists(targetPath))) {
+        if (!overwrite && (await this._localPathExists(targetPath))) {
           throw new Error(`Local file already exists: ${targetPath}`);
         }
 
@@ -357,13 +360,11 @@ export class AfcService {
         return;
       }
 
-      await this._pullRecursiveInternal(
-        remoteSrc,
-        localDst,
+      await this._pullRecursiveInternal(remoteSrc, localDst, {
         match,
         overwrite,
         callback,
-      );
+      });
     } else {
       log.debug(`Pulling file from '${remoteSrc}' to '${localDst}'`);
       const resolved = await this._resolvePath(remoteSrc);
@@ -522,50 +523,63 @@ export class AfcService {
    * Recursively pull directory contents from device to local filesystem.
    *
    * @remarks
-   * This method is intended for directories only. Caller must validate that remotePath
-   * is a directory before invoking. Recursively traverses subdirectories and pulls matching files.
-   *
-   * @param remotePath - Remote directory path (must be a directory)
-   * @param localDst - Local destination path
-   * @param matchPattern - Optional glob pattern to filter files
-   * @param overwrite - Whether to overwrite existing local files
-   * @param callback - Optional callback invoked for each pulled file
+   * This method is intended for directories only. Caller must validate that remoteSrcDir
+   * is a directory before invoking.
    */
   private async _pullRecursiveInternal(
-    remotePath: string,
-    localDst: string,
-    matchPattern?: string,
-    overwrite = true,
-    callback?: PullRecursiveCallback,
+    remoteSrcDir: string,
+    localDstDir: string,
+    options?: Omit<PullOptions, 'recursive'>,
+    relativePath = '',
   ): Promise<void> {
-    const baseName = path.posix.basename(remotePath);
-    const localDstIsDirectory = await this._isLocalDirectory(localDst);
-    const localDirPath = localDstIsDirectory
-      ? path.join(localDst, baseName)
-      : localDst;
+    const { match, overwrite = true, callback } = options ?? {};
+
+    let localDirPath: string;
+    if (!relativePath) {
+      const localDstIsDirectory = await this._isLocalDirectory(localDstDir);
+
+      if (!localDstIsDirectory) {
+        const stat = await fsp.stat(localDstDir).catch((err) => {
+          if (err.code === 'ENOENT') {return null;}
+          throw err;
+        });
+        if (stat?.isFile()) {
+          throw new Error(
+            `Local destination exists and is a file, not a directory: ${localDstDir}`,
+          );
+        }
+      }
+
+      const baseName = path.posix.basename(remoteSrcDir);
+      localDirPath = localDstIsDirectory
+        ? path.join(localDstDir, baseName)
+        : localDstDir;
+    } else {
+      localDirPath = localDstDir;
+    }
 
     await fsp.mkdir(localDirPath, { recursive: true });
 
-    const entries = await this.listdir(remotePath);
-    for (const entry of entries) {
-      const entryPath = path.posix.join(remotePath, entry);
-      const isEntryDir = await this.isdir(entryPath);
+    for (const entry of await this.listdir(remoteSrcDir)) {
+      const entryPath = path.posix.join(remoteSrcDir, entry);
+      const entryRelativePath = relativePath
+        ? path.posix.join(relativePath, entry)
+        : entry;
 
-      if (isEntryDir) {
+      if (await this.isdir(entryPath)) {
         await this._pullRecursiveInternal(
           entryPath,
-          localDirPath,
-          matchPattern,
-          overwrite,
-          callback,
+          path.join(localDirPath, entry),
+          options,
+          entryRelativePath,
         );
       } else {
-        if (matchPattern && !minimatch(entry, matchPattern)) {
+        if (match && !minimatch(entryRelativePath, match)) {
           continue;
         }
 
         const targetPath = path.join(localDirPath, entry);
-        if (!overwrite && (await this._localFileExists(targetPath))) {
+        if (!overwrite && (await this._localPathExists(targetPath))) {
           throw new Error(`Local file already exists: ${targetPath}`);
         }
 
@@ -591,9 +605,9 @@ export class AfcService {
   }
 
   /**
-   * Helper to check if a local file exists.
+   * Helper to check if a local path (file or directory) exists.
    */
-  private async _localFileExists(localPath: string): Promise<boolean> {
+  private async _localPathExists(localPath: string): Promise<boolean> {
     try {
       await fsp.access(localPath, fsp.constants.F_OK);
       return true;

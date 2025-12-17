@@ -207,7 +207,7 @@ describe('AFC Service', function () {
 
       await afc.pull('/Downloads', os.tmpdir(), {
         recursive: true,
-        match: `*_${ts}.@(txt|log)`,
+        match: `**/*_${ts}.@(txt|log)`,
       });
 
       const localDownloads = path.join(os.tmpdir(), 'Downloads');
