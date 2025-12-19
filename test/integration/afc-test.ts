@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import fs from 'node:fs';
+import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { Readable } from 'node:stream';
@@ -116,7 +116,7 @@ describe('AFC Service', function () {
     const testContent = 'push and pull test content';
 
     try {
-      fs.writeFileSync(localSrcPath, testContent, 'utf8');
+      await fs.writeFile(localSrcPath, testContent, 'utf8');
 
       await afc.push(localSrcPath, remotePath);
 
@@ -125,16 +125,16 @@ describe('AFC Service', function () {
 
       await afc.pull(remotePath, localDstPath);
 
-      const pulledContent = fs.readFileSync(localDstPath, 'utf8');
+      const pulledContent = await fs.readFile(localDstPath, 'utf8');
       expect(pulledContent).to.equal(testContent);
     } finally {
       try {
-        fs.unlinkSync(localSrcPath);
+        await fs.unlink(localSrcPath);
       } catch {
         // ignore
       }
       try {
-        fs.unlinkSync(localDstPath);
+        await fs.unlink(localDstPath);
       } catch {
         // ignore
       }
@@ -189,6 +189,98 @@ describe('AFC Service', function () {
       } catch {
         /* ignore */
       }
+    }
+  });
+
+  it('should recursively pull directory with files', async function () {
+    const ts = Date.now();
+    const testData = Buffer.from('recursive pull test data');
+
+    await afc.mkdir('/Downloads/parent_dir/child_dir');
+
+    const file1 = `/Downloads/file1_${ts}.txt`;
+    const file2 = `/Downloads/parent_dir/child_dir/file2_${ts}.log`;
+
+    try {
+      await afc.setFileContents(file1, testData);
+      await afc.setFileContents(file2, testData);
+
+      await afc.pull('/Downloads', os.tmpdir(), {
+        recursive: true,
+        match: `**/*_${ts}.@(txt|log)`,
+      });
+
+      const localDownloads = path.join(os.tmpdir(), 'Downloads');
+      await fs.access(path.join(localDownloads, `file1_${ts}.txt`));
+      await fs.access(
+        path.join(localDownloads, `parent_dir/child_dir/file2_${ts}.log`),
+      );
+
+      // Verify file contents
+      const localData = await fs.readFile(
+        path.join(localDownloads, `file1_${ts}.txt`),
+      );
+      expect(Buffer.compare(localData, testData)).to.equal(0);
+    } finally {
+      try {
+        await afc.rm(file1);
+      } catch {}
+      try {
+        await afc.rm(file2);
+      } catch {}
+      try {
+        await afc.rm('/Downloads/child_dir');
+      } catch {}
+      try {
+        const localDownloads = path.join(os.tmpdir(), 'Downloads');
+        await fs.rm(localDownloads, { recursive: true, force: true });
+      } catch {}
+    }
+  });
+
+  it('should respect overwrite option when pulling files', async function () {
+    const ts = Date.now();
+    const testData = Buffer.from('test data for overwrite');
+    const file1 = `/Downloads/overwrite_test_${ts}.txt`;
+    const localDownloads = path.join(os.tmpdir(), 'Downloads');
+    const localFilePath = path.join(localDownloads, `overwrite_test_${ts}.txt`);
+
+    try {
+      await afc.setFileContents(file1, testData);
+
+      await afc.pull('/Downloads', os.tmpdir(), {
+        recursive: true,
+        match: `overwrite_test_${ts}.txt`,
+      });
+
+      await fs.access(localFilePath);
+
+      // Second pull with overwrite=false should throw
+      try {
+        await afc.pull('/Downloads', os.tmpdir(), {
+          recursive: true,
+          match: `overwrite_test_${ts}.txt`,
+          overwrite: false,
+        });
+      } catch (error: any) {
+        expect(error.message).to.include('Local file already exists');
+      }
+
+      // Third pull with overwrite=true (default) should succeed
+      await afc.pull('/Downloads', os.tmpdir(), {
+        recursive: true,
+        match: `overwrite_test_${ts}.txt`,
+        overwrite: true,
+      });
+
+      await fs.access(localFilePath);
+    } finally {
+      try {
+        await afc.rm(file1);
+      } catch {}
+      try {
+        await fs.rm(localDownloads, { recursive: true, force: true });
+      } catch {}
     }
   });
 });

@@ -33,6 +33,7 @@ export type {
   ScreenshotService,
   GraphicsService,
   DeviceInfoService,
+  NetworkMonitorService,
   ProcessInfo,
   ConditionProfile,
   ConditionGroup,
@@ -49,8 +50,14 @@ export type {
   WebInspectorServiceWithConnection,
   MisagentServiceWithConnection,
   DVTServiceWithConnection,
+  NetworkAddress,
+  InterfaceDetectionEvent,
+  ConnectionDetectionEvent,
+  ConnectionUpdateEvent,
+  NetworkEvent,
 } from './lib/types.js';
 export { PowerAssertionType } from './lib/types.js';
+export { NetworkMessageType } from './services/ios/dvt/instruments/network-monitor.js';
 export {
   STRONGBOX_CONTAINER_NAME,
   createUsbmux,
