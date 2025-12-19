@@ -1,3 +1,9 @@
+## [0.20.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.19.0...v0.20.0) (2025-12-19)
+
+### Features
+
+* **afc:** add `recursive` option to pull, `mkdir` method and fix race condition in `pull` ([#113](https://github.com/appium/appium-ios-remotexpc/issues/113)) ([9a7d61f](https://github.com/appium/appium-ios-remotexpc/commit/9a7d61fcb0a47e5e1e4fbacf2cdc9e76d922e09f))
+
 ## [0.19.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.18.1...v0.19.0) (2025-12-17)
 
 ### Features
