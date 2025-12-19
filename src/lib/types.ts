@@ -1496,9 +1496,19 @@ export interface MisagentServiceWithConnection {
   remoteXPC: RemoteXpcConnection;
 }
 
+/**
+ * Options for pulling crash reports from device to local
+ */
 export interface CrashReportsPullOptions {
+  /**
+   * If true, deletes crash reports from the remote device after pulling to local.
+   * @default false
+   */
   erase?: boolean;
-  match?: RegExp | string;
+  /**
+   * Glob pattern to filter crash reports (e.g., '*.ips', 'Siri*', '**\/*.crash')
+   */
+  match?: string;
 }
 
 /**

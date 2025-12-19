@@ -1,5 +1,4 @@
 import fs from 'node:fs';
-import path from 'node:path';
 import posixpath from 'node:path/posix';
 
 import { getLogger } from '../../../lib/logger.js';
@@ -105,7 +104,8 @@ export class CrashReportsService extends BaseService {
       fs.mkdirSync(out, { recursive: true });
     }
 
-    await this.afc.pullRecursive(entry, out, {
+    await this.afc.pull(entry, out, {
+      recursive: true,
       match,
       callback: erase
         ? async (remotePath, localPath) => {

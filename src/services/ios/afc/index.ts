@@ -1,7 +1,7 @@
 import { minimatch } from 'minimatch';
 import fs from 'node:fs';
-import type net from 'node:net';
 import fsp from 'node:fs/promises';
+import type net from 'node:net';
 import path from 'node:path';
 import { Readable, Writable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';

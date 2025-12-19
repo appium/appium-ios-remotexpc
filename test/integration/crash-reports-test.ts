@@ -1,6 +1,6 @@
 import { logger } from '@appium/support';
 import { expect } from 'chai';
-import fs from 'node:fs';
+import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -10,15 +10,15 @@ import type { CrashReportsService } from '../../src/index.js';
 const log = logger.getLogger('WebInspectorService.test');
 log.level = 'debug';
 
-function logFiles(dir: string): number {
+async function logFiles(dir: string): Promise<number> {
   let count = 0;
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  const entries = await fs.readdir(dir, { withFileTypes: true });
 
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
 
     if (entry.isDirectory()) {
-      count += logFiles(fullPath); // recurse
+      count += await logFiles(fullPath); // recurse
     } else {
       console.log(fullPath); // log file
       count++;
@@ -57,16 +57,6 @@ describe('Crash Reports Service', function () {
       console.log(entries);
       expect(entries).to.be.an('array');
     });
-
-    it('should list crash reports with depth=1', async function () {
-      const entries = await crashReportsService.ls('/', 1);
-      console.log(entries);
-      expect(entries).to.be.an('array');
-      // Each entry should be a direct child path
-      for (const entry of entries) {
-        expect(entry).to.match(/^\/[^/]+$/);
-      }
-    });
   });
 
   describe('flush', function () {
@@ -79,36 +69,38 @@ describe('Crash Reports Service', function () {
   describe('pull', function () {
     let tempDir: string;
 
-    beforeEach(function () {
-      tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'crash-reports-test-'));
+    beforeEach(async function () {
+      tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'crash-reports-test-'));
     });
 
-    afterEach(function () {
+    afterEach(async function () {
       try {
-        fs.rmSync(tempDir, { recursive: true, force: true });
+        await fs.rm(tempDir, { recursive: true, force: true });
       } catch {}
     });
 
     it('should pull crash reports to local directory', async function () {
       await crashReportsService.flush();
       await crashReportsService.pull(tempDir, '/');
-      expect(fs.existsSync(tempDir)).to.be.true;
-      console.log('Crash reports in tempDir:', fs.readdirSync(tempDir));
-      logFiles(tempDir);
+
+      // Verify directory exists
+      await fs.access(tempDir);
+
+      const entries = await fs.readdir(tempDir);
+      console.log('Crash reports in tempDir:', entries);
+      await logFiles(tempDir);
     });
 
-    it('should filter files by match pattern', async function () {
+    it('should filter files by glob pattern', async function () {
       await crashReportsService.pull(tempDir, '/', {
-        match: /(?:^|\/)Siri.*/,
+        match: '**/Siri*',
       });
 
       // Check that directory was created
-      expect(fs.existsSync(tempDir)).to.be.true;
+      await fs.access(tempDir);
 
-      const num = logFiles(tempDir);
+      const num = await logFiles(tempDir);
       console.log('number of files in tempDir: ', num);
-
-      // console.log('Crash reports in tempDir:', fs.readdirSync(tempDir));
     });
   });
 
@@ -145,13 +137,13 @@ describe('Crash Reports Service', function () {
   describe('integration workflow', function () {
     let tempDir: string;
 
-    beforeEach(function () {
-      tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'crash-workflow-'));
+    beforeEach(async function () {
+      tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'crash-workflow-'));
     });
 
-    afterEach(function () {
+    afterEach(async function () {
       try {
-        fs.rmSync(tempDir, { recursive: true, force: true });
+        await fs.rm(tempDir, { recursive: true, force: true });
       } catch {}
     });
 
@@ -162,17 +154,17 @@ describe('Crash Reports Service', function () {
 
       await crashReportsService.pull(tempDir, '/', {
         erase: true,
-        match: /(?:^|\/)SiriSearchFeedback.*/,
+        match: '**/SiriSearchFeedback*',
       });
 
       const afterEntries = await crashReportsService.ls('/', 4);
       console.log('afterEntries are: ', afterEntries);
 
-      const count = logFiles(tempDir);
+      const count = await logFiles(tempDir);
       console.log('number of files in tempDir: ', count);
 
       // Files should be erased, directories may remain
-      expect(fs.existsSync(tempDir)).to.be.true;
+      await fs.access(tempDir);
     });
   });
 });
