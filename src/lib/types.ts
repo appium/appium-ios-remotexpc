@@ -576,6 +576,140 @@ export interface GraphicsService {
 }
 
 /**
+ * Network address information
+ */
+export interface NetworkAddress {
+  /** Length of the address structure */
+  len: number;
+  /** Address family (2 = IPv4, 30 = IPv6) */
+  family: number;
+  /** Port number */
+  port: number;
+  /** Parsed IP address string */
+  address: string;
+  /** Flow info (IPv6 only) */
+  flowInfo?: number;
+  /** Scope ID (IPv6 only) */
+  scopeId?: number;
+}
+
+/**
+ * Event emitted when a network interface is detected
+ */
+export interface InterfaceDetectionEvent {
+  type: 0;
+  /** Interface index */
+  interfaceIndex: number;
+  /** Interface name (e.g., 'en0', 'lo0') */
+  name: string;
+}
+
+/**
+ * Event emitted when a network connection is detected
+ */
+export interface ConnectionDetectionEvent {
+  type: 1;
+  /** Local address information */
+  localAddress: NetworkAddress;
+  /** Remote address information */
+  remoteAddress: NetworkAddress;
+  /** Interface index */
+  interfaceIndex: number;
+  /** Process ID owning the connection */
+  pid: number;
+  /** Receive buffer size */
+  recvBufferSize: number;
+  /** Receive buffer used */
+  recvBufferUsed: number;
+  /** Connection serial number */
+  serialNumber: number;
+  /** Connection kind/type */
+  kind: number;
+}
+
+/**
+ * Event emitted when connection statistics are updated
+ */
+export interface ConnectionUpdateEvent {
+  type: 2;
+  /** Received packets count */
+  rxPackets: number;
+  /** Received bytes count */
+  rxBytes: number;
+  /** Transmitted packets count */
+  txPackets: number;
+  /** Transmitted bytes count */
+  txBytes: number;
+  /** Duplicate received packets */
+  rxDups: number;
+  /** Reserved field */
+  rx000: number;
+  /** Retransmitted packets */
+  txRetx: number;
+  /** Minimum round-trip time */
+  minRtt: number;
+  /** Average round-trip time */
+  avgRtt: number;
+  /** Connection serial number (links to ConnectionDetectionEvent) */
+  connectionSerial: number;
+  /** Timestamp */
+  time: number;
+}
+
+/**
+ * Union type for all network monitoring events
+ */
+export type NetworkEvent =
+  | InterfaceDetectionEvent
+  | ConnectionDetectionEvent
+  | ConnectionUpdateEvent;
+
+/**
+ * Network monitor service interface for real-time network activity monitoring
+ */
+export interface NetworkMonitorService {
+  /**
+   * Async iterator for network events.
+   * Yields interface detection, connection detection, and connection update events.
+   *
+   * @example
+   * const networkMonitor = device.networkMonitor();
+   * for await (const event of networkMonitor.events()) {
+   *   console.log(event);
+   * }
+   *
+   * // Example output:
+   * // { type: 0, interfaceIndex: 25, name: 'utun5' }
+   * // {
+   * //   type: 1,
+   * //   localAddress: {
+   * //     len: 28,
+   * //     family: 30,
+   * //     port: 50063,
+   * //     address: 'fdc2:1118:d2ac:0:0:0:0:1',
+   * //     flowInfo: 0,
+   * //     scopeId: 0
+   * //   },
+   * //   remoteAddress: {
+   * //     len: 28,
+   * //     family: 30,
+   * //     port: 65334,
+   * //     address: 'fdc2:1118:d2ac:0:0:0:0:2',
+   * //     flowInfo: 0,
+   * //     scopeId: 0
+   * //   },
+   * //   interfaceIndex: 25,
+   * //   pid: -2,
+   * //   recvBufferSize: 397120,
+   * //   recvBufferUsed: 0,
+   * //   serialNumber: 0,
+   * //   kind: 1
+   * // }
+   */
+  events(): AsyncGenerator<NetworkEvent, void, unknown>;
+}
+
+/**
  * Process information
  */
 export interface ProcessInfo {
@@ -862,6 +996,8 @@ export interface DVTServiceWithConnection {
   deviceInfo: DeviceInfoService;
   /** The Notifications service instance */
   notification: NotificationService;
+  /** The NetworkMonitor service instance */
+  networkMonitor: NetworkMonitorService;
   /** The RemoteXPC connection that can be used to close the connection */
   remoteXPC: RemoteXpcConnection;
 }
