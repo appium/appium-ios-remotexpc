@@ -19,7 +19,7 @@
     "build:es": "tsc",
     "build": "run-s clean:* build:*",
     "lint": "eslint src --ext .ts --quiet",
-    "prepare": "npm run build",
+    "prepare": "husky && npm run build",
     "format": "prettier --write \"{src,test}/**/*.{ts,tsx}\"",
     "format:check": "prettier --check \"{src,test}/**/*.{ts,tsx}\"",
     "lint:fix": "eslint src --ext .ts --fix",
@@ -76,6 +76,8 @@
     "chai-as-promised": "^8.0.1",
     "conventional-changelog-conventionalcommits": "^9.1.0",
     "eslint-plugin-unicorn": "^61.0.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
     "mocha": "^11.1.0",
     "prettier": "^3.5.3",
     "rimraf": "^6.0.1",
@@ -102,5 +104,11 @@
     "!.DS_Store",
     "CHANGELOG.md",
     "LICENSE"
-  ]
+  ],
+  "lint-staged": {
+    "*.ts": [
+      "eslint --fix",
+      "prettier --write"
+    ]
+  }
 }
