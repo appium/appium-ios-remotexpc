@@ -23,8 +23,8 @@ import { ConditionInducer } from './services/ios/dvt/instruments/condition-induc
 import { DeviceInfo } from './services/ios/dvt/instruments/device-info.js';
 import { Graphics } from './services/ios/dvt/instruments/graphics.js';
 import { LocationSimulation } from './services/ios/dvt/instruments/location-simulation.js';
-import { Notifications } from './services/ios/dvt/instruments/notifications.js';
 import { NetworkMonitor } from './services/ios/dvt/instruments/network-monitor.js';
+import { Notifications } from './services/ios/dvt/instruments/notifications.js';
 import { Screenshot } from './services/ios/dvt/instruments/screenshot.js';
 import { MisagentService } from './services/ios/misagent/index.js';
 import { MobileConfigService } from './services/ios/mobile-config/index.js';
