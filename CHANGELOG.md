@@ -1,3 +1,9 @@
+## [0.21.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.21.0...v0.21.1) (2025-12-19)
+
+### Miscellaneous Chores
+
+* **format:** use husky precommit hook to auto format before commits ([#116](https://github.com/appium/appium-ios-remotexpc/issues/116)) ([b5a0e64](https://github.com/appium/appium-ios-remotexpc/commit/b5a0e6481fd30c016d31a0f49a4402d035d794e0))
+
 ## [0.21.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.20.0...v0.21.0) (2025-12-19)
 
 ### Features
