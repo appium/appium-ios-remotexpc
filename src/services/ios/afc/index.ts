@@ -370,35 +370,37 @@ export class AfcService {
       }
     };
 
-    if (recursive) {
-      log.debug(`Starting recursive pull from '${remoteSrc}' to '${localDst}'`);
+    const isDir = await this.isdir(remoteSrc);
 
-      const isDir = await this.isdir(remoteSrc);
+    if (!isDir) {
+      const baseName = path.posix.basename(remoteSrc);
 
-      if (!isDir) {
-        const baseName = path.posix.basename(remoteSrc);
-
-        if (match && !minimatch(baseName, match)) {
-          return;
-        }
-
-        const localDstIsDirectory = await this._isLocalDirectory(localDst);
-        const targetPath = localDstIsDirectory
-          ? path.join(localDst, baseName)
-          : localDst;
-
-        await pullSingleFile(remoteSrc, targetPath);
+      if (match && !minimatch(baseName, match)) {
         return;
       }
 
-      await this._pullRecursiveInternal(remoteSrc, localDst, {
-        match,
-        overwrite,
-        callback,
-      });
-    } else {
-      await pullSingleFile(remoteSrc, localDst);
+      const localDstIsDirectory = await this._isLocalDirectory(localDst);
+      const targetPath = localDstIsDirectory
+        ? path.join(localDst, baseName)
+        : localDst;
+
+      await pullSingleFile(remoteSrc, targetPath);
+      return;
     }
+
+    // Source is a directory, recursive option required
+    if (!recursive) {
+      throw new Error(
+        `Cannot pull directory '${remoteSrc}' without recursive option. Set recursive: true to pull directories.`,
+      );
+    }
+
+    log.debug(`Starting recursive pull from '${remoteSrc}' to '${localDst}'`);
+    await this._pullRecursiveInternal(remoteSrc, localDst, {
+      match,
+      overwrite,
+      callback,
+    });
   }
 
   /**
