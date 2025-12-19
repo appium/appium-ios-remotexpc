@@ -1,3 +1,9 @@
+## [0.21.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.20.0...v0.21.0) (2025-12-19)
+
+### Features
+
+* **dvt:** add network monitor DVT instrument ([#110](https://github.com/appium/appium-ios-remotexpc/issues/110)) ([7e31f74](https://github.com/appium/appium-ios-remotexpc/commit/7e31f74f05b75e37c9ce2397be5ef1bf53d06056))
+
 ## [0.20.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.19.0...v0.20.0) (2025-12-19)
 
 ### Features
