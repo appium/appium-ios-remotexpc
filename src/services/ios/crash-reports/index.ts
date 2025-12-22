@@ -4,7 +4,7 @@ import posixpath from 'node:path/posix';
 import { getLogger } from '../../../lib/logger.js';
 import type { CrashReportsPullOptions } from '../../../lib/types.js';
 import { createRawServiceSocket, readExact } from '../afc/codec.js';
-import AfcService from '../afc/index.js';
+import { AfcService } from '../afc/index.js';
 import { BaseService } from '../base-service.js';
 
 const log = getLogger('CrashReportsService');

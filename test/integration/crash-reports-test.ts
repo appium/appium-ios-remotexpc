@@ -10,27 +10,12 @@ import type { CrashReportsService } from '../../src/index.js';
 const log = logger.getLogger('WebInspectorService.test');
 log.level = 'debug';
 
-async function logFiles(dir: string): Promise<number> {
-  let count = 0;
-  const entries = await fs.readdir(dir, { withFileTypes: true });
-
-  for (const entry of entries) {
-    const fullPath = path.join(dir, entry.name);
-
-    if (entry.isDirectory()) {
-      count += await logFiles(fullPath); // recurse
-    } else {
-      console.log(fullPath); // log file
-      count++;
-    }
-  }
-  return count;
-}
-
+// the match pattern option in pull might need to be adjusted based on actual crash report names on the device
+// use ls to find reports and adjust accordingly
 describe('Crash Reports Service', function () {
-  this.timeout(60000);
+  this.timeout(120000); // pulling crash reports can take time
 
-  const udid = process.env.UDID || '00008030-001E290A3EF2402E';
+  const udid = process.env.UDID || '';
 
   let remoteXPC: any;
   let crashReportsService: CrashReportsService;
@@ -54,7 +39,11 @@ describe('Crash Reports Service', function () {
   describe('ls', function () {
     it('should list crash reports in root directory', async function () {
       const entries = await crashReportsService.ls('/', 3);
-      console.log(entries);
+      expect(entries).to.be.an('array');
+    });
+
+    it('should list crash reports with infinite depth (-1)', async function () {
+      const entries = await crashReportsService.ls('/', -1);
       expect(entries).to.be.an('array');
     });
   });
@@ -79,58 +68,28 @@ describe('Crash Reports Service', function () {
       } catch {}
     });
 
+    // this will take time if there are many crash reports (this is expected behavior)
     it('should pull crash reports to local directory', async function () {
       await crashReportsService.flush();
       await crashReportsService.pull(tempDir, '/');
 
-      // Verify directory exists
       await fs.access(tempDir);
-
       const entries = await fs.readdir(tempDir);
-      console.log('Crash reports in tempDir:', entries);
-      await logFiles(tempDir);
+
+      expect(entries).to.not.be.empty;
+      expect(entries).to.be.an('array');
     });
 
-    it('should filter files by glob pattern', async function () {
+    it('should filter files by glob pattern and pull', async function () {
       await crashReportsService.pull(tempDir, '/', {
-        match: '**/Siri*',
+        match: '**WebKit.WebContent*.ips',
       });
 
-      // Check that directory was created
       await fs.access(tempDir);
+      const entries = await fs.readdir(tempDir);
 
-      const num = await logFiles(tempDir);
-      console.log('number of files in tempDir: ', num);
-    });
-  });
-
-  describe('clear', function () {
-    it('should clear all crash reports without error', async function () {
-      // First check what exists
-      const beforeEntries = await crashReportsService.ls('/');
-      console.log('beforeEntries are: ', beforeEntries);
-
-      // Clear all crash reports
-      await crashReportsService.clear();
-
-      // After clearing, root should be empty or contain only auto-created paths
-      const afterEntries = await crashReportsService.ls('/');
-      console.log('afterEntries are: ', afterEntries);
-
-      // All entries should be gone, except possibly auto-created ones
-      const significantEntries = afterEntries.filter(
-        (e) => !e.includes('com.apple.appstored'),
-      );
-      console.log('significantEntries are: ', significantEntries);
-
-      // Note: The directory might not be completely empty due to auto-created paths
-      // or files created immediately after deletion
-    });
-
-    it('should be idempotent - clearing empty directory should not error', async function () {
-      // Clear twice - second time should not throw
-      await crashReportsService.clear();
-      await crashReportsService.clear();
+      expect(entries.every((entry) => entry.includes('WebKit.WebContent'))).to
+        .be.true;
     });
   });
 
@@ -149,22 +108,43 @@ describe('Crash Reports Service', function () {
 
     it('should perform flush, pull with erase, and verify removal', async function () {
       await crashReportsService.flush();
-      const beforeEntries = await crashReportsService.ls('/', 4);
-      console.log('beforeEntries are: ', beforeEntries);
 
       await crashReportsService.pull(tempDir, '/', {
         erase: true,
-        match: '**/SiriSearchFeedback*',
+        match: '**/SiriSearchFeedback*.ips',
       });
 
-      const afterEntries = await crashReportsService.ls('/', 4);
-      console.log('afterEntries are: ', afterEntries);
-
-      const count = await logFiles(tempDir);
-      console.log('number of files in tempDir: ', count);
-
-      // Files should be erased, directories may remain
       await fs.access(tempDir);
+      const entries = await fs.readdir(tempDir);
+      expect(entries.every((entry) => entry.includes('SiriSearchFeedback'))).to
+        .be.true;
+
+      const afterEntries = await crashReportsService.ls('/', 2);
+      const hasSiriSearchFeedback = afterEntries.some((entry) =>
+        entry.includes('SiriSearchFeedback'),
+      );
+      expect(hasSiriSearchFeedback).to.be.false;
+    });
+  });
+
+  describe('clear', function () {
+    it('should clear all crash reports without error', async function () {
+      await crashReportsService.clear();
+
+      const afterEntries = await crashReportsService.ls('/', 2);
+      const unexpectedEntries = afterEntries.filter(
+        (entry) => !entry.includes('com.apple.appstored'),
+      );
+
+      expect(
+        unexpectedEntries,
+        `Unexpected crash report entries found: ${unexpectedEntries.join(', ')}`,
+      ).to.be.empty;
+    });
+
+    it('should be idempotent, clearing empty directory should not error', async function () {
+      await crashReportsService.clear();
+      await crashReportsService.clear();
     });
   });
 });
