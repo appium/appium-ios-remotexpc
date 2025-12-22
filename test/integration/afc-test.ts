@@ -283,4 +283,78 @@ describe('AFC Service', function () {
       } catch {}
     }
   });
+
+  it('should not create empty directories when pulling with match pattern', async function () {
+    const ts = Date.now();
+    const testData = Buffer.from('match filter test');
+    const testDir = `/Downloads/filter_test_${ts}`;
+
+    // Create directory structure with mixed content
+    await afc.mkdir(`${testDir}/has_match`);
+    await afc.mkdir(`${testDir}/also_has_match`);
+    await afc.mkdir(`${testDir}/no_match`);
+    await afc.mkdir(`${testDir}/empty_dir`);
+
+    const matchingFile1 = `${testDir}/has_match/target_data.txt`;
+    const matchingFile2 = `${testDir}/also_has_match/target_file.txt`;
+    const nonMatchingFile1 = `${testDir}/no_match/other.log`;
+    const nonMatchingFile2 = `${testDir}/root_file.log`;
+
+    try {
+      await afc.setFileContents(matchingFile1, testData);
+      await afc.setFileContents(matchingFile2, testData);
+      await afc.setFileContents(nonMatchingFile1, testData);
+      await afc.setFileContents(nonMatchingFile2, testData);
+
+      // Pull only files matching 'target*.txt'
+      const localTestDir = path.join(os.tmpdir(), `afc_filter_test_${ts}`);
+
+      await afc.pull(testDir, localTestDir, {
+        recursive: true,
+        match: '**/target*.txt',
+      });
+
+      await fs.access(localTestDir);
+
+      // Verify matching files exist
+      await fs.access(path.join(localTestDir, 'has_match', 'target_data.txt'));
+      await fs.access(
+        path.join(localTestDir, 'also_has_match', 'target_file.txt'),
+      );
+
+      // Verify directories without matching files were not created
+      let noMatchDirExists: boolean;
+      try {
+        await fs.access(path.join(localTestDir, 'no_match'));
+        noMatchDirExists = true;
+      } catch {
+        noMatchDirExists = false;
+      }
+      expect(noMatchDirExists).to.be.false;
+
+      let emptyDirExists: boolean;
+      try {
+        await fs.access(path.join(localTestDir, 'empty_dir'));
+        emptyDirExists = true;
+      } catch {
+        emptyDirExists = false;
+      }
+      expect(emptyDirExists).to.be.false;
+
+      const entries = await fs.readdir(localTestDir);
+      expect(entries).to.have.lengthOf(2);
+      expect(entries).to.include('has_match');
+      expect(entries).to.include('also_has_match');
+    } finally {
+      try {
+        await afc.rm(testDir, true);
+      } catch {}
+      try {
+        await fs.rm(path.join(os.tmpdir(), `afc_filter_test_${ts}`), {
+          recursive: true,
+          force: true,
+        });
+      } catch {}
+    }
+  });
 });
