@@ -608,7 +608,18 @@ export class AfcService {
       localDirPath = localDstDir;
     }
 
-    await fsp.mkdir(localDirPath, { recursive: true });
+    // For subdirectories, only create dirs if they contain matching files
+    let dirCreated = !relativePath;
+    const ensureLocalDir = async () => {
+      if (!dirCreated) {
+        await fsp.mkdir(localDirPath, { recursive: true });
+        dirCreated = true;
+      }
+    };
+    // For root directory (empty relativePath), always create it
+    if (!relativePath) {
+      await fsp.mkdir(localDirPath, { recursive: true });
+    }
 
     for (const entry of await this.listdir(remoteSrcDir)) {
       const entryPath = path.posix.join(remoteSrcDir, entry);
@@ -627,6 +638,8 @@ export class AfcService {
         if (match && !minimatch(entryRelativePath, match)) {
           continue;
         }
+
+        await ensureLocalDir();
 
         const targetPath = path.join(localDirPath, entry);
         if (!overwrite && (await this._localPathExists(targetPath))) {
