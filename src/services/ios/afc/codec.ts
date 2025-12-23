@@ -367,7 +367,6 @@ export async function createRawServiceSocket(
 
   const socket = await new Promise<net.Socket>((resolve, reject) => {
     const conn = net.createConnection({ host, port }, () => {
-      conn.setTimeout(0);
       conn.setKeepAlive(true);
       resolve(conn);
     });

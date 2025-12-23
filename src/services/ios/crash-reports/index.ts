@@ -30,8 +30,8 @@ export class CrashReportsService extends BaseService {
   static readonly RSD_CRASH_MOVER_NAME =
     'com.apple.crashreportmover.shim.remote';
 
-  private afc: AfcService;
-  private crashMoverAddress: [string, number];
+  private readonly afc: AfcService;
+  private readonly crashMoverAddress: [string, number];
 
   /**
    * Creates a new CrashReportsService instance
@@ -108,8 +108,7 @@ export class CrashReportsService extends BaseService {
       recursive: true,
       match,
       callback: erase
-        ? async (remotePath, localPath) => {
-            log.info(`${remotePath} --> ${localPath}`);
+        ? async (remotePath) => {
             await this.afc.rmSingle(remotePath, true);
           }
         : undefined,
@@ -125,16 +124,16 @@ export class CrashReportsService extends BaseService {
     log.debug('Clearing all crash reports');
 
     const entries = await this.afc.listdir('/');
-    const undeletedItems: string[] = [];
+    const nonDeletedItems: string[] = [];
 
     for (const entry of entries) {
       const fullPath = posixpath.join('/', entry);
       const failedPaths = await this.afc.rm(fullPath, true);
-      undeletedItems.push(...failedPaths);
+      nonDeletedItems.push(...failedPaths);
     }
 
     // Filter out special paths that are auto-created
-    const realFailures = undeletedItems.filter(
+    const realFailures = nonDeletedItems.filter(
       (item) => item !== APPSTORED_PATH,
     );
 
