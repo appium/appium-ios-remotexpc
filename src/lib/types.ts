@@ -1517,9 +1517,19 @@ export interface CrashReportsPullOptions {
 export interface CrashReportsService extends BaseService {
   /**
    * List files and folders in the crash report's directory
+   *
+   * Crash reports are primarily stored as .ips files, which contain detailed information about
+   * app crashes, including stack traces, thread states, and device information.
+   * In addition to .ips files, the crash reports directory may contain:
+   * - Sysdiagnose tarballs (comprehensive system diagnostic archives)
+   * - Special directories like /Retired, /Cloud, /Assistant, etc.
+   *
+   * For details on the .ips file format, see:
+   * https://developer.apple.com/documentation/xcode/analyzing-a-crash-report
+   *
    * @param dirPath Path to list, defaults to "/"
    * @param depth Listing depth: 1 for immediate children, -1 for infinite
-   * @returns List of file paths
+   * @returns List of file paths (e.g., .ips files, sysdiagnose tarballs, directories like /Retired, /Cloud, etc.)
    */
   ls(dirPath?: string, depth?: number): Promise<string[]>;
 
