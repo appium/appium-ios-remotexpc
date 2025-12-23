@@ -14,6 +14,9 @@ import * as Services from './services.js';
 import { startCoreDeviceProxy } from './services/ios/tunnel-service/index.js';
 
 export type {
+  CrashReportsService,
+  CrashReportsPullOptions,
+  CrashReportsServiceWithConnection,
   DiagnosticsService,
   MobileImageMounterService,
   NotificationProxyService,

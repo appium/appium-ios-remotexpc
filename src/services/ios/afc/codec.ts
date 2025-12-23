@@ -350,6 +350,40 @@ export async function rsdHandshakeForRawService(
   }
 }
 
+/**
+ * Create a raw socket connection to an RSD service.
+ * Optionally performs RSD handshake if performHandshake is true.
+ * @param host - Hostname to connect to
+ * @param port - Port number
+ * @param options - Connection options
+ * @returns Connected socket (with handshake completed if requested)
+ */
+export async function createRawServiceSocket(
+  host: string,
+  port: number,
+  options: { timeoutMs?: number; performHandshake?: boolean } = {},
+): Promise<net.Socket> {
+  const { timeoutMs = 10000, performHandshake = true } = options;
+
+  const socket = await new Promise<net.Socket>((resolve, reject) => {
+    const conn = net.createConnection({ host, port }, () => {
+      conn.setKeepAlive(true);
+      resolve(conn);
+    });
+    conn.setTimeout(timeoutMs, () => {
+      conn.destroy();
+      reject(new Error('Connection timed out'));
+    });
+    conn.on('error', reject);
+  });
+
+  if (performHandshake) {
+    await rsdHandshakeForRawService(socket);
+  }
+
+  return socket;
+}
+
 export function nextReadChunkSize(left: bigint | number): number {
   const leftNum = typeof left === 'bigint' ? Number(left) : left;
   return leftNum;
