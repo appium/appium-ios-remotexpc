@@ -31,14 +31,10 @@ export interface VerificationKeys {
 export class PairVerificationProtocol {
   private static readonly log = getLogger('PairVerificationProtocol');
   private readonly hostIdentifier: string;
-  private sequenceNumber: number;
+  private sequenceNumber: number = 0;
 
-  constructor(
-    private readonly networkClient: NetworkClientInterface,
-    sequenceNumber: number,
-  ) {
+  constructor(private readonly networkClient: NetworkClientInterface) {
     this.hostIdentifier = generateHostId(hostname());
-    this.sequenceNumber = sequenceNumber;
   }
 
   async verify(
@@ -84,6 +80,10 @@ export class PairVerificationProtocol {
 
   getSequenceNumber(): number {
     return this.sequenceNumber;
+  }
+
+  setSequenceNumber(value: number): void {
+    this.sequenceNumber = value;
   }
 
   private async processState2Response(): Promise<Buffer> {

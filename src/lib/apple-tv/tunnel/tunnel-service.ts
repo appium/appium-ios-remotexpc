@@ -441,8 +441,8 @@ export class AppleTVTunnelService {
 
     const verificationProtocol = new PairVerificationProtocol(
       this.networkClient,
-      this.sequenceNumber,
     );
+    verificationProtocol.setSequenceNumber(this.sequenceNumber);
     const keys = await verificationProtocol.verify(pairRecord, deviceId);
 
     this.sequenceNumber = verificationProtocol.getSequenceNumber();
