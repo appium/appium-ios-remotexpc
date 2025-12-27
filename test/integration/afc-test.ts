@@ -1,5 +1,5 @@
 import { expect } from 'chai';
-import fs from 'node:fs';
+import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { Readable } from 'node:stream';
@@ -116,7 +116,7 @@ describe('AFC Service', function () {
     const testContent = 'push and pull test content';
 
     try {
-      fs.writeFileSync(localSrcPath, testContent, 'utf8');
+      await fs.writeFile(localSrcPath, testContent, 'utf8');
 
       await afc.push(localSrcPath, remotePath);
 
@@ -125,16 +125,16 @@ describe('AFC Service', function () {
 
       await afc.pull(remotePath, localDstPath);
 
-      const pulledContent = fs.readFileSync(localDstPath, 'utf8');
+      const pulledContent = await fs.readFile(localDstPath, 'utf8');
       expect(pulledContent).to.equal(testContent);
     } finally {
       try {
-        fs.unlinkSync(localSrcPath);
+        await fs.unlink(localSrcPath);
       } catch {
         // ignore
       }
       try {
-        fs.unlinkSync(localDstPath);
+        await fs.unlink(localDstPath);
       } catch {
         // ignore
       }
@@ -189,6 +189,172 @@ describe('AFC Service', function () {
       } catch {
         /* ignore */
       }
+    }
+  });
+
+  it('should recursively pull directory with files', async function () {
+    const ts = Date.now();
+    const testData = Buffer.from('recursive pull test data');
+
+    await afc.mkdir('/Downloads/parent_dir/child_dir');
+
+    const file1 = `/Downloads/file1_${ts}.txt`;
+    const file2 = `/Downloads/parent_dir/child_dir/file2_${ts}.log`;
+
+    try {
+      await afc.setFileContents(file1, testData);
+      await afc.setFileContents(file2, testData);
+
+      await afc.pull('/Downloads', os.tmpdir(), {
+        recursive: true,
+        match: `**/*_${ts}.@(txt|log)`,
+      });
+
+      const localDownloads = path.join(os.tmpdir(), 'Downloads');
+      await fs.access(path.join(localDownloads, `file1_${ts}.txt`));
+      await fs.access(
+        path.join(localDownloads, `parent_dir/child_dir/file2_${ts}.log`),
+      );
+
+      // Verify file contents
+      const localData = await fs.readFile(
+        path.join(localDownloads, `file1_${ts}.txt`),
+      );
+      expect(Buffer.compare(localData, testData)).to.equal(0);
+    } finally {
+      try {
+        await afc.rm(file1);
+      } catch {}
+      try {
+        await afc.rm(file2);
+      } catch {}
+      try {
+        await afc.rm('/Downloads/child_dir');
+      } catch {}
+      try {
+        const localDownloads = path.join(os.tmpdir(), 'Downloads');
+        await fs.rm(localDownloads, { recursive: true, force: true });
+      } catch {}
+    }
+  });
+
+  it('should respect overwrite option when pulling files', async function () {
+    const ts = Date.now();
+    const testData = Buffer.from('test data for overwrite');
+    const file1 = `/Downloads/overwrite_test_${ts}.txt`;
+    const localDownloads = path.join(os.tmpdir(), 'Downloads');
+    const localFilePath = path.join(localDownloads, `overwrite_test_${ts}.txt`);
+
+    try {
+      await afc.setFileContents(file1, testData);
+
+      await afc.pull('/Downloads', os.tmpdir(), {
+        recursive: true,
+        match: `overwrite_test_${ts}.txt`,
+      });
+
+      await fs.access(localFilePath);
+
+      // Second pull with overwrite=false should throw
+      try {
+        await afc.pull('/Downloads', os.tmpdir(), {
+          recursive: true,
+          match: `overwrite_test_${ts}.txt`,
+          overwrite: false,
+        });
+      } catch (error: any) {
+        expect(error.message).to.include('Local file already exists');
+      }
+
+      // Third pull with overwrite=true (default) should succeed
+      await afc.pull('/Downloads', os.tmpdir(), {
+        recursive: true,
+        match: `overwrite_test_${ts}.txt`,
+        overwrite: true,
+      });
+
+      await fs.access(localFilePath);
+    } finally {
+      try {
+        await afc.rm(file1);
+      } catch {}
+      try {
+        await fs.rm(localDownloads, { recursive: true, force: true });
+      } catch {}
+    }
+  });
+
+  it('should not create empty directories when pulling with match pattern', async function () {
+    const ts = Date.now();
+    const testData = Buffer.from('match filter test');
+    const testDir = `/Downloads/filter_test_${ts}`;
+
+    // Create directory structure with mixed content
+    await afc.mkdir(`${testDir}/has_match`);
+    await afc.mkdir(`${testDir}/also_has_match`);
+    await afc.mkdir(`${testDir}/no_match`);
+    await afc.mkdir(`${testDir}/empty_dir`);
+
+    const matchingFile1 = `${testDir}/has_match/target_data.txt`;
+    const matchingFile2 = `${testDir}/also_has_match/target_file.txt`;
+    const nonMatchingFile1 = `${testDir}/no_match/other.log`;
+    const nonMatchingFile2 = `${testDir}/root_file.log`;
+
+    try {
+      await afc.setFileContents(matchingFile1, testData);
+      await afc.setFileContents(matchingFile2, testData);
+      await afc.setFileContents(nonMatchingFile1, testData);
+      await afc.setFileContents(nonMatchingFile2, testData);
+
+      // Pull only files matching 'target*.txt'
+      const localTestDir = path.join(os.tmpdir(), `afc_filter_test_${ts}`);
+
+      await afc.pull(testDir, localTestDir, {
+        recursive: true,
+        match: '**/target*.txt',
+      });
+
+      await fs.access(localTestDir);
+
+      // Verify matching files exist
+      await fs.access(path.join(localTestDir, 'has_match', 'target_data.txt'));
+      await fs.access(
+        path.join(localTestDir, 'also_has_match', 'target_file.txt'),
+      );
+
+      // Verify directories without matching files were not created
+      let noMatchDirExists: boolean;
+      try {
+        await fs.access(path.join(localTestDir, 'no_match'));
+        noMatchDirExists = true;
+      } catch {
+        noMatchDirExists = false;
+      }
+      expect(noMatchDirExists).to.be.false;
+
+      let emptyDirExists: boolean;
+      try {
+        await fs.access(path.join(localTestDir, 'empty_dir'));
+        emptyDirExists = true;
+      } catch {
+        emptyDirExists = false;
+      }
+      expect(emptyDirExists).to.be.false;
+
+      const entries = await fs.readdir(localTestDir);
+      expect(entries).to.have.lengthOf(2);
+      expect(entries).to.include('has_match');
+      expect(entries).to.include('also_has_match');
+    } finally {
+      try {
+        await afc.rm(testDir, true);
+      } catch {}
+      try {
+        await fs.rm(path.join(os.tmpdir(), `afc_filter_test_${ts}`), {
+          recursive: true,
+          force: true,
+        });
+      } catch {}
     }
   });
 });

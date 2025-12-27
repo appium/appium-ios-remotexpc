@@ -1,3 +1,33 @@
+## [0.21.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.21.0...v0.21.1) (2025-12-19)
+
+### Miscellaneous Chores
+
+* **format:** use husky precommit hook to auto format before commits ([#116](https://github.com/appium/appium-ios-remotexpc/issues/116)) ([b5a0e64](https://github.com/appium/appium-ios-remotexpc/commit/b5a0e6481fd30c016d31a0f49a4402d035d794e0))
+
+## [0.21.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.20.0...v0.21.0) (2025-12-19)
+
+### Features
+
+* **dvt:** add network monitor DVT instrument ([#110](https://github.com/appium/appium-ios-remotexpc/issues/110)) ([7e31f74](https://github.com/appium/appium-ios-remotexpc/commit/7e31f74f05b75e37c9ce2397be5ef1bf53d06056))
+
+## [0.20.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.19.0...v0.20.0) (2025-12-19)
+
+### Features
+
+* **afc:** add `recursive` option to pull, `mkdir` method and fix race condition in `pull` ([#113](https://github.com/appium/appium-ios-remotexpc/issues/113)) ([9a7d61f](https://github.com/appium/appium-ios-remotexpc/commit/9a7d61fcb0a47e5e1e4fbacf2cdc9e76d922e09f))
+
+## [0.19.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.18.1...v0.19.0) (2025-12-17)
+
+### Features
+
+* **dvt:** implement notifications DVT instrument ([#112](https://github.com/appium/appium-ios-remotexpc/issues/112)) ([e8f2c08](https://github.com/appium/appium-ios-remotexpc/commit/e8f2c08d8cf3e6215d117e21251640ba659ab85f))
+
+## [0.18.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.18.0...v0.18.1) (2025-12-16)
+
+### Miscellaneous Chores
+
+* **deps:** bump @types/node from 24.10.4 to 25.0.2 ([#114](https://github.com/appium/appium-ios-remotexpc/issues/114)) ([0435e18](https://github.com/appium/appium-ios-remotexpc/commit/0435e183cfc80aff4ed4459f313b1d481295f0d2))
+
 ## [0.18.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.17.0...v0.18.0) (2025-12-05)
 
 ### Features

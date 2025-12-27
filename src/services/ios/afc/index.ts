@@ -1,4 +1,6 @@
+import { minimatch } from 'minimatch';
 import fs from 'node:fs';
+import fsp from 'node:fs/promises';
 import net from 'node:net';
 import path from 'node:path';
 import { Readable, Writable } from 'node:stream';
@@ -8,6 +10,7 @@ import { getLogger } from '../../../lib/logger.js';
 import {
   buildClosePayload,
   buildFopenPayload,
+  buildMkdirPayload,
   buildRemovePayload,
   buildRenamePayload,
   buildStatPayload,
@@ -26,6 +29,38 @@ import { createAfcReadStream, createAfcWriteStream } from './stream-utils.js';
 const log = getLogger('AfcService');
 
 const NON_LISTABLE_ENTRIES = ['', '.', '..'];
+
+/**
+ * Callback invoked for each file successfully pulled from the device.
+ *
+ * @param remotePath - The remote file path on the device
+ * @param localPath - The local file path where it was saved
+ *
+ * @remarks
+ * If the callback throws an error, the pull operation will be aborted immediately.
+ */
+export type PullRecursiveCallback = (
+  remotePath: string,
+  localPath: string,
+) => unknown | Promise<unknown>;
+
+/** Options for the pull method. */
+export interface PullOptions {
+  /**
+   * If true, recursively pull directories.
+   * @default false
+   */
+  recursive?: boolean;
+  /** Glob pattern to filter files (e.g., '*.txt', '**\/*.log'). */
+  match?: string;
+  /**
+   * If false, throws error when local file exists.
+   * @default true
+   */
+  overwrite?: boolean;
+  /** Callback invoked for each pulled file. */
+  callback?: PullRecursiveCallback;
+}
 
 export interface StatInfo {
   st_ifmt: AfcFileMode;
@@ -286,12 +321,97 @@ export class AfcService {
     }
   }
 
-  async pull(remoteSrc: string, localDst: string): Promise<void> {
-    log.debug(`Pulling file from '${remoteSrc}' to '${localDst}'`);
-    const stream = await this.readToStream(remoteSrc);
-    const writeStream = fs.createWriteStream(localDst);
-    await pipeline(stream, writeStream);
-    log.debug(`Successfully pulled file to '${localDst}'`);
+  /**
+   * Pull file(s) or directory from the device to the local filesystem.
+   *
+   * @param remoteSrc - Remote path on the device (file or directory)
+   * @param localDst - Local destination path
+   * @param options - Optional configuration
+   *
+   * @throws {Error} If the remote source path does not exist
+   * @throws {Error} If overwrite is false and local file already exists
+   *
+   * @remarks
+   * When pulling a directory with `recursive: true`, the directory itself will be created
+   * inside the destination. For example, pulling `/Downloads` to `/tmp` will create `/tmp/Downloads`.
+   */
+  async pull(
+    remoteSrc: string,
+    localDst: string,
+    options?: PullOptions,
+  ): Promise<void> {
+    const {
+      recursive = false,
+      match,
+      overwrite = true,
+      callback,
+    } = options ?? {};
+
+    if (!(await this.exists(remoteSrc))) {
+      throw new Error(`Remote path does not exist: ${remoteSrc}`);
+    }
+
+    const pullSingleFile = async (
+      remoteFilePath: string,
+      localFilePath: string,
+    ): Promise<void> => {
+      log.debug(`Pulling file from '${remoteFilePath}' to '${localFilePath}'`);
+
+      if (!overwrite && (await this._localPathExists(localFilePath))) {
+        throw new Error(`Local file already exists: ${localFilePath}`);
+      }
+
+      await this._pullFile(remoteFilePath, localFilePath);
+
+      if (callback) {
+        await callback(remoteFilePath, localFilePath);
+      }
+    };
+
+    const isDir = await this.isdir(remoteSrc);
+
+    if (!isDir) {
+      const baseName = path.posix.basename(remoteSrc);
+
+      if (match && !minimatch(baseName, match)) {
+        return;
+      }
+
+      const localDstIsDirectory = await this._isLocalDirectory(localDst);
+      const targetPath = localDstIsDirectory
+        ? path.join(localDst, baseName)
+        : localDst;
+
+      await pullSingleFile(remoteSrc, targetPath);
+      return;
+    }
+
+    // Source is a directory, recursive option required
+    if (!recursive) {
+      throw new Error(
+        `Cannot pull directory '${remoteSrc}' without recursive option. Set recursive: true to pull directories.`,
+      );
+    }
+
+    log.debug(`Starting recursive pull from '${remoteSrc}' to '${localDst}'`);
+    await this._pullRecursiveInternal(remoteSrc, localDst, {
+      match,
+      overwrite,
+      callback,
+    });
+  }
+
+  /**
+   * Create a directory on the device.
+   *
+   * Creates parent directories automatically and is idempotent (no error if the directory exists).
+   *
+   * @param dirPath - Path of the directory to create.
+   * @returns A promise that resolves when the directory has been created.
+   */
+  async mkdir(dirPath: string): Promise<void> {
+    await this._doOperation(AfcOpcode.MAKE_DIR, buildMkdirPayload(dirPath));
+    log.debug(`Successfully created directory: ${dirPath}`);
   }
 
   async rmSingle(filePath: string, force = false): Promise<boolean> {
@@ -414,6 +534,150 @@ export class AfcService {
       log.debug('Error while closing socket (ignored):', error);
     }
     this.socket = null;
+  }
+
+  /**
+   * Private primitive to pull a single file from device to local filesystem.
+   *
+   * @param remoteSrc - Remote file path on the device (must be a file)
+   * @param localDst - Local destination file path
+   */
+  private async _pullFile(remoteSrc: string, localDst: string): Promise<void> {
+    log.debug(`Pulling file from '${remoteSrc}' to '${localDst}'`);
+
+    const resolved = await this._resolvePath(remoteSrc);
+    const st = await this.stat(resolved);
+
+    if (st.st_ifmt !== AfcFileMode.S_IFREG) {
+      throw new Error(`'${resolved}' isn't a regular file`);
+    }
+
+    const handle = await this.fopen(resolved, 'r');
+    try {
+      const stream = this.createReadStream(handle, st.st_size);
+      const writeStream = fs.createWriteStream(localDst);
+      await pipeline(stream, writeStream);
+      log.debug(
+        `Successfully pulled file to '${localDst}' (${st.st_size} bytes)`,
+      );
+    } finally {
+      await this.fclose(handle);
+    }
+  }
+
+  /**
+   * Recursively pull directory contents from device to local filesystem.
+   *
+   * @remarks
+   * This method is intended for directories only. Caller must validate that remoteSrcDir
+   * is a directory before invoking.
+   */
+  private async _pullRecursiveInternal(
+    remoteSrcDir: string,
+    localDstDir: string,
+    options?: Omit<PullOptions, 'recursive'>,
+    relativePath = '',
+  ): Promise<void> {
+    const { match, overwrite = true, callback } = options ?? {};
+
+    let localDirPath: string;
+    if (!relativePath) {
+      const localDstIsDirectory = await this._isLocalDirectory(localDstDir);
+
+      if (!localDstIsDirectory) {
+        const stat = await fsp.stat(localDstDir).catch((err) => {
+          if (err.code === 'ENOENT') {
+            return null;
+          }
+          throw err;
+        });
+        if (stat?.isFile()) {
+          throw new Error(
+            `Local destination exists and is a file, not a directory: ${localDstDir}`,
+          );
+        }
+      }
+
+      const baseName = path.posix.basename(remoteSrcDir);
+      localDirPath = localDstIsDirectory
+        ? path.join(localDstDir, baseName)
+        : localDstDir;
+    } else {
+      localDirPath = localDstDir;
+    }
+
+    // For subdirectories, only create dirs if they contain matching files
+    let dirCreated = !relativePath;
+    const ensureLocalDir = async () => {
+      if (!dirCreated) {
+        await fsp.mkdir(localDirPath, { recursive: true });
+        dirCreated = true;
+      }
+    };
+    // For root directory (empty relativePath), always create it
+    if (!relativePath) {
+      await fsp.mkdir(localDirPath, { recursive: true });
+    }
+
+    for (const entry of await this.listdir(remoteSrcDir)) {
+      const entryPath = path.posix.join(remoteSrcDir, entry);
+      const entryRelativePath = relativePath
+        ? path.posix.join(relativePath, entry)
+        : entry;
+
+      if (await this.isdir(entryPath)) {
+        await this._pullRecursiveInternal(
+          entryPath,
+          path.join(localDirPath, entry),
+          options,
+          entryRelativePath,
+        );
+      } else {
+        if (match && !minimatch(entryRelativePath, match)) {
+          continue;
+        }
+
+        await ensureLocalDir();
+
+        const targetPath = path.join(localDirPath, entry);
+        if (!overwrite && (await this._localPathExists(targetPath))) {
+          throw new Error(`Local file already exists: ${targetPath}`);
+        }
+
+        await this._pullFile(entryPath, targetPath);
+
+        if (callback) {
+          await callback(entryPath, targetPath);
+        }
+      }
+    }
+  }
+
+  /**
+   * Helper to check if a local filesystem path exists and is a directory.
+   */
+  private async _isLocalDirectory(localPath: string): Promise<boolean> {
+    try {
+      const stats = await fsp.stat(localPath);
+      return stats.isDirectory();
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Helper to check if a local path (file or directory) exists.
+   */
+  private async _localPathExists(localPath: string): Promise<boolean> {
+    try {
+      await fsp.access(localPath, fsp.constants.F_OK);
+      return true;
+    } catch (err: any) {
+      if (err.code === 'ENOENT') {
+        return false;
+      }
+      throw err;
+    }
   }
 
   /**

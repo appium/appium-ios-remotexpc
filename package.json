@@ -1,6 +1,6 @@
 {
   "name": "appium-ios-remotexpc",
-  "version": "0.18.0",
+  "version": "0.21.1",
   "main": "build/src/index.js",
   "types": "build/src/index.d.ts",
   "type": "module",
@@ -19,7 +19,7 @@
     "build:es": "tsc",
     "build": "run-s clean:* build:*",
     "lint": "eslint src --ext .ts --quiet",
-    "prepare": "npm run build",
+    "prepare": "husky && npm run build",
     "format": "prettier --write \"{src,test}/**/*.{ts,tsx}\"",
     "format:check": "prettier --check \"{src,test}/**/*.{ts,tsx}\"",
     "lint:fix": "eslint src --ext .ts --fix",
@@ -47,6 +47,8 @@
     "test:dvt:screenshot": "mocha test/integration/dvt_instruments/screenshot-test.ts --exit --timeout 1m",
     "test:dvt:device-info": "mocha test/integration/dvt_instruments/device-info-test.ts --exit --timeout 1m",
     "test:dvt:applist": "mocha test/integration/dvt_instruments/app-listing-test.ts --exit --timeout 1m",
+    "test:dvt:notification": "mocha test/integration/dvt_instruments/notifications-test.ts --exit --timeout 1m",
+    "test:dvt:network-monitor": "mocha test/integration/dvt_instruments/network-monitor-test.ts --exit --timeout 1m",
     "test:tunnel-creation": "sudo tsx scripts/test-tunnel-creation.ts",
     "test:tunnel-creation:lsof": "sudo tsx scripts/test-tunnel-creation.ts --keep-open"
   },
@@ -70,14 +72,18 @@
     "@types/chai": "^5.2.1",
     "@types/chai-as-promised": "^8.0.2",
     "@types/mocha": "^10.0.10",
+    "@types/sinon": "^21.0.0",
     "chai": "^6.0.1",
     "chai-as-promised": "^8.0.1",
     "conventional-changelog-conventionalcommits": "^9.1.0",
     "eslint-plugin-unicorn": "^61.0.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
     "mocha": "^11.1.0",
     "prettier": "^3.5.3",
     "rimraf": "^6.0.1",
     "semantic-release": "^25.0.2",
+    "sinon": "^21.0.0",
     "ts-node": "^10.9.2",
     "tsx": "^4.7.0",
     "typescript": "^5.2.2"
@@ -85,10 +91,11 @@
   "dependencies": {
     "@appium/strongbox": "^1.0.0-rc.1",
     "@appium/support": "^7.0.0-rc.1",
-    "@types/node": "^24.0.10",
+    "@types/node": "^25.0.2",
     "@xmldom/xmldom": "^0.9.8",
     "appium-ios-tuntap": "^0.x",
     "axios": "^1.12.0",
+    "minimatch": "^10.1.1",
     "npm-run-all2": "^8.0.4"
   },
   "files": [
@@ -98,5 +105,11 @@
     "!.DS_Store",
     "CHANGELOG.md",
     "LICENSE"
-  ]
+  ],
+  "lint-staged": {
+    "*.ts": [
+      "eslint --fix",
+      "prettier --write"
+    ]
+  }
 }
