@@ -1,4 +1,5 @@
 #!/usr/bin/env tsx
+import { util } from '@appium/support';
 import { lookup } from 'node:dns/promises';
 import * as tls from 'node:tls';
 
@@ -52,7 +53,9 @@ class AppleTVTunnelService {
     const devices = await this.discoverDevices();
 
     appleTVLog.debug('Step 1: Device Discovery success');
-    appleTVLog.debug(`Found ${devices.length} device(s) via Bonjour`);
+    appleTVLog.debug(
+      `Found ${util.pluralize('device', devices.length, true)} via Bonjour`,
+    );
 
     // List all discovered devices
     if (devices.length > 0) {
