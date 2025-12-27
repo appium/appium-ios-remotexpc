@@ -446,7 +446,7 @@ export class BonjourDiscovery extends EventEmitter {
       return;
     }
 
-    log.info(`Starting Bonjour discovery for ${serviceType}.${domain}`);
+    log.info('Starting Bonjour discovery');
 
     try {
       await this.initializeBrowsing(serviceType, domain);
@@ -482,9 +482,7 @@ export class BonjourDiscovery extends EventEmitter {
     serviceType: string = BONJOUR_SERVICE_TYPES.APPLE_TV_PAIRING,
     domain: string = BONJOUR_DEFAULT_DOMAIN,
   ): Promise<BonjourService> {
-    log.info(
-      `[ServiceResolver] Resolving service: ${serviceName}.${serviceType}.${domain}`,
-    );
+    log.info(`[ServiceResolver] Resolving service: ${serviceName}`);
 
     const service = await executeDnsSdCommand<BonjourService | null>(
       [DNS_SD_COMMANDS.RESOLVE, serviceName, serviceType, domain],
@@ -538,7 +536,7 @@ export class BonjourDiscovery extends EventEmitter {
         case DNS_SD_ACTIONS.ADD:
           this._discoveredServices.set(service.name, service);
           this.emit('serviceAdded', service);
-          log.info(`Discovered service: ${service.name}`);
+          log.debug(`Discovered service: ${service.name}`);
           break;
         case DNS_SD_ACTIONS.REMOVE:
           this._discoveredServices.delete(service.name);

@@ -1,13 +1,13 @@
-import { logger } from '@appium/support';
 import { createInterface } from 'node:readline';
 
+import { getLogger } from '../../logger.js';
 import { PairingError } from '../errors.js';
 import { NETWORK_CONSTANTS } from '../network/constants.js';
 import type { UserInputInterface } from '../pairing-protocol/types.js';
 
 /** Handles user interaction for PIN input during pairing */
 export class UserInputService implements UserInputInterface {
-  private readonly log = logger.getLogger('UserInputService');
+  private readonly log = getLogger('UserInputService');
 
   async promptForPIN(): Promise<string> {
     const rl = createInterface({

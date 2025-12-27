@@ -85,7 +85,7 @@ class MobileConfigService
     // Check if file exists
     try {
       await fs.access(filePath);
-    } catch (error) {
+    } catch {
       throw new Error(`Profile filepath does not exist: ${filePath}`);
     }
 
@@ -163,7 +163,7 @@ class MobileConfigService
       ProfileIdentifier: createPlist(payloadData, true),
     };
 
-    log.info(req);
+    log.debug('Removing profile with request:', req);
 
     await this._sendPlistAndReceive(req);
   }

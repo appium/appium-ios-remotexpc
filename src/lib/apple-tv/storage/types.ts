@@ -1,4 +1,9 @@
-/** Interface for storing pairing credentials to disk */
+export interface PairRecord {
+  publicKey: Buffer;
+  privateKey: Buffer;
+  remoteUnlockHostKey: string;
+}
+
 export interface PairingStorageInterface {
   save(
     deviceId: string,
@@ -6,4 +11,6 @@ export interface PairingStorageInterface {
     ltsk: Buffer,
     remoteUnlockHostKey?: string,
   ): Promise<string>;
+  load(deviceId: string): Promise<PairRecord | null>;
+  getAvailableDeviceIds(): Promise<string[]>;
 }

@@ -19,7 +19,6 @@ export function createAfcReadStream(
   receive: () => Promise<{ status: AfcError; data: Buffer }>,
 ): Readable {
   let left = size;
-  let totalRead = 0n;
 
   return new Readable({
     async read() {
@@ -39,7 +38,6 @@ export function createAfcReadStream(
           return;
         }
 
-        totalRead += BigInt(data.length);
         left -= BigInt(data.length);
 
         this.push(data);

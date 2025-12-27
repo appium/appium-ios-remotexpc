@@ -20,14 +20,6 @@ interface TunnelRegistryEntry {
 }
 
 /**
- * Interface for tunnel and RemoteXPC connection result
- */
-interface TunnelResult {
-  tunnel: TunnelConnection;
-  remoteXPC: RemoteXpcConnection;
-}
-
-/**
  * A wrapper around the tunnel connection that
  * maintains a registry of active tunnels that can be reused.
  */
@@ -256,3 +248,5 @@ export const TunnelManager = new TunnelManagerService();
 // Export packet streaming IPC functionality
 export { PacketStreamClient } from './packet-stream-client.js';
 export { PacketStreamServer } from './packet-stream-server.js';
+// Re-export TunnelConnection type from appium-ios-tuntap
+export type { TunnelConnection };

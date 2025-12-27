@@ -20,5 +20,6 @@ export * from './srp/index.js';
 export * from './network/index.js';
 export * from './pairing-protocol/index.js';
 export * from './storage/index.js';
+export * from './tunnel/index.js';
 export * from './discovery/index.js';
 export * from './pairing/index.js';
