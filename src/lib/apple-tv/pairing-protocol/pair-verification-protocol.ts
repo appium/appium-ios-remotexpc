@@ -175,16 +175,11 @@ export class PairVerificationProtocol {
     }
   }
 
-  private async sendState1(x25519PublicKey: Buffer): Promise<void> {
-    const tlvData = encodeTLV8([
-      {
-        type: PairingDataComponentType.STATE,
-        data: Buffer.from([PAIR_VERIFY_STATES.STATE_01]),
-      },
-      { type: PairingDataComponentType.PUBLIC_KEY, data: x25519PublicKey },
-    ]);
-
-    const payload: PairingRequest = {
+  private createPairingPayload(
+    data: string,
+    startNewSession: boolean,
+  ): PairingRequest {
+    return {
       message: {
         plain: {
           _0: {
@@ -192,9 +187,9 @@ export class PairVerificationProtocol {
               _0: {
                 pairingData: {
                   _0: {
-                    data: tlvData.toString('base64'),
+                    data,
                     kind: 'verifyManualPairing',
-                    startNewSession: true,
+                    startNewSession,
                   },
                 },
               },
@@ -205,6 +200,18 @@ export class PairVerificationProtocol {
       originatedBy: 'host',
       sequenceNumber: this.sequenceNumber++,
     };
+  }
+
+  private async sendState1(x25519PublicKey: Buffer): Promise<void> {
+    const tlvData = encodeTLV8([
+      {
+        type: PairingDataComponentType.STATE,
+        data: Buffer.from([PAIR_VERIFY_STATES.STATE_01]),
+      },
+      { type: PairingDataComponentType.PUBLIC_KEY, data: x25519PublicKey },
+    ]);
+
+    const payload = this.createPairingPayload(tlvData.toString('base64'), true);
 
     await this.networkClient.sendPacket(payload);
   }
@@ -253,27 +260,10 @@ export class PairVerificationProtocol {
       },
     ]);
 
-    const payload: PairingRequest = {
-      message: {
-        plain: {
-          _0: {
-            event: {
-              _0: {
-                pairingData: {
-                  _0: {
-                    data: finalTLV.toString('base64'),
-                    kind: 'verifyManualPairing',
-                    startNewSession: false,
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
-      originatedBy: 'host',
-      sequenceNumber: this.sequenceNumber++,
-    };
+    const payload = this.createPairingPayload(
+      finalTLV.toString('base64'),
+      false,
+    );
 
     await this.networkClient.sendPacket(payload);
   }
