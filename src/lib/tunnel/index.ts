@@ -248,3 +248,5 @@ export const TunnelManager = new TunnelManagerService();
 // Export packet streaming IPC functionality
 export { PacketStreamClient } from './packet-stream-client.js';
 export { PacketStreamServer } from './packet-stream-server.js';
+// Re-export TunnelConnection type from appium-ios-tuntap
+export type { TunnelConnection };
