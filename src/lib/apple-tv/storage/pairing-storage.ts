@@ -53,11 +53,8 @@ export class PairingStorage implements PairingStorageInterface {
     const itemName = `appletv_pairing_${deviceId}`;
 
     try {
-      let item = this.box.getItem(itemName);
-
-      if (!item) {
-        item = await this.box.createItem(itemName);
-      }
+      const item =
+        this.box.getItem(itemName) ?? (await this.box.createItem(itemName));
 
       const pairingData = await item.read();
 
@@ -111,7 +108,7 @@ export class PairingStorage implements PairingStorageInterface {
       );
       return deviceIds;
     } catch (error) {
-      this.log.error('Error getting available device IDs:', error);
+      this.log.debug('Error getting available device IDs:', error);
       return [];
     }
   }
