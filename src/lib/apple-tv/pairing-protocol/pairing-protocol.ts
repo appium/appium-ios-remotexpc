@@ -36,9 +36,10 @@ import type {
   UserInputInterface,
 } from './types.js';
 
+const log = getLogger('PairingProtocol');
+
 /** Implements the Apple TV pairing protocol including SRP authentication and key exchange */
 export class PairingProtocol implements PairingProtocolInterface {
-  private static readonly log = getLogger('PairingProtocol');
   private _sequenceNumber = 0;
 
   constructor(
@@ -81,7 +82,7 @@ export class PairingProtocol implements PairingProtocolInterface {
 
       return this.createPairingResult(device, ltpk, ltsk);
     } catch (error) {
-      PairingProtocol.log.error('Pairing flow failed:', error);
+      log.error('Pairing flow failed:', error);
       throw error;
     }
   }
@@ -136,7 +137,7 @@ export class PairingProtocol implements PairingProtocolInterface {
     const request = this.createHandshakeRequest();
     await this.networkClient.sendPacket(request);
     await this.networkClient.receiveResponse();
-    PairingProtocol.log.debug('Handshake completed');
+    log.debug('Handshake completed');
   }
 
   /**
@@ -150,7 +151,7 @@ export class PairingProtocol implements PairingProtocolInterface {
 
     const failedRequest = this.createPairVerifyFailedRequest();
     await this.networkClient.sendPacket(failedRequest);
-    PairingProtocol.log.debug('Pair verification attempt completed');
+    log.debug('Pair verification attempt completed');
   }
 
   /**
@@ -162,7 +163,7 @@ export class PairingProtocol implements PairingProtocolInterface {
     const request = this.createSetupManualPairingRequest();
     await this.networkClient.sendPacket(request);
     const response = await this.networkClient.receiveResponse();
-    PairingProtocol.log.debug('Manual pairing setup completed');
+    log.debug('Manual pairing setup completed');
     return response;
   }
 
@@ -201,7 +202,7 @@ export class PairingProtocol implements PairingProtocolInterface {
     const response = await this.networkClient.receiveResponse();
     this.validateSRPProofResponse(response);
 
-    PairingProtocol.log.debug('SRP authentication completed');
+    log.debug('SRP authentication completed');
     return srpClient;
   }
 
@@ -212,12 +213,12 @@ export class PairingProtocol implements PairingProtocolInterface {
    */
   private async receiveM6Completion(decryptKey: Buffer): Promise<void> {
     const m6Response = await this.networkClient.receiveResponse();
-    PairingProtocol.log.info('M6 Response received');
+    log.info('M6 Response received');
 
     try {
       this.processM6Response(m6Response, decryptKey);
     } catch (error) {
-      PairingProtocol.log.warn(
+      log.warn(
         'M6 decryption failed - but pairing may still be successful:',
         (error as Error).message,
       );
@@ -568,16 +569,14 @@ export class PairingProtocol implements PairingProtocolInterface {
     const m6TLVBuffer = Buffer.from(m6DataBase64, 'base64');
     const m6Parsed = decodeTLV8ToDict(m6TLVBuffer);
 
-    PairingProtocol.log.debug(
+    log.debug(
       'M6 TLV types received:',
       Object.keys(m6Parsed).map((k) => `0x${Number(k).toString(16)}`),
     );
 
     const stateData = m6Parsed[PairingDataComponentType.STATE];
     if (stateData && stateData[0] === PAIRING_STATES.M6) {
-      PairingProtocol.log.info(
-        '✅ Pairing completed successfully (STATE=0x06)',
-      );
+      log.info('✅ Pairing completed successfully (STATE=0x06)');
     }
 
     const encryptedData = m6Parsed[PairingDataComponentType.ENCRYPTED_DATA];
@@ -589,10 +588,7 @@ export class PairingProtocol implements PairingProtocolInterface {
         nonce,
       });
       const decryptedTLV = decodeTLV8ToDict(decrypted);
-      PairingProtocol.log.debug(
-        'M6 decrypted content types:',
-        Object.keys(decryptedTLV),
-      );
+      log.debug('M6 decrypted content types:', Object.keys(decryptedTLV));
     }
   }
 
@@ -610,7 +606,7 @@ export class PairingProtocol implements PairingProtocolInterface {
       length: 32,
     });
 
-    PairingProtocol.log.debug('Derived encryption keys');
+    log.debug('Derived encryption keys');
     return {
       encryptKey: sharedKey,
       decryptKey: sharedKey,

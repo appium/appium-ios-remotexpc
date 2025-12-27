@@ -22,6 +22,8 @@ import {
 } from './constants.js';
 import type { PairingRequest } from './types.js';
 
+const log = getLogger('PairVerificationProtocol');
+
 export interface VerificationKeys {
   encryptionKey: Buffer;
   clientEncryptionKey: Buffer;
@@ -29,7 +31,6 @@ export interface VerificationKeys {
 }
 
 export class PairVerificationProtocol {
-  private static readonly log = getLogger('PairVerificationProtocol');
   private readonly hostIdentifier: string;
   private sequenceNumber: number = 0;
 
@@ -41,15 +42,11 @@ export class PairVerificationProtocol {
     pairRecord: PairRecord,
     deviceId: string,
   ): Promise<VerificationKeys> {
-    PairVerificationProtocol.log.debug(
-      'Starting pair verification (4-step process)',
-    );
+    log.debug('Starting pair verification (4-step process)');
 
     const { publicKey, privateKey } = generateX25519KeyPair();
 
-    PairVerificationProtocol.log.debug(
-      '  - STATE=1: Send X25519 public key to device',
-    );
+    log.debug('  - STATE=1: Send X25519 public key to device');
     await this.sendState1(publicKey);
 
     const devicePublicKey = await this.processState2Response();
@@ -57,10 +54,10 @@ export class PairVerificationProtocol {
     const sharedSecret = this.computeSharedSecret(privateKey, devicePublicKey);
     const pairVerifyKey = this.derivePairVerifyKey(sharedSecret);
 
-    PairVerificationProtocol.log.debug(
+    log.debug(
       '  - STATE=3: Send encrypted signature using Ed25519 private key from pair record',
     );
-    PairVerificationProtocol.log.debug(`    Using pair record: ${deviceId}`);
+    log.debug(`    Using pair record: ${deviceId}`);
 
     await this.sendState3(
       pairRecord,
@@ -71,9 +68,7 @@ export class PairVerificationProtocol {
 
     await this.validateState4Response();
 
-    PairVerificationProtocol.log.debug(
-      '  - STATE=4: Receive verification success from device',
-    );
+    log.debug('  - STATE=4: Receive verification success from device');
 
     return this.deriveEncryptionKeys(sharedSecret);
   }
@@ -103,7 +98,7 @@ export class PairVerificationProtocol {
     if (tlvData[PairingDataComponentType.ERROR]) {
       const errorCode = tlvData[PairingDataComponentType.ERROR] as Buffer;
       const errorDecimal = errorCode[0];
-      PairVerificationProtocol.log.error(
+      log.error(
         `Device returned error in STATE=2: ${errorCode.toString('hex')} (decimal: ${errorDecimal})`,
       );
       throw new PairingError(
@@ -120,9 +115,7 @@ export class PairVerificationProtocol {
       );
     }
 
-    PairVerificationProtocol.log.debug(
-      ' - STATE=2: Receive devices X25519 public key + encrypted data',
-    );
+    log.debug(' - STATE=2: Receive devices X25519 public key + encrypted data');
 
     return devicePublicKey;
   }
@@ -171,12 +164,10 @@ export class PairVerificationProtocol {
       const errorDescription =
         errorDescriptions[errorDecimal] || 'Unknown error';
 
-      PairVerificationProtocol.log.error(
+      log.error(
         `Device returned error in STATE=4: ${errorCode.toString('hex')} (decimal: ${errorDecimal})`,
       );
-      PairVerificationProtocol.log.error(
-        `Error description: ${errorDescription}`,
-      );
+      log.error(`Error description: ${errorDescription}`);
       throw new PairingError(
         `Pair verification failed: ${errorDescription}`,
         'STATE_4_ERROR',
@@ -288,7 +279,7 @@ export class PairVerificationProtocol {
   }
 
   private deriveEncryptionKeys(sharedSecret: Buffer): VerificationKeys {
-    PairVerificationProtocol.log.debug('Deriving main encryption keys');
+    log.debug('Deriving main encryption keys');
 
     const clientEncryptionKey = hkdf({
       ikm: sharedSecret,
@@ -304,9 +295,7 @@ export class PairVerificationProtocol {
       length: 32,
     });
 
-    PairVerificationProtocol.log.debug(
-      'Derived client/server encryption keys using HKDF',
-    );
+    log.debug('Derived client/server encryption keys using HKDF');
 
     return {
       encryptionKey: sharedSecret,
