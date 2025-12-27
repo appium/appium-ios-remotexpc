@@ -1,8 +1,13 @@
 #!/usr/bin/env tsx
-import { getLogger } from '../src/lib/logger.js';
 import { lookup } from 'node:dns/promises';
 import * as tls from 'node:tls';
 
+import {
+  PacketStreamServer,
+  type TunnelConnection,
+  TunnelManager,
+  TunnelRegistry,
+} from '../src/index.js';
 import { DEFAULT_PAIRING_CONFIG } from '../src/lib/apple-tv/constants.js';
 import { NetworkClient } from '../src/lib/apple-tv/network/index.js';
 import {
@@ -12,16 +17,21 @@ import {
 import { PairingStorage } from '../src/lib/apple-tv/storage/pairing-storage.js';
 import type { PairRecord } from '../src/lib/apple-tv/storage/types.js';
 import { TunnelService } from '../src/lib/apple-tv/tunnel/tunnel-service.js';
-import { BonjourDiscovery, type AppleTVDevice } from '../src/lib/bonjour/bonjour-discovery.js';
-import { TunnelManager, PacketStreamServer, type TunnelConnection } from '../src/index.js';
-import type { TunnelRegistry } from '../src/index.js';
-import { startTunnelRegistryServer, DEFAULT_TUNNEL_REGISTRY_PORT } from '../src/lib/tunnel/tunnel-registry-server.js';
+import {
+  type AppleTVDevice,
+  BonjourDiscovery,
+} from '../src/lib/bonjour/bonjour-discovery.js';
+import { getLogger } from '../src/lib/logger.js';
+import {
+  DEFAULT_TUNNEL_REGISTRY_PORT,
+  startTunnelRegistryServer,
+} from '../src/lib/tunnel/tunnel-registry-server.js';
 
 const log = getLogger('WiFiTunnel');
+const appleTVLog = getLogger('AppleTVTunnelService');
 const PACKET_STREAM_PORT = 50100;
 
 class AppleTVTunnelService {
-  private logger = getLogger('AppleTVTunnelService');
   private networkClient: NetworkClient;
   private storage: PairingStorage;
   private sequenceNumber = 0;
@@ -35,21 +45,24 @@ class AppleTVTunnelService {
     this.networkClient.disconnect();
   }
 
-  async startTunnel(deviceId?: string, specificDeviceIdentifier?: string): Promise<{ socket: tls.TLSSocket; device: AppleTVDevice }> {
+  async startTunnel(
+    deviceId?: string,
+    specificDeviceIdentifier?: string,
+  ): Promise<{ socket: tls.TLSSocket; device: AppleTVDevice }> {
     const devices = await this.discoverDevices();
 
-    this.logger.debug('Step 1: Device Discovery success');
-    this.logger.debug(`Found ${devices.length} device(s) via Bonjour`);
+    appleTVLog.debug('Step 1: Device Discovery success');
+    appleTVLog.debug(`Found ${devices.length} device(s) via Bonjour`);
 
     // List all discovered devices
     if (devices.length > 0) {
-      this.logger.info('\nDiscovered Apple TV devices:');
+      appleTVLog.info('\nDiscovered Apple TV devices:');
       devices.forEach((device, index) => {
-        this.logger.info(`  ${index + 1}. Identifier: ${device.identifier}`);
-        this.logger.info(`     Name: ${device.name}`);
-        this.logger.info(`     IP: ${device.ip}:${device.port}`);
-        this.logger.info(`     Model: ${device.model}`);
-        this.logger.info(`     Version: ${device.version}`);
+        appleTVLog.info(`  ${index + 1}. Identifier: ${device.identifier}`);
+        appleTVLog.info(`     Name: ${device.name}`);
+        appleTVLog.info(`     IP: ${device.ip}:${device.port}`);
+        appleTVLog.info(`     Model: ${device.model}`);
+        appleTVLog.info(`     Version: ${device.version}`);
       });
     }
 
@@ -57,21 +70,25 @@ class AppleTVTunnelService {
     let devicesToProcess = devices;
     if (specificDeviceIdentifier) {
       devicesToProcess = devices.filter(
-        (device) => device.identifier === specificDeviceIdentifier
+        (device) => device.identifier === specificDeviceIdentifier,
       );
 
       if (devicesToProcess.length === 0) {
-        this.logger.error(`\nDevice with identifier ${specificDeviceIdentifier} not found in discovered devices.`);
-        this.logger.error('Available devices:');
+        appleTVLog.error(
+          `\nDevice with identifier ${specificDeviceIdentifier} not found in discovered devices.`,
+        );
+        appleTVLog.error('Available devices:');
         devices.forEach((device) => {
-          this.logger.error(`  - ${device.identifier} (${device.name})`);
+          appleTVLog.error(`  - ${device.identifier} (${device.name})`);
         });
         throw new Error(
-          `Device with identifier ${specificDeviceIdentifier} not found. Please check available devices above.`
+          `Device with identifier ${specificDeviceIdentifier} not found. Please check available devices above.`,
         );
       }
 
-      this.logger.info(`\nFiltered to specific device: ${specificDeviceIdentifier}`);
+      appleTVLog.info(
+        `\nFiltered to specific device: ${specificDeviceIdentifier}`,
+      );
     }
 
     const availableDeviceIds = await this.storage.getAvailableDeviceIds();
@@ -89,13 +106,18 @@ class AppleTVTunnelService {
       const identifiersToTry = deviceId ? [deviceId] : availableDeviceIds;
 
       for (const identifier of identifiersToTry) {
-        this.logger.debug(`\n--- Attempting connection with pair record: ${identifier} ---`);
-        this.logger.debug(`Device: ${device.ip}:${device.port}`);
+        appleTVLog.debug(
+          `\n--- Attempting connection with pair record: ${identifier} ---`,
+        );
+        appleTVLog.debug(`Device: ${device.ip}:${device.port}`);
 
         const pairRecord = await this.storage.load(identifier);
         if (!pairRecord) {
-          this.logger.debug(`Failed to load pair record for ${identifier}`);
-          failedAttempts.push({ identifier, error: 'Failed to load pair record' });
+          appleTVLog.debug(`Failed to load pair record for ${identifier}`);
+          failedAttempts.push({
+            identifier,
+            error: 'Failed to load pair record',
+          });
           continue;
         }
 
@@ -106,42 +128,61 @@ class AppleTVTunnelService {
           try {
             await this.performHandshake();
 
-            const keys = await this.performPairVerification(pairRecord, identifier);
-            this.logger.info(`✅ Successfully verified with pair record: ${identifier}`);
+            const keys = await this.performPairVerification(
+              pairRecord,
+              identifier,
+            );
+            appleTVLog.info(
+              `✅ Successfully verified with pair record: ${identifier}`,
+            );
 
             const listenerInfo = await this.createTcpListener(keys);
             this.networkClient.disconnect();
 
-            const tlsSocket = await this.createTlsPskConnection(device.ip!, listenerInfo.port, keys);
+            const tlsSocket = await this.createTlsPskConnection(
+              device.ip!,
+              listenerInfo.port,
+              keys,
+            );
 
-            this.logger.debug('Step 6: Tunnel Establishment success');
-            this.logger.info(`🔑 Using pair record: ${identifier}`);
-            this.logger.info(`📱 Connected to device: ${device.identifier} (${device.name})`);
-            this.logger.info(`   IP: ${device.ip}:${device.port}`);
+            appleTVLog.debug('Step 6: Tunnel Establishment success');
+            appleTVLog.info(`🔑 Using pair record: ${identifier}`);
+            appleTVLog.info(
+              `📱 Connected to device: ${device.identifier} (${device.name})`,
+            );
+            appleTVLog.info(`   IP: ${device.ip}:${device.port}`);
 
             return { socket: tlsSocket, device };
           } catch (error: any) {
             const errorMessage = error.message || String(error);
-            this.logger.debug(`❌ Failed with pair record ${identifier}: ${errorMessage}`);
+            appleTVLog.debug(
+              `❌ Failed with pair record ${identifier}: ${errorMessage}`,
+            );
             failedAttempts.push({ identifier, error: errorMessage });
             this.networkClient.disconnect();
             await new Promise((resolve) => setTimeout(resolve, 500));
           }
         } catch (connectionError: any) {
-          const errorMessage = connectionError.message || String(connectionError);
-          this.logger.debug(`Failed to connect to ${device.ip}:${device.port}: ${errorMessage}`);
-          failedAttempts.push({ identifier, error: `Connection failed: ${errorMessage}` });
+          const errorMessage =
+            connectionError.message || String(connectionError);
+          appleTVLog.debug(
+            `Failed to connect to ${device.ip}:${device.port}: ${errorMessage}`,
+          );
+          failedAttempts.push({
+            identifier,
+            error: `Connection failed: ${errorMessage}`,
+          });
           this.networkClient.disconnect();
         }
       }
     }
 
-    this.logger.error('\n=== Pair Record Verification Summary ===');
-    this.logger.error(`Total pair records tried: ${failedAttempts.length}`);
+    appleTVLog.error('\n=== Pair Record Verification Summary ===');
+    appleTVLog.error(`Total pair records tried: ${failedAttempts.length}`);
     failedAttempts.forEach(({ identifier, error }) => {
-      this.logger.error(`  - ${identifier}: ${error}`);
+      appleTVLog.error(`  - ${identifier}: ${error}`);
     });
-    this.logger.error('=======================================\n');
+    appleTVLog.error('=======================================\n');
 
     throw new Error(
       'Failed to establish tunnel with any pair record. All authentication attempts failed.',
@@ -152,7 +193,9 @@ class AppleTVTunnelService {
     const discovery = new BonjourDiscovery();
 
     await discovery.startBrowsing('_remotepairing._tcp', 'local');
-    await new Promise((resolve) => setTimeout(resolve, DEFAULT_PAIRING_CONFIG.discoveryTimeout));
+    await new Promise((resolve) =>
+      setTimeout(resolve, DEFAULT_PAIRING_CONFIG.discoveryTimeout),
+    );
 
     const services = discovery.getDiscoveredServices();
     const devices: AppleTVDevice[] = [];
@@ -167,7 +210,9 @@ class AppleTVTunnelService {
 
         if (resolved.hostname && resolved.port) {
           const ipResult = await lookup(
-            resolved.hostname.endsWith('.') ? resolved.hostname.slice(0, -1) : resolved.hostname,
+            resolved.hostname.endsWith('.')
+              ? resolved.hostname.slice(0, -1)
+              : resolved.hostname,
             { family: 4 },
           );
 
@@ -183,7 +228,7 @@ class AppleTVTunnelService {
           });
         }
       } catch (err) {
-        this.logger.debug(`Failed to resolve service ${service.name}: ${err}`);
+        appleTVLog.debug(`Failed to resolve service ${service.name}: ${err}`);
       }
     }
 
@@ -221,14 +266,14 @@ class AppleTVTunnelService {
     await this.networkClient.sendPacket(handshakePayload);
     await this.networkClient.receiveResponse();
 
-    this.logger.debug('Step 2: Initial Connection & Handshake success');
+    appleTVLog.debug('Step 2: Initial Connection & Handshake success');
   }
 
   private async performPairVerification(
     pairRecord: PairRecord,
     deviceId: string,
   ): Promise<VerificationKeys> {
-    this.logger.debug('Step 3: Pair Verification (4-step process)');
+    appleTVLog.debug('Step 3: Pair Verification (4-step process)');
 
     const verificationProtocol = new PairVerificationProtocol(
       this.networkClient,
@@ -238,7 +283,7 @@ class AppleTVTunnelService {
 
     this.sequenceNumber = verificationProtocol.getSequenceNumber();
 
-    this.logger.debug('Step 4: Main Encryption Key Derivation success');
+    appleTVLog.debug('Step 4: Main Encryption Key Derivation success');
 
     return keys;
   }
@@ -246,9 +291,13 @@ class AppleTVTunnelService {
   private async createTcpListener(
     keys: VerificationKeys,
   ): Promise<{ port: number; serviceName: string; devicePublicKey: string }> {
-    this.logger.debug('Step 5: TCP Listener Creation (Encrypted Request)');
+    appleTVLog.debug('Step 5: TCP Listener Creation (Encrypted Request)');
 
-    const tunnelService = new TunnelService(this.networkClient, keys, this.sequenceNumber);
+    const tunnelService = new TunnelService(
+      this.networkClient,
+      keys,
+      this.sequenceNumber,
+    );
     const listenerInfo = await tunnelService.createTcpListener();
 
     this.sequenceNumber = tunnelService.getSequenceNumber();
@@ -261,7 +310,11 @@ class AppleTVTunnelService {
     port: number,
     keys: VerificationKeys,
   ): Promise<tls.TLSSocket> {
-    const tunnelService = new TunnelService(this.networkClient, keys, this.sequenceNumber);
+    const tunnelService = new TunnelService(
+      this.networkClient,
+      keys,
+      this.sequenceNumber,
+    );
     return tunnelService.createTlsPskConnection(hostname, port);
   }
 }
@@ -331,7 +384,10 @@ async function main(): Promise<void> {
 
   try {
     log.info('Starting Apple TV tunnel...');
-    const result = await tunnelService.startTunnel(undefined, specificDeviceIdentifier);
+    const result = await tunnelService.startTunnel(
+      undefined,
+      specificDeviceIdentifier,
+    );
     tlsSocket = result.socket;
     deviceInfo = result.device;
 
@@ -371,7 +427,7 @@ async function main(): Promise<void> {
           deviceId: 0,
           address: tunnel.Address,
           rsdPort: tunnel.RsdPort ?? 0,
-          packetStreamPort: packetStreamPort,
+          packetStreamPort,
           connectionType: 'WiFi',
           productId: 0,
           createdAt: now,
@@ -394,9 +450,13 @@ async function main(): Promise<void> {
     log.info('==========================');
 
     log.info('\n📁 Tunnel registry API:');
-    log.info(`   http://localhost:${DEFAULT_TUNNEL_REGISTRY_PORT}/remotexpc/tunnels`);
+    log.info(
+      `   http://localhost:${DEFAULT_TUNNEL_REGISTRY_PORT}/remotexpc/tunnels`,
+    );
     log.info('   - GET /remotexpc/tunnels - List all tunnels');
-    log.info(`   - GET /remotexpc/tunnels/${deviceInfo.identifier} - Get tunnel by identifier`);
+    log.info(
+      `   - GET /remotexpc/tunnels/${deviceInfo.identifier} - Get tunnel by identifier`,
+    );
     log.info('   - GET /remotexpc/tunnels/metadata - Get registry metadata');
 
     log.info('\n✅ Apple TV tunnel is ready!');
