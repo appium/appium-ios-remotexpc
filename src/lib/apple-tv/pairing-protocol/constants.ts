@@ -33,5 +33,16 @@ export const ENCRYPTION_MESSAGES = {
   SERVER_ENCRYPT: 'ServerEncrypt-main',
 } as const;
 
+/** Error descriptions for pair verification STATE=4 errors */
+export const PAIR_VERIFY_ERROR_DESCRIPTIONS: Record<number, string> = {
+  1: 'Unknown error',
+  2: 'Authentication failed - invalid pair record',
+  3: 'Backoff - too many attempts',
+  4: 'Max peers - device has too many connections',
+  5: 'Max tries exceeded',
+  6: 'Service unavailable',
+  7: 'Device busy',
+} as const;
+
 /** TLV type for device info */
 export const INFO_TYPE = 0x11;

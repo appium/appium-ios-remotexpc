@@ -17,6 +17,7 @@ import { decodeTLV8ToDict, encodeTLV8 } from '../tlv/index.js';
 import { generateHostId } from '../utils/uuid-generator.js';
 import {
   ENCRYPTION_MESSAGES,
+  PAIR_VERIFY_ERROR_DESCRIPTIONS,
   PAIR_VERIFY_MESSAGES,
   PAIR_VERIFY_STATES,
 } from './constants.js';
@@ -151,18 +152,8 @@ export class PairVerificationProtocol {
       const errorCode = state4TLV[PairingDataComponentType.ERROR] as Buffer;
       const errorDecimal = errorCode[0];
 
-      const errorDescriptions: Record<number, string> = {
-        1: 'Unknown error',
-        2: 'Authentication failed - invalid pair record',
-        3: 'Backoff - too many attempts',
-        4: 'Max peers - device has too many connections',
-        5: 'Max tries exceeded',
-        6: 'Service unavailable',
-        7: 'Device busy',
-      };
-
       const errorDescription =
-        errorDescriptions[errorDecimal] || 'Unknown error';
+        PAIR_VERIFY_ERROR_DESCRIPTIONS[errorDecimal] || 'Unknown error';
 
       log.error(
         `Device returned error in STATE=4: ${errorCode.toString('hex')} (decimal: ${errorDecimal})`,
