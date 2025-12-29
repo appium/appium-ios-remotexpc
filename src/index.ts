@@ -24,6 +24,7 @@ export type {
   WebInspectorService,
   MisagentService,
   SyslogService,
+  HouseArrestService,
   DVTSecureSocketProxyService,
   LocationSimulationService,
   ConditionInducerService,

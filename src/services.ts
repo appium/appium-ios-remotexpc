@@ -26,6 +26,7 @@ import { LocationSimulation } from './services/ios/dvt/instruments/location-simu
 import { NetworkMonitor } from './services/ios/dvt/instruments/network-monitor.js';
 import { Notifications } from './services/ios/dvt/instruments/notifications.js';
 import { Screenshot } from './services/ios/dvt/instruments/screenshot.js';
+import { HouseArrestService } from './services/ios/house-arrest/index.js';
 import { MisagentService } from './services/ios/misagent/index.js';
 import { MobileConfigService } from './services/ios/mobile-config/index.js';
 import MobileImageMounterService from './services/ios/mobile-image-mounter/index.js';
@@ -167,6 +168,19 @@ export async function startAfcService(udid: string): Promise<AfcService> {
   return new AfcService([
     tunnelConnection.host,
     parseInt(afcDescriptor.port, 10),
+  ]);
+}
+
+export async function startHouseArrestService(
+  udid: string,
+): Promise<HouseArrestService> {
+  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
+  const houseArrestDescriptor = remoteXPC.findService(
+    HouseArrestService.RSD_SERVICE_NAME,
+  );
+  return new HouseArrestService([
+    tunnelConnection.host,
+    parseInt(houseArrestDescriptor.port, 10),
   ]);
 }
 
