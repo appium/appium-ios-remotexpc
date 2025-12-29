@@ -4,9 +4,12 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
+import type {
+  HouseArrestService,
+  HouseArrestServiceWithConnection,
+} from '../../src/index.js';
 import * as Services from '../../src/services.js';
 import { AfcService } from '../../src/services/ios/afc/index.js';
-import { HouseArrestService } from '../../src/services/ios/house-arrest/index.js';
 
 const log = logger.getLogger('HouseArrestService.test');
 log.level = 'debug';
@@ -20,31 +23,20 @@ describe('House Arrest Service', function () {
   // download Adobe Acrobat from App Store
   const adobeReader = 'com.adobe.Adobe-Reader'; // used by vendDocuments test
 
-  let remoteXPC: any;
+  let serviceWithConnection: HouseArrestServiceWithConnection;
   let houseArrestService: HouseArrestService;
 
   before(async function () {
-    const { remoteXPC: rxpc, tunnelConnection } =
-      await Services.createRemoteXPCConnection(udid);
-    remoteXPC = rxpc;
-
-    const houseArrestDescriptor = remoteXPC.findService(
-      HouseArrestService.RSD_SERVICE_NAME,
-    );
-    houseArrestService = new HouseArrestService([
-      tunnelConnection.host,
-      parseInt(houseArrestDescriptor.port, 10),
-    ]);
+    if (!udid) {
+      throw new Error('Set UDID env var to execute tests.');
+    }
+    serviceWithConnection = await Services.startHouseArrestService(udid);
+    houseArrestService = serviceWithConnection.houseArrestService;
   });
 
   after(async function () {
-    if (remoteXPC) {
-      try {
-        await remoteXPC.close();
-        log.info('House Arrest service connection closed');
-      } catch (error) {
-        log.warn('Error during cleanup:', error);
-      }
+    if (serviceWithConnection) {
+      await serviceWithConnection.remoteXPC.close();
     }
   });
 

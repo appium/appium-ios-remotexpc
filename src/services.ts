@@ -6,6 +6,7 @@ import { TunnelApiClient } from './lib/tunnel/tunnel-api-client.js';
 import type {
   DVTServiceWithConnection,
   DiagnosticsServiceWithConnection,
+  HouseArrestServiceWithConnection,
   MisagentServiceWithConnection,
   MobileConfigServiceWithConnection,
   MobileImageMounterServiceWithConnection,
@@ -173,15 +174,18 @@ export async function startAfcService(udid: string): Promise<AfcService> {
 
 export async function startHouseArrestService(
   udid: string,
-): Promise<HouseArrestService> {
+): Promise<HouseArrestServiceWithConnection> {
   const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
   const houseArrestDescriptor = remoteXPC.findService(
     HouseArrestService.RSD_SERVICE_NAME,
   );
-  return new HouseArrestService([
-    tunnelConnection.host,
-    parseInt(houseArrestDescriptor.port, 10),
-  ]);
+  return {
+    remoteXPC: remoteXPC as RemoteXpcConnection,
+    houseArrestService: new HouseArrestService([
+      tunnelConnection.host,
+      parseInt(houseArrestDescriptor.port, 10),
+    ]),
+  };
 }
 
 export async function startWebInspectorService(

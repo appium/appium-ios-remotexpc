@@ -1317,6 +1317,16 @@ export interface MobileImageMounterServiceWithConnection {
 }
 
 /**
+ * Represents a HouseArrestService instance with its associated RemoteXPC connection
+ */
+export interface HouseArrestServiceWithConnection {
+  /** The HouseArrestService instance */
+  houseArrestService: HouseArrestService;
+  /** The RemoteXPC connection for service management */
+  remoteXPC: RemoteXpcConnection;
+}
+
+/**
  * Represents the instance side of SpringboardService
  */
 export interface SpringboardService extends BaseService {

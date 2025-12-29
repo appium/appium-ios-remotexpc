@@ -40,6 +40,7 @@ export type {
   TunnelRegistry,
   TunnelRegistryEntry,
   DiagnosticsServiceWithConnection,
+  HouseArrestServiceWithConnection,
   MobileImageMounterServiceWithConnection,
   NotificationProxyServiceWithConnection,
   MobileConfigServiceWithConnection,
