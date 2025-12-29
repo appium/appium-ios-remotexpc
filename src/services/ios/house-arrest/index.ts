@@ -64,25 +64,21 @@ export class HouseArrestService extends BaseService {
         Identifier: bundleId,
       });
 
-      const error = response.Error;
+      const { Error: error, Status: status } = response;
+
+      if (error === 'ApplicationLookupFailed') {
+        throw new Error(`Application not installed: ${bundleId}`);
+      }
+      if (error === 'InstallationLookupFailed' && command === VEND_DOCUMENTS) {
+        throw new Error(
+          `App '${bundleId}' may not have iTunes File Sharing enabled. Try vendContainer() instead.`,
+        );
+      }
       if (error) {
-        if (error === 'ApplicationLookupFailed') {
-          throw new Error(`Application not installed: ${bundleId}`);
-        }
-        if (error === 'InstallationLookupFailed') {
-          if (command === VEND_DOCUMENTS) {
-            throw new Error(
-              `VendDocuments failed for ${bundleId}. This app may not have iTunes File Sharing enabled (UIFileSharingEnabled). Try using vendContainer() instead.`,
-            );
-          }
-        }
         throw new Error(`House Arrest vend failed: ${error}`);
       }
-
-      if (response.Status !== 'Complete') {
-        throw new Error(
-          `House Arrest vend failed with status: ${response.Status}`,
-        );
+      if (status !== 'Complete') {
+        throw new Error(`House Arrest vend failed with status: ${status}`);
       }
 
       log.debug(`Successfully vended into ${bundleId}`);
