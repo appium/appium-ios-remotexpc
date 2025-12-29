@@ -94,6 +94,21 @@ export class AfcService {
   }
 
   /**
+   * Create an AfcService from an existing connected socket.
+   *
+   * @param socket - An already connected socket in AFC mode
+   * @param silent - If true, suppress error logging
+   * @returns A new AfcService instance using the provided socket
+   */
+  static fromSocket(socket: net.Socket, silent?: boolean): AfcService {
+    const remoteAddress = socket.remoteAddress || 'localhost';
+    const remotePort = socket.remotePort || 0;
+    const service = new AfcService([remoteAddress, remotePort], silent);
+    service.socket = socket;
+    return service;
+  }
+
+  /**
    * List directory entries. Returned entries do not include '.' and '..'
    */
   async listdir(dirPath: string): Promise<string[]> {

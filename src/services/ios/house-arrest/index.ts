@@ -1,5 +1,3 @@
-import net from 'node:net';
-
 import { getLogger } from '../../../lib/logger.js';
 import AfcService from '../afc/index.js';
 import { BaseService } from '../base-service.js';
@@ -89,36 +87,13 @@ export class HouseArrestService extends BaseService {
 
       log.debug(`Successfully vended into ${bundleId}`);
 
-      const socket = connection.getSocket();
-
-      return this._createAfcServiceFromSocket(socket);
+      return AfcService.fromSocket(connection.getSocket());
     } catch (error) {
       try {
         connection.close();
       } catch {}
       throw error;
     }
-  }
-
-  /**
-   * Create an AfcService from a socket that's ready for AFC communication.
-   *
-   * After the house arrest vend operation succeeds, the socket transitions
-   * from plist protocol to raw AFC protocol.
-   *
-   * @param socket - The socket in AFC mode
-   * @returns AfcService instance
-   * @private
-   */
-  private _createAfcServiceFromSocket(socket: net.Socket): AfcService {
-    const remoteAddress = socket.remoteAddress || 'localhost';
-    const remotePort = socket.remotePort || 0;
-
-    const afcService = new AfcService([remoteAddress, remotePort]);
-
-    (afcService as any).socket = socket;
-
-    return afcService;
   }
 
   private getServiceConfig(): { serviceName: string; port: string } {
