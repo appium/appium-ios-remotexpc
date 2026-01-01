@@ -212,63 +212,17 @@ export class AppleTVTunnelService {
     specificDeviceIdentifier?: string,
   ): Promise<{ socket: tls.TLSSocket; device: AppleTVDevice }> {
     const devices = await this.discoverDevices();
+    this.logDiscoveredDevices(devices);
 
-    appleTVLog.debug('Step 1: Device Discovery success');
-    appleTVLog.debug(
-      `Found ${util.pluralize('device', devices.length, true)} via Bonjour`,
+    const devicesToProcess = this.selectDevicesToProcess(
+      devices,
+      specificDeviceIdentifier,
     );
-
-    // List all discovered devices
-    if (devices.length > 0) {
-      appleTVLog.info('\nDiscovered Apple TV devices:');
-      devices.forEach((device, index) => {
-        appleTVLog.info(`  ${index + 1}. Identifier: ${device.identifier}`);
-        appleTVLog.info(`     Name: ${device.name}`);
-        appleTVLog.info(`     IP: ${device.ip}:${device.port}`);
-        appleTVLog.info(`     Model: ${device.model}`);
-        appleTVLog.info(`     Version: ${device.version}`);
-      });
-    }
-
-    // Filter devices by identifier if specified
-    let devicesToProcess = devices;
-    if (specificDeviceIdentifier) {
-      devicesToProcess = devices.filter(
-        (device) => device.identifier === specificDeviceIdentifier,
-      );
-
-      if (devicesToProcess.length === 0) {
-        appleTVLog.error(
-          `\nDevice with identifier ${specificDeviceIdentifier} not found in discovered devices.`,
-        );
-        appleTVLog.error('Available devices:');
-        devices.forEach((device) => {
-          appleTVLog.error(`  - ${device.identifier} (${device.name})`);
-        });
-        throw new Error(
-          `Device with identifier ${specificDeviceIdentifier} not found. Please check available devices above.`,
-        );
-      }
-
-      appleTVLog.info(
-        `\nFiltered to specific device: ${specificDeviceIdentifier}`,
-      );
-    }
-
-    const availableDeviceIds = await this.storage.getAvailableDeviceIds();
-    if (availableDeviceIds.length === 0) {
-      throw new Error('No pair records found');
-    }
-
-    if (deviceId && !availableDeviceIds.includes(deviceId)) {
-      throw new Error(`No pair record found for specified device ${deviceId}`);
-    }
+    const identifiersToTry = await this.validateAndGetPairRecords(deviceId);
 
     const failedAttempts: { identifier: string; error: string }[] = [];
 
     for (const device of devicesToProcess) {
-      const identifiersToTry = deviceId ? [deviceId] : availableDeviceIds;
-
       for (const identifier of identifiersToTry) {
         appleTVLog.debug(
           `\n--- Attempting connection with pair record: ${identifier} ---`,
@@ -285,72 +239,175 @@ export class AppleTVTunnelService {
           continue;
         }
 
-        try {
-          this.sequenceNumber = 0;
-          await this.networkClient.connect(device.ip!, device.port);
+        const result = await this.attemptDeviceConnection(
+          device,
+          identifier,
+          pairRecord,
+          failedAttempts,
+        );
 
-          try {
-            await this.performHandshake();
-
-            const keys = await this.performPairVerification(
-              pairRecord,
-              identifier,
-            );
-            appleTVLog.info(
-              `✅ Successfully verified with pair record: ${identifier}`,
-            );
-
-            const listenerInfo = await this.createTcpListener(keys);
-            this.networkClient.disconnect();
-
-            const tlsSocket = await this.createTlsPskConnection(
-              device.ip!,
-              listenerInfo.port,
-              keys,
-            );
-
-            appleTVLog.debug('Step 6: Tunnel Establishment success');
-            appleTVLog.info(`🔑 Using pair record: ${identifier}`);
-            appleTVLog.info(
-              `📱 Connected to device: ${device.identifier} (${device.name})`,
-            );
-            appleTVLog.info(`   IP: ${device.ip}:${device.port}`);
-
-            return { socket: tlsSocket, device };
-          } catch (error: any) {
-            const errorMessage = error.message || String(error);
-            appleTVLog.debug(
-              `❌ Failed with pair record ${identifier}: ${errorMessage}`,
-            );
-            failedAttempts.push({ identifier, error: errorMessage });
-            this.networkClient.disconnect();
-            await new Promise((resolve) => setTimeout(resolve, 500));
-          }
-        } catch (connectionError: any) {
-          const errorMessage =
-            connectionError.message || String(connectionError);
-          appleTVLog.debug(
-            `Failed to connect to ${device.ip}:${device.port}: ${errorMessage}`,
-          );
-          failedAttempts.push({
-            identifier,
-            error: `Connection failed: ${errorMessage}`,
-          });
-          this.networkClient.disconnect();
+        if (result) {
+          return result;
         }
       }
     }
 
+    this.logFailureSummary(failedAttempts);
+
+    throw new Error(
+      'Failed to establish tunnel with any pair record. All authentication attempts failed.',
+    );
+  }
+
+  /**
+   * Logs information about discovered devices
+   */
+  private logDiscoveredDevices(devices: AppleTVDevice[]): void {
+    appleTVLog.debug('Step 1: Device Discovery success');
+    appleTVLog.debug(
+      `Found ${util.pluralize('device', devices.length, true)} via Bonjour`,
+    );
+
+    if (devices.length > 0) {
+      appleTVLog.info('\nDiscovered Apple TV devices:');
+      devices.forEach((device, index) => {
+        appleTVLog.info(`  ${index + 1}. Identifier: ${device.identifier}`);
+        appleTVLog.info(`     Name: ${device.name}`);
+        appleTVLog.info(`     IP: ${device.ip}:${device.port}`);
+        appleTVLog.info(`     Model: ${device.model}`);
+        appleTVLog.info(`     Version: ${device.version}`);
+      });
+    }
+  }
+
+  /**
+   * Selects devices to process based on the specific device identifier
+   */
+  private selectDevicesToProcess(
+    devices: AppleTVDevice[],
+    specificDeviceIdentifier?: string,
+  ): AppleTVDevice[] {
+    if (!specificDeviceIdentifier) {
+      return devices;
+    }
+
+    const filteredDevices = devices.filter(
+      (device) => device.identifier === specificDeviceIdentifier,
+    );
+
+    if (filteredDevices.length === 0) {
+      appleTVLog.error(
+        `\nDevice with identifier ${specificDeviceIdentifier} not found in discovered devices.`,
+      );
+      appleTVLog.error('Available devices:');
+      devices.forEach((device) => {
+        appleTVLog.error(`  - ${device.identifier} (${device.name})`);
+      });
+      throw new Error(
+        `Device with identifier ${specificDeviceIdentifier} not found. Please check available devices above.`,
+      );
+    }
+
+    appleTVLog.info(
+      `\nFiltered to specific device: ${specificDeviceIdentifier}`,
+    );
+
+    return filteredDevices;
+  }
+
+  /**
+   * Validates pair records and returns the list of identifiers to try
+   */
+  private async validateAndGetPairRecords(
+    deviceId?: string,
+  ): Promise<string[]> {
+    const availableDeviceIds = await this.storage.getAvailableDeviceIds();
+
+    if (availableDeviceIds.length === 0) {
+      throw new Error('No pair records found');
+    }
+
+    if (deviceId && !availableDeviceIds.includes(deviceId)) {
+      throw new Error(`No pair record found for specified device ${deviceId}`);
+    }
+
+    return deviceId ? [deviceId] : availableDeviceIds;
+  }
+
+  /**
+   * Attempts to establish a connection with a device using a specific pair record
+   */
+  private async attemptDeviceConnection(
+    device: AppleTVDevice,
+    identifier: string,
+    pairRecord: PairRecord,
+    failedAttempts: { identifier: string; error: string }[],
+  ): Promise<{ socket: tls.TLSSocket; device: AppleTVDevice } | null> {
+    try {
+      this.sequenceNumber = 0;
+      await this.networkClient.connect(device.ip!, device.port);
+
+      try {
+        await this.performHandshake();
+
+        const keys = await this.performPairVerification(pairRecord, identifier);
+        appleTVLog.info(
+          `✅ Successfully verified with pair record: ${identifier}`,
+        );
+
+        const listenerInfo = await this.createTcpListener(keys);
+        this.networkClient.disconnect();
+
+        const tlsSocket = await this.createTlsPskConnection(
+          device.ip!,
+          listenerInfo.port,
+          keys,
+        );
+
+        appleTVLog.debug('Step 6: Tunnel Establishment success');
+        appleTVLog.info(`🔑 Using pair record: ${identifier}`);
+        appleTVLog.info(
+          `📱 Connected to device: ${device.identifier} (${device.name})`,
+        );
+        appleTVLog.info(`   IP: ${device.ip}:${device.port}`);
+
+        return { socket: tlsSocket, device };
+      } catch (error: any) {
+        const errorMessage = error.message || String(error);
+        appleTVLog.debug(
+          `❌ Failed with pair record ${identifier}: ${errorMessage}`,
+        );
+        failedAttempts.push({ identifier, error: errorMessage });
+        this.networkClient.disconnect();
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+    } catch (connectionError: any) {
+      const errorMessage = connectionError.message || String(connectionError);
+      appleTVLog.debug(
+        `Failed to connect to ${device.ip}:${device.port}: ${errorMessage}`,
+      );
+      failedAttempts.push({
+        identifier,
+        error: `Connection failed: ${errorMessage}`,
+      });
+      this.networkClient.disconnect();
+    }
+
+    return null;
+  }
+
+  /**
+   * Logs a summary of all failed connection attempts
+   */
+  private logFailureSummary(
+    failedAttempts: { identifier: string; error: string }[],
+  ): void {
     appleTVLog.error('\n=== Pair Record Verification Summary ===');
     appleTVLog.error(`Total pair records tried: ${failedAttempts.length}`);
     failedAttempts.forEach(({ identifier, error }) => {
       appleTVLog.error(`  - ${identifier}: ${error}`);
     });
     appleTVLog.error('=======================================\n');
-
-    throw new Error(
-      'Failed to establish tunnel with any pair record. All authentication attempts failed.',
-    );
   }
 
   private async discoverDevices(): Promise<AppleTVDevice[]> {
