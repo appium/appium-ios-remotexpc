@@ -50,7 +50,7 @@ export class CrashReportsService extends BaseService {
   /**
    * List files and folders in the crash report's directory.
    * @param dirPath Path to list, relative to the crash report's directory. Defaults to "/"
-   * @param depth Listing depth. 1 for immediate children, -1 for infinite depth
+   * @param depth Listing depth. 1 for immediate children, -1 (or any negative number) for infinite depth
    * @returns List of file paths listed
    */
   async ls(dirPath = '/', depth = 1): Promise<string[]> {
@@ -70,7 +70,7 @@ export class CrashReportsService extends BaseService {
       if (depth !== 1) {
         try {
           if (await this.afc.isdir(entryPath)) {
-            const newDepth = depth === -1 ? -1 : depth - 1;
+            const newDepth = depth < 0 ? -1 : depth - 1;
             const subEntries = await this.ls(entryPath, newDepth);
             results.push(...subEntries);
           }
@@ -106,9 +106,7 @@ export class CrashReportsService extends BaseService {
       recursive: true,
       match,
       callback: erase
-        ? async (remotePath) => {
-            await this.afc.rmSingle(remotePath, true);
-          }
+        ? async (remotePath) => void (await this.afc.rmSingle(remotePath, true))
         : undefined,
     });
   }
