@@ -1,11 +1,8 @@
 #!/usr/bin/env tsx
 import * as tls from 'node:tls';
 
-import {
-  PacketStreamServer,
-  TunnelManager,
-  TunnelRegistry,
-} from '../src/index.js';
+import { PacketStreamServer, TunnelManager } from '../src/index.js';
+import type { TunnelRegistry } from '../src/index.js';
 import { AppleTVTunnelService } from '../src/lib/apple-tv/tunnel/index.js';
 import type { AppleTVDevice } from '../src/lib/bonjour/bonjour-discovery.js';
 import { getLogger } from '../src/lib/logger.js';
@@ -37,7 +34,7 @@ async function main(): Promise<void> {
   let packetStreamServer: PacketStreamServer | null = null;
 
   const cleanup = async (signal: string): Promise<void> => {
-    log.warn(`\nReceived ${signal}. Cleaning up...`);
+    log.warn(`\nCleaning up (${signal})...`);
 
     try {
       // Close packet stream server first
@@ -59,26 +56,33 @@ async function main(): Promise<void> {
 
       tunnelService.disconnect();
 
-      log.info('Cleanup completed. Exiting...');
-      process.exit(0);
+      log.info('Cleanup completed.');
     } catch (err) {
       log.error('Error during cleanup:', err);
-      process.exit(1);
     }
   };
 
-  process.on('SIGINT', () => cleanup('SIGINT (Ctrl+C)'));
-  process.on('SIGTERM', () => cleanup('SIGTERM'));
-  process.on('SIGHUP', () => cleanup('SIGHUP'));
-
-  process.on('uncaughtException', (error) => {
-    log.error('Uncaught Exception:', error);
-    cleanup('Uncaught Exception');
+  process.on('SIGINT', async () => {
+    await cleanup('SIGINT (Ctrl+C)');
+    process.exit(0);
+  });
+  process.on('SIGTERM', async () => {
+    await cleanup('SIGTERM');
+    process.exit(0);
+  });
+  process.on('SIGHUP', async () => {
+    await cleanup('SIGHUP');
+    process.exit(0);
   });
 
-  process.on('unhandledRejection', (reason, promise) => {
+  process.on('uncaughtException', async (error) => {
+    log.error('Uncaught Exception:', error);
+    await cleanup('Uncaught Exception');
+  });
+
+  process.on('unhandledRejection', async (reason, promise) => {
     log.error('Unhandled Rejection at:', promise, 'reason:', reason);
-    cleanup('Unhandled Rejection');
+    await cleanup('Unhandled Rejection');
   });
 
   try {
@@ -165,11 +169,10 @@ async function main(): Promise<void> {
     process.stdin.resume();
   } catch (error) {
     log.error('Tunnel failed:', error);
-    await cleanup('Error');
+    throw error;
+  } finally {
+    await cleanup('Shutdown');
   }
 }
 
-main().catch(async (error) => {
-  log.error('Fatal error:', error);
-  process.exit(1);
-});
+main();

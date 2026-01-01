@@ -8,14 +8,16 @@ import type { ConnectionOptions } from 'tls';
 
 import {
   PacketStreamServer,
-  SocketInfo,
   TunnelManager,
   createLockdownServiceByUDID,
   createUsbmux,
   startCoreDeviceProxy,
-  TunnelRegistry,
 } from '../src/index.js';
-import { startTunnelRegistryServer, DEFAULT_TUNNEL_REGISTRY_PORT } from '../src/lib/tunnel/tunnel-registry-server.js';
+import type { SocketInfo, TunnelRegistry } from '../src/index.js';
+import {
+  DEFAULT_TUNNEL_REGISTRY_PORT,
+  startTunnelRegistryServer,
+} from '../src/lib/tunnel/tunnel-registry-server.js';
 import type { Device } from '../src/lib/usbmux/index.js';
 
 const log = logger.getLogger('TunnelCreation');
@@ -27,7 +29,7 @@ async function updateTunnelRegistry(
 ): Promise<TunnelRegistry> {
   const now = Date.now();
   const nowISOString = new Date().toISOString();
-  
+
   // Initialize registry if it doesn't exist
   const registry: TunnelRegistry = {
     tunnels: {},
@@ -35,7 +37,7 @@ async function updateTunnelRegistry(
       lastUpdated: nowISOString,
       totalTunnels: 0,
       activeTunnels: 0,
-    }
+    },
   };
 
   // Update tunnels
@@ -47,7 +49,7 @@ async function updateTunnelRegistry(
         deviceId: result.device.DeviceID,
         address: result.tunnel.Address,
         rsdPort: result.tunnel.RsdPort ?? 0,
-        packetStreamPort: result.packetStreamPort,
+        packetStreamPort: result.packetStreamPort ?? 0,
         connectionType: result.device.Properties.ConnectionType,
         productId: result.device.Properties.ProductID,
         createdAt: registry.tunnels[udid]?.createdAt ?? now,
@@ -86,7 +88,7 @@ let PACKET_STREAM_BASE_PORT = 50000;
  */
 function setupCleanupHandlers(): void {
   const cleanup = async (signal: string) => {
-    log.warn(`\nReceived ${signal}. Cleaning up...`);
+    log.warn(`\nCleaning up (${signal})...`);
 
     // Close all packet stream servers
     if (packetStreamServers.size > 0) {
@@ -106,26 +108,32 @@ function setupCleanupHandlers(): void {
       packetStreamServers.clear();
     }
 
-    log.info('Cleanup completed. Exiting...');
-    process.exit(0);
+    log.info('Cleanup completed.');
   };
 
   // Handle various termination signals
-  process.on('SIGINT', () => cleanup('SIGINT (Ctrl+C)'));
-  process.on('SIGTERM', () => cleanup('SIGTERM'));
-  process.on('SIGHUP', () => cleanup('SIGHUP'));
+  process.on('SIGINT', async () => {
+    await cleanup('SIGINT (Ctrl+C)');
+    process.exit(0);
+  });
+  process.on('SIGTERM', async () => {
+    await cleanup('SIGTERM');
+    process.exit(0);
+  });
+  process.on('SIGHUP', async () => {
+    await cleanup('SIGHUP');
+    process.exit(0);
+  });
 
   // Handle uncaught exceptions and unhandled rejections
   process.on('uncaughtException', async (error) => {
     log.error('Uncaught Exception:', error);
     await cleanup('Uncaught Exception');
-    process.exit(1);
   });
 
   process.on('unhandledRejection', async (reason, promise) => {
     log.error('Unhandled Rejection at:', promise, 'reason:', reason);
     await cleanup('Unhandled Rejection');
-    process.exit(1);
   });
 }
 
@@ -225,7 +233,7 @@ async function createTunnelForDevice(
         },
         packetStreamPort,
         success: true,
-        socket
+        socket,
       };
     } catch (err) {
       log.warn(`Could not add device to info server: ${err}`);
@@ -356,8 +364,12 @@ async function main(): Promise<void> {
       log.info('   - GET /remotexpc/tunnels/metadata - Get registry metadata');
 
       log.info('\n💡 Example usage:');
-      log.info(`   curl http://localhost:${DEFAULT_TUNNEL_REGISTRY_PORT}/remotexpc/tunnels`);
-      log.info(`   curl http://localhost:${DEFAULT_TUNNEL_REGISTRY_PORT}/remotexpc/tunnels/metadata`);
+      log.info(
+        `   curl http://localhost:${DEFAULT_TUNNEL_REGISTRY_PORT}/remotexpc/tunnels`,
+      );
+      log.info(
+        `   curl http://localhost:${DEFAULT_TUNNEL_REGISTRY_PORT}/remotexpc/tunnels/metadata`,
+      );
       if (successful.length > 0) {
         const firstUdid = successful[0].device.Properties.SerialNumber;
         log.info(
@@ -367,12 +379,9 @@ async function main(): Promise<void> {
     }
   } catch (error) {
     log.error(`Error during tunnel creation test: ${error}`);
-    process.exit(1);
+    throw error;
   }
 }
 
 // Run the main function
-main().catch(async (error) => {
-  log.error(`Fatal error: ${error}`);
-  process.exit(1);
-});
+main();
