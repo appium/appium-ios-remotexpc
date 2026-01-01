@@ -194,8 +194,8 @@ export class TunnelService {
  * Orchestrates device discovery, pairing verification, and tunnel creation.
  */
 export class AppleTVTunnelService {
-  private networkClient: NetworkClient;
-  private storage: PairingStorage;
+  private readonly networkClient: NetworkClient;
+  private readonly storage: PairingStorage;
   private sequenceNumber = 0;
 
   constructor() {
