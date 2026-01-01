@@ -32,8 +32,8 @@ async function main(): Promise<void> {
 
   const tunnelService = new AppleTVTunnelService();
   let tunnel: TunnelConnection | null = null;
-  let tlsSocket: tls.TLSSocket | undefined;
-  let deviceInfo: AppleTVDevice | undefined;
+  let tlsSocket: tls.TLSSocket | null = null;
+  let deviceInfo: AppleTVDevice | null = null;
   let packetStreamServer: PacketStreamServer | null = null;
 
   const cleanup = async (signal: string): Promise<void> => {
