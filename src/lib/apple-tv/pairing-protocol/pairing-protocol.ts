@@ -38,7 +38,41 @@ import type {
 
 const log = getLogger('PairingProtocol');
 
-/** Implements the Apple TV pairing protocol including SRP authentication and key exchange */
+/**
+ * Implements the HomeKit Accessory Protocol (HAP) Pair-Setup process for Apple TV.
+ *
+ * Protocol Overview:
+ * This class implements the HAP Pair-Setup protocol, which establishes a secure pairing
+ * between a controller (this client) and an Apple TV accessory. The protocol uses SRP
+ * (Secure Remote Password) authentication to verify a user-provided PIN without transmitting
+ * the PIN itself over the network.
+ *
+ * Message Exchange Flow (M1-M6):
+ * - M1/M2: Initial setup request and SRP challenge (salt + server public key)
+ * - M3/M4: Client sends SRP proof, server validates and responds
+ * - M5/M6: Exchange of long-term public keys and signatures (encrypted)
+ *
+ * After successful pairing, the generated Ed25519 key pair is stored and used for
+ * subsequent Pair-Verify operations to establish encrypted sessions.
+ *
+ * Technical Details:
+ * - Uses SRP-6a protocol for password-authenticated key exchange (RFC 5054)
+ * - Employs Ed25519 for long-term identity keys (RFC 8032)
+ * - Uses ChaCha20-Poly1305 for authenticated encryption (RFC 8439)
+ * - Derives session keys using HKDF (RFC 5869)
+ * - Encodes messages in TLV8 (Type-Length-Value) format
+ *
+ * References:
+ * - HAP Specification: https://developer.apple.com/homekit/ (Apple Developer)
+ * - HAP-NodeJS (community implementation): https://github.com/homebridge/HAP-NodeJS
+ * - SRP Protocol: https://datatracker.ietf.org/doc/html/rfc5054
+ * - Ed25519: https://datatracker.ietf.org/doc/html/rfc8032
+ * - ChaCha20-Poly1305: https://datatracker.ietf.org/doc/html/rfc8439
+ * - HKDF: https://datatracker.ietf.org/doc/html/rfc5869
+ *
+ * @see PairVerificationProtocol for the verification protocol used after pairing
+ * @see SRPClient for SRP authentication implementation
+ */
 export class PairingProtocol implements PairingProtocolInterface {
   private _sequenceNumber = 0;
 

@@ -25,6 +25,48 @@ import type { PairingRequest } from './types.js';
 
 const log = getLogger('PairVerificationProtocol');
 
+/**
+ * Implements the HomeKit Accessory Protocol (HAP) Pair-Verify process for Apple TV.
+ *
+ * Protocol Overview:
+ * This class implements the HAP Pair-Verify protocol, which establishes an encrypted
+ * session between a previously paired controller (this client) and an Apple TV accessory.
+ * Unlike Pair-Setup, Pair-Verify uses existing long-term keys to authenticate both parties
+ * and derive session-specific encryption keys without requiring user interaction.
+ *
+ * State Machine Flow (4 states):
+ * - STATE=1: Client sends ephemeral X25519 public key to device
+ * - STATE=2: Device responds with its ephemeral X25519 public key and encrypted proof
+ * - STATE=3: Client sends encrypted signature proving identity using Ed25519 private key
+ * - STATE=4: Device confirms verification success or returns error
+ *
+ * After successful verification, both parties derive shared session keys for encrypting
+ * all subsequent communication during this session.
+ *
+ * Technical Details:
+ * - Uses X25519 Elliptic Curve Diffie-Hellman for ephemeral key exchange (RFC 7748)
+ * - Employs Ed25519 signatures for authentication using long-term keys (RFC 8032)
+ * - Uses ChaCha20-Poly1305 for authenticated encryption (RFC 8439)
+ * - Derives session keys using HKDF with protocol-specific salt/info (RFC 5869)
+ * - Encodes messages in TLV8 (Type-Length-Value) format
+ *
+ * Security Properties:
+ * - Perfect Forward Secrecy: Each session uses unique ephemeral keys
+ * - Mutual Authentication: Both client and device prove their identities
+ * - Replay Protection: Ephemeral keys prevent replay attacks
+ *
+ * References:
+ * - HAP Specification: https://developer.apple.com/homekit/ (Apple Developer)
+ * - HAP-NodeJS (community implementation): https://github.com/homebridge/HAP-NodeJS
+ * - X25519 ECDH: https://datatracker.ietf.org/doc/html/rfc7748
+ * - Ed25519 Signatures: https://datatracker.ietf.org/doc/html/rfc8032
+ * - ChaCha20-Poly1305: https://datatracker.ietf.org/doc/html/rfc8439
+ * - HKDF: https://datatracker.ietf.org/doc/html/rfc5869
+ *
+ * @see PairingProtocol for the initial pairing process that generates the long-term keys
+ * @see PairRecord for the stored credentials used in verification
+ */
+
 export interface VerificationKeys {
   encryptionKey: Buffer;
   clientEncryptionKey: Buffer;
