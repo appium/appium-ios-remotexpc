@@ -81,8 +81,9 @@ export class TunnelService {
 
     if (!encryptedData) {
       throw new PairingError(
-        'No encrypted response received',
-        'NO_ENCRYPTED_RESPONSE',
+        'Failed to receive encrypted response from device',
+        'ENCRYPTED_RESPONSE_MISSING',
+        { response },
       );
     }
 
@@ -101,8 +102,9 @@ export class TunnelService {
     if (!createListenerResponse?.port) {
       TunnelService.log.error('Invalid createListener response:', responseJson);
       throw new PairingError(
-        'No port in createListener response',
-        'NO_LISTENER_PORT',
+        'TCP listener creation failed: missing port in response',
+        'LISTENER_PORT_MISSING',
+        { response: responseJson },
       );
     }
 
