@@ -5,6 +5,7 @@ import { dirname } from 'node:path';
 import { STRONGBOX_CONTAINER_NAME } from '../../../constants.js';
 import { getLogger } from '../../logger.js';
 import { createXmlPlist, parseXmlPlist } from '../../plist/index.js';
+import { APPLETV_PAIRING_PREFIX } from '../constants.js';
 import { PairingError } from '../errors.js';
 import type { PairingConfig } from '../types.js';
 import type { PairRecord, PairingStorageInterface } from './types.js';
@@ -26,7 +27,7 @@ export class PairingStorage implements PairingStorageInterface {
     remoteUnlockHostKey = '',
   ): Promise<string> {
     try {
-      const itemName = `appletv_pairing_${deviceId}`;
+      const itemName = `${APPLETV_PAIRING_PREFIX}${deviceId}`;
       const plistContent = this.createPlistContent(
         ltpk,
         ltsk,
@@ -50,7 +51,7 @@ export class PairingStorage implements PairingStorageInterface {
   }
 
   async load(deviceId: string): Promise<PairRecord | null> {
-    const itemName = `appletv_pairing_${deviceId}`;
+    const itemName = `${APPLETV_PAIRING_PREFIX}${deviceId}`;
 
     try {
       const item =
@@ -100,8 +101,8 @@ export class PairingStorage implements PairingStorageInterface {
 
       const files = await readdir(this.strongboxDir);
       const deviceIds = files
-        .filter((file: string) => file.startsWith('appletv_pairing_'))
-        .map((file: string) => file.replace('appletv_pairing_', ''));
+        .filter((file: string) => file.startsWith(APPLETV_PAIRING_PREFIX))
+        .map((file: string) => file.replace(APPLETV_PAIRING_PREFIX, ''));
 
       this.log.debug(
         `Found ${deviceIds.length} pair record(s): ${deviceIds.join(', ')}`,

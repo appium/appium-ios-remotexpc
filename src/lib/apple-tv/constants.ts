@@ -10,6 +10,9 @@ export const DEFAULT_PAIRING_CONFIG = {
   maxRetries: Number(process.env.APPLETV_MAX_RETRIES) || 3,
 } as const;
 
+// Prefix used for Apple TV pairing record storage identifiers
+export const APPLETV_PAIRING_PREFIX = 'appletv_pairing_';
+
 // TLV8 component type identifiers used in pairing data exchange
 export const PairingDataComponentType = {
   METHOD: 0x00,
