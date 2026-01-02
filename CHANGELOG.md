@@ -1,3 +1,9 @@
+## [0.24.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.23.0...v0.24.0) (2026-01-02)
+
+### Features
+
+* implement house arrest RSD service ([#121](https://github.com/appium/appium-ios-remotexpc/issues/121)) ([e0ed3f6](https://github.com/appium/appium-ios-remotexpc/commit/e0ed3f65cdcc899312d4614cd252ff5066e1f175))
+
 ## [0.23.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.22.0...v0.23.0) (2026-01-02)
 
 ### Features
