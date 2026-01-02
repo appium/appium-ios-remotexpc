@@ -35,6 +35,7 @@
     "test:unit": "NODE_ENV=test mocha 'test/unit/**/*.ts' --exit --timeout 2m",
     "tunnel-creation": "sudo tsx scripts/test-tunnel-creation.ts",
     "pair-appletv": "sudo tsx scripts/pair-appletv.ts",
+    "start-appletv-tunnel": "sudo tsx scripts/start-appletv-tunnel.ts",
     "test:webinspector": "mocha test/integration/webinspector-test.ts --exit --timeout 1m",
     "test:misagent": "mocha test/integration/misagent-service-test.ts --exit --timeout 1m",
     "test:afc": "mocha test/integration/afc-test.ts --exit --timeout 1m",

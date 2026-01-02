@@ -1,5 +1,5 @@
 #!/usr/bin/env tsx
-import { logger } from '@appium/support';
+import { getLogger } from '../src/lib/logger.js';
 
 import {
   AppleTVPairingService,
@@ -53,7 +53,7 @@ Examples:
 
 // CLI interface
 async function main(): Promise<void> {
-  const log = logger.getLogger('AppleTVPairing');
+  const log = getLogger('AppleTVPairing');
   const args = parseArgs();
 
   if (args.help) {
