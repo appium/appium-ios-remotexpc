@@ -1,3 +1,9 @@
+## [0.24.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.24.0...v0.24.1) (2026-01-02)
+
+### Miscellaneous Chores
+
+* **deps-dev:** bump the dev-dependencies group across 1 directory with 2 updates ([#98](https://github.com/appium/appium-ios-remotexpc/issues/98)) ([fdb6156](https://github.com/appium/appium-ios-remotexpc/commit/fdb6156d04d9039c266a89f37d885e344cc7e906))
+
 ## [0.24.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.23.0...v0.24.0) (2026-01-02)
 
 ### Features
