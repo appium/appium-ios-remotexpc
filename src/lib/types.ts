@@ -5,6 +5,7 @@ import type { PacketData } from 'appium-ios-tuntap';
 import { EventEmitter } from 'events';
 
 import type { ServiceConnection } from '../service-connection.js';
+import AfcService from '../services/ios/afc/index.js';
 import type { BaseService, Service } from '../services/ios/base-service.js';
 import type { iOSApplication } from '../services/ios/dvt/instruments/application-listing.js';
 import type { LocationCoordinates } from '../services/ios/dvt/instruments/location-simulation.js';
@@ -1316,6 +1317,16 @@ export interface MobileImageMounterServiceWithConnection {
 }
 
 /**
+ * Represents a HouseArrestService instance with its associated RemoteXPC connection
+ */
+export interface HouseArrestServiceWithConnection {
+  /** The HouseArrestService instance */
+  houseArrestService: HouseArrestService;
+  /** The RemoteXPC connection for service management */
+  remoteXPC: RemoteXpcConnection;
+}
+
+/**
  * Represents the instance side of SpringboardService
  */
 export interface SpringboardService extends BaseService {
@@ -1426,6 +1437,33 @@ export interface SpringboardServiceWithConnection {
 }
 
 /**
+ * Represents the instance side of HouseArrestService for accessing application containers
+ */
+export interface HouseArrestService extends BaseService {
+  /**
+   * Vend into the application container and return an AfcService.
+   *
+   * @param bundleId The bundle identifier of the application (e.g., 'com.example.app')
+   * @returns Promise resolving to an AfcService for file operations
+   * @throws Error if the application is not installed, not developer-installed, or vending fails
+   */
+  vendContainer(bundleId: string): Promise<AfcService>;
+
+  /**
+   * Vend into the application documents directory and return an AfcService.
+   *
+   * **Important**: VendDocuments only works for apps that have iTunes File Sharing enabled
+   * (UIFileSharingEnabled = YES in Info.plist).
+   * If you get "InstallationLookupFailed" error, use `vendContainer()` instead.
+   *
+   * @param bundleId The bundle identifier of the application (e.g., 'com.example.app')
+   * @returns Promise resolving to an AfcService for file operations
+   * @throws Error if the application is not installed, doesn't support file sharing, or vending fails
+   */
+  vendDocuments(bundleId: string): Promise<AfcService>;
+}
+
+/**
  * Represents the instance side of MisagentService where provisioning profiles can be managed
  * @remarks
  * Provisioning profiles are Apple configuration files (.mobileprovision) that contain:
@@ -1493,5 +1531,75 @@ export interface MisagentService extends BaseService {
 
 export interface MisagentServiceWithConnection {
   misagentService: MisagentService;
+  remoteXPC: RemoteXpcConnection;
+}
+
+/**
+ * Options for pulling crash reports from device to local
+ */
+export interface CrashReportsPullOptions {
+  /**
+   * If true, deletes crash reports from the remote device after pulling to local.
+   * @default false
+   */
+  erase?: boolean;
+  /**
+   * Glob pattern to filter crash reports (e.g., '*.ips', 'Siri*', '**\/*.crash')
+   */
+  match?: string;
+}
+
+/**
+ * CrashReportsService provides an API to manage crash reports on iOS devices
+ */
+export interface CrashReportsService extends BaseService {
+  /**
+   * List files and folders in the crash report's directory
+   *
+   * Crash reports are primarily stored as .ips files, which contain detailed information about
+   * app crashes, including stack traces, thread states, and device information.
+   * In addition to .ips files, the crash reports directory may contain:
+   * - Sysdiagnose tarballs (comprehensive system diagnostic archives)
+   * - Special directories like /Retired, /Cloud, /Assistant, etc.
+   *
+   * For details on the .ips file format, see:
+   * https://developer.apple.com/documentation/xcode/analyzing-a-crash-report
+   *
+   * @param dirPath Path to list, defaults to "/"
+   * @param depth Listing depth: 1 for immediate children, -1 for infinite
+   * @returns List of file paths (e.g., .ips files, sysdiagnose tarballs, directories like /Retired, /Cloud, etc.)
+   */
+  ls(dirPath?: string, depth?: number): Promise<string[]>;
+
+  /**
+   * Pull crash reports from device to local machine
+   * @param out Local directory path
+   * @param entry Remote path on device, defaults to "/"
+   * @param options Pull options (erase, match pattern)
+   */
+  pull(
+    out: string,
+    entry?: string,
+    options?: CrashReportsPullOptions,
+  ): Promise<void>;
+
+  /**
+   * Clear all crash reports from the device
+   */
+  clear(): Promise<void>;
+
+  /**
+   * Flush pending crash reports into CrashReports directory
+   */
+  flush(): Promise<void>;
+
+  /**
+   * Close the service and release resources
+   */
+  close(): void;
+}
+
+export interface CrashReportsServiceWithConnection {
+  crashReportsService: CrashReportsService;
   remoteXPC: RemoteXpcConnection;
 }

@@ -1,7 +1,7 @@
 import { minimatch } from 'minimatch';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
-import net from 'node:net';
+import type net from 'node:net';
 import path from 'node:path';
 import { Readable, Writable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
@@ -11,16 +11,14 @@ import {
   buildClosePayload,
   buildFopenPayload,
   buildMkdirPayload,
-  buildReadPayload,
   buildRemovePayload,
   buildRenamePayload,
   buildStatPayload,
+  createRawServiceSocket,
   nanosecondsToMilliseconds,
-  nextReadChunkSize,
   parseCStringArray,
   parseKeyValueNullList,
   readAfcResponse,
-  rsdHandshakeForRawService,
   sendAfcPacket,
   writeUInt64LE,
 } from './codec.js';
@@ -91,6 +89,21 @@ export class AfcService {
     silent?: boolean,
   ) {
     this.silent = silent ?? process.env.NODE_ENV !== 'test';
+  }
+
+  /**
+   * Create an AfcService from an existing connected socket.
+   *
+   * @param socket - An already connected socket in AFC mode
+   * @param silent - If true, suppress error logging
+   * @returns A new AfcService instance using the provided socket
+   */
+  static fromSocket(socket: net.Socket, silent?: boolean): AfcService {
+    const remoteAddress = socket.remoteAddress || 'localhost';
+    const remotePort = socket.remotePort || 0;
+    const service = new AfcService([remoteAddress, remotePort], silent);
+    service.socket = socket;
+    return service;
   }
 
   /**
@@ -692,20 +705,9 @@ export class AfcService {
     }
     const [host, rsdPort] = this.address;
 
-    this.socket = await new Promise<net.Socket>((resolve, reject) => {
-      const s = net.createConnection({ host, port: rsdPort }, () => {
-        s.setTimeout(0);
-        s.setKeepAlive(true);
-        resolve(s);
-      });
-      s.once('error', reject);
-      s.setTimeout(30000, () => {
-        s.destroy();
-        reject(new Error('AFC connect timed out'));
-      });
+    this.socket = await createRawServiceSocket(host, rsdPort, {
+      timeoutMs: 30000,
     });
-
-    await rsdHandshakeForRawService(this.socket);
     log.debug('RSD handshake complete; switching to raw AFC');
 
     return this.socket;

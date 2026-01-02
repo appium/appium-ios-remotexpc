@@ -1,10 +1,9 @@
 #!/usr/bin/env tsx
-import { logger } from '@appium/support';
-
 import {
   AppleTVPairingService,
   UserInputService,
 } from '../src/lib/apple-tv/index.js';
+import { getLogger } from '../src/lib/logger.js';
 
 interface CLIArgs {
   device?: string;
@@ -53,7 +52,7 @@ Examples:
 
 // CLI interface
 async function main(): Promise<void> {
-  const log = logger.getLogger('AppleTVPairing');
+  const log = getLogger('AppleTVPairing');
   const args = parseArgs();
 
   if (args.help) {

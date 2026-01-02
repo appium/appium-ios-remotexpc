@@ -1,3 +1,22 @@
+## [0.23.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.22.0...v0.23.0) (2026-01-02)
+
+### Features
+
+* implement crash reports RSD service ([#119](https://github.com/appium/appium-ios-remotexpc/issues/119)) ([6fdbb4e](https://github.com/appium/appium-ios-remotexpc/commit/6fdbb4e4125fa4d7c2aff6d3c4d032debda5213e))
+
+## [0.22.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.21.2...v0.22.0) (2026-01-02)
+
+### Features
+
+* **apple-tv:** add tunnel service for verified connections ([#109](https://github.com/appium/appium-ios-remotexpc/issues/109)) ([9e36c67](https://github.com/appium/appium-ios-remotexpc/commit/9e36c67396f84b795cea45a944df675465ec3139))
+
+## [0.21.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.21.1...v0.21.2) (2026-01-01)
+
+### Miscellaneous Chores
+
+* **deps:** bump actions/checkout from 6.0.0 to 6.0.1 ([#122](https://github.com/appium/appium-ios-remotexpc/issues/122)) ([05b9b9c](https://github.com/appium/appium-ios-remotexpc/commit/05b9b9c11d969b079104765006e692596813bee8))
+* **deps:** bump actions/setup-node from 6.0.0 to 6.1.0 ([#123](https://github.com/appium/appium-ios-remotexpc/issues/123)) ([1d5695e](https://github.com/appium/appium-ios-remotexpc/commit/1d5695e0342e0110aaf21b2d8eecc8f38b3fcd77))
+
 ## [0.21.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.21.0...v0.21.1) (2025-12-19)
 
 ### Miscellaneous Chores
