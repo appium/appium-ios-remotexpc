@@ -1,16 +1,20 @@
 import { strongbox } from '@appium/strongbox';
-import { logger } from '@appium/support';
+import { readdir } from 'node:fs/promises';
+import { dirname } from 'node:path';
 
 import { STRONGBOX_CONTAINER_NAME } from '../../../constants.js';
-import { createXmlPlist } from '../../plist/index.js';
+import { getLogger } from '../../logger.js';
+import { createXmlPlist, parseXmlPlist } from '../../plist/index.js';
+import { APPLETV_PAIRING_PREFIX } from '../constants.js';
 import { PairingError } from '../errors.js';
 import type { PairingConfig } from '../types.js';
-import type { PairingStorageInterface } from './types.js';
+import type { PairRecord, PairingStorageInterface } from './types.js';
 
 /** Manages persistent storage of pairing credentials as plist files */
 export class PairingStorage implements PairingStorageInterface {
-  private readonly log = logger.getLogger('PairingStorage');
+  private readonly log = getLogger('PairingStorage');
   private readonly box;
+  private strongboxDir?: string;
 
   constructor(private readonly config: PairingConfig) {
     this.box = strongbox(STRONGBOX_CONTAINER_NAME);
@@ -23,7 +27,7 @@ export class PairingStorage implements PairingStorageInterface {
     remoteUnlockHostKey = '',
   ): Promise<string> {
     try {
-      const itemName = `appletv_pairing_${deviceId}`;
+      const itemName = `${APPLETV_PAIRING_PREFIX}${deviceId}`;
       const plistContent = this.createPlistContent(
         ltpk,
         ltsk,
@@ -43,6 +47,70 @@ export class PairingStorage implements PairingStorageInterface {
         'SAVE_ERROR',
         error,
       );
+    }
+  }
+
+  async load(deviceId: string): Promise<PairRecord | null> {
+    const itemName = `${APPLETV_PAIRING_PREFIX}${deviceId}`;
+
+    try {
+      const item =
+        this.box.getItem(itemName) ?? (await this.box.createItem(itemName));
+
+      const pairingData = await item.read();
+
+      if (!pairingData) {
+        this.log.debug(`No pair record found for device ${deviceId}`);
+        return null;
+      }
+
+      const parsed = parseXmlPlist(pairingData);
+
+      if (!parsed.private_key || !parsed.public_key) {
+        throw new Error('Could not parse pairing record keys');
+      }
+
+      const privateKey = Buffer.isBuffer(parsed.private_key)
+        ? parsed.private_key
+        : Buffer.from(parsed.private_key as string, 'base64');
+      const publicKey = Buffer.isBuffer(parsed.public_key)
+        ? parsed.public_key
+        : Buffer.from(parsed.public_key as string, 'base64');
+
+      this.log.debug(`Loaded pair record for ${deviceId}`);
+
+      return {
+        privateKey,
+        publicKey,
+        remoteUnlockHostKey: (parsed.remote_unlock_host_key as string) || '',
+      };
+    } catch (error) {
+      this.log.error(`Failed to load pair record for ${deviceId}:`, error);
+      return null;
+    }
+  }
+
+  async getAvailableDeviceIds(): Promise<string[]> {
+    try {
+      if (!this.strongboxDir) {
+        const dummyItem = await this.box.createItem('_temp');
+        this.strongboxDir = dirname(dummyItem.id);
+        // Clean up the temporary item after extracting the directory path
+        await dummyItem.clear();
+      }
+
+      const files = await readdir(this.strongboxDir);
+      const deviceIds = files
+        .filter((file: string) => file.startsWith(APPLETV_PAIRING_PREFIX))
+        .map((file: string) => file.replace(APPLETV_PAIRING_PREFIX, ''));
+
+      this.log.debug(
+        `Found ${deviceIds.length} pair record(s): ${deviceIds.join(', ')}`,
+      );
+      return deviceIds;
+    } catch (error) {
+      this.log.debug('Error getting available device IDs:', error);
+      return [];
     }
   }
 

@@ -7,14 +7,6 @@ import { getLogger } from '../logger.js';
 const log = getLogger('PacketStreamServer');
 
 /**
- * Interface for serialized packet message
- */
-interface SerializedPacketMessage {
-  length: string;
-  data: string;
-}
-
-/**
  * Server that exposes packet streaming from a tunnel over TCP
  * This allows cross-process access to tunnel packet streams
  */

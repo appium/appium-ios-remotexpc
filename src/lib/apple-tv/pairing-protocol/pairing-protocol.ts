@@ -1,8 +1,8 @@
-import { logger } from '@appium/support';
 import { randomBytes } from 'node:crypto';
 import { hostname } from 'node:os';
 
 import type { AppleTVDevice } from '../../bonjour/bonjour-discovery.js';
+import { getLogger } from '../../logger.js';
 import {
   DEFAULT_PAIRING_CONFIG,
   PairingDataComponentType,
@@ -36,9 +36,44 @@ import type {
   UserInputInterface,
 } from './types.js';
 
-/** Implements the Apple TV pairing protocol including SRP authentication and key exchange */
+const log = getLogger('PairingProtocol');
+
+/**
+ * Implements the HomeKit Accessory Protocol (HAP) Pair-Setup process for Apple TV.
+ *
+ * Protocol Overview:
+ * This class implements the HAP Pair-Setup protocol, which establishes a secure pairing
+ * between a controller (this client) and an Apple TV accessory. The protocol uses SRP
+ * (Secure Remote Password) authentication to verify a user-provided PIN without transmitting
+ * the PIN itself over the network.
+ *
+ * Message Exchange Flow (M1-M6):
+ * - M1/M2: Initial setup request and SRP challenge (salt + server public key)
+ * - M3/M4: Client sends SRP proof, server validates and responds
+ * - M5/M6: Exchange of long-term public keys and signatures (encrypted)
+ *
+ * After successful pairing, the generated Ed25519 key pair is stored and used for
+ * subsequent Pair-Verify operations to establish encrypted sessions.
+ *
+ * Technical Details:
+ * - Uses SRP-6a protocol for password-authenticated key exchange (RFC 5054)
+ * - Employs Ed25519 for long-term identity keys (RFC 8032)
+ * - Uses ChaCha20-Poly1305 for authenticated encryption (RFC 8439)
+ * - Derives session keys using HKDF (RFC 5869)
+ * - Encodes messages in TLV8 (Type-Length-Value) format
+ *
+ * References:
+ * - HAP Specification: https://developer.apple.com/homekit/ (Apple Developer)
+ * - HAP-NodeJS (community implementation): https://github.com/homebridge/HAP-NodeJS
+ * - SRP Protocol: https://datatracker.ietf.org/doc/html/rfc5054
+ * - Ed25519: https://datatracker.ietf.org/doc/html/rfc8032
+ * - ChaCha20-Poly1305: https://datatracker.ietf.org/doc/html/rfc8439
+ * - HKDF: https://datatracker.ietf.org/doc/html/rfc5869
+ *
+ * @see PairVerificationProtocol for the verification protocol used after pairing
+ * @see SRPClient for SRP authentication implementation
+ */
 export class PairingProtocol implements PairingProtocolInterface {
-  private static readonly log = logger.getLogger('PairingProtocol');
   private _sequenceNumber = 0;
 
   constructor(
@@ -81,7 +116,7 @@ export class PairingProtocol implements PairingProtocolInterface {
 
       return this.createPairingResult(device, ltpk, ltsk);
     } catch (error) {
-      PairingProtocol.log.error('Pairing flow failed:', error);
+      log.error('Pairing flow failed:', error);
       throw error;
     }
   }
@@ -136,7 +171,7 @@ export class PairingProtocol implements PairingProtocolInterface {
     const request = this.createHandshakeRequest();
     await this.networkClient.sendPacket(request);
     await this.networkClient.receiveResponse();
-    PairingProtocol.log.debug('Handshake completed');
+    log.debug('Handshake completed');
   }
 
   /**
@@ -150,7 +185,7 @@ export class PairingProtocol implements PairingProtocolInterface {
 
     const failedRequest = this.createPairVerifyFailedRequest();
     await this.networkClient.sendPacket(failedRequest);
-    PairingProtocol.log.debug('Pair verification attempt completed');
+    log.debug('Pair verification attempt completed');
   }
 
   /**
@@ -162,7 +197,7 @@ export class PairingProtocol implements PairingProtocolInterface {
     const request = this.createSetupManualPairingRequest();
     await this.networkClient.sendPacket(request);
     const response = await this.networkClient.receiveResponse();
-    PairingProtocol.log.debug('Manual pairing setup completed');
+    log.debug('Manual pairing setup completed');
     return response;
   }
 
@@ -201,7 +236,7 @@ export class PairingProtocol implements PairingProtocolInterface {
     const response = await this.networkClient.receiveResponse();
     this.validateSRPProofResponse(response);
 
-    PairingProtocol.log.debug('SRP authentication completed');
+    log.debug('SRP authentication completed');
     return srpClient;
   }
 
@@ -212,12 +247,12 @@ export class PairingProtocol implements PairingProtocolInterface {
    */
   private async receiveM6Completion(decryptKey: Buffer): Promise<void> {
     const m6Response = await this.networkClient.receiveResponse();
-    PairingProtocol.log.info('M6 Response received');
+    log.info('M6 Response received');
 
     try {
       this.processM6Response(m6Response, decryptKey);
     } catch (error) {
-      PairingProtocol.log.warn(
+      log.warn(
         'M6 decryption failed - but pairing may still be successful:',
         (error as Error).message,
       );
@@ -568,16 +603,14 @@ export class PairingProtocol implements PairingProtocolInterface {
     const m6TLVBuffer = Buffer.from(m6DataBase64, 'base64');
     const m6Parsed = decodeTLV8ToDict(m6TLVBuffer);
 
-    PairingProtocol.log.debug(
+    log.debug(
       'M6 TLV types received:',
       Object.keys(m6Parsed).map((k) => `0x${Number(k).toString(16)}`),
     );
 
     const stateData = m6Parsed[PairingDataComponentType.STATE];
     if (stateData && stateData[0] === PAIRING_STATES.M6) {
-      PairingProtocol.log.info(
-        '✅ Pairing completed successfully (STATE=0x06)',
-      );
+      log.info('✅ Pairing completed successfully (STATE=0x06)');
     }
 
     const encryptedData = m6Parsed[PairingDataComponentType.ENCRYPTED_DATA];
@@ -589,10 +622,7 @@ export class PairingProtocol implements PairingProtocolInterface {
         nonce,
       });
       const decryptedTLV = decodeTLV8ToDict(decrypted);
-      PairingProtocol.log.debug(
-        'M6 decrypted content types:',
-        Object.keys(decryptedTLV),
-      );
+      log.debug('M6 decrypted content types:', Object.keys(decryptedTLV));
     }
   }
 
@@ -610,7 +640,7 @@ export class PairingProtocol implements PairingProtocolInterface {
       length: 32,
     });
 
-    PairingProtocol.log.debug('Derived encryption keys');
+    log.debug('Derived encryption keys');
     return {
       encryptKey: sharedKey,
       decryptKey: sharedKey,

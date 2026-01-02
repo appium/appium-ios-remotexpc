@@ -8,4 +8,10 @@ export {
 
 export { generateEd25519KeyPair, createEd25519Signature } from './ed25519.js';
 
+export {
+  generateX25519KeyPair,
+  performX25519DiffieHellman,
+  type X25519KeyPair,
+} from './x25519.js';
+
 export { hkdf, type HKDFParams } from './hkdf.js';
