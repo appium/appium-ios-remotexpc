@@ -4,6 +4,7 @@ import { RemoteXpcConnection } from './lib/remote-xpc/remote-xpc-connection.js';
 import { TunnelManager } from './lib/tunnel/index.js';
 import { TunnelApiClient } from './lib/tunnel/tunnel-api-client.js';
 import type {
+  CrashReportsServiceWithConnection,
   DVTServiceWithConnection,
   DiagnosticsServiceWithConnection,
   MisagentServiceWithConnection,
@@ -16,6 +17,7 @@ import type {
   WebInspectorServiceWithConnection,
 } from './lib/types.js';
 import AfcService from './services/ios/afc/index.js';
+import { CrashReportsService } from './services/ios/crash-reports/index.js';
 import DiagnosticsService from './services/ios/diagnostic-service/index.js';
 import { DVTSecureSocketProxyService } from './services/ios/dvt/index.js';
 import { ApplicationListing } from './services/ios/dvt/instruments/application-listing.js';
@@ -168,6 +170,31 @@ export async function startAfcService(udid: string): Promise<AfcService> {
     tunnelConnection.host,
     parseInt(afcDescriptor.port, 10),
   ]);
+}
+
+/**
+ * Start CrashReportsService over RemoteXPC shim.
+ * Resolves the crash report copy mobile and crash mover service ports via RemoteXPC.
+ */
+export async function startCrashReportsService(
+  udid: string,
+): Promise<CrashReportsServiceWithConnection> {
+  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
+
+  const copyMobileDescriptor = remoteXPC.findService(
+    CrashReportsService.RSD_COPY_MOBILE_NAME,
+  );
+  const crashMoverDescriptor = remoteXPC.findService(
+    CrashReportsService.RSD_CRASH_MOVER_NAME,
+  );
+
+  return {
+    remoteXPC: remoteXPC as RemoteXpcConnection,
+    crashReportsService: new CrashReportsService(
+      [tunnelConnection.host, parseInt(copyMobileDescriptor.port, 10)],
+      [tunnelConnection.host, parseInt(crashMoverDescriptor.port, 10)],
+    ),
+  };
 }
 
 export async function startWebInspectorService(
