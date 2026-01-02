@@ -7,6 +7,7 @@ import type {
   CrashReportsServiceWithConnection,
   DVTServiceWithConnection,
   DiagnosticsServiceWithConnection,
+  HouseArrestServiceWithConnection,
   MisagentServiceWithConnection,
   MobileConfigServiceWithConnection,
   MobileImageMounterServiceWithConnection,
@@ -28,6 +29,7 @@ import { LocationSimulation } from './services/ios/dvt/instruments/location-simu
 import { NetworkMonitor } from './services/ios/dvt/instruments/network-monitor.js';
 import { Notifications } from './services/ios/dvt/instruments/notifications.js';
 import { Screenshot } from './services/ios/dvt/instruments/screenshot.js';
+import { HouseArrestService } from './services/ios/house-arrest/index.js';
 import { MisagentService } from './services/ios/misagent/index.js';
 import { MobileConfigService } from './services/ios/mobile-config/index.js';
 import MobileImageMounterService from './services/ios/mobile-image-mounter/index.js';
@@ -194,6 +196,22 @@ export async function startCrashReportsService(
       [tunnelConnection.host, parseInt(copyMobileDescriptor.port, 10)],
       [tunnelConnection.host, parseInt(crashMoverDescriptor.port, 10)],
     ),
+  };
+}
+
+export async function startHouseArrestService(
+  udid: string,
+): Promise<HouseArrestServiceWithConnection> {
+  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
+  const houseArrestDescriptor = remoteXPC.findService(
+    HouseArrestService.RSD_SERVICE_NAME,
+  );
+  return {
+    remoteXPC: remoteXPC as RemoteXpcConnection,
+    houseArrestService: new HouseArrestService([
+      tunnelConnection.host,
+      parseInt(houseArrestDescriptor.port, 10),
+    ]),
   };
 }
 

@@ -5,6 +5,7 @@ import type { PacketData } from 'appium-ios-tuntap';
 import { EventEmitter } from 'events';
 
 import type { ServiceConnection } from '../service-connection.js';
+import AfcService from '../services/ios/afc/index.js';
 import type { BaseService, Service } from '../services/ios/base-service.js';
 import type { iOSApplication } from '../services/ios/dvt/instruments/application-listing.js';
 import type { LocationCoordinates } from '../services/ios/dvt/instruments/location-simulation.js';
@@ -1316,6 +1317,16 @@ export interface MobileImageMounterServiceWithConnection {
 }
 
 /**
+ * Represents a HouseArrestService instance with its associated RemoteXPC connection
+ */
+export interface HouseArrestServiceWithConnection {
+  /** The HouseArrestService instance */
+  houseArrestService: HouseArrestService;
+  /** The RemoteXPC connection for service management */
+  remoteXPC: RemoteXpcConnection;
+}
+
+/**
  * Represents the instance side of SpringboardService
  */
 export interface SpringboardService extends BaseService {
@@ -1423,6 +1434,33 @@ export interface SpringboardServiceWithConnection {
   springboardService: SpringboardService;
   /** The RemoteXPC connection for service management */
   remoteXPC: RemoteXpcConnection;
+}
+
+/**
+ * Represents the instance side of HouseArrestService for accessing application containers
+ */
+export interface HouseArrestService extends BaseService {
+  /**
+   * Vend into the application container and return an AfcService.
+   *
+   * @param bundleId The bundle identifier of the application (e.g., 'com.example.app')
+   * @returns Promise resolving to an AfcService for file operations
+   * @throws Error if the application is not installed, not developer-installed, or vending fails
+   */
+  vendContainer(bundleId: string): Promise<AfcService>;
+
+  /**
+   * Vend into the application documents directory and return an AfcService.
+   *
+   * **Important**: VendDocuments only works for apps that have iTunes File Sharing enabled
+   * (UIFileSharingEnabled = YES in Info.plist).
+   * If you get "InstallationLookupFailed" error, use `vendContainer()` instead.
+   *
+   * @param bundleId The bundle identifier of the application (e.g., 'com.example.app')
+   * @returns Promise resolving to an AfcService for file operations
+   * @throws Error if the application is not installed, doesn't support file sharing, or vending fails
+   */
+  vendDocuments(bundleId: string): Promise<AfcService>;
 }
 
 /**

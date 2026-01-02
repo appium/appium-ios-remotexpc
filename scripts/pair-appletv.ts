@@ -1,10 +1,9 @@
 #!/usr/bin/env tsx
-import { getLogger } from '../src/lib/logger.js';
-
 import {
   AppleTVPairingService,
   UserInputService,
 } from '../src/lib/apple-tv/index.js';
+import { getLogger } from '../src/lib/logger.js';
 
 interface CLIArgs {
   device?: string;
