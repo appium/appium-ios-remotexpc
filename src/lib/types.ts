@@ -1533,3 +1533,73 @@ export interface MisagentServiceWithConnection {
   misagentService: MisagentService;
   remoteXPC: RemoteXpcConnection;
 }
+
+/**
+ * Options for pulling crash reports from device to local
+ */
+export interface CrashReportsPullOptions {
+  /**
+   * If true, deletes crash reports from the remote device after pulling to local.
+   * @default false
+   */
+  erase?: boolean;
+  /**
+   * Glob pattern to filter crash reports (e.g., '*.ips', 'Siri*', '**\/*.crash')
+   */
+  match?: string;
+}
+
+/**
+ * CrashReportsService provides an API to manage crash reports on iOS devices
+ */
+export interface CrashReportsService extends BaseService {
+  /**
+   * List files and folders in the crash report's directory
+   *
+   * Crash reports are primarily stored as .ips files, which contain detailed information about
+   * app crashes, including stack traces, thread states, and device information.
+   * In addition to .ips files, the crash reports directory may contain:
+   * - Sysdiagnose tarballs (comprehensive system diagnostic archives)
+   * - Special directories like /Retired, /Cloud, /Assistant, etc.
+   *
+   * For details on the .ips file format, see:
+   * https://developer.apple.com/documentation/xcode/analyzing-a-crash-report
+   *
+   * @param dirPath Path to list, defaults to "/"
+   * @param depth Listing depth: 1 for immediate children, -1 for infinite
+   * @returns List of file paths (e.g., .ips files, sysdiagnose tarballs, directories like /Retired, /Cloud, etc.)
+   */
+  ls(dirPath?: string, depth?: number): Promise<string[]>;
+
+  /**
+   * Pull crash reports from device to local machine
+   * @param out Local directory path
+   * @param entry Remote path on device, defaults to "/"
+   * @param options Pull options (erase, match pattern)
+   */
+  pull(
+    out: string,
+    entry?: string,
+    options?: CrashReportsPullOptions,
+  ): Promise<void>;
+
+  /**
+   * Clear all crash reports from the device
+   */
+  clear(): Promise<void>;
+
+  /**
+   * Flush pending crash reports into CrashReports directory
+   */
+  flush(): Promise<void>;
+
+  /**
+   * Close the service and release resources
+   */
+  close(): void;
+}
+
+export interface CrashReportsServiceWithConnection {
+  crashReportsService: CrashReportsService;
+  remoteXPC: RemoteXpcConnection;
+}
