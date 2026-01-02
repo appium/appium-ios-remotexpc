@@ -1,3 +1,9 @@
+## [0.23.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.22.0...v0.23.0) (2026-01-02)
+
+### Features
+
+* implement crash reports RSD service ([#119](https://github.com/appium/appium-ios-remotexpc/issues/119)) ([6fdbb4e](https://github.com/appium/appium-ios-remotexpc/commit/6fdbb4e4125fa4d7c2aff6d3c4d032debda5213e))
+
 ## [0.22.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.21.2...v0.22.0) (2026-01-02)
 
 ### Features
