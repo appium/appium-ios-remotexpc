@@ -10,9 +10,10 @@ import { PairingError } from '../errors.js';
 import type { PairingConfig } from '../types.js';
 import type { PairRecord, PairingStorageInterface } from './types.js';
 
+const log = getLogger('PairingStorage');
+
 /** Manages persistent storage of pairing credentials as plist files */
 export class PairingStorage implements PairingStorageInterface {
-  private readonly log = getLogger('PairingStorage');
   private readonly box;
   private strongboxDir?: string;
 
@@ -37,11 +38,11 @@ export class PairingStorage implements PairingStorageInterface {
       const item = await this.box.createItemWithValue(itemName, plistContent);
       const itemPath = item.id;
 
-      this.log.info(`Pairing record saved to: ${itemPath}`);
+      log.info(`Pairing record saved to: ${itemPath}`);
 
       return itemPath;
     } catch (error) {
-      this.log.error('Save pairing record error:', error);
+      log.error('Save pairing record error:', error);
       throw new PairingError(
         'Failed to save pairing record',
         'SAVE_ERROR',
@@ -60,7 +61,7 @@ export class PairingStorage implements PairingStorageInterface {
       const pairingData = await item.read();
 
       if (!pairingData) {
-        this.log.debug(`No pair record found for device ${deviceId}`);
+        log.debug(`No pair record found for device ${deviceId}`);
         return null;
       }
 
@@ -77,7 +78,7 @@ export class PairingStorage implements PairingStorageInterface {
         ? parsed.public_key
         : Buffer.from(parsed.public_key as string, 'base64');
 
-      this.log.debug(`Loaded pair record for ${deviceId}`);
+      log.debug(`Loaded pair record for ${deviceId}`);
 
       return {
         privateKey,
@@ -85,7 +86,7 @@ export class PairingStorage implements PairingStorageInterface {
         remoteUnlockHostKey: (parsed.remote_unlock_host_key as string) || '',
       };
     } catch (error) {
-      this.log.error(`Failed to load pair record for ${deviceId}:`, error);
+      log.error(`Failed to load pair record for ${deviceId}:`, error);
       return null;
     }
   }
@@ -104,12 +105,12 @@ export class PairingStorage implements PairingStorageInterface {
         .filter((file: string) => file.startsWith(APPLETV_PAIRING_PREFIX))
         .map((file: string) => file.replace(APPLETV_PAIRING_PREFIX, ''));
 
-      this.log.debug(
+      log.debug(
         `Found ${deviceIds.length} pair record(s): ${deviceIds.join(', ')}`,
       );
       return deviceIds;
     } catch (error) {
-      this.log.debug('Error getting available device IDs:', error);
+      log.debug('Error getting available device IDs:', error);
       return [];
     }
   }
