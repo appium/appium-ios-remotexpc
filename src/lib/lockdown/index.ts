@@ -9,6 +9,8 @@ import type { PlistMessage, PlistValue } from '../types.js';
 import { RelayService, createUsbmux } from '../usbmux/index.js';
 
 const log = getLogger('Lockdown');
+const tlsManagerLog = getLogger('TLSManager');
+const deviceManagerLog = getLogger('DeviceManager');
 
 // Constants
 const LABEL = 'appium-internal';
@@ -79,8 +81,6 @@ class DeviceNotFoundError extends Error {
 
 // TLS Manager for handling TLS operations
 class TLSManager {
-  private readonly log = getLogger('TLSManager');
-
   /**
    * Upgrades a socket to TLS
    */
@@ -90,7 +90,7 @@ class TLSManager {
   ): Promise<TLSSocket> {
     return new Promise((resolve, reject) => {
       socket.pause();
-      this.log.debug('Upgrading socket to TLS...');
+      tlsManagerLog.debug('Upgrading socket to TLS...');
 
       const secure = tls.connect(
         {
@@ -100,18 +100,18 @@ class TLSManager {
           ...tlsOptions,
         },
         () => {
-          this.log.info('TLS handshake completed');
+          tlsManagerLog.info('TLS handshake completed');
           resolve(secure);
         },
       );
 
       secure.on('error', (err) => {
-        this.log.error(`TLS socket error: ${err}`);
+        tlsManagerLog.error(`TLS socket error: ${err}`);
         reject(new TLSUpgradeError(`TLS socket error: ${err.message}`));
       });
 
       socket.on('error', (err) => {
-        this.log.error(`Underlying socket error during TLS: ${err}`);
+        tlsManagerLog.error(`Underlying socket error during TLS: ${err}`);
         reject(new TLSUpgradeError(`Socket error during TLS: ${err.message}`));
       });
     });
@@ -120,17 +120,15 @@ class TLSManager {
 
 // Device Manager for handling device operations
 class DeviceManager {
-  private readonly log = getLogger('DeviceManager');
-
   /**
    * Lists all connected devices
    */
   async listDevices(): Promise<Device[]> {
     const usbmux = await createUsbmux();
     try {
-      this.log.debug('Listing connected devices...');
+      deviceManagerLog.debug('Listing connected devices...');
       const devices = await usbmux.listDevices();
-      this.log.debug(
+      deviceManagerLog.debug(
         `Found ${devices.length} devices: ${devices.map((d) => d.Properties.SerialNumber).join(', ')}`,
       );
       return devices;
@@ -154,7 +152,7 @@ class DeviceManager {
       throw new DeviceNotFoundError(udid);
     }
 
-    this.log.info(
+    deviceManagerLog.info(
       `Found device: DeviceID=${device.DeviceID}, SerialNumber=${device.Properties.SerialNumber}, ConnectionType=${device.Properties.ConnectionType}`,
     );
 
@@ -165,7 +163,7 @@ class DeviceManager {
    * Reads pair record for a device
    */
   async readPairRecord(udid: string): Promise<PairRecord> {
-    this.log.debug(`Retrieving pair record for UDID: ${udid}`);
+    deviceManagerLog.debug(`Retrieving pair record for UDID: ${udid}`);
     const usbmux = await createUsbmux();
 
     try {
@@ -175,10 +173,10 @@ class DeviceManager {
         throw new LockdownError('Pair record missing certificate or key');
       }
 
-      this.log.info('Pair record retrieved successfully');
+      deviceManagerLog.info('Pair record retrieved successfully');
       return record;
     } catch (err) {
-      this.log.error(`Error getting pair record: ${err}`);
+      deviceManagerLog.error(`Error getting pair record: ${err}`);
       throw err;
     } finally {
       await this.closeUsbmux(usbmux);
@@ -189,7 +187,7 @@ class DeviceManager {
     try {
       await usbmux.close();
     } catch (err) {
-      this.log.error(`Error closing usbmux: ${err}`);
+      deviceManagerLog.error(`Error closing usbmux: ${err}`);
     }
   }
 }

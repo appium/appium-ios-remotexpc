@@ -5,10 +5,10 @@ import { PairingError } from '../errors.js';
 import { NETWORK_CONSTANTS } from '../network/constants.js';
 import type { UserInputInterface } from '../pairing-protocol/types.js';
 
+const log = getLogger('UserInputService');
+
 /** Handles user interaction for PIN input during pairing */
 export class UserInputService implements UserInputInterface {
-  private readonly log = getLogger('UserInputService');
-
   async promptForPIN(): Promise<string> {
     const rl = createInterface({
       input: process.stdin,
@@ -35,11 +35,11 @@ export class UserInputService implements UserInputInterface {
 
       const cleanPin = pin.trim();
       if (!/^\d+$/.test(cleanPin)) {
-        this.log.error('Invalid PIN format');
+        log.error('Invalid PIN format');
         throw new PairingError('PIN must contain only digits', 'INVALID_PIN');
       }
 
-      this.log.debug('PIN received successfully');
+      log.debug('PIN received successfully');
       return cleanPin;
     } finally {
       // Clean up timeout if error occurred before clearing

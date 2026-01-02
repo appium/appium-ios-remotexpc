@@ -19,10 +19,10 @@ import { PairingStorage } from '../storage/pairing-storage.js';
 import type { PairRecord } from '../storage/types.js';
 import type { TcpListenerInfo, TlsPskConnectionOptions } from './types.js';
 
+const log = getLogger('TunnelService');
 const appleTVLog = getLogger('AppleTVTunnelService');
 
 export class TunnelService {
-  private static readonly log = getLogger('TunnelService');
   private encryptedSequenceNumber = 0;
 
   constructor(
@@ -32,7 +32,7 @@ export class TunnelService {
   ) {}
 
   async createTcpListener(): Promise<TcpListenerInfo> {
-    TunnelService.log.debug('Creating TCP listener (Encrypted Request)');
+    log.debug('Creating TCP listener (Encrypted Request)');
 
     const request = {
       request: {
@@ -100,7 +100,7 @@ export class TunnelService {
     const createListenerResponse = responseJson?.response?._1?.createListener;
 
     if (!createListenerResponse?.port) {
-      TunnelService.log.error('Invalid createListener response:', responseJson);
+      log.error('Invalid createListener response:', responseJson);
       throw new PairingError(
         'TCP listener creation failed: missing port in response',
         'LISTENER_PORT_MISSING',
@@ -108,9 +108,7 @@ export class TunnelService {
       );
     }
 
-    TunnelService.log.debug(
-      `TCP Listener created on port: ${createListenerResponse.port}`,
-    );
+    log.debug(`TCP Listener created on port: ${createListenerResponse.port}`);
 
     return createListenerResponse;
   }
@@ -119,16 +117,14 @@ export class TunnelService {
     hostname: string,
     port: number,
   ): Promise<tls.TLSSocket> {
-    TunnelService.log.debug(
-      `Creating TLS-PSK connection to ${hostname}:${port}`,
-    );
+    log.debug(`Creating TLS-PSK connection to ${hostname}:${port}`);
 
     return new Promise((resolve, reject) => {
       const options: TlsPskConnectionOptions = {
         host: hostname,
         port,
         pskCallback: (hint: string | null) => {
-          TunnelService.log.debug(`PSK callback invoked with hint: ${hint}`);
+          log.debug(`PSK callback invoked with hint: ${hint}`);
           return {
             psk: this.keys.encryptionKey,
             identity: '',
@@ -149,39 +145,33 @@ export class TunnelService {
       };
 
       const socket = tls.connect(options, () => {
-        TunnelService.log.debug('TLS-PSK connection established');
+        log.debug('TLS-PSK connection established');
         resolve(socket);
       });
 
       socket.on('error', (error: Error & { code?: string }) => {
-        TunnelService.log.error('TLS-PSK connection error:', error);
+        log.error('TLS-PSK connection error:', error);
 
         if (
           error.message?.includes('no shared cipher') ||
           error.code === 'ECONNRESET'
         ) {
-          TunnelService.log.error(
-            'PSK ciphers may not be available in your Node.js build',
-          );
-          TunnelService.log.error('You may need to:');
-          TunnelService.log.error(
-            '1. Use Node.js compiled with PSK-enabled OpenSSL',
-          );
-          TunnelService.log.error(
-            '2. Use a Python subprocess for the TLS-PSK connection',
-          );
-          TunnelService.log.error('3. Use a native module like node-openssl');
+          log.error('PSK ciphers may not be available in your Node.js build');
+          log.error('You may need to:');
+          log.error('1. Use Node.js compiled with PSK-enabled OpenSSL');
+          log.error('2. Use a Python subprocess for the TLS-PSK connection');
+          log.error('3. Use a native module like node-openssl');
         }
 
         reject(error);
       });
 
       socket.on('secureConnect', () => {
-        TunnelService.log.debug('Secure connection event fired');
+        log.debug('Secure connection event fired');
       });
 
       socket.on('tlsClientError', (error) => {
-        TunnelService.log.error('TLS client error:', error);
+        log.error('TLS client error:', error);
       });
     });
   }
