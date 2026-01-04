@@ -10,6 +10,7 @@ import type { BaseService, Service } from '../services/ios/base-service.js';
 import type { iOSApplication } from '../services/ios/dvt/instruments/application-listing.js';
 import type { LocationCoordinates } from '../services/ios/dvt/instruments/location-simulation.js';
 import type { NotificationMessage } from '../services/ios/dvt/instruments/notifications.js';
+import { InstallationProxyService } from '../services/ios/installation-proxy/index.js';
 import { ProvisioningProfile } from '../services/ios/misagent/provisioning-profile.js';
 import type { PowerAssertionOptions } from '../services/ios/power-assertion/index.js';
 import { PowerAssertionType } from '../services/ios/power-assertion/index.js';
@@ -1601,5 +1602,16 @@ export interface CrashReportsService extends BaseService {
 
 export interface CrashReportsServiceWithConnection {
   crashReportsService: CrashReportsService;
+  remoteXPC: RemoteXpcConnection;
+}
+
+/**
+ * Represents an InstallationProxyService instance with its associated RemoteXPC connection
+ * This allows callers to properly manage the connection lifecycle
+ */
+export interface InstallationProxyServiceWithConnection {
+  /** The InstallationProxyService instance */
+  installationProxyService: InstallationProxyService;
+  /** The RemoteXPC connection for service management */
   remoteXPC: RemoteXpcConnection;
 }
