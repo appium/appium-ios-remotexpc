@@ -29,8 +29,8 @@ describe('AFC + Installation Proxy Workflow', function () {
   let installationProxyService: InstallationProxyService;
 
   const udid = process.env.UDID || '';
-  const testIpaPath = '';
-  const testBundleId = '';
+  const testIpaPath = process.env.TEST_IPA_PATH || '';
+  const testBundleId = process.env.TEST_BUNDLE_ID || '';
 
   before(async function () {
     // Skip tests if required environment variables are not set
