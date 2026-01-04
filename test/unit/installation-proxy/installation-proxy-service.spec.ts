@@ -2,9 +2,9 @@ import { expect } from 'chai';
 
 import {
   DEFAULT_RETURN_ATTRIBUTES,
+  InstallationProxyService,
   SIZE_ATTRIBUTES,
-} from '../../../src/services/ios/installation-proxy/constants.js';
-import { InstallationProxyService } from '../../../src/services/ios/installation-proxy/index.js';
+} from '../../../src/services/ios/installation-proxy/index.js';
 
 describe('InstallationProxyService', function () {
   describe('InstallationProxyService instantiation', function () {

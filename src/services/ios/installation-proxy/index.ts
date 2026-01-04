@@ -4,11 +4,6 @@ import { getLogger } from '../../../lib/logger.js';
 import type { PlistDictionary } from '../../../lib/types.js';
 import { ServiceConnection } from '../../../service-connection.js';
 import { BaseService } from '../base-service.js';
-import {
-  DEFAULT_RETURN_ATTRIBUTES,
-  RSD_SERVICE_NAME,
-  SIZE_ATTRIBUTES,
-} from './constants.js';
 import type {
   AppInfo,
   ApplicationType,
@@ -23,11 +18,27 @@ import type {
 
 const log = getLogger('InstallationProxyService');
 
+export const DEFAULT_RETURN_ATTRIBUTES = [
+  'CFBundleIdentifier',
+  'CFBundleName',
+  'CFBundleDisplayName',
+  'CFBundleVersion',
+  'CFBundleShortVersionString',
+  'ApplicationType',
+];
+
+export const SIZE_ATTRIBUTES = [
+  'CFBundleIdentifier',
+  'StaticDiskUsage',
+  'DynamicDiskUsage',
+];
+
 /**
  * InstallationProxyService provides an API to manage app installation and queries
  */
 export class InstallationProxyService extends BaseService {
-  static readonly RSD_SERVICE_NAME = RSD_SERVICE_NAME;
+  static readonly RSD_SERVICE_NAME =
+    'com.apple.mobile.installation_proxy.shim.remote';
   private readonly timeout: number;
   private connection: ServiceConnection | null = null;
 
@@ -329,6 +340,3 @@ export class InstallationProxyService extends BaseService {
     }
   }
 }
-
-export * from './types.js';
-export * from './constants.js';
