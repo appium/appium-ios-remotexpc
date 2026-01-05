@@ -11,6 +11,7 @@ import type { iOSApplication } from '../services/ios/dvt/instruments/application
 import type { LocationCoordinates } from '../services/ios/dvt/instruments/location-simulation.js';
 import type { NotificationMessage } from '../services/ios/dvt/instruments/notifications.js';
 import { ProvisioningProfile } from '../services/ios/misagent/provisioning-profile.js';
+import type { ProfileList } from '../services/ios/mobile-config/index.js';
 import type { PowerAssertionOptions } from '../services/ios/power-assertion/index.js';
 import { PowerAssertionType } from '../services/ios/power-assertion/index.js';
 import type { InterfaceOrientation } from '../services/ios/springboard-service/index.js';
@@ -279,7 +280,7 @@ export interface MobileConfigService extends BaseService {
    *   Status: 'Acknowledged'
    * }
    */
-  getProfileList(): Promise<PlistDictionary>;
+  getProfileList(): Promise<ProfileList>;
   /**
    * Install profile to iOS device
    * @param {String} path  must be a certificate file .PEM .CER and more formats
