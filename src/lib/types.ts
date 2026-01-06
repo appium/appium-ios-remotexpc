@@ -259,7 +259,7 @@ export interface MobileConfigService extends BaseService {
   connectToMobileConfigService(): Promise<ServiceConnection>;
   /**
    * Get all profiles of iOS devices
-   * @returns {Promise<PlistDictionary>}
+   * @returns {Promise<ProfileList>}
    * e.g.
    * {
    *   OrderedIdentifiers: [ '2fac1c2b3d684843189b2981c718b0132854a847a' ],
