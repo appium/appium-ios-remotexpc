@@ -1,3 +1,9 @@
+## [0.24.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.24.1...v0.24.2) (2026-01-06)
+
+### Miscellaneous Chores
+
+* **mobile-config:** use `ProfileList` for semantics and details ([#127](https://github.com/appium/appium-ios-remotexpc/issues/127)) ([332fd31](https://github.com/appium/appium-ios-remotexpc/commit/332fd31f5fd20be40a40ed09be8a5905811b7d00))
+
 ## [0.24.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.24.0...v0.24.1) (2026-01-02)
 
 ### Miscellaneous Chores
