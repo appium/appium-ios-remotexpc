@@ -31,10 +31,10 @@ const log = getLogger('AfcService');
 const NON_LISTABLE_ENTRIES = ['', '.', '..'];
 
 /**
- * Callback invoked for each file successfully pulled from the device.
+ * Callback invoked for each file or directory successfully pulled from the device.
  *
- * @param remotePath - The remote file path on the device
- * @param localPath - The local file path where it was saved
+ * @param remotePath - The remote file or directory path on the device
+ * @param localPath - The local file or directory path where it was saved
  *
  * @remarks
  * If the callback throws an error, the pull operation will be aborted immediately.
@@ -627,11 +627,17 @@ export class AfcService {
       if (!dirCreated) {
         await fsp.mkdir(localDirPath, { recursive: true });
         dirCreated = true;
+        if (callback) {
+          await callback(remoteSrcDir, localDirPath);
+        }
       }
     };
     // For root directory (empty relativePath), always create it
     if (!relativePath) {
       await fsp.mkdir(localDirPath, { recursive: true });
+      if (callback) {
+        await callback(remoteSrcDir, localDirPath);
+      }
     }
 
     for (const entry of await this.listdir(remoteSrcDir)) {
