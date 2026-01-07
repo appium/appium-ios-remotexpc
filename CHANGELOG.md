@@ -1,3 +1,9 @@
+## [0.24.3](https://github.com/appium/appium-ios-remotexpc/compare/v0.24.2...v0.24.3) (2026-01-07)
+
+### Miscellaneous Chores
+
+* **logger:** fix eslint error ([#129](https://github.com/appium/appium-ios-remotexpc/issues/129)) ([e5ebfbb](https://github.com/appium/appium-ios-remotexpc/commit/e5ebfbb690cc2257f4d661d14dfca6bbb3bfb304))
+
 ## [0.24.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.24.1...v0.24.2) (2026-01-06)
 
 ### Miscellaneous Chores
