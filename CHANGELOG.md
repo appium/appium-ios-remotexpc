@@ -1,3 +1,9 @@
+## [0.25.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.24.3...v0.25.0) (2026-01-07)
+
+### Features
+
+* **afc:** invoke callback for dirs too ([#128](https://github.com/appium/appium-ios-remotexpc/issues/128)) ([d2e2a0f](https://github.com/appium/appium-ios-remotexpc/commit/d2e2a0f6664c6a3519050a7b45ea34495d2a13b9))
+
 ## [0.24.3](https://github.com/appium/appium-ios-remotexpc/compare/v0.24.2...v0.24.3) (2026-01-07)
 
 ### Miscellaneous Chores
