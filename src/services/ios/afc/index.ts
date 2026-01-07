@@ -35,13 +35,18 @@ const NON_LISTABLE_ENTRIES = ['', '.', '..'];
  *
  * @param remotePath - The remote file or directory path on the device
  * @param localPath - The local file or directory path where it was saved
+ * @param isDirectory - True if the path is a directory, false if it is a file
  *
  * @remarks
  * If the callback throws an error, the pull operation will be aborted immediately.
+ *
+ * The `isDirectory` parameter allows callback consumers to distinguish between files
+ * and directories.
  */
 export type PullRecursiveCallback = (
   remotePath: string,
   localPath: string,
+  isDirectory: boolean,
 ) => unknown | Promise<unknown>;
 
 /** Options for the pull method. */
@@ -58,7 +63,7 @@ export interface PullOptions {
    * @default true
    */
   overwrite?: boolean;
-  /** Callback invoked for each pulled file. */
+  /** Callback invoked for each pulled file or directory. */
   callback?: PullRecursiveCallback;
 }
 
@@ -379,7 +384,7 @@ export class AfcService {
       await this._pullFile(remoteFilePath, localFilePath);
 
       if (callback) {
-        await callback(remoteFilePath, localFilePath);
+        await callback(remoteFilePath, localFilePath, false);
       }
     };
 
@@ -628,7 +633,7 @@ export class AfcService {
         await fsp.mkdir(localDirPath, { recursive: true });
         dirCreated = true;
         if (callback) {
-          await callback(remoteSrcDir, localDirPath);
+          await callback(remoteSrcDir, localDirPath, true);
         }
       }
     };
@@ -636,7 +641,7 @@ export class AfcService {
     if (!relativePath) {
       await fsp.mkdir(localDirPath, { recursive: true });
       if (callback) {
-        await callback(remoteSrcDir, localDirPath);
+        await callback(remoteSrcDir, localDirPath, true);
       }
     }
 
@@ -668,7 +673,7 @@ export class AfcService {
         await this._pullFile(entryPath, targetPath);
 
         if (callback) {
-          await callback(entryPath, targetPath);
+          await callback(entryPath, targetPath, false);
         }
       }
     }
