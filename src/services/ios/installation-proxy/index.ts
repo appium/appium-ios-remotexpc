@@ -18,6 +18,8 @@ import type {
 
 const log = getLogger('InstallationProxyService');
 
+export const DEFAULT_APPLICATION_TYPE = 'Any';
+
 export const DEFAULT_RETURN_ATTRIBUTES = [
   'CFBundleIdentifier',
   'CFBundleName',
@@ -53,9 +55,10 @@ export class InstallationProxyService extends BaseService {
   async browse(options: BrowseOptions = {}): Promise<AppInfo[]> {
     log.debug('Browse command with options:', options);
 
-    const applicationType = options.applicationType ?? 'Any';
-    const returnAttributes =
-      options.returnAttributes ?? DEFAULT_RETURN_ATTRIBUTES;
+    const {
+      applicationType = DEFAULT_APPLICATION_TYPE,
+      returnAttributes = DEFAULT_RETURN_ATTRIBUTES,
+    } = options;
 
     const request: PlistDictionary = {
       Command: 'Browse',
@@ -138,7 +141,7 @@ export class InstallationProxyService extends BaseService {
    * Get all installed applications with optional size calculation
    */
   async getApps(
-    applicationType: ApplicationType = 'Any',
+    applicationType: ApplicationType = DEFAULT_APPLICATION_TYPE,
     calculateSizes: boolean = false,
     bundleIds?: string[],
   ): Promise<Record<string, AppInfo>> {
