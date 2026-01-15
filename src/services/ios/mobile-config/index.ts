@@ -15,6 +15,36 @@ const ERROR_CLOUD_CONFIGURATION_ALREADY_PRESENT = 14002;
 const log = getLogger('MobileConfigService');
 
 /**
+ * Profile manifest information
+ */
+interface ProfileManifest {
+  Description: string;
+  IsActive: boolean;
+}
+
+/**
+ * Profile metadata information
+ */
+interface ProfileMetadata {
+  PayloadDescription: string;
+  PayloadDisplayName: string;
+  PayloadOrganization: string;
+  PayloadRemovalDisallowed: boolean;
+  PayloadUUID: string;
+  PayloadVersion: number;
+}
+
+/**
+ * Profile list
+ */
+interface ProfileList {
+  OrderedIdentifiers: string[];
+  ProfileManifest: Record<string, ProfileManifest>;
+  ProfileMetadata: Record<string, ProfileMetadata>;
+  Status: 'Acknowledged';
+}
+
+/**
  * MobileConfigService provides an API to:
  * - Install configuration profiles
  * - Remove configuration profiles
@@ -46,7 +76,7 @@ class MobileConfigService
 
   /**
    * Get all profiles of iOS devices
-   * @returns {Promise<PlistDictionary>}
+   * @returns {Promise<ProfileList>}
    * e.g.
    * {
    *   OrderedIdentifiers: [ '2fac1c2b3d684843189b2981c718b0132854a847a' ],
@@ -67,12 +97,13 @@ class MobileConfigService
    *   Status: 'Acknowledged'
    * }
    */
-  async getProfileList(): Promise<PlistDictionary> {
+  async getProfileList(): Promise<ProfileList> {
     const req = {
       RequestType: 'GetProfileList',
     };
 
-    return this._sendPlistAndReceive(req);
+    const plistDict = await this._sendPlistAndReceive(req);
+    return plistDict as unknown as ProfileList;
   }
 
   /**
@@ -132,15 +163,12 @@ class MobileConfigService
       return;
     }
 
-    const profileMetadata = profileList.ProfileMetadata as Record<string, any>;
+    const profileMetadata = profileList.ProfileMetadata;
     if (!(identifier in profileMetadata)) {
       // Get available identifiers from OrderedIdentifiers array or ProfileMetadata keys
       let availableIdentifiers: string[];
-      if (
-        profileList.OrderedIdentifiers &&
-        Array.isArray(profileList.OrderedIdentifiers)
-      ) {
-        availableIdentifiers = profileList.OrderedIdentifiers as string[];
+      if (profileList.OrderedIdentifiers) {
+        availableIdentifiers = profileList.OrderedIdentifiers;
       } else {
         availableIdentifiers = Object.keys(profileMetadata);
       }
@@ -202,4 +230,9 @@ class MobileConfigService
   }
 }
 
-export { MobileConfigService };
+export {
+  type ProfileManifest,
+  type ProfileMetadata,
+  type ProfileList,
+  MobileConfigService,
+};

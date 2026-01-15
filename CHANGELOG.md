@@ -1,3 +1,21 @@
+## [0.25.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.24.3...v0.25.0) (2026-01-07)
+
+### Features
+
+* **afc:** invoke callback for dirs too ([#128](https://github.com/appium/appium-ios-remotexpc/issues/128)) ([d2e2a0f](https://github.com/appium/appium-ios-remotexpc/commit/d2e2a0f6664c6a3519050a7b45ea34495d2a13b9))
+
+## [0.24.3](https://github.com/appium/appium-ios-remotexpc/compare/v0.24.2...v0.24.3) (2026-01-07)
+
+### Miscellaneous Chores
+
+* **logger:** fix eslint error ([#129](https://github.com/appium/appium-ios-remotexpc/issues/129)) ([e5ebfbb](https://github.com/appium/appium-ios-remotexpc/commit/e5ebfbb690cc2257f4d661d14dfca6bbb3bfb304))
+
+## [0.24.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.24.1...v0.24.2) (2026-01-06)
+
+### Miscellaneous Chores
+
+* **mobile-config:** use `ProfileList` for semantics and details ([#127](https://github.com/appium/appium-ios-remotexpc/issues/127)) ([332fd31](https://github.com/appium/appium-ios-remotexpc/commit/332fd31f5fd20be40a40ed09be8a5905811b7d00))
+
 ## [0.24.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.24.0...v0.24.1) (2026-01-02)
 
 ### Miscellaneous Chores
