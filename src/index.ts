@@ -14,6 +14,8 @@ import * as Services from './services.js';
 import { startCoreDeviceProxy } from './services/ios/tunnel-service/index.js';
 
 export type { Device as UsbmuxDevice } from './lib/usbmux/index.js';
+export type { RemoteXpcConnection } from './lib/remote-xpc/remote-xpc-connection.js';
+export type { AfcService } from './services/ios/afc/index.js';
 
 export type {
   CrashReportsService,
