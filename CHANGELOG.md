@@ -1,3 +1,9 @@
+## [0.25.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.25.0...v0.25.1) (2026-01-16)
+
+### Miscellaneous Chores
+
+* add types ([#131](https://github.com/appium/appium-ios-remotexpc/issues/131)) ([5bf5966](https://github.com/appium/appium-ios-remotexpc/commit/5bf5966110b84051694a26e46c98522b15986beb))
+
 ## [0.25.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.24.3...v0.25.0) (2026-01-07)
 
 ### Features
