@@ -1,3 +1,9 @@
+## [0.25.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.25.1...v0.25.2) (2026-01-16)
+
+### Miscellaneous Chores
+
+* export type `AfcService` and `RemoteXpcConnection` ([#132](https://github.com/appium/appium-ios-remotexpc/issues/132)) ([8bc6c04](https://github.com/appium/appium-ios-remotexpc/commit/8bc6c04eaf24aeb9f0233028b51cecc623999595))
+
 ## [0.25.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.25.0...v0.25.1) (2026-01-16)
 
 ### Miscellaneous Chores
