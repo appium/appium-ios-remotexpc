@@ -13,6 +13,8 @@ import { Usbmux, createUsbmux } from './lib/usbmux/index.js';
 import * as Services from './services.js';
 import { startCoreDeviceProxy } from './services/ios/tunnel-service/index.js';
 
+export type { Device as UsbmuxDevice } from './lib/usbmux/index.js';
+
 export type {
   CrashReportsService,
   CrashReportsPullOptions,
