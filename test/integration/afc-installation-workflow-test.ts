@@ -3,8 +3,8 @@ import path from 'node:path';
 
 import { getLogger } from '../../src/lib/logger.js';
 import * as Services from '../../src/services.js';
-import type AfcService from '../../src/services/ios/afc/index.js';
-import type { InstallationProxyService } from '../../src/services/ios/installation-proxy/index.js';
+import AfcService from '../../src/services/ios/afc/index.js';
+import { InstallationProxyService } from '../../src/services/ios/installation-proxy/index.js';
 
 const log = getLogger('AFC-InstallationProxy.Workflow.test');
 
@@ -29,8 +29,9 @@ describe('AFC + Installation Proxy Workflow', function () {
   let installationProxyService: InstallationProxyService;
 
   const udid = process.env.UDID || '';
-  const testIpaPath = process.env.TEST_IPA_PATH || '';
-  const testBundleId = process.env.TEST_BUNDLE_ID || '';
+  const testIpaPath =
+    './assets/test/Test-A039B87D-3D98-436B-88F2-7B9728E23DBD.ipa';
+  const testBundleId = 'com.testigng.lt';
 
   before(async function () {
     // Skip tests if required environment variables are not set
@@ -51,14 +52,27 @@ describe('AFC + Installation Proxy Workflow', function () {
     try {
       log.info('Initializing AFC and Installation Proxy services...');
 
-      // Start AFC service
-      afcService = await Services.startAfcService(udid);
+      // Create ONE RemoteXPC connection to be shared by both services
+      const { remoteXPC: rxpc, tunnelConnection } =
+        await Services.createRemoteXPCConnection(udid);
+      remoteXPC = rxpc;
+
+      // Manually create AFC service from the shared connection
+      const afcDescriptor = remoteXPC.findService(AfcService.RSD_SERVICE_NAME);
+      afcService = new AfcService([
+        tunnelConnection.host,
+        parseInt(afcDescriptor.port, 10),
+      ]);
       log.info('AFC service initialized');
 
-      // Start Installation Proxy service
-      const result = await Services.startInstallationProxyService(udid);
-      installationProxyService = result.installationProxyService;
-      remoteXPC = result.remoteXPC;
+      // Manually create Installation Proxy service from the SAME connection
+      const installationProxyDescriptor = remoteXPC.findService(
+        InstallationProxyService.RSD_SERVICE_NAME,
+      );
+      installationProxyService = new InstallationProxyService([
+        tunnelConnection.host,
+        parseInt(installationProxyDescriptor.port, 10),
+      ]);
       log.info('Installation Proxy service initialized');
     } catch (error) {
       log.error('Failed to initialize services:', error);
