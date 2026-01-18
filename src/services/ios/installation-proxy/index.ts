@@ -16,6 +16,7 @@ import type {
   LookupResponse,
   ProgressCallback,
   ProgressResponse,
+  UninstallOptions,
 } from './types.js';
 
 /**
@@ -110,10 +111,10 @@ export class InstallationProxyService extends BaseService {
     conn.sendPlist(request);
 
     const result: AppInfo[] = [];
-    const startTime = Date.now();
+    const startTime = performance.now();
 
     while (true) {
-      if (Date.now() - startTime > MAX_BROWSE_DURATION_MS) {
+      if (performance.now() - startTime > MAX_BROWSE_DURATION_MS) {
         throw new Error(
           `Browse operation exceeded maximum duration (${MAX_BROWSE_DURATION_MS / 1000}s). ` +
             'This likely indicates a stalled operation or API issue.',
@@ -132,7 +133,7 @@ export class InstallationProxyService extends BaseService {
       }
 
       if (response.Status === 'Complete') {
-        log.info(
+        log.debug(
           `Browse complete. Found ${util.pluralize('application', result.length, true)}.`,
         );
         break;
@@ -177,7 +178,7 @@ export class InstallationProxyService extends BaseService {
       return {};
     }
 
-    log.info(
+    log.debug(
       `Lookup found ${util.pluralize('application', Object.keys(response.LookupResult).length, true)}`,
     );
     return response.LookupResult;
@@ -197,27 +198,20 @@ export class InstallationProxyService extends BaseService {
       applicationType,
     };
 
+    if (calculateSizes) {
+      // Combine default attributes with size attributes in a single call
+      options.returnAttributes = [
+        ...DEFAULT_RETURN_ATTRIBUTES,
+        'StaticDiskUsage',
+        'DynamicDiskUsage',
+      ];
+    }
+
     if (bundleIds && bundleIds.length > 0) {
       options.bundleIDs = bundleIds;
     }
 
-    const result = await this.lookup(bundleIds, options);
-
-    if (calculateSizes) {
-      const sizeOptions: LookupOptions = {
-        ...options,
-        returnAttributes: SIZE_ATTRIBUTES,
-      };
-      const additionalInfo = await this.lookup(bundleIds, sizeOptions);
-
-      for (const [bundleId, appInfo] of Object.entries(additionalInfo)) {
-        if (result[bundleId]) {
-          result[bundleId] = { ...result[bundleId], ...appInfo };
-        }
-      }
-    }
-
-    return result;
+    return await this.lookup(bundleIds, options);
   }
 
   /**
@@ -231,7 +225,7 @@ export class InstallationProxyService extends BaseService {
     options: InstallOptions = {},
     progressCallback?: ProgressCallback,
   ): Promise<void> {
-    log.info(`Installing app from: ${packagePath}`);
+    log.debug(`Installing app from: ${packagePath}`);
 
     const request: PlistDictionary = {
       Command: 'Install',
@@ -248,10 +242,10 @@ export class InstallationProxyService extends BaseService {
    */
   async uninstall(
     bundleIdentifier: string,
-    options: Record<string, string | number | boolean> = {},
+    options: UninstallOptions = {},
     progressCallback?: ProgressCallback,
   ): Promise<void> {
-    log.info(`Uninstalling app: ${bundleIdentifier}`);
+    log.debug(`Uninstalling app: ${bundleIdentifier}`);
 
     const request: PlistDictionary = {
       Command: 'Uninstall',
@@ -274,7 +268,7 @@ export class InstallationProxyService extends BaseService {
     options: InstallOptions = {},
     progressCallback?: ProgressCallback,
   ): Promise<void> {
-    log.info(`Upgrading app from: ${packagePath}`);
+    log.debug(`Upgrading app from: ${packagePath}`);
 
     const request: PlistDictionary = {
       Command: 'Upgrade',
@@ -302,7 +296,7 @@ export class InstallationProxyService extends BaseService {
     options: InstallOptions = {},
     progressCallback?: ProgressCallback,
   ): Promise<InstallOperationResult> {
-    log.info(
+    log.debug(
       `Checking installation status for ${bundleIdentifier} (target version: ${targetVersion})`,
     );
 
@@ -326,7 +320,7 @@ export class InstallationProxyService extends BaseService {
       return this.handleUnknownVersion(ctx);
     }
 
-    log.info(
+    log.debug(
       `Current version: ${currentVersion}, Target version: ${targetVersion}`,
     );
 
@@ -388,11 +382,11 @@ export class InstallationProxyService extends BaseService {
     try {
       if (this.connection) {
         this.connection.close();
-        this.connection = null;
         log.debug('Connection closed successfully');
       }
     } catch (error) {
       log.error('Error closing connection:', error);
+    } finally {
       // Always set to null even if close fails
       this.connection = null;
     }
@@ -404,7 +398,7 @@ export class InstallationProxyService extends BaseService {
   private async handleFreshInstall(
     ctx: InstallContext,
   ): Promise<InstallOperationResult> {
-    log.info(
+    log.debug(
       `App ${ctx.bundleIdentifier} is not installed. Performing fresh install.`,
     );
     await this.install(
@@ -448,7 +442,7 @@ export class InstallationProxyService extends BaseService {
     ctx: InstallContext,
   ): Promise<InstallOperationResult> {
     const { currentVersion, targetVersion } = ctx;
-    log.info(
+    log.debug(
       `Current version ${currentVersion} is older than ${targetVersion}. Upgrading.`,
     );
     await this.upgrade(
@@ -491,7 +485,9 @@ export class InstallationProxyService extends BaseService {
   ): Promise<InstallOperationResult> {
     const { currentVersion, targetVersion } = ctx;
 
-    log.info(`App is already at version ${targetVersion}. Skipping reinstall.`);
+    log.debug(
+      `App is already at version ${targetVersion}. Skipping reinstall.`,
+    );
     return this.createResult(
       'skipped',
       `App is already at version ${targetVersion}. ${INSTALL_MESSAGES.SAME_VERSION_NOT_SUPPORTED}`,
@@ -598,10 +594,10 @@ export class InstallationProxyService extends BaseService {
     const conn = await this.getConnection();
     conn.sendPlist(request);
 
-    const startTime = Date.now();
+    const startTime = performance.now();
 
     while (true) {
-      if (Date.now() - startTime > MAX_INSTALL_DURATION_MS) {
+      if (performance.now() - startTime > MAX_INSTALL_DURATION_MS) {
         throw new Error(
           `Operation exceeded maximum duration (${MAX_INSTALL_DURATION_MS / 1000}s). ` +
             'This likely indicates a stalled operation or API issue.',
@@ -636,11 +632,13 @@ export class InstallationProxyService extends BaseService {
   private checkForError(
     response: ProgressResponse | BrowseResponse | LookupResponse,
   ): void {
-    if (response.Error) {
-      const error = response.Error;
-      const description = response.ErrorDescription ?? 'No description';
-      log.error(`Installation proxy error: ${error} - ${description}`);
-      throw new Error(`${error}: ${description}`);
+    if (!response.Error) {
+      return;
     }
+
+    const error = response.Error;
+    const description = response.ErrorDescription ?? 'No description';
+    log.error(`Installation proxy error: ${error} - ${description}`);
+    throw new Error(`${error}: ${description}`);
   }
 }

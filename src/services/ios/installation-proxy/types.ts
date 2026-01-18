@@ -15,6 +15,10 @@ export interface InstallOptions {
   [key: string]: string | number | boolean | undefined;
 }
 
+export interface UninstallOptions {
+  [key: string]: string | number | boolean | undefined;
+}
+
 export interface LookupOptions {
   bundleIDs?: string[];
   returnAttributes?: string[];
