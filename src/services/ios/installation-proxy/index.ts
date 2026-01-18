@@ -346,7 +346,7 @@ export class InstallationProxyService extends BaseService {
         const status = response.Status;
         log.debug(`Progress: ${percent}% - ${status}`);
 
-        progressCallback?.(percent, status);
+        await progressCallback?.(percent, status);
       }
 
       // Break when we receive the final "Complete" status
