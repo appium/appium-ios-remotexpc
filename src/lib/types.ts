@@ -1247,6 +1247,7 @@ export interface MobileImageMounterService extends BaseService {
     imageFilePath: string,
     buildManifestFilePath: string,
     trustCacheFilePath: string,
+    infoPlist?: PlistDictionary,
   ): Promise<void>;
 
   /**
@@ -1290,6 +1291,37 @@ export interface MobileImageMounterService extends BaseService {
     imageType: string,
     signature: Buffer,
   ): Promise<Buffer>;
+
+  /**
+   * Upload image data to the device (used prior to mounting)
+   * @param imageType The image type
+   * @param image The image buffer data
+   * @param signature The image signature/manifest buffer
+   * @param timeout Optional timeout in milliseconds
+   */
+  uploadImage(
+    imageType: string,
+    image: Buffer,
+    signature: Buffer,
+    timeout?: number,
+  ): Promise<void>;
+
+  /**
+   * Mount image on the device using a previously uploaded image/manifest
+   * @param imageType The image type
+   * @param signature The image signature/manifest buffer
+   * @param extras Optional additional parameters for mounting
+   */
+  mountImage(
+    imageType: string,
+    signature: Buffer,
+    extras?: Record<string, any>,
+  ): Promise<void>;
+
+  /**
+   * Clean up resources used by the service instance
+   */
+  cleanup(): Promise<void>;
 }
 
 /**
