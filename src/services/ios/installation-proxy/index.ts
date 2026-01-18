@@ -36,6 +36,18 @@ export const SIZE_ATTRIBUTES = [
 ];
 
 /**
+ * Maximum duration for browse/lookup operations in milliseconds
+ * Browse operations are lightweight and should complete quickly
+ */
+export const MAX_BROWSE_DURATION_MS = 2 * 60 * 1000; // 2 minutes
+
+/**
+ * Maximum duration for install/uninstall/upgrade operations in milliseconds
+ * Safety limit to prevent endless loops while allowing time for large apps
+ */
+export const MAX_INSTALL_DURATION_MS = 10 * 60 * 1000; // 10 minutes
+
+/**
  * InstallationProxyService provides an API to manage app installation and queries
  */
 export class InstallationProxyService extends BaseService {
@@ -69,11 +81,19 @@ export class InstallationProxyService extends BaseService {
     };
 
     const conn = await this.getConnection();
-    await conn.sendPlist(request);
+    conn.sendPlist(request);
 
     const result: AppInfo[] = [];
+    const startTime = Date.now();
 
     while (true) {
+      if (Date.now() - startTime > MAX_BROWSE_DURATION_MS) {
+        throw new Error(
+          `Browse operation exceeded maximum duration (${MAX_BROWSE_DURATION_MS / 1000}s). ` +
+            'This likely indicates a stalled operation or API issue.',
+        );
+      }
+
       const response = (await conn.receive(this.timeout)) as BrowseResponse;
 
       this.checkForError(response);
@@ -300,9 +320,18 @@ export class InstallationProxyService extends BaseService {
     progressCallback?: ProgressCallback,
   ): Promise<void> {
     const conn = await this.getConnection();
-    await conn.sendPlist(request);
+    conn.sendPlist(request);
+
+    const startTime = Date.now();
 
     while (true) {
+      if (Date.now() - startTime > MAX_INSTALL_DURATION_MS) {
+        throw new Error(
+          `Operation exceeded maximum duration (${MAX_INSTALL_DURATION_MS / 1000}s). ` +
+            'This likely indicates a stalled operation or API issue.',
+        );
+      }
+
       const response = (await conn.receive(this.timeout)) as ProgressResponse;
 
       if (!response) {
@@ -320,12 +349,8 @@ export class InstallationProxyService extends BaseService {
         progressCallback?.(percent, status);
       }
 
-      // Only break when we receive the final "Complete" status without progress info
-      // Progress statuses like "InstallComplete" still have PercentComplete field
-      if (
-        response.Status === 'Complete' &&
-        response.PercentComplete === undefined
-      ) {
+      // Break when we receive the final "Complete" status
+      if (response.Status === 'Complete') {
         log.debug('Operation complete');
         break;
       }
