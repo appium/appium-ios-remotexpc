@@ -9,12 +9,26 @@ import type {
   ApplicationType,
   BrowseOptions,
   BrowseResponse,
+  InstallAction,
+  InstallOperationResult,
   InstallOptions,
   LookupOptions,
   LookupResponse,
   ProgressCallback,
   ProgressResponse,
 } from './types.js';
+
+/**
+ * Context object to bundle install/upgrade operation parameters
+ */
+interface InstallContext {
+  bundleIdentifier: string;
+  packagePath: string;
+  targetVersion: string;
+  installOptions: InstallOptions;
+  progressCallback?: ProgressCallback;
+  currentVersion?: string;
+}
 
 const log = getLogger('InstallationProxyService');
 
@@ -46,6 +60,18 @@ export const MAX_BROWSE_DURATION_MS = 2 * 60 * 1000; // 2 minutes
  * Safety limit to prevent endless loops while allowing time for large apps
  */
 export const MAX_INSTALL_DURATION_MS = 10 * 60 * 1000; // 10 minutes
+
+/**
+ * Constants for install/upgrade operation messages
+ */
+const INSTALL_MESSAGES = {
+  FRESH_INSTALL: 'App was not previously installed',
+  VERSION_UNKNOWN: 'Current version could not be determined',
+  DOWNGRADE_NOT_SUPPORTED:
+    'Downgrades are not supported by iOS installation_proxy',
+  SAME_VERSION_NOT_SUPPORTED:
+    'Reinstalling the same version is not supported by iOS installation_proxy',
+} as const;
 
 /**
  * InstallationProxyService provides an API to manage app installation and queries
@@ -261,6 +287,101 @@ export class InstallationProxyService extends BaseService {
   }
 
   /**
+   * Smart install or upgrade that checks version before proceeding
+   * @param bundleIdentifier Bundle ID of the app to install/upgrade
+   * @param packagePath Path to the IPA file on the device (e.g., '/PublicStaging/app.ipa')
+   * @param targetVersion The version string of the new IPA (e.g., '1.2.3')
+   * @param options Installation options
+   * @param progressCallback Optional callback for progress updates
+   * @returns Object indicating what action was taken and why
+   */
+  async installOrUpgradeApp(
+    bundleIdentifier: string,
+    packagePath: string,
+    targetVersion: string,
+    options: InstallOptions = {},
+    progressCallback?: ProgressCallback,
+  ): Promise<InstallOperationResult> {
+    log.info(
+      `Checking installation status for ${bundleIdentifier} (target version: ${targetVersion})`,
+    );
+
+    const installStatus = await this.isAppInstalled(bundleIdentifier);
+    const currentVersion = installStatus.version;
+
+    const ctx: InstallContext = {
+      bundleIdentifier,
+      packagePath,
+      targetVersion,
+      installOptions: options,
+      progressCallback,
+      currentVersion,
+    };
+
+    if (!installStatus.isInstalled) {
+      return this.handleFreshInstall(ctx);
+    }
+
+    if (!currentVersion) {
+      return this.handleUnknownVersion(ctx);
+    }
+
+    log.info(
+      `Current version: ${currentVersion}, Target version: ${targetVersion}`,
+    );
+
+    const comparison = this.compareVersions(currentVersion, targetVersion);
+
+    if (comparison < 0) {
+      return this.handleUpgrade(ctx);
+    }
+    if (comparison > 0) {
+      return this.handleDowngrade(ctx);
+    }
+    return this.handleSameVersion(ctx);
+  }
+
+  /**
+   * Check if an app is installed on the device
+   * @param bundleIdentifier Bundle ID of the app to check
+   * @returns Object with installation status and version info if installed
+   */
+  async isAppInstalled(bundleIdentifier: string): Promise<{
+    isInstalled: boolean;
+    version?: string;
+    appInfo?: AppInfo;
+  }> {
+    log.debug(`Checking if app ${bundleIdentifier} is installed`);
+
+    try {
+      const installedApps = await this.lookup([bundleIdentifier]);
+      const appInfo = installedApps[bundleIdentifier];
+
+      if (!appInfo) {
+        log.debug(`App ${bundleIdentifier} is not installed`);
+        return { isInstalled: false };
+      }
+
+      const version =
+        appInfo.CFBundleShortVersionString || appInfo.CFBundleVersion;
+
+      log.debug(
+        `App ${bundleIdentifier} is installed${version ? ` (version: ${version})` : ''}`,
+      );
+
+      return {
+        isInstalled: true,
+        version,
+        appInfo,
+      };
+    } catch (error) {
+      log.error(`Error checking if app is installed: ${error}`);
+      // If lookup fails, assume app is not installed
+      return { isInstalled: false };
+    }
+  }
+
+  /**
    * Close the connection
    */
   close(): void {
@@ -275,6 +396,161 @@ export class InstallationProxyService extends BaseService {
       // Always set to null even if close fails
       this.connection = null;
     }
+  }
+
+  /**
+   * Handle fresh installation when app is not installed
+   */
+  private async handleFreshInstall(
+    ctx: InstallContext,
+  ): Promise<InstallOperationResult> {
+    log.info(
+      `App ${ctx.bundleIdentifier} is not installed. Performing fresh install.`,
+    );
+    await this.install(
+      ctx.packagePath,
+      ctx.installOptions,
+      ctx.progressCallback,
+    );
+    return this.createResult(
+      'installed',
+      INSTALL_MESSAGES.FRESH_INSTALL,
+      ctx.targetVersion,
+    );
+  }
+
+  /**
+   * Handle installation when current version cannot be determined
+   */
+  private async handleUnknownVersion(
+    ctx: InstallContext,
+  ): Promise<InstallOperationResult> {
+    log.warn(
+      `Could not determine current version for ${ctx.bundleIdentifier}. Proceeding with upgrade.`,
+    );
+    await this.upgrade(
+      ctx.packagePath,
+      ctx.installOptions,
+      ctx.progressCallback,
+    );
+    return this.createResult(
+      'upgraded',
+      INSTALL_MESSAGES.VERSION_UNKNOWN,
+      ctx.targetVersion,
+      'unknown',
+    );
+  }
+
+  /**
+   * Handle upgrade to newer version
+   */
+  private async handleUpgrade(
+    ctx: InstallContext,
+  ): Promise<InstallOperationResult> {
+    const { currentVersion, targetVersion } = ctx;
+    log.info(
+      `Current version ${currentVersion} is older than ${targetVersion}. Upgrading.`,
+    );
+    await this.upgrade(
+      ctx.packagePath,
+      ctx.installOptions,
+      ctx.progressCallback,
+    );
+    return this.createResult(
+      'upgraded',
+      `Upgraded from ${currentVersion} to ${targetVersion}`,
+      targetVersion,
+      currentVersion,
+    );
+  }
+
+  /**
+   * Handle downgrade attempt
+   */
+  private async handleDowngrade(
+    ctx: InstallContext,
+  ): Promise<InstallOperationResult> {
+    const { currentVersion, targetVersion } = ctx;
+
+    log.warn(
+      `Current version ${currentVersion} is newer than target ${targetVersion}. Downgrades are not supported by iOS.`,
+    );
+    return this.createResult(
+      'skipped',
+      `Current version ${currentVersion} is newer than target ${targetVersion}. ${INSTALL_MESSAGES.DOWNGRADE_NOT_SUPPORTED}`,
+      targetVersion,
+      currentVersion,
+    );
+  }
+
+  /**
+   * Handle reinstall of same version
+   */
+  private async handleSameVersion(
+    ctx: InstallContext,
+  ): Promise<InstallOperationResult> {
+    const { currentVersion, targetVersion } = ctx;
+
+    log.info(`App is already at version ${targetVersion}. Skipping reinstall.`);
+    return this.createResult(
+      'skipped',
+      `App is already at version ${targetVersion}. ${INSTALL_MESSAGES.SAME_VERSION_NOT_SUPPORTED}`,
+      targetVersion,
+      currentVersion,
+    );
+  }
+
+  /**
+   * Create standardized result object
+   */
+  private createResult(
+    action: InstallAction,
+    reason: string,
+    targetVersion: string,
+    currentVersion?: string,
+  ): InstallOperationResult {
+    return {
+      action,
+      reason,
+      targetVersion,
+      ...(currentVersion && { currentVersion }),
+    };
+  }
+
+  /**
+   * Compare two version strings
+   * @param version1 First version string (e.g., '1.2.3')
+   * @param version2 Second version string (e.g., '1.2.4')
+   * @returns -1 if version1 < version2, 0 if equal, 1 if version1 > version2
+   */
+  private compareVersions(version1: string, version2: string): number {
+    // Handle build numbers like "1.2.3 (123)" by extracting just the version part
+    const cleanVersion1 = version1.split(/[\s(]/)[0];
+    const cleanVersion2 = version2.split(/[\s(]/)[0];
+
+    const parts1 = cleanVersion1.split('.').map((p) => parseInt(p, 10) || 0);
+    const parts2 = cleanVersion2.split('.').map((p) => parseInt(p, 10) || 0);
+
+    // Pad arrays to same length
+    const maxLength = Math.max(parts1.length, parts2.length);
+    while (parts1.length < maxLength) {
+      parts1.push(0);
+    }
+    while (parts2.length < maxLength) {
+      parts2.push(0);
+    }
+
+    // Compare each part
+    for (let i = 0; i < maxLength; i++) {
+      if (parts1[i] < parts2[i]) {
+        return -1;
+      }
+      if (parts1[i] > parts2[i]) {
+        return 1;
+      }
+    }
+
+    return 0; // Versions are equal
   }
 
   private async getConnection(): Promise<ServiceConnection> {

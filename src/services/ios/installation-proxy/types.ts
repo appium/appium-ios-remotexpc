@@ -54,3 +54,18 @@ export interface LookupResponse {
   Error?: string;
   ErrorDescription?: string;
 }
+
+/**
+ * Action taken during an install/upgrade operation
+ */
+export type InstallAction = 'installed' | 'upgraded' | 'skipped';
+
+/**
+ * Result of an install/upgrade operation
+ */
+export interface InstallOperationResult {
+  action: InstallAction;
+  reason: string;
+  currentVersion?: string;
+  targetVersion: string;
+}
