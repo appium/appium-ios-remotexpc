@@ -1,3 +1,9 @@
+## [0.26.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.25.2...v0.26.0) (2026-01-19)
+
+### Features
+
+* add installation-proxy support service ([#126](https://github.com/appium/appium-ios-remotexpc/issues/126)) ([f7b6646](https://github.com/appium/appium-ios-remotexpc/commit/f7b6646f233eca561803c781f3d00c59ed0b916d))
+
 ## [0.25.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.25.1...v0.25.2) (2026-01-16)
 
 ### Miscellaneous Chores
