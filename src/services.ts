@@ -8,6 +8,7 @@ import type {
   DVTServiceWithConnection,
   DiagnosticsServiceWithConnection,
   HouseArrestServiceWithConnection,
+  InstallationProxyServiceWithConnection,
   MisagentServiceWithConnection,
   MobileConfigServiceWithConnection,
   MobileImageMounterServiceWithConnection,
@@ -30,6 +31,7 @@ import { NetworkMonitor } from './services/ios/dvt/instruments/network-monitor.j
 import { Notifications } from './services/ios/dvt/instruments/notifications.js';
 import { Screenshot } from './services/ios/dvt/instruments/screenshot.js';
 import { HouseArrestService } from './services/ios/house-arrest/index.js';
+import { InstallationProxyService } from './services/ios/installation-proxy/index.js';
 import { MisagentService } from './services/ios/misagent/index.js';
 import { MobileConfigService } from './services/ios/mobile-config/index.js';
 import MobileImageMounterService from './services/ios/mobile-image-mounter/index.js';
@@ -211,6 +213,22 @@ export async function startHouseArrestService(
     houseArrestService: new HouseArrestService([
       tunnelConnection.host,
       parseInt(houseArrestDescriptor.port, 10),
+    ]),
+  };
+}
+
+export async function startInstallationProxyService(
+  udid: string,
+): Promise<InstallationProxyServiceWithConnection> {
+  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
+  const installationProxyDescriptor = remoteXPC.findService(
+    InstallationProxyService.RSD_SERVICE_NAME,
+  );
+  return {
+    remoteXPC: remoteXPC as RemoteXpcConnection,
+    installationProxyService: new InstallationProxyService([
+      tunnelConnection.host,
+      parseInt(installationProxyDescriptor.port, 10),
     ]),
   };
 }
