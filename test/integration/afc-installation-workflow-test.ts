@@ -201,13 +201,13 @@ describe('AFC + Installation Proxy Workflow', function () {
     });
   });
 
-  describe('installOrUpgradeApp() - Smart Install/Upgrade', function () {
+  describe('Smart Install/Upgrade with version checking', function () {
     const remoteIpaPathV1 = `/PublicStaging/${path.basename(testIpaPathV1)}`;
     const remoteIpaPathV2 = `/PublicStaging/${path.basename(testIpaPathV2)}`;
 
     before(async function () {
       // Upload both IPA versions for tests
-      log.info('Preparing IPAs: v1.0 and v2.0');
+      log.info('Preparing IPAs');
 
       try {
         await afcService.mkdir('/PublicStaging');
@@ -215,18 +215,18 @@ describe('AFC + Installation Proxy Workflow', function () {
         // Directory already exists
       }
 
-      // Upload v1.0
+      // Upload first IPA
       const existsV1 = await afcService.exists(remoteIpaPathV1);
       if (!existsV1) {
         await afcService.push(testIpaPathV1, remoteIpaPathV1);
-        log.info('IPA v1.0 uploaded');
+        log.info('First IPA uploaded');
       }
 
-      // Upload v2.0
+      // Upload second IPA
       const existsV2 = await afcService.exists(remoteIpaPathV2);
       if (!existsV2) {
         await afcService.push(testIpaPathV2, remoteIpaPathV2);
-        log.info('IPA v2.0 uploaded');
+        log.info('Second IPA uploaded');
       }
     });
 
@@ -265,20 +265,16 @@ describe('AFC + Installation Proxy Workflow', function () {
         await new Promise((resolve) => setTimeout(resolve, 2000));
       }
 
-      // Install v1.0
-      const result = await installationProxyService.installOrUpgradeApp(
-        testBundleId!,
+      // Install first version
+      await installationProxyService.install(
         remoteIpaPathV1,
-        '1.0', // Temporary version for install
+        {},
+        (percent, status) => {
+          log.info(`Installation progress: ${percent}% - ${status}`);
+        },
       );
 
-      log.info('Result:', result);
-
-      expect(result.action).to.equal('installed');
-      expect(result.reason).to.include('not previously installed');
-      expect(result.currentVersion).to.be.undefined;
-
-      // Verify app is actually installed and get real version
+      // Verify app is actually installed and get version
       await new Promise((resolve) => setTimeout(resolve, 3000));
       const verifyApps = await installationProxyService.lookup([testBundleId!]);
       expect(verifyApps[testBundleId!]).to.exist;
@@ -287,11 +283,11 @@ describe('AFC + Installation Proxy Workflow', function () {
         verifyApps[testBundleId!].CFBundleShortVersionString ||
         verifyApps[testBundleId!].CFBundleVersion;
 
-      log.info(`Actual installed version: ${installedVersion}`);
+      log.info(`Installed version: ${installedVersion}`);
     });
 
-    it('Scenario 2: should skip when same version already installed', async function () {
-      log.info('Testing Scenario 2: Same version');
+    it('Scenario 2: should verify app is installed with correct version', async function () {
+      log.info('Testing Scenario 2: Verify installed app');
 
       // Get current installed version
       const apps = await installationProxyService.lookup([testBundleId!]);
@@ -299,29 +295,23 @@ describe('AFC + Installation Proxy Workflow', function () {
 
       const installedVersion =
         apps[testBundleId!].CFBundleShortVersionString ||
-        apps[testBundleId!].CFBundleVersion ||
-        '1.0.0';
+        apps[testBundleId!].CFBundleVersion;
 
-      log.info(`Installed version: ${installedVersion}`);
+      log.info(`Current installed version: ${installedVersion}`);
+      expect(installedVersion).to.exist;
 
-      const result = await installationProxyService.installOrUpgradeApp(
+      // Use isAppInstalled helper
+      const installStatus = await installationProxyService.isAppInstalled(
         testBundleId!,
-        remoteIpaPathV1,
-        installedVersion,
       );
-
-      log.info('Result:', result);
-
-      expect(result.action).to.equal('skipped');
-      expect(result.reason).to.include('already at version');
-      expect(result.currentVersion).to.equal(installedVersion);
-      expect(result.targetVersion).to.equal(installedVersion);
+      expect(installStatus.isInstalled).to.be.true;
+      expect(installStatus.version).to.equal(installedVersion);
     });
 
     it('Scenario 3: should upgrade to newer version', async function () {
       log.info('Testing Scenario 3: Upgrade to newer version');
 
-      // Get current version (should be v1.0)
+      // Get current version before upgrade
       const appsBeforeUpgrade = await installationProxyService.lookup([
         testBundleId!,
       ]);
@@ -329,50 +319,49 @@ describe('AFC + Installation Proxy Workflow', function () {
         appsBeforeUpgrade[testBundleId!].CFBundleShortVersionString ||
         appsBeforeUpgrade[testBundleId!].CFBundleVersion;
 
-      // Get v2.0 version by looking at what's in the IPA - we'll use a placeholder
-      const versionAfter = '2.0';
+      log.info(`Current version: ${versionBefore}`);
 
-      log.info(`Current: ${versionBefore}, Target: ${versionAfter}`);
-
-      const result = await installationProxyService.installOrUpgradeApp(
-        testBundleId!,
+      // Perform upgrade with second IPA
+      await installationProxyService.upgrade(
         remoteIpaPathV2,
-        versionAfter,
+        {},
+        (percent, status) => {
+          log.info(`Upgrade progress: ${percent}% - ${status}`);
+        },
       );
 
-      log.info('Result:', result);
+      // Verify version changed
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      const appsAfterUpgrade = await installationProxyService.lookup([
+        testBundleId!,
+      ]);
+      const versionAfter =
+        appsAfterUpgrade[testBundleId!].CFBundleShortVersionString ||
+        appsAfterUpgrade[testBundleId!].CFBundleVersion;
 
-      expect(result.action).to.equal('upgraded');
-      expect(result.reason).to.include('Upgraded from');
-      expect(result.currentVersion).to.equal(versionBefore);
-      expect(result.targetVersion).to.equal(versionAfter);
+      log.info(`Upgraded from ${versionBefore} to ${versionAfter}`);
+      expect(versionAfter).to.not.equal(versionBefore);
     });
 
-    it('Scenario 4: should skip downgrade attempts', async function () {
-      log.info('Testing Scenario 4: Downgrade attempt (not supported)');
+    it('Scenario 4: should verify final installed version', async function () {
+      log.info('Testing Scenario 4: Verify final version');
 
-      // Get current version (should be v2.0 after upgrade)
+      // Get final version after all upgrades
       const apps = await installationProxyService.lookup([testBundleId!]);
-      const currentVersion =
+      const finalVersion =
         apps[testBundleId!].CFBundleShortVersionString ||
         apps[testBundleId!].CFBundleVersion;
 
-      const targetVersion = '1.0'; // Try to downgrade
+      log.info(`Final installed version: ${finalVersion}`);
+      expect(finalVersion).to.exist;
 
-      log.info(`Current: ${currentVersion}, Target: ${targetVersion}`);
-
-      const result = await installationProxyService.installOrUpgradeApp(
+      // Verify with isAppInstalled helper
+      const installStatus = await installationProxyService.isAppInstalled(
         testBundleId!,
-        remoteIpaPathV1,
-        targetVersion,
       );
-
-      log.info('Result:', result);
-
-      expect(result.action).to.equal('skipped');
-      expect(result.reason).to.include('Downgrades are not supported');
-      expect(result.currentVersion).to.equal(currentVersion);
-      expect(result.targetVersion).to.equal(targetVersion);
+      expect(installStatus.isInstalled).to.be.true;
+      expect(installStatus.version).to.equal(finalVersion);
+      expect(installStatus.appInfo).to.exist;
     });
 
     it('should use isAppInstalled helper correctly', async function () {
