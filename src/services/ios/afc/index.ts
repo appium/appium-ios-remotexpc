@@ -22,7 +22,12 @@ import {
   sendAfcPacket,
   writeUInt64LE,
 } from './codec.js';
-import { AFC_FOPEN_TEXTUAL_MODES, AFC_WRITE_THIS_LENGTH } from './constants.js';
+import {
+  AFC_FOPEN_TEXTUAL_MODES,
+  AFC_LOCK_EX,
+  AFC_LOCK_UN,
+  AFC_WRITE_THIS_LENGTH,
+} from './constants.js';
 import { AfcError, AfcFileMode, AfcOpcode } from './enums.js';
 import { createAfcReadStream, createAfcWriteStream } from './stream-utils.js';
 
@@ -302,6 +307,7 @@ export class AfcService {
   async setFileContents(filePath: string, data: Buffer): Promise<void> {
     log.debug(`Writing ${data.length} bytes to file: ${filePath}`);
     const h = await this.fopen(filePath, 'w');
+    await this._lockFile(h);
     try {
       await this.fwrite(h, data);
       log.debug(`Successfully wrote file: ${filePath}`);
@@ -309,6 +315,7 @@ export class AfcService {
       await this.rmSingle(filePath, true);
       throw error;
     } finally {
+      await this._unlockFile(h);
       await this.fclose(h);
     }
   }
@@ -329,6 +336,7 @@ export class AfcService {
   async writeFromStream(filePath: string, stream: Readable): Promise<void> {
     log.debug(`Writing stream to file: ${filePath}`);
     const handle = await this.fopen(filePath, 'w');
+    await this._lockFile(handle);
     const writeStream = this.createWriteStream(handle);
     try {
       await pipeline(stream, writeStream);
@@ -337,6 +345,7 @@ export class AfcService {
       await this.rmSingle(filePath, true);
       throw error;
     } finally {
+      await this._unlockFile(handle);
       await this.fclose(handle);
     }
   }
@@ -734,6 +743,24 @@ export class AfcService {
       return path.posix.join(path.posix.dirname(filePath), target);
     }
     return filePath;
+  }
+
+  private async _lockFile(handle: bigint): Promise<void> {
+    await this._doOperation(
+      AfcOpcode.FILE_LOCK,
+      Buffer.concat([writeUInt64LE(handle), writeUInt64LE(AFC_LOCK_EX)]),
+    );
+  }
+
+  private async _unlockFile(handle: bigint): Promise<void> {
+    try {
+      await this._doOperation(
+        AfcOpcode.FILE_LOCK,
+        Buffer.concat([writeUInt64LE(handle), writeUInt64LE(AFC_LOCK_UN)]),
+      );
+    } catch (error) {
+      log.warn(`Failed to unlock file handle ${handle}:`, error);
+    }
   }
 
   private async _dispatch(
