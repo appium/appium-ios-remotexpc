@@ -16,6 +16,7 @@ import { startCoreDeviceProxy } from './services/ios/tunnel-service/index.js';
 export type { Device as UsbmuxDevice } from './lib/usbmux/index.js';
 export type { RemoteXpcConnection } from './lib/remote-xpc/remote-xpc-connection.js';
 export type { AfcService } from './services/ios/afc/index.js';
+export type { InstallationProxyService } from './services/ios/installation-proxy/index.js';
 
 export type {
   CrashReportsService,
@@ -48,6 +49,7 @@ export type {
   TunnelRegistryEntry,
   DiagnosticsServiceWithConnection,
   HouseArrestServiceWithConnection,
+  InstallationProxyServiceWithConnection,
   MobileImageMounterServiceWithConnection,
   NotificationProxyServiceWithConnection,
   MobileConfigServiceWithConnection,
