@@ -27,3 +27,8 @@ export const AFC_HEADER_SIZE = 40;
 export const AFC_WRITE_THIS_LENGTH = 48;
 
 export const NULL_BYTE = Buffer.from([0]);
+
+// File lock operation constants
+export const AFC_LOCK_SH = 1 | 4; // 5: Shared lock (multiple readers)
+export const AFC_LOCK_EX = 2 | 4; // 6: Exclusive lock (single writer)
+export const AFC_LOCK_UN = 8 | 4; // 12: Unlock
