@@ -1,3 +1,9 @@
+## [0.26.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.26.0...v0.26.1) (2026-01-20)
+
+### Bug Fixes
+
+* AFC file upload race condition ([#135](https://github.com/appium/appium-ios-remotexpc/issues/135)) ([8b23960](https://github.com/appium/appium-ios-remotexpc/commit/8b239606e9f7727a9dc11be92c3b7cd1b17c063d))
+
 ## [0.26.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.25.2...v0.26.0) (2026-01-19)
 
 ### Features
