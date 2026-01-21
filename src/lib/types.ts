@@ -10,6 +10,10 @@ import type { BaseService, Service } from '../services/ios/base-service.js';
 import type { iOSApplication } from '../services/ios/dvt/instruments/application-listing.js';
 import type { LocationCoordinates } from '../services/ios/dvt/instruments/location-simulation.js';
 import type { NotificationMessage } from '../services/ios/dvt/instruments/notifications.js';
+import type {
+  OutputReceivedEvent,
+  ProcessLaunchOptions,
+} from '../services/ios/dvt/instruments/process-control.js';
 import { InstallationProxyService } from '../services/ios/installation-proxy/index.js';
 import { ProvisioningProfile } from '../services/ios/misagent/provisioning-profile.js';
 import type { ProfileList } from '../services/ios/mobile-config/index.js';
@@ -21,6 +25,7 @@ import type { Device } from './usbmux/index.js';
 
 export type { PowerAssertionOptions };
 export { PowerAssertionType };
+export type { ProcessLaunchOptions, OutputReceivedEvent };
 
 /**
  * UID (Unique Identifier) interface for plist references
@@ -935,6 +940,51 @@ export interface DeviceInfoService {
 }
 
 /**
+ * ProcessControl service interface for managing processes
+ */
+export interface ProcessControlService {
+  /**
+   * Send a signal to a process
+   * @param pid The process identifier
+   * @param sig The signal number to send
+   * @returns The response from the device
+   */
+  signal(pid: number, sig: number): Promise<any>;
+
+  /**
+   * Terminate a process
+   * @param pid The process identifier to kill
+   */
+  kill(pid: number): Promise<void>;
+
+  /**
+   * Disable memory limits for a specific process
+   * @param pid The process identifier
+   */
+  disableMemoryLimitForPid(pid: number): Promise<void>;
+
+  /**
+   * Get the process identifier for a bundle identifier
+   * @param bundleId The bundle identifier
+   * @returns The process identifier (PID)
+   */
+  processIdentifierForBundleIdentifier(bundleId: string): Promise<number>;
+
+  /**
+   * Launch a process with the specified options
+   * @param options Launch configuration options
+   * @returns The process identifier (PID) of the launched process
+   */
+  launch(options: ProcessLaunchOptions): Promise<number>;
+
+  /**
+   * Monitor output events from running processes
+   * @yields OutputReceivedEvent
+   */
+  outputEvents(): AsyncGenerator<OutputReceivedEvent, void, unknown>;
+}
+
+/**
  * Notification service monitor memory and app notifications
  */
 export interface NotificationService {
@@ -1001,6 +1051,8 @@ export interface DVTServiceWithConnection {
   notification: NotificationService;
   /** The NetworkMonitor service instance */
   networkMonitor: NetworkMonitorService;
+  /** The ProcessControl service instance */
+  processControl: ProcessControlService;
   /** The RemoteXPC connection that can be used to close the connection */
   remoteXPC: RemoteXpcConnection;
 }
