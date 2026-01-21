@@ -29,6 +29,7 @@ import { Graphics } from './services/ios/dvt/instruments/graphics.js';
 import { LocationSimulation } from './services/ios/dvt/instruments/location-simulation.js';
 import { NetworkMonitor } from './services/ios/dvt/instruments/network-monitor.js';
 import { Notifications } from './services/ios/dvt/instruments/notifications.js';
+import { ProcessControl } from './services/ios/dvt/instruments/process-control.js';
 import { Screenshot } from './services/ios/dvt/instruments/screenshot.js';
 import { HouseArrestService } from './services/ios/house-arrest/index.js';
 import { InstallationProxyService } from './services/ios/installation-proxy/index.js';
@@ -275,6 +276,7 @@ export async function startDVTService(
   const deviceInfo = new DeviceInfo(dvtService);
   const notification = new Notifications(dvtService);
   const networkMonitor = new NetworkMonitor(dvtService);
+  const processControl = new ProcessControl(dvtService);
 
   return {
     remoteXPC: remoteXPC as RemoteXpcConnection,
@@ -287,6 +289,7 @@ export async function startDVTService(
     deviceInfo,
     notification,
     networkMonitor,
+    processControl,
   };
 }
 
