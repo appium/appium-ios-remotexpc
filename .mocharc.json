@@ -1,8 +1,0 @@
-{
-  "require": "tsx/cjs",
-  "node-option": ["import=tsx"],
-  "extension": ["ts"],
-  "timeout": 60000,
-  "recursive": true,
-  "reporter": "spec"
-}
