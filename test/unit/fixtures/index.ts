@@ -1,6 +1,9 @@
 import { fs, logger } from '@appium/support';
 import { Server, Socket, createConnection, createServer } from 'node:net';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const log = logger.getLogger('fixtures');
 

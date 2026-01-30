@@ -1,0 +1,7 @@
+{
+  "require": "tsx/esm",
+  "extension": ["ts"],
+  "timeout": 60000,
+  "recursive": true,
+  "reporter": "spec"
+}
