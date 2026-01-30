@@ -12,10 +12,12 @@ export interface BrowseOptions {
 
 export interface InstallOptions {
   packageType?: string;
+  timeoutMs?: number;
   [key: string]: string | number | boolean | undefined;
 }
 
 export interface UninstallOptions {
+  timeoutMs?: number;
   [key: string]: string | number | boolean | undefined;
 }
 
