@@ -201,18 +201,23 @@ export class InstallationProxyService extends BaseService {
   ): Promise<void> {
     log.debug(`Installing app from: ${packagePath}`);
 
+    const { timeoutMs, ...clientOptions } = options;
+
     const request: PlistDictionary = {
       Command: 'Install',
       PackagePath: packagePath,
-      ClientOptions: options as PlistDictionary,
+      ClientOptions: clientOptions as PlistDictionary,
     };
 
-    await this.executeWithProgress(request, progressCallback);
+    await this.executeWithProgress(request, progressCallback, timeoutMs);
     log.info('Installation complete');
   }
 
   /**
    * Uninstall an application by bundle identifier
+   * @param bundleIdentifier Bundle ID of the app to uninstall
+   * @param options Uninstallation options (including optional timeoutMs)
+   * @param progressCallback Optional callback for progress updates
    */
   async uninstall(
     bundleIdentifier: string,
@@ -221,20 +226,22 @@ export class InstallationProxyService extends BaseService {
   ): Promise<void> {
     log.debug(`Uninstalling app: ${bundleIdentifier}`);
 
+    const { timeoutMs, ...clientOptions } = options;
+
     const request: PlistDictionary = {
       Command: 'Uninstall',
       ApplicationIdentifier: bundleIdentifier,
-      ClientOptions: options as PlistDictionary,
+      ClientOptions: clientOptions as PlistDictionary,
     };
 
-    await this.executeWithProgress(request, progressCallback);
+    await this.executeWithProgress(request, progressCallback, timeoutMs);
     log.info('Uninstallation complete');
   }
 
   /**
    * Upgrade an existing application
    * @param packagePath Path to the IPA file on the device (e.g., '/PublicStaging/app.ipa')
-   * @param options Installation options
+   * @param options Installation options (including optional timeoutMs)
    * @param progressCallback Optional callback for progress updates
    */
   async upgrade(
@@ -244,13 +251,15 @@ export class InstallationProxyService extends BaseService {
   ): Promise<void> {
     log.debug(`Upgrading app from: ${packagePath}`);
 
+    const { timeoutMs, ...clientOptions } = options;
+
     const request: PlistDictionary = {
       Command: 'Upgrade',
       PackagePath: packagePath,
-      ClientOptions: options as PlistDictionary,
+      ClientOptions: clientOptions as PlistDictionary,
     };
 
-    await this.executeWithProgress(request, progressCallback);
+    await this.executeWithProgress(request, progressCallback, timeoutMs);
     log.info('Upgrade complete');
   }
 
@@ -352,6 +361,7 @@ export class InstallationProxyService extends BaseService {
   private async executeWithProgress(
     request: PlistDictionary,
     progressCallback?: ProgressCallback,
+    timeoutMs: number = MAX_INSTALL_DURATION_MS,
   ): Promise<void> {
     const conn = await this.getConnection();
     conn.sendPlist(request);
@@ -359,9 +369,9 @@ export class InstallationProxyService extends BaseService {
     const startTime = performance.now();
 
     while (true) {
-      if (performance.now() - startTime > MAX_INSTALL_DURATION_MS) {
+      if (performance.now() - startTime > timeoutMs) {
         throw new Error(
-          `Operation exceeded maximum duration (${MAX_INSTALL_DURATION_MS / 1000}s). ` +
+          `Operation exceeded maximum duration (${timeoutMs / 1000}s). ` +
             'This likely indicates a stalled operation or API issue.',
         );
       }
