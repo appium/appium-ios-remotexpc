@@ -614,12 +614,14 @@ export class AfcService {
       const localDstIsDirectory = await this._isLocalDirectory(localDstDir);
 
       if (!localDstIsDirectory) {
-        const stat = await fsp.stat(localDstDir).catch((err) => {
-          if (err.code === 'ENOENT') {
-            return null;
-          }
-          throw err;
-        });
+        const stat = await fsp
+          .stat(localDstDir)
+          .catch((err: NodeJS.ErrnoException): null => {
+            if (err.code === 'ENOENT') {
+              return null;
+            }
+            throw err;
+          });
         if (stat?.isFile()) {
           throw new Error(
             `Local destination exists and is a file, not a directory: ${localDstDir}`,
