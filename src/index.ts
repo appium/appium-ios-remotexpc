@@ -63,6 +63,9 @@ export type {
   ConnectionDetectionEvent,
   ConnectionUpdateEvent,
   NetworkEvent,
+  ProcessControlService,
+  ProcessLaunchOptions,
+  OutputReceivedEvent,
 } from './lib/types.js';
 export { PowerAssertionType } from './lib/types.js';
 export { NetworkMessageType } from './services/ios/dvt/instruments/network-monitor.js';
