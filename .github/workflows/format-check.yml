@@ -7,36 +7,21 @@ on:
     branches: [ main ]
 
 jobs:
-  prepare_matrix:
-    runs-on: ubuntu-latest
-    outputs:
-      versions: ${{ steps.generate-matrix.outputs.lts }}
-    steps:
-    - name: Select all current LTS versions of Node.js
-      id: generate-matrix
-      uses: msimerson/node-lts-versions@v1
-
   format-check:
     runs-on: macos-latest
-    needs:
-    - prepare_matrix
-    strategy:
-      fail-fast: false
-      matrix:
-        node-version: ${{ fromJSON(needs.prepare_matrix.outputs.versions) }}
     steps:
     - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v3
-    - name: Use Node.js ${{ matrix.node-version }}
+    - name: Use Node.js (LTS)
       uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v3
       with:
-        node-version: ${{ matrix.node-version }}
+        node-version: 'lts/*'
     - name: Install dependencies
       run: npm install
-    
+
     - name: Check formatting
       # Run prettier in check mode (doesn't modify files)
       run: npm run format:check
-      
+
     - name: Format instructions (if check fails)
       if: ${{ failure() }}
       run: |

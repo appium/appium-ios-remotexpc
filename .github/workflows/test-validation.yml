@@ -7,23 +7,17 @@ on:
     branches: [ main ]
 
 jobs:
-  prepare_matrix:
-    runs-on: ubuntu-latest
-    outputs:
-      versions: ${{ steps.generate-matrix.outputs.lts }}
-    steps:
-    - name: Select all current LTS versions of Node.js
-      id: generate-matrix
-      uses: msimerson/node-lts-versions@v1
-  
+  node_matrix:
+    uses: appium/appium-workflows/.github/workflows/node-lts-matrix.yml@main
+
   validate-tests:
     runs-on: macos-latest
     needs:
-    - prepare_matrix
+    - node_matrix
     strategy:
       fail-fast: false
       matrix:
-        node-version: ${{ fromJSON(needs.prepare_matrix.outputs.versions) }}
+        node-version: ${{ fromJSON(needs.node_matrix.outputs.versions) }}
     steps:
     - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v3
     - name: Use Node.js ${{ matrix.node-version }}
@@ -32,9 +26,9 @@ jobs:
         node-version: ${{ matrix.node-version }}
     - name: Install dependencies
       run: npm install
-    
+
     - name: Build project including tests
       run: npm run build
-    
+
     - name: Run unit tests
       run: npm run test:unit
