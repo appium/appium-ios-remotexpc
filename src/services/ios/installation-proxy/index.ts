@@ -71,14 +71,22 @@ export class InstallationProxyService extends BaseService {
     const {
       applicationType = DEFAULT_APPLICATION_TYPE,
       returnAttributes = DEFAULT_RETURN_ATTRIBUTES,
+      returnAllAttributes = false,
     } = options;
+
+    const clientOptions: Record<string, string | string[]> = {
+      ApplicationType: applicationType,
+    };
+
+    // When returnAllAttributes is true, don't set ReturnAttributes
+    // to let iOS return all available attributes
+    if (!returnAllAttributes) {
+      clientOptions.ReturnAttributes = returnAttributes;
+    }
 
     const request: PlistDictionary = {
       Command: 'Browse',
-      ClientOptions: {
-        ApplicationType: applicationType,
-        ReturnAttributes: returnAttributes,
-      },
+      ClientOptions: clientOptions,
     };
 
     const conn = await this.getConnection();
