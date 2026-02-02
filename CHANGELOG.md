@@ -1,3 +1,9 @@
+## [0.27.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.27.0...v0.27.1) (2026-02-02)
+
+### Bug Fixes
+
+* add `close()` method for notification proxy ([#142](https://github.com/appium/appium-ios-remotexpc/issues/142)) ([d36cbb0](https://github.com/appium/appium-ios-remotexpc/commit/d36cbb06cbc515371dd523cbf69f8001b59ef767))
+
 ## [0.27.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.26.1...v0.27.0) (2026-01-31)
 
 ### Features
