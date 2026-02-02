@@ -11,7 +11,7 @@ export interface BrowseOptions {
    * Array of attribute names to return.
    * Use ['*'] to get all available attributes.
    */
-  returnAttributes?: string[];
+  returnAttributes?: string[] | '*';
 }
 
 export interface InstallOptions {
