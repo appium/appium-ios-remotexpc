@@ -71,16 +71,15 @@ export class InstallationProxyService extends BaseService {
     const {
       applicationType = DEFAULT_APPLICATION_TYPE,
       returnAttributes = DEFAULT_RETURN_ATTRIBUTES,
-      returnAllAttributes = false,
     } = options;
 
     const clientOptions: Record<string, string | string[]> = {
       ApplicationType: applicationType,
     };
 
-    // When returnAllAttributes is true, don't set ReturnAttributes
+    // When returnAttributes includes '*', don't set ReturnAttributes
     // to let iOS return all available attributes
-    if (!returnAllAttributes) {
+    if (!returnAttributes.includes('*')) {
       clientOptions.ReturnAttributes = returnAttributes;
     }
 
