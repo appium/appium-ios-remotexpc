@@ -1,3 +1,9 @@
+## [0.27.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.26.1...v0.27.0) (2026-01-31)
+
+### Features
+
+* **installation-proxy:** make operation timeout configurable ([#137](https://github.com/appium/appium-ios-remotexpc/issues/137)) ([2f62cfb](https://github.com/appium/appium-ios-remotexpc/commit/2f62cfb68ee8b729bec4c11effc70a5757fc8c4c))
+
 ## [0.26.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.26.0...v0.26.1) (2026-01-20)
 
 ### Bug Fixes

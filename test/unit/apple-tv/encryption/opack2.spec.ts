@@ -130,7 +130,11 @@ describe('Apple TV Encryption - Opack2', () => {
     });
 
     it('should handle objects with undefined values', () => {
-      const obj = { a: 1, b: undefined, c: 3 };
+      const obj: { a: number; b: undefined; c: number } = {
+        a: 1,
+        b: undefined,
+        c: 3,
+      };
       const result = Opack2.dumps(obj);
       expect(result[0]).to.equal(0xe3);
     });

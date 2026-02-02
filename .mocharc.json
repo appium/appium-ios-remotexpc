@@ -1,6 +1,5 @@
 {
-  "require": "tsx/cjs",
-  "node-option": ["experimental-specifier-resolution=node"],
+  "require": "tsx/esm",
   "extension": ["ts"],
   "timeout": 60000,
   "recursive": true,
