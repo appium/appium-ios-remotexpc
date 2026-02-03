@@ -1,3 +1,9 @@
+## [0.28.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.28.0...v0.28.1) (2026-02-03)
+
+### Miscellaneous Chores
+
+* **deps-dev:** bump @appium/eslint-config-appium-ts ([#141](https://github.com/appium/appium-ios-remotexpc/issues/141)) ([30847c2](https://github.com/appium/appium-ios-remotexpc/commit/30847c27dad95a50452fcf7b89da062f603e1f9e))
+
 ## [0.28.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.27.1...v0.28.0) (2026-02-03)
 
 ### Features
