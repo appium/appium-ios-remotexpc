@@ -8,8 +8,8 @@ export type ProgressCallback = (
 export interface BrowseOptions {
   applicationType?: ApplicationType;
   /**
-   * Array of attribute names to return.
-   * Use ['*'] to get all available attributes.
+   * Attribute name(s) to return.
+   * - Use '*' to get all available attributes
    */
   returnAttributes?: string[] | '*';
 }

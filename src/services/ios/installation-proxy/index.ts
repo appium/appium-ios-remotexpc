@@ -77,9 +77,8 @@ export class InstallationProxyService extends BaseService {
       ApplicationType: applicationType,
     };
 
-    // When returnAttributes includes '*', don't set ReturnAttributes
-    // to let iOS return all available attributes
-    if (!returnAttributes.includes('*')) {
+    // Only set ReturnAttributes when it's an array.
+    if (Array.isArray(returnAttributes)) {
       clientOptions.ReturnAttributes = returnAttributes;
     }
 
