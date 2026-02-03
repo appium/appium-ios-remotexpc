@@ -118,6 +118,23 @@ class NotificationProxyService
   }
 
   /**
+   * Close the notification proxy service connection
+   */
+  close(): void {
+    try {
+      if (this._conn) {
+        this._conn.close();
+        log.debug('Notification proxy connection closed successfully');
+      }
+    } catch (error) {
+      log.error('Error closing notification proxy connection:', error);
+    } finally {
+      this._conn = null;
+      this._pendingNotificationsObservationSet.clear();
+    }
+  }
+
+  /**
    * Connect to the notification proxy service
    * @returns Promise resolving to the ServiceConnection instance
    */
