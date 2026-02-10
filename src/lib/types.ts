@@ -958,7 +958,11 @@ export interface ProcessControlService {
   kill(pid: number): Promise<void>;
 
   /**
-   * Disable memory limits for a specific process
+   * Disable Jetsam memory limits for a specific process.
+   * iOS enforces per-process memory limits via Jetsam. Exceeding these limits
+   * causes the process to be killed. This method exempts the process from
+   * those limits, which is useful during profiling or testing to prevent
+   * the app from being terminated due to instrumentation overhead.
    * @param pid The process identifier
    */
   disableMemoryLimitForPid(pid: number): Promise<void>;
