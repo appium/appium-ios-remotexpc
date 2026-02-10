@@ -85,6 +85,10 @@ export class ProcessControl extends BaseInstrument {
    * causes the process to be killed. This method exempts the process from
    * those limits, which is useful during profiling or testing to prevent
    * the app from being terminated due to instrumentation overhead.
+   *
+   * Note: This method is idempotent — calling it multiple times on the same
+   * process has no additional effect beyond the first successful call.
+   *
    * @param pid The process identifier
    * @throws Error if the operation fails
    */

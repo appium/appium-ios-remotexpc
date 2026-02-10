@@ -110,4 +110,25 @@ describe('ProcessControl Service', function () {
       throw error;
     }
   });
+
+  it('should disable memory limit for a running process and be idempotent on repeated calls', async function () {
+    const pid = await dvtServiceConnection!.processControl.launch({
+      bundleId: 'com.apple.calculator',
+      killExisting: true,
+    });
+    expect(pid).to.be.greaterThan(0);
+
+    try {
+      await dvtServiceConnection!.processControl.disableMemoryLimitForPid(pid);
+      log.debug(`First call: disabled memory limit for PID ${pid}`);
+
+      // Call again on the same process to verify idempotency
+      await dvtServiceConnection!.processControl.disableMemoryLimitForPid(pid);
+      log.debug(
+        `Second call: disabled memory limit for PID ${pid} again (idempotent)`,
+      );
+    } finally {
+      await dvtServiceConnection!.processControl.kill(pid);
+    }
+  });
 });
