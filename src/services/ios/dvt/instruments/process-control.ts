@@ -135,9 +135,17 @@ export class ProcessControl extends BaseInstrument {
   }
 
   /**
-   * Launch a process with the specified options
+   * Launch a process with the specified options.
+   *
+   * On success the device responds with the numeric PID of the newly
+   * launched process. A non-numeric response (e.g., an error dictionary)
+   * indicates a launch failure — for example, the bundle identifier
+   * does not exist on the device or the app cannot be started.
+   *
    * @param options Launch configuration options
    * @returns The process identifier (PID) of the launched process
+   * @throws {Error} If the device returns a non-numeric response,
+   *   meaning the process could not be launched
    */
   async launch(options: ProcessLaunchOptions): Promise<number> {
     await this.initialize();
