@@ -1,40 +1,12 @@
 import { getLogger } from '../../../../lib/logger.js';
+import type {
+  OutputReceivedEvent,
+  ProcessLaunchOptions,
+} from '../../../../lib/types.js';
 import { MessageAux } from '../dtx-message.js';
 import { BaseInstrument } from './base-instrument.js';
 
 const log = getLogger('ProcessControl');
-
-/**
- * Options for launching a process
- */
-export interface ProcessLaunchOptions {
-  /** The bundle identifier of the app to launch */
-  bundleId: string;
-  /** Command line arguments to pass to the process */
-  arguments?: string[];
-  /** Environment variables to set for the process */
-  environment?: Record<string, string>;
-  /** Whether to kill an existing instance of the process */
-  killExisting?: boolean;
-  /** Whether to start the process in a suspended state */
-  startSuspended?: boolean;
-  /** Additional options to pass to the launch command */
-  extraOptions?: Record<string, any>;
-}
-
-/**
- * Event received from a running process
- */
-export interface OutputReceivedEvent {
-  /** The process identifier */
-  pid: number;
-  /** The output message content */
-  message: string;
-  /** Timestamp of the event (Mach absolute time) */
-  timestamp?: bigint;
-  /** Parsed Date object if timestamp is available */
-  date?: Date;
-}
 
 /**
  * ProcessControl service for managing processes on the device.

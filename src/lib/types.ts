@@ -10,10 +10,6 @@ import type { BaseService, Service } from '../services/ios/base-service.js';
 import type { iOSApplication } from '../services/ios/dvt/instruments/application-listing.js';
 import type { LocationCoordinates } from '../services/ios/dvt/instruments/location-simulation.js';
 import type { NotificationMessage } from '../services/ios/dvt/instruments/notifications.js';
-import type {
-  OutputReceivedEvent,
-  ProcessLaunchOptions,
-} from '../services/ios/dvt/instruments/process-control.js';
 import { InstallationProxyService } from '../services/ios/installation-proxy/index.js';
 import { ProvisioningProfile } from '../services/ios/misagent/provisioning-profile.js';
 import type { ProfileList } from '../services/ios/mobile-config/index.js';
@@ -25,7 +21,38 @@ import type { Device } from './usbmux/index.js';
 
 export type { PowerAssertionOptions };
 export { PowerAssertionType };
-export type { ProcessLaunchOptions, OutputReceivedEvent };
+
+/**
+ * Options for launching a process
+ */
+export interface ProcessLaunchOptions {
+  /** The bundle identifier of the app to launch */
+  bundleId: string;
+  /** Command line arguments to pass to the process */
+  arguments?: string[];
+  /** Environment variables to set for the process */
+  environment?: Record<string, string>;
+  /** Whether to kill an existing instance of the process */
+  killExisting?: boolean;
+  /** Whether to start the process in a suspended state */
+  startSuspended?: boolean;
+  /** Additional options to pass to the launch command */
+  extraOptions?: Record<string, any>;
+}
+
+/**
+ * Event received from a running process
+ */
+export interface OutputReceivedEvent {
+  /** The process identifier */
+  pid: number;
+  /** The output message content */
+  message: string;
+  /** Timestamp of the event (Mach absolute time) */
+  timestamp?: bigint;
+  /** Parsed Date object if timestamp is available */
+  date?: Date;
+}
 
 /**
  * UID (Unique Identifier) interface for plist references
