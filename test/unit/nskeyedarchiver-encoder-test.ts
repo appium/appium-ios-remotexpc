@@ -171,10 +171,10 @@ describe('NSKeyedArchiver Encoder', function () {
       expect(dict1.$class.value).to.equal(dict2.$class.value);
     });
 
-    it('should throw for unsupported types', function () {
-      expect(() => encoder.encode(Symbol('test'))).to.throw(
-        'Unsupported type for NSKeyedArchiver: symbol',
-      );
+    it('should encode unsupported types as $null', function () {
+      const result = encoder.encode(Symbol('test'));
+
+      expect(result.$top.root.value).to.equal(0);
     });
   });
 });

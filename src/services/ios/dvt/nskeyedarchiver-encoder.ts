@@ -1,4 +1,7 @@
+import { getLogger } from '../../../lib/logger.js';
 import { PlistUID } from '../../../lib/plist/index.js';
+
+const log = getLogger('NSKeyedArchiverEncoder');
 
 /**
  * Encodes JavaScript objects into NSKeyedArchiver format
@@ -62,8 +65,11 @@ export class NSKeyedArchiverEncoder {
       // Treat generic objects as dictionaries
       index = this.archiveDictionary(value);
     } else {
-      // Fallback (e.g. symbols, functions)
-      throw new Error(`Unsupported type for NSKeyedArchiver: ${typeof value}`);
+      // Fallback (e.g. symbols, functions) — encode as $null to avoid breaking pipelines
+      log.warn(
+        `Unsupported type for NSKeyedArchiver: ${typeof value}. Encoding as $null`,
+      );
+      return 0;
     }
 
     return index;
