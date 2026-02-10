@@ -1,3 +1,10 @@
+## [0.28.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.28.1...v0.28.2) (2026-02-10)
+
+### Miscellaneous Chores
+
+* **deps:** bump actions/checkout from 6.0.1 to 6.0.2 ([#139](https://github.com/appium/appium-ios-remotexpc/issues/139)) ([953ca88](https://github.com/appium/appium-ios-remotexpc/commit/953ca88e72fe3b3765ffbece8cb1a5292e68fe46))
+* **deps:** bump actions/setup-node from 6.1.0 to 6.2.0 ([#140](https://github.com/appium/appium-ios-remotexpc/issues/140)) ([54dbc01](https://github.com/appium/appium-ios-remotexpc/commit/54dbc01b8fabab6ccd7452ec274e97dc881498dc))
+
 ## [0.28.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.28.0...v0.28.1) (2026-02-03)
 
 ### Miscellaneous Chores
