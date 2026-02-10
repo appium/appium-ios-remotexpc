@@ -40,16 +40,24 @@ describe('ProcessControl Service', function () {
     // com.apple.Preferences is the bundle ID for Settings
     try {
       const pid =
-        await dvtServiceConnection!.processControl.processIdentifierForBundleIdentifier(
+        await dvtServiceConnection!.processControl.getPidForBundleIdentifier(
           'com.apple.Preferences',
         );
       expect(pid).to.be.a('number');
-      // pid can be -1 if not running
+      expect(pid).to.be.greaterThan(0);
       log.debug(`Settings PID: ${pid}`);
     } catch (error) {
       log.error('Failed to get PID:', error);
       throw error;
     }
+  });
+
+  it('should return 0 for non-existent bundle identifier', async function () {
+    const pid =
+      await dvtServiceConnection!.processControl.getPidForBundleIdentifier(
+        'com.fake.nonexistent.bundle',
+      );
+    expect(pid).to.equal(0);
   });
 
   it('should launch an application (Calculator)', async function () {

@@ -968,11 +968,15 @@ export interface ProcessControlService {
   disableMemoryLimitForPid(pid: number): Promise<void>;
 
   /**
-   * Get the process identifier for a bundle identifier
-   * @param bundleId The bundle identifier
-   * @returns The process identifier (PID)
+   * Get the process identifier for a bundle identifier.
+   *
+   * Returns `0` if the bundle identifier is not found on the device
+   * or the app is not currently running.
+   *
+   * @param bundleId The bundle identifier (e.g., 'com.apple.Preferences')
+   * @returns The process identifier (PID), or `0` if not found/not running
    */
-  processIdentifierForBundleIdentifier(bundleId: string): Promise<number>;
+  getPidForBundleIdentifier(bundleId: string): Promise<number>;
 
   /**
    * Launch a process with the specified options

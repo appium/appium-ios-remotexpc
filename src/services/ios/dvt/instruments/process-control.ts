@@ -104,13 +104,16 @@ export class ProcessControl extends BaseInstrument {
   }
 
   /**
-   * Get the process identifier for a bundle identifier
-   * @param bundleId The bundle identifier
-   * @returns The process identifier (PID)
+   * Get the process identifier for a bundle identifier.
+   *
+   * Returns `0` if the bundle identifier is not found on the device
+   * or the app is not currently running.
+   *
+   * @param bundleId The bundle identifier (e.g., 'com.apple.Preferences')
+   * @returns The process identifier (PID), or `0` if not found/not running
+   * @throws {Error} If the device returns a non-numeric response
    */
-  async processIdentifierForBundleIdentifier(
-    bundleId: string,
-  ): Promise<number> {
+  async getPidForBundleIdentifier(bundleId: string): Promise<number> {
     await this.initialize();
 
     const args = new MessageAux().appendObj(bundleId);
@@ -120,7 +123,7 @@ export class ProcessControl extends BaseInstrument {
 
     if (typeof result !== 'number') {
       throw new Error(
-        `Invalid response for processIdentifierForBundleIdentifier: ${result}`,
+        `Unexpected response when looking up PID for bundle '${bundleId}': ${result}`,
       );
     }
 
