@@ -1,6 +1,6 @@
 {
   "name": "appium-ios-remotexpc",
-  "version": "0.27.0",
+  "version": "0.28.1",
   "main": "build/src/index.js",
   "types": "build/src/index.d.ts",
   "type": "module",
@@ -69,7 +69,7 @@
   },
   "description": "",
   "devDependencies": {
-    "@appium/eslint-config-appium-ts": "^2.0.0-rc.1",
+    "@appium/eslint-config-appium-ts": "^3.0.0",
     "@appium/tsconfig": "^1.0.0-rc.1",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/git": "^10.0.1",

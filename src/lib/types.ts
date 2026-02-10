@@ -234,6 +234,10 @@ export interface NotificationProxyService extends BaseService {
    * @returns Promise resolving to the expected notification
    */
   expectNotification(timeout?: number): Promise<PlistMessage>;
+  /**
+   * Close the notification proxy service connection
+   */
+  close(): void;
 }
 
 /**

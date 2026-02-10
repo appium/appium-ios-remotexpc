@@ -7,7 +7,11 @@ export type ProgressCallback = (
 
 export interface BrowseOptions {
   applicationType?: ApplicationType;
-  returnAttributes?: string[];
+  /**
+   * Attribute name(s) to return.
+   * - Use '*' to get all available attributes
+   */
+  returnAttributes?: string[] | '*';
 }
 
 export interface InstallOptions {

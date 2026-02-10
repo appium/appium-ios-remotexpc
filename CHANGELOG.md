@@ -1,3 +1,21 @@
+## [0.28.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.28.0...v0.28.1) (2026-02-03)
+
+### Miscellaneous Chores
+
+* **deps-dev:** bump @appium/eslint-config-appium-ts ([#141](https://github.com/appium/appium-ios-remotexpc/issues/141)) ([30847c2](https://github.com/appium/appium-ios-remotexpc/commit/30847c27dad95a50452fcf7b89da062f603e1f9e))
+
+## [0.28.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.27.1...v0.28.0) (2026-02-03)
+
+### Features
+
+* **installation-proxy:** support returning all attributes in browse ([#143](https://github.com/appium/appium-ios-remotexpc/issues/143)) ([cb4fbf4](https://github.com/appium/appium-ios-remotexpc/commit/cb4fbf47612b121ef21509064629bc5b3cf77773))
+
+## [0.27.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.27.0...v0.27.1) (2026-02-02)
+
+### Bug Fixes
+
+* add `close()` method for notification proxy ([#142](https://github.com/appium/appium-ios-remotexpc/issues/142)) ([d36cbb0](https://github.com/appium/appium-ios-remotexpc/commit/d36cbb06cbc515371dd523cbf69f8001b59ef767))
+
 ## [0.27.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.26.1...v0.27.0) (2026-01-31)
 
 ### Features

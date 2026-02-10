@@ -73,12 +73,18 @@ export class InstallationProxyService extends BaseService {
       returnAttributes = DEFAULT_RETURN_ATTRIBUTES,
     } = options;
 
+    const clientOptions: Record<string, string | string[]> = {
+      ApplicationType: applicationType,
+    };
+
+    // Only set ReturnAttributes when it's an array.
+    if (Array.isArray(returnAttributes)) {
+      clientOptions.ReturnAttributes = returnAttributes;
+    }
+
     const request: PlistDictionary = {
       Command: 'Browse',
-      ClientOptions: {
-        ApplicationType: applicationType,
-        ReturnAttributes: returnAttributes,
-      },
+      ClientOptions: clientOptions,
     };
 
     const conn = await this.getConnection();
