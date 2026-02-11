@@ -1,3 +1,9 @@
+## [0.29.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.28.2...v0.29.0) (2026-02-11)
+
+### Features
+
+* **dvt:** add ProcessControl instrument for process management ([#136](https://github.com/appium/appium-ios-remotexpc/issues/136)) ([b74a225](https://github.com/appium/appium-ios-remotexpc/commit/b74a2257ab137ccc61c74aa5d6828061d87e95ef))
+
 ## [0.28.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.28.1...v0.28.2) (2026-02-10)
 
 ### Miscellaneous Chores
