@@ -23,6 +23,38 @@ export type { PowerAssertionOptions };
 export { PowerAssertionType };
 
 /**
+ * Options for launching a process
+ */
+export interface ProcessLaunchOptions {
+  /** The bundle identifier of the app to launch */
+  bundleId: string;
+  /** Command line arguments to pass to the process */
+  arguments?: string[];
+  /** Environment variables to set for the process */
+  environment?: Record<string, string>;
+  /** Whether to kill an existing instance of the process */
+  killExisting?: boolean;
+  /** Whether to start the process in a suspended state */
+  startSuspended?: boolean;
+  /** Additional options to pass to the launch command */
+  extraOptions?: Record<string, any>;
+}
+
+/**
+ * Event received from a running process
+ */
+export interface OutputReceivedEvent {
+  /** The process identifier */
+  pid: number;
+  /** The output message content */
+  message: string;
+  /** Timestamp of the event (Mach absolute time) */
+  timestamp?: bigint;
+  /** Parsed Date object if timestamp is available */
+  date?: Date;
+}
+
+/**
  * UID (Unique Identifier) interface for plist references
  * Used in NSKeyedArchiver format
  */
@@ -939,6 +971,63 @@ export interface DeviceInfoService {
 }
 
 /**
+ * ProcessControl service interface for managing processes
+ */
+export interface ProcessControlService {
+  /**
+   * Send a signal to a process
+   * @param pid The process identifier
+   * @param sig The signal number to send
+   * @returns The response from the device
+   */
+  signal(pid: number, sig: number): Promise<any>;
+
+  /**
+   * Terminate a process
+   * @param pid The process identifier to kill
+   */
+  kill(pid: number): Promise<void>;
+
+  /**
+   * Disable Jetsam memory limits for a specific process.
+   * iOS enforces per-process memory limits via Jetsam. Exceeding these limits
+   * causes the process to be killed. This method exempts the process from
+   * those limits, which is useful during profiling or testing to prevent
+   * the app from being terminated due to instrumentation overhead.
+   *
+   * Note: This method is idempotent — calling it multiple times on the same
+   * process has no additional effect beyond the first successful call.
+   *
+   * @param pid The process identifier
+   */
+  disableMemoryLimitForPid(pid: number): Promise<void>;
+
+  /**
+   * Get the process identifier for a bundle identifier.
+   *
+   * Returns `0` if the bundle identifier is not found on the device
+   * or the app is not currently running.
+   *
+   * @param bundleId The bundle identifier (e.g., 'com.apple.Preferences')
+   * @returns The process identifier (PID), or `0` if not found/not running
+   */
+  getPidForBundleIdentifier(bundleId: string): Promise<number>;
+
+  /**
+   * Launch a process with the specified options
+   * @param options Launch configuration options
+   * @returns The process identifier (PID) of the launched process
+   */
+  launch(options: ProcessLaunchOptions): Promise<number>;
+
+  /**
+   * Monitor output events from running processes
+   * @yields OutputReceivedEvent
+   */
+  outputEvents(): AsyncGenerator<OutputReceivedEvent, void, unknown>;
+}
+
+/**
  * Notification service monitor memory and app notifications
  */
 export interface NotificationService {
@@ -1005,6 +1094,8 @@ export interface DVTServiceWithConnection {
   notification: NotificationService;
   /** The NetworkMonitor service instance */
   networkMonitor: NetworkMonitorService;
+  /** The ProcessControl service instance */
+  processControl: ProcessControlService;
   /** The RemoteXPC connection that can be used to close the connection */
   remoteXPC: RemoteXpcConnection;
 }
