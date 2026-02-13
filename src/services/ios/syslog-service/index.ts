@@ -11,14 +11,16 @@ import type {
 } from '../../../lib/types.js';
 import { ServiceConnection } from '../../../service-connection.js';
 import { BaseService, type Service } from '../base-service.js';
+import {
+  type SyslogEntry,
+  SyslogProtocolParser,
+  formatSyslogEntry,
+  formatSyslogEntryColored,
+} from './syslog-entry-parser.js';
 
 const syslogLog = getLogger('SyslogMessages');
 const log = getLogger('Syslog');
 
-const MIN_PRINTABLE_RATIO = 0.5;
-const ASCII_PRINTABLE_MIN = 32;
-const ASCII_PRINTABLE_MAX = 126;
-const NON_PRINTABLE_ASCII_REGEX = /[^\x20-\x7E]/g;
 const PLIST_XML_MARKERS = ['<?xml', '<plist'];
 const BINARY_PLIST_MARKER = 'bplist';
 const BINARY_PLIST_MARKER_ALT = 'Ibplist00';
@@ -42,6 +44,7 @@ class SyslogService extends EventEmitter implements SyslogServiceInterface {
   private packetStreamPromise: Promise<void> | null = null;
   private isCapturing = false;
   private enableVerboseLogging = false;
+  private syslogParser: SyslogProtocolParser;
 
   /**
    * Creates a new syslog-service instance
@@ -50,6 +53,10 @@ class SyslogService extends EventEmitter implements SyslogServiceInterface {
   constructor(address: [string, number]) {
     super();
     this.baseService = new BaseService(address);
+    this.syslogParser = new SyslogProtocolParser(
+      (entry: SyslogEntry) => this.handleSyslogEntry(entry),
+      (error: Error) => log.debug(`Syslog parse error: ${error.message}`),
+    );
   }
 
   /**
@@ -107,6 +114,7 @@ class SyslogService extends EventEmitter implements SyslogServiceInterface {
 
     this.detachPacketSource();
     this.closeConnection();
+    this.syslogParser.reset();
 
     this.isCapturing = false;
     log.info('Syslog capture stopped');
@@ -215,19 +223,18 @@ class SyslogService extends EventEmitter implements SyslogServiceInterface {
   }
 
   /**
-   * Processes a TCP packet
-   * @param packet TCP packet to process
+   * Processes a TCP packet by detecting plist responses or
+   * feeding binary syslog data into the protocol parser.
    */
   private processTcpPacket(packet: PacketData): void {
     try {
       if (this.mightBePlist(packet.payload)) {
         this.processPlistPacket(packet);
       } else {
-        this.processTextPacket(packet);
+        this.syslogParser.addData(packet.payload);
       }
     } catch (error) {
       log.debug(`Error processing packet: ${error}`);
-      this.emitTextMessage(packet.payload);
     }
 
     this.logPacketDetails(packet);
@@ -240,42 +247,27 @@ class SyslogService extends EventEmitter implements SyslogServiceInterface {
       this.emit('plist', plistData);
 
       const message = JSON.stringify(plistData);
-      this.emitMessage(message);
+      this.emit('message', message);
     } catch (error) {
-      log.debug(`Failed to parse as plist: ${error}`);
-      this.processTextPacket(packet);
+      log.debug(`Failed to parse as plist, feeding to syslog parser: ${error}`);
+      this.syslogParser.addData(packet.payload);
     }
   }
 
-  private processTextPacket(packet: PacketData): void {
-    const message = this.extractPrintableText(packet.payload);
-    if (!message.trim()) {
-      log.debug('TCP packet contains no printable text, ignoring.');
-      return;
-    }
+  /**
+   * Handles a parsed syslog entry by formatting it and emitting events.
+   * Terminal output uses colored formatting for readability.
+   * The 'message' event emits a plain (uncolored) string for programmatic use.
+   */
+  private handleSyslogEntry(entry: SyslogEntry): void {
+    const formatted = formatSyslogEntry(entry);
+    this.emit('syslogEntry', entry);
 
-    const isMostlyPrintable = this.isMostlyPrintable(packet.payload);
-    if (!isMostlyPrintable) {
-      log.debug(
-        `TCP packet not mostly printable, but contains text: ${message}`,
-      );
-    }
-
-    this.emitMessage(message);
-  }
-
-  private emitTextMessage(buffer: Buffer): void {
-    const message = this.extractPrintableText(buffer);
-    if (message.trim()) {
-      this.emitMessage(message);
-    }
-  }
-
-  private emitMessage(message: string): void {
     if (this.enableVerboseLogging) {
-      syslogLog.info(message);
+      syslogLog.info(formatSyslogEntryColored(entry));
     }
-    this.emit('message', message);
+
+    this.emit('message', formatted);
   }
 
   /**
@@ -320,67 +312,19 @@ class SyslogService extends EventEmitter implements SyslogServiceInterface {
     }
   }
 
-  /**
-   * Processes a UDP packet
-   * @param packet UDP packet to process
-   */
   private processUdpPacket(packet: PacketData): void {
-    log.debug(`Received UDP packet (not filtered here): ${packet}`);
+    log.debug(
+      `Received UDP packet (not used for syslog): ${packet.src}:${packet.sourcePort}`,
+    );
   }
 
   /**
-   * Logs packet details for debugging
-   * @param packet Packet to log details for
+   * Logs packet details for debugging (only visible at debug log level)
    */
   private logPacketDetails(packet: PacketData): void {
-    log.debug('Received syslog-like TCP packet:');
-    log.debug(`  Source: ${packet.src}`);
-    log.debug(`  Destination: ${packet.dst}`);
-    log.debug(`  Source port: ${packet.sourcePort}`);
-    log.debug(`  Destination port: ${packet.destPort}`);
-    log.debug(`  Payload length: ${packet.payload.length}`);
-  }
-
-  /**
-   * Extracts printable text from a buffer
-   * @param buffer Buffer to extract text from
-   * @returns Printable text
-   */
-  private extractPrintableText(buffer: Buffer): string {
-    return buffer.toString().replace(NON_PRINTABLE_ASCII_REGEX, '');
-  }
-
-  /**
-   * Determines if a buffer contains mostly printable ASCII characters
-   * @param buffer Buffer to analyze
-   * @returns True if more than 50% of characters are printable ASCII
-   */
-  private isMostlyPrintable(buffer: Buffer): boolean {
-    try {
-      const str = buffer.toString('utf8');
-      if (!str || str.length === 0) {
-        return false;
-      }
-
-      const totalLength = str.length;
-      const threshold = totalLength * MIN_PRINTABLE_RATIO;
-      let printableCount = 0;
-
-      for (let i = 0; i < totalLength; i++) {
-        const code = str.charCodeAt(i);
-        if (code >= ASCII_PRINTABLE_MIN && code <= ASCII_PRINTABLE_MAX) {
-          printableCount++;
-          if (printableCount > threshold) {
-            return true;
-          }
-        }
-      }
-
-      return printableCount / totalLength > MIN_PRINTABLE_RATIO;
-    } catch (error) {
-      log.debug(error);
-      return false;
-    }
+    log.debug(
+      `TCP packet: ${packet.src}:${packet.sourcePort} → ${packet.dst}:${packet.destPort} (${packet.payload.length} bytes)`,
+    );
   }
 }
 
