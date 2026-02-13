@@ -60,7 +60,7 @@ const MAX_ENTRY_SIZE = 65536;
 const MAX_BUFFER_SIZE = 10 * 1024 * 1024;
 
 /*
- * Binary layout offsets for a syslog entry (based on pymobiledevice3):
+ * Binary layout offsets for a syslog entry (os_trace_relay protocol):
  *
  * Offset  Size  Field
  * 0       9     Header (skip)
@@ -116,7 +116,7 @@ export function getLogLevelName(level: number): string {
 
 /**
  * Parse a single syslog entry from binary data.
- * Based on the os_trace_relay binary protocol as documented in pymobiledevice3.
+ * Based on the os_trace_relay binary protocol.
  */
 export function parseSyslogEntry(data: Buffer): SyslogEntry {
   if (data.length < OFFSET_VARIABLE_FIELDS) {
@@ -230,7 +230,7 @@ const LOG_LEVEL_COLORS: Record<number, string> = {
  *
  * Format: `TIMESTAMP PROCESS{IMAGE_NAME}[PID] <LEVEL>: MESSAGE [SUBSYSTEM][CATEGORY]`
  *
- * Matches pymobiledevice3's output format.
+ * Matches the standard os_trace_relay output format.
  */
 export function formatSyslogEntry(entry: SyslogEntry): string {
   const ts = formatTimestamp(
@@ -252,7 +252,7 @@ export function formatSyslogEntry(entry: SyslogEntry): string {
 /**
  * Format a syslog entry as a colored string for terminal display.
  *
- * Color scheme (matching pymobiledevice3):
+ * Color scheme:
  *   Timestamp    → green
  *   Process name → magenta
  *   Image name   → magenta
