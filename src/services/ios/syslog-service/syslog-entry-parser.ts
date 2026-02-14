@@ -1,4 +1,4 @@
-import path from 'path';
+import { posix as path } from 'path';
 
 import { getLogger } from '../../../lib/logger.js';
 
@@ -193,18 +193,37 @@ export function parseSyslogEntry(data: Buffer): SyslogEntry {
 }
 
 /**
+ * Cached date formatter for timestamp formatting.
+ * Using Intl.DateTimeFormat provides better performance for high-frequency calls.
+ */
+const dateFormatter = new Intl.DateTimeFormat('en-US', {
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: false,
+  timeZone: 'UTC',
+});
+
+/**
  * Format a timestamp with microsecond precision.
  */
 function formatTimestamp(seconds: number, microseconds: number): string {
   const date = new Date(seconds * 1000);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  const hours = String(date.getHours()).padStart(2, '0');
-  const minutes = String(date.getMinutes()).padStart(2, '0');
-  const secs = String(date.getSeconds()).padStart(2, '0');
+  const parts = dateFormatter.formatToParts(date);
+
+  // Extract parts from the formatted output
+  const year = parts.find((p) => p.type === 'year')?.value ?? '0000';
+  const month = parts.find((p) => p.type === 'month')?.value ?? '00';
+  const day = parts.find((p) => p.type === 'day')?.value ?? '00';
+  const hour = parts.find((p) => p.type === 'hour')?.value ?? '00';
+  const minute = parts.find((p) => p.type === 'minute')?.value ?? '00';
+  const second = parts.find((p) => p.type === 'second')?.value ?? '00';
   const micro = String(microseconds).padStart(6, '0');
-  return `${year}-${month}-${day} ${hours}:${minutes}:${secs}.${micro}`;
+
+  return `${year}-${month}-${day} ${hour}:${minute}:${second}.${micro}`;
 }
 
 // ANSI color codes
@@ -213,7 +232,6 @@ const GREEN = '\x1b[32m';
 const MAGENTA = '\x1b[35m';
 const CYAN = '\x1b[36m';
 const RED = '\x1b[31m';
-const YELLOW = '\x1b[33m';
 const WHITE = '\x1b[37m';
 
 const LOG_LEVEL_COLORS: Record<number, string> = {
@@ -296,28 +314,34 @@ export function formatSyslogEntryColored(entry: SyslogEntry): string {
  */
 export class SyslogProtocolParser {
   private buffer: Buffer = Buffer.alloc(0);
-  private readonly onEntry: (entry: SyslogEntry) => void;
-  private readonly onError: (error: Error) => void;
 
   constructor(
-    onEntry: (entry: SyslogEntry) => void,
-    onError: (error: Error) => void = () => {},
-  ) {
-    this.onEntry = onEntry;
-    this.onError = onError;
-  }
+    private readonly onEntry: (entry: SyslogEntry) => void,
+    private readonly onError: (error: Error) => void = () => {},
+  ) {}
 
   /**
    * Feed raw TCP payload data into the parser.
    */
   addData(data: Buffer): void {
-    this.buffer = Buffer.concat([this.buffer, data]);
-
-    if (this.buffer.length > MAX_BUFFER_SIZE) {
-      log.debug(`Buffer exceeded ${MAX_BUFFER_SIZE} bytes, resetting`);
+    // If incoming data itself is too large, give up and reset
+    if (data.length > MAX_BUFFER_SIZE) {
+      log.debug(
+        `Incoming data exceeds ${MAX_BUFFER_SIZE} bytes, resetting buffer`,
+      );
       this.buffer = Buffer.alloc(0);
       return;
     }
+
+    // If adding new data would exceed limit, clear buffer first to avoid corruption
+    if (this.buffer.length + data.length > MAX_BUFFER_SIZE) {
+      log.debug(
+        `Buffer would exceed ${MAX_BUFFER_SIZE} bytes, resetting buffer`,
+      );
+      this.buffer = Buffer.alloc(0);
+    }
+
+    this.buffer = Buffer.concat([this.buffer, data]);
 
     this.processBuffer();
   }
