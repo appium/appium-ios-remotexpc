@@ -16,6 +16,7 @@ import type { ProfileList } from '../services/ios/mobile-config/index.js';
 import type { PowerAssertionOptions } from '../services/ios/power-assertion/index.js';
 import { PowerAssertionType } from '../services/ios/power-assertion/index.js';
 import type { InterfaceOrientation } from '../services/ios/springboard-service/index.js';
+import type { SyslogEntry } from '../services/ios/syslog-service/syslog-entry-parser.js';
 import type { RemoteXpcConnection } from './remote-xpc/remote-xpc-connection.js';
 import type { Device } from './usbmux/index.js';
 
@@ -1284,9 +1285,14 @@ export interface SyslogService extends EventEmitter {
   on(event: 'stop', listener: () => void): this;
 
   /**
-   * Event emitter for 'message' events
+   * Event emitter for 'message' events (formatted syslog string)
    */
   on(event: 'message', listener: (message: string) => void): this;
+
+  /**
+   * Event emitter for structured syslog entry events
+   */
+  on(event: 'syslogEntry', listener: (entry: SyslogEntry) => void): this;
 
   /**
    * Event emitter for 'plist' events
