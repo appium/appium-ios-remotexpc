@@ -221,10 +221,10 @@ function formatTimestamp(seconds: number, microseconds: number): string {
   const parts = dateFormatter.formatToParts(date);
 
   // Convert parts array to object for efficient lookup
-  const partsMap: Record<string, string> = {};
-  for (const part of parts) {
-    partsMap[part.type] = part.value;
-  }
+  const partsMap = parts.reduce<Record<string, string>>((acc, part) => {
+    acc[part.type] = part.value;
+    return acc;
+  }, {});
 
   const year = partsMap.year ?? '0000';
   const month = partsMap.month ?? '00';
