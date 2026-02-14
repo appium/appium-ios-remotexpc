@@ -44,7 +44,7 @@ class SyslogService extends EventEmitter implements SyslogServiceInterface {
   private packetStreamPromise: Promise<void> | null = null;
   private isCapturing = false;
   private enableVerboseLogging = false;
-  private syslogParser: SyslogProtocolParser;
+  private readonly syslogParser: SyslogProtocolParser;
 
   /**
    * Creates a new syslog-service instance
@@ -260,8 +260,8 @@ class SyslogService extends EventEmitter implements SyslogServiceInterface {
    * The 'message' event emits a plain (uncolored) string for programmatic use.
    */
   private handleSyslogEntry(entry: SyslogEntry): void {
-    const formatted = formatSyslogEntry(entry);
     this.emit('syslogEntry', entry);
+    const formatted = formatSyslogEntry(entry);
 
     if (this.enableVerboseLogging) {
       syslogLog.info(formatSyslogEntryColored(entry));
@@ -313,18 +313,22 @@ class SyslogService extends EventEmitter implements SyslogServiceInterface {
   }
 
   private processUdpPacket(packet: PacketData): void {
-    log.debug(
-      `Received UDP packet (not used for syslog): ${packet.src}:${packet.sourcePort}`,
-    );
+    if (this.enableVerboseLogging) {
+      log.debug(
+        `Received UDP packet (not used for syslog): ${packet.src}:${packet.sourcePort}`,
+      );
+    }
   }
 
   /**
-   * Logs packet details for debugging (only visible at debug log level)
+   * Logs packet details for debugging (only visible when verbose logging is enabled)
    */
   private logPacketDetails(packet: PacketData): void {
-    log.debug(
-      `TCP packet: ${packet.src}:${packet.sourcePort} → ${packet.dst}:${packet.destPort} (${packet.payload.length} bytes)`,
-    );
+    if (this.enableVerboseLogging) {
+      log.debug(
+        `TCP packet: ${packet.src}:${packet.sourcePort} → ${packet.dst}:${packet.destPort} (${packet.payload.length} bytes)`,
+      );
+    }
   }
 }
 

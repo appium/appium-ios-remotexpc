@@ -47,6 +47,15 @@ export interface SyslogEntry {
 /** Marker byte that precedes each syslog entry in the protocol */
 const ENTRY_MARKER = 0x02;
 
+/** Size of the entry marker in bytes */
+const MARKER_SIZE = 1;
+
+/** Size of the entry length field in bytes (uint32) */
+const LENGTH_FIELD_SIZE = 4;
+
+/** Minimum bytes needed to read entry header (marker + length field) */
+const MIN_HEADER_SIZE = MARKER_SIZE + LENGTH_FIELD_SIZE;
+
 /**
  * Minimum syslog entry data size.
  * The fixed-size header is 129 bytes + at least a null terminator for filename.
@@ -97,14 +106,11 @@ const OFFSET_CATEGORY_SIZE = 121;
 const OFFSET_VARIABLE_FIELDS = 129;
 
 /**
- * Safely decode a buffer slice to a UTF-8 string, falling back to latin1.
+ * Decode a buffer slice to a UTF-8 string.
+ * Invalid byte sequences are replaced with U+FFFD (replacement character).
  */
-function tryDecode(data: Buffer): string {
-  try {
-    return data.toString('utf8');
-  } catch {
-    return data.toString('latin1');
-  }
+function decodeUtf8(data: Buffer): string {
+  return data.toString('utf8');
 }
 
 /**
@@ -144,34 +150,34 @@ export function parseSyslogEntry(data: Buffer): SyslogEntry {
   if (filenameEnd === -1) {
     throw new Error('Could not find null terminator for filename');
   }
-  const filename = tryDecode(data.subarray(offset, filenameEnd));
+  const filename = decodeUtf8(data.subarray(offset, filenameEnd));
   offset = filenameEnd + 1;
 
   // Parse image_name (imageNameSize bytes, minus the null terminator)
   const imageName =
     imageNameSize > 1
-      ? tryDecode(data.subarray(offset, offset + imageNameSize - 1))
+      ? decodeUtf8(data.subarray(offset, offset + imageNameSize - 1))
       : '';
   offset += imageNameSize;
 
   // Parse message (messageSize bytes, minus the null terminator)
   const message =
     messageSize > 1
-      ? tryDecode(data.subarray(offset, offset + messageSize - 1))
+      ? decodeUtf8(data.subarray(offset, offset + messageSize - 1))
       : '';
   offset += messageSize;
 
   // Parse label (subsystem + category, optional)
   let label: SyslogLabel | undefined;
-  if (subsystemSize > 0 && categorySize > 0) {
+  if (subsystemSize > 0 || categorySize > 0) {
     const subsystem =
       subsystemSize > 1
-        ? tryDecode(data.subarray(offset, offset + subsystemSize - 1))
+        ? decodeUtf8(data.subarray(offset, offset + subsystemSize - 1))
         : '';
     offset += subsystemSize;
     const category =
       categorySize > 1
-        ? tryDecode(data.subarray(offset, offset + categorySize - 1))
+        ? decodeUtf8(data.subarray(offset, offset + categorySize - 1))
         : '';
     offset += categorySize;
     label = { subsystem, category };
@@ -214,13 +220,18 @@ function formatTimestamp(seconds: number, microseconds: number): string {
   const date = new Date(seconds * 1000);
   const parts = dateFormatter.formatToParts(date);
 
-  // Extract parts from the formatted output
-  const year = parts.find((p) => p.type === 'year')?.value ?? '0000';
-  const month = parts.find((p) => p.type === 'month')?.value ?? '00';
-  const day = parts.find((p) => p.type === 'day')?.value ?? '00';
-  const hour = parts.find((p) => p.type === 'hour')?.value ?? '00';
-  const minute = parts.find((p) => p.type === 'minute')?.value ?? '00';
-  const second = parts.find((p) => p.type === 'second')?.value ?? '00';
+  // Convert parts array to object for efficient lookup
+  const partsMap: Record<string, string> = {};
+  for (const part of parts) {
+    partsMap[part.type] = part.value;
+  }
+
+  const year = partsMap.year ?? '0000';
+  const month = partsMap.month ?? '00';
+  const day = partsMap.day ?? '00';
+  const hour = partsMap.hour ?? '00';
+  const minute = partsMap.minute ?? '00';
+  const second = partsMap.second ?? '00';
   const micro = String(microseconds).padStart(6, '0');
 
   return `${year}-${month}-${day} ${hour}:${minute}:${second}.${micro}`;
@@ -329,7 +340,7 @@ export class SyslogProtocolParser {
       log.debug(
         `Incoming data exceeds ${MAX_BUFFER_SIZE} bytes, resetting buffer`,
       );
-      this.buffer = Buffer.alloc(0);
+      this.reset();
       return;
     }
 
@@ -338,7 +349,7 @@ export class SyslogProtocolParser {
       log.debug(
         `Buffer would exceed ${MAX_BUFFER_SIZE} bytes, resetting buffer`,
       );
-      this.buffer = Buffer.alloc(0);
+      this.reset();
     }
 
     this.buffer = Buffer.concat([this.buffer, data]);
@@ -356,7 +367,7 @@ export class SyslogProtocolParser {
       const markerIndex = this.buffer.indexOf(ENTRY_MARKER);
       if (markerIndex === -1) {
         // No marker found — discard non-syslog data
-        this.buffer = Buffer.alloc(0);
+        this.reset();
         break;
       }
 
@@ -365,27 +376,30 @@ export class SyslogProtocolParser {
         this.buffer = this.buffer.subarray(markerIndex);
       }
 
-      // Need at least marker (1) + length (4) = 5 bytes
-      if (this.buffer.length < 5) {
+      // Need at least marker + length field to read entry size
+      if (this.buffer.length < MIN_HEADER_SIZE) {
         break;
       }
 
-      const entryLength = this.buffer.readUInt32LE(1);
+      const entryLength = this.buffer.readUInt32LE(MARKER_SIZE);
 
       // Validate entry length to filter false 0x02 markers
       if (entryLength < MIN_ENTRY_SIZE || entryLength > MAX_ENTRY_SIZE) {
         // Likely a false marker — skip this byte and try again
-        this.buffer = this.buffer.subarray(1);
+        this.buffer = this.buffer.subarray(MARKER_SIZE);
         continue;
       }
 
       // Check if the full entry is available in the buffer
-      const totalSize = 1 + 4 + entryLength;
+      const totalSize = MIN_HEADER_SIZE + entryLength;
       if (this.buffer.length < totalSize) {
         break; // Wait for more data
       }
 
-      const entryData = this.buffer.subarray(5, 5 + entryLength);
+      const entryData = this.buffer.subarray(
+        MIN_HEADER_SIZE,
+        MIN_HEADER_SIZE + entryLength,
+      );
       this.buffer = this.buffer.subarray(totalSize);
 
       try {
