@@ -1,3 +1,9 @@
+## [0.30.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.29.1...v0.30.0) (2026-02-16)
+
+### Features
+
+* **syslog:** implement binary protocol parser for os_trace_relay ([#144](https://github.com/appium/appium-ios-remotexpc/issues/144)) ([5ba7470](https://github.com/appium/appium-ios-remotexpc/commit/5ba7470e975048f6bae810027f1dd8282a7c0b6f))
+
 ## [0.29.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.29.0...v0.29.1) (2026-02-16)
 
 ### Miscellaneous Chores
