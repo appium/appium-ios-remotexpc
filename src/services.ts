@@ -16,6 +16,7 @@ import type {
   PowerAssertionServiceWithConnection,
   SpringboardServiceWithConnection,
   SyslogService as SyslogServiceType,
+  TestmanagerdServiceWithConnection,
   WebInspectorServiceWithConnection,
 } from './lib/types.js';
 import AfcService from './services/ios/afc/index.js';
@@ -40,6 +41,7 @@ import { NotificationProxyService } from './services/ios/notification-proxy/inde
 import { PowerAssertionService } from './services/ios/power-assertion/index.js';
 import { SpringBoardService } from './services/ios/springboard-service/index.js';
 import SyslogService from './services/ios/syslog-service/index.js';
+import { DvtTestmanagedProxyService } from './services/ios/testmanagerd/index.js';
 import { WebInspectorService } from './services/ios/webinspector/index.js';
 
 const APPIUM_XCUITEST_DRIVER_NAME = 'appium-xcuitest-driver';
@@ -290,6 +292,27 @@ export async function startDVTService(
     notification,
     networkMonitor,
     processControl,
+  };
+}
+
+export async function startTestmanagerdService(
+  udid: string,
+): Promise<TestmanagerdServiceWithConnection> {
+  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
+  const testmanagerdDescriptor = remoteXPC.findService(
+    DvtTestmanagedProxyService.RSD_SERVICE_NAME,
+  );
+
+  const testmanagerdService = new DvtTestmanagedProxyService([
+    tunnelConnection.host,
+    parseInt(testmanagerdDescriptor.port, 10),
+  ]);
+
+  await testmanagerdService.connect();
+
+  return {
+    remoteXPC: remoteXPC as RemoteXpcConnection,
+    testmanagerdService,
   };
 }
 

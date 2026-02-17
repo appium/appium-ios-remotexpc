@@ -1743,3 +1743,82 @@ export interface InstallationProxyServiceWithConnection {
   /** The RemoteXPC connection for service management */
   remoteXPC: RemoteXpcConnection;
 }
+
+/**
+ * Testmanagerd DTX service interface for XCTest session management
+ */
+export interface TestmanagerdService extends BaseService {
+  /**
+   * Connect to the testmanagerd service and perform DTX handshake
+   */
+  connect(): Promise<void>;
+
+  /**
+   * Create a communication channel for a specific identifier
+   * @param identifier The channel identifier
+   * @returns The created channel
+   */
+  makeChannel(identifier: string): Promise<any>;
+
+  /**
+   * Send a DTX message on a channel
+   * @param channel The channel code
+   * @param selector The ObjectiveC method selector
+   * @param args Optional message arguments
+   * @param expectsReply Whether a reply is expected
+   */
+  sendMessage(
+    channel: number,
+    selector: string | null,
+    args?: any | null,
+    expectsReply?: boolean,
+  ): Promise<void>;
+
+  /**
+   * Receive a plist message from a channel
+   * @param channel The channel to receive from
+   * @returns Tuple of [decoded data, auxiliary values]
+   */
+  recvPlist(channel?: number): Promise<[any, any[]]>;
+
+  /**
+   * Send a DTX reply message for the last received message on a channel.
+   * Used for responding to callbacks like _XCT_testRunnerReadyWithCapabilities:.
+   * @param channel The channel code
+   * @param payload Optional archived payload to include in the reply
+   */
+  sendReply(channel: number, payload?: Buffer | null): Promise<void>;
+
+  /**
+   * Close the testmanagerd service connection
+   */
+  close(): Promise<void>;
+}
+
+/**
+ * Options for configuring an XCUITest session
+ */
+export interface XCUITestServiceOptions {
+  /** Device UDID */
+  udid: string;
+  /** Bundle ID of the XCTest runner app */
+  xctestBundleId: string;
+  /** Bundle ID of the app under test */
+  targetBundleId?: string;
+  /** Environment variables to pass to the test process */
+  env?: Record<string, string>;
+  /** Arguments to pass to the test process */
+  args?: string[];
+  /** Xcode protocol version (default: 36) */
+  xcodeVersion?: number;
+}
+
+/**
+ * Represents a TestmanagerdService instance with its associated RemoteXPC connection
+ */
+export interface TestmanagerdServiceWithConnection {
+  /** The testmanagerd service instance */
+  testmanagerdService: TestmanagerdService;
+  /** The RemoteXPC connection for service management */
+  remoteXPC: RemoteXpcConnection;
+}

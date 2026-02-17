@@ -1,5 +1,18 @@
 import type { MessageAux } from './dtx-message.js';
-import type { DVTSecureSocketProxyService } from './index.js';
+
+/**
+ * Interface for DTX services that can be used with Channel.
+ * Both DVTSecureSocketProxyService and DvtTestmanagedProxyService implement this.
+ */
+export interface DTXServiceProvider {
+  recvPlist(channel: number): Promise<[any, any[]]>;
+  sendMessage(
+    channel: number,
+    selector: string | null,
+    args?: MessageAux | null,
+    expectsReply?: boolean,
+  ): Promise<void>;
+}
 
 export type ChannelMethodCall = (
   args?: MessageAux,
@@ -12,8 +25,15 @@ export type ChannelMethodCall = (
 export class Channel {
   constructor(
     private readonly channelCode: number,
-    private readonly service: DVTSecureSocketProxyService,
+    private readonly service: DTXServiceProvider,
   ) {}
+
+  /**
+   * Get the channel code
+   */
+  getCode(): number {
+    return this.channelCode;
+  }
 
   /**
    * Receive a plist response from the channel

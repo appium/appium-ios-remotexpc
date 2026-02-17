@@ -66,9 +66,15 @@ export type {
   ProcessControlService,
   ProcessLaunchOptions,
   OutputReceivedEvent,
+  TestmanagerdService,
+  TestmanagerdServiceWithConnection,
 } from './lib/types.js';
 export { PowerAssertionType } from './lib/types.js';
 export { NetworkMessageType } from './services/ios/dvt/instruments/network-monitor.js';
+export { XCUITestService } from './services/ios/testmanagerd/xcuitest.js';
+export type { XCUITestOptions } from './services/ios/testmanagerd/xcuitest.js';
+export { XCTestConfigurationEncoder } from './services/ios/testmanagerd/xctestconfiguration.js';
+export { createBinaryPlist } from './lib/plist/index.js';
 export {
   STRONGBOX_CONTAINER_NAME,
   createUsbmux,
