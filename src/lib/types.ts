@@ -1777,9 +1777,10 @@ export interface TestmanagerdService extends BaseService {
   /**
    * Receive a plist message from a channel
    * @param channel The channel to receive from
+   * @param signal Optional AbortSignal for cancellation
    * @returns Tuple of [decoded data, auxiliary values]
    */
-  recvPlist(channel?: number): Promise<[any, any[]]>;
+  recvPlist(channel?: number, signal?: AbortSignal): Promise<[any, any[]]>;
 
   /**
    * Send a DTX reply message for the last received message on a channel.
@@ -1796,24 +1797,6 @@ export interface TestmanagerdService extends BaseService {
 }
 
 /**
- * Options for configuring an XCUITest session
- */
-export interface XCUITestServiceOptions {
-  /** Device UDID */
-  udid: string;
-  /** Bundle ID of the XCTest runner app */
-  xctestBundleId: string;
-  /** Bundle ID of the app under test */
-  targetBundleId?: string;
-  /** Environment variables to pass to the test process */
-  env?: Record<string, string>;
-  /** Arguments to pass to the test process */
-  args?: string[];
-  /** Xcode protocol version (default: 36) */
-  xcodeVersion?: number;
-}
-
-/**
  * Represents a TestmanagerdService instance with its associated RemoteXPC connection
  */
 export interface TestmanagerdServiceWithConnection {
@@ -1821,4 +1804,23 @@ export interface TestmanagerdServiceWithConnection {
   testmanagerdService: TestmanagerdService;
   /** The RemoteXPC connection for service management */
   remoteXPC: RemoteXpcConnection;
+}
+
+/**
+ * All services needed for an XCTest session, created via a single RemoteXPC connection.
+ * Using one connection for service discovery avoids ECONNRESET errors from the tunnel.
+ *
+ * Unlike other *WithConnection types, there is no remoteXPC field here.
+ * The RemoteXPC connection is closed internally after port discovery. Callers
+ * are responsible for closing execTestmanagerd, controlTestmanagerd, and dvtService.
+ */
+export interface XCTestServices {
+  /** Testmanagerd connection for the exec session (capabilities, test callbacks) */
+  execTestmanagerd: TestmanagerdService;
+  /** Testmanagerd connection for the control session (authorize, test plan) */
+  controlTestmanagerd: TestmanagerdService;
+  /** DVT service for instruments (process control, etc.) */
+  dvtService: DVTSecureSocketProxyService;
+  /** ProcessControl instrument for launching/killing apps */
+  processControl: ProcessControlService;
 }

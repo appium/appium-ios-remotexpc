@@ -103,8 +103,6 @@ export class XCTestConfigurationEncoder extends NSKeyedArchiverEncoder {
   ): Record<string, any> {
     const sessionId = config.sessionIdentifier || crypto.randomUUID();
 
-    // All fields must match pymobiledevice3's XCTestConfiguration._default.
-    // Missing or mistyped fields cause the test runner to crash on launch.
     // Null values are explicitly included (encoded as $null references).
     return {
       __type: 'XCTestConfiguration',
@@ -123,7 +121,7 @@ export class XCTestConfigurationEncoder extends NSKeyedArchiverEncoder {
         treatMissingBaselinesAsFailures:
           config.treatMissingBaselinesAsFailures ?? false,
         targetApplicationBundleID: config.targetApplicationBundleID || null,
-        // targetApplicationPath must not be empty — pymobiledevice3 uses a
+        // targetApplicationPath must not be empty, use a
         // placeholder when no real path is available
         targetApplicationPath:
           config.targetApplicationPath || '/tmp/XCTestTargetApp.app',

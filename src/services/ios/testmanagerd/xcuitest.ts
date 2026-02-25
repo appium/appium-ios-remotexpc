@@ -11,7 +11,7 @@ import {
 
 const log = getLogger('XCUITestService');
 
-/** Default Xcode protocol version (matches pymobiledevice3) */
+/** Default Xcode protocol version */
 const XCODE_VERSION = 36;
 
 /** Testmanagerd channel identifier for XCTest session management */

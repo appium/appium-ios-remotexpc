@@ -246,12 +246,14 @@ export class DvtTestmanagedProxyService extends BaseService {
   /**
    * Receive a plist message from a channel
    * @param channel The channel to receive from
+   * @param signal Optional AbortSignal for cancellation
    * @returns Tuple of [decoded data, auxiliary values]
    */
   async recvPlist(
     channel: number = DvtTestmanagedProxyService.BROADCAST_CHANNEL,
+    signal?: AbortSignal,
   ): Promise<[any, any[]]> {
-    const [data, aux] = await this.recvMessage(channel);
+    const [data, aux] = await this.recvMessage(channel, signal);
 
     let decodedData = null;
     if (data?.length) {
@@ -269,19 +271,21 @@ export class DvtTestmanagedProxyService extends BaseService {
   /**
    * Receive a raw message from a channel
    * @param channel The channel to receive from
+   * @param signal Optional AbortSignal for cancellation
    * @returns Tuple of [raw data, auxiliary values]
    */
   async recvMessage(
     channel: number = DvtTestmanagedProxyService.BROADCAST_CHANNEL,
+    signal?: AbortSignal,
   ): Promise<[Buffer | null, any[]]> {
-    const packetData = await this.recvPacketFragments(channel);
+    const packetData = await this.recvPacketFragments(channel, signal);
 
     const payloadHeader = DTXMessage.parsePayloadHeader(packetData);
 
     const compression = (payloadHeader.flags & 0xff000) >> 12;
     if (compression) {
       log.debug(
-        `Skipping compressed DTX message (type=${compression}, size=${payloadHeader.totalLength})`,
+        `Skipping compressed DTX message (type=${compression}, flags=0x${payloadHeader.flags.toString(16)}, size=${payloadHeader.totalLength})`,
       );
       return [null, []];
     }
@@ -435,7 +439,10 @@ export class DvtTestmanagedProxyService extends BaseService {
     }
   }
 
-  private async recvPacketFragments(channel: number): Promise<Buffer> {
+  private async recvPacketFragments(
+    channel: number,
+    signal?: AbortSignal,
+  ): Promise<Buffer> {
     while (true) {
       const fragmenter = this.channelMessages.get(channel);
       if (!fragmenter) {
@@ -449,6 +456,7 @@ export class DvtTestmanagedProxyService extends BaseService {
 
       const headerData = await this.readExact(
         DTX_CONSTANTS.MESSAGE_HEADER_SIZE,
+        signal,
       );
       const header = DTXMessage.parseMessageHeader(headerData);
 
@@ -467,14 +475,17 @@ export class DvtTestmanagedProxyService extends BaseService {
         continue;
       }
 
-      const messageData = await this.readExact(header.length);
+      const messageData = await this.readExact(header.length, signal);
 
       const targetFragmenter = this.channelMessages.get(receivedChannel)!;
       targetFragmenter.addFragment(header, messageData);
     }
   }
 
-  private async readExact(length: number): Promise<Buffer> {
+  private async readExact(
+    length: number,
+    signal?: AbortSignal,
+  ): Promise<Buffer> {
     if (!this.socket) {
       throw new Error(
         `${this.constructor.name} is not initialized. Call connect() before sending messages.`,
@@ -483,20 +494,35 @@ export class DvtTestmanagedProxyService extends BaseService {
 
     while (this.readBuffer.length < length) {
       const chunk = await new Promise<Buffer>((resolve, reject) => {
+        if (signal?.aborted) {
+          reject(new DOMException('Read aborted', 'AbortError'));
+          return;
+        }
+
+        const cleanup = () => {
+          this.socket?.off('data', onData);
+          this.socket?.off('error', onError);
+          signal?.removeEventListener('abort', onAbort);
+        };
+
         const onData = (data: Buffer) => {
-          this.socket!.off('data', onData);
-          this.socket!.off('error', onError);
+          cleanup();
           resolve(data);
         };
 
         const onError = (err: Error) => {
-          this.socket!.off('data', onData);
-          this.socket!.off('error', onError);
+          cleanup();
           reject(err);
+        };
+
+        const onAbort = () => {
+          cleanup();
+          reject(new DOMException('Read aborted', 'AbortError'));
         };
 
         this.socket!.once('data', onData);
         this.socket!.once('error', onError);
+        signal?.addEventListener('abort', onAbort, { once: true });
       });
 
       this.readBuffer = Buffer.concat([this.readBuffer, chunk]);
@@ -605,28 +631,110 @@ export class DvtTestmanagedProxyService extends BaseService {
 
     const magic = buffer.readBigUInt64LE(0);
 
-    if (magic !== BigInt(DTX_CONSTANTS.MESSAGE_AUX_MAGIC)) {
-      return this.parseAuxiliaryAsBplist(buffer);
+    if (magic === BigInt(DTX_CONSTANTS.MESSAGE_AUX_MAGIC)) {
+      return this.parseAuxiliaryStandard(buffer);
     }
 
-    return this.parseAuxiliaryStandard(buffer);
+    // Try AuxiliaryHeader format: skip the 16-byte header and parse
+    // the remaining data as DTX PrimitiveDictionary key-value pairs
+    return this.parseAuxiliaryPrimitiveDictionary(buffer.subarray(16));
   }
 
-  private parseAuxiliaryAsBplist(buffer: Buffer): any[] {
-    const bplistMagic = 'bplist00';
-    for (let i = 0; i < Math.min(100, buffer.length - 8); i++) {
-      if (buffer.toString('ascii', i, i + 8) === bplistMagic) {
-        try {
-          const plistBuffer = buffer.subarray(i);
-          const parsed = parseBinaryPlist(plistBuffer);
-          return Array.isArray(parsed) ? parsed : [parsed];
-        } catch (error) {
-          log.debug('Failed to parse auxiliary bplist:', error);
-        }
+  /**
+   * Parse DTX PrimitiveDictionary key-value pairs (go-ios format).
+   * Each entry is: [type:4][value...] where type determines the value format.
+   * Keys are always null (type 0x0A), values follow immediately after.
+   */
+  private parseAuxiliaryPrimitiveDictionary(buffer: Buffer): any[] {
+    const values: any[] = [];
+    let offset = 0;
+
+    while (offset + 4 <= buffer.length) {
+      // Read key (always t_null = 0x0A in practice)
+      const keyType = buffer.readUInt32LE(offset);
+      offset += 4;
+
+      if (keyType !== DTX_CONSTANTS.EMPTY_DICTIONARY) {
+        // Not a null key — unexpected, try to skip
+        log.debug(
+          `Unexpected key type 0x${keyType.toString(16)} at offset ${offset - 4}`,
+        );
+        break;
+      }
+
+      if (offset + 4 > buffer.length) {
+        break;
+      }
+
+      // Read value
+      try {
+        const result = this.readPrimitiveDictEntry(buffer, offset);
+        values.push(result.data);
+        offset = result.newOffset;
+      } catch (error) {
+        log.debug(
+          `Failed to parse PrimitiveDict entry at offset ${offset}:`,
+          error,
+        );
         break;
       }
     }
-    return [];
+
+    return values;
+  }
+
+  /**
+   * Read a single PrimitiveDictionary entry.
+   * Types: 0x01=string, 0x02=bytearray, 0x03=uint32, 0x06=int64, 0x0A=null
+   */
+  private readPrimitiveDictEntry(
+    buffer: Buffer,
+    offset: number,
+  ): { data: any; newOffset: number } {
+    const type = buffer.readUInt32LE(offset);
+    offset += 4;
+
+    switch (type) {
+      case 0x0a: // t_null
+        return { data: null, newOffset: offset };
+
+      case 0x03: // t_uint32
+        return {
+          data: buffer.readUInt32LE(offset),
+          newOffset: offset + 4,
+        };
+
+      case 0x06: // t_int64
+        return {
+          data: Number(buffer.readBigUInt64LE(offset)),
+          newOffset: offset + 8,
+        };
+
+      case 0x01: // t_string
+      case 0x02: {
+        // t_bytearray
+        const length = buffer.readUInt32LE(offset);
+        offset += 4;
+        const data = buffer.subarray(offset, offset + length);
+
+        if (type === 0x01) {
+          return { data: data.toString('utf8'), newOffset: offset + length };
+        }
+
+        // For bytearrays, try to decode as NSKeyedArchiver plist
+        let parsed: any = data;
+        try {
+          const plistData = parseBinaryPlist(data);
+          parsed = decodeNSKeyedArchiver(plistData);
+        } catch {
+          // Not a plist, return raw buffer
+        }
+        return { data: parsed, newOffset: offset + length };
+      }
+
+      default:
+        throw new Error(`Unknown PrimitiveDict type: 0x${type.toString(16)}`);
+    }
   }
 
   private parseAuxiliaryStandard(buffer: Buffer): any[] {

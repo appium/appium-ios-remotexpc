@@ -18,6 +18,7 @@ import type {
   SyslogService as SyslogServiceType,
   TestmanagerdServiceWithConnection,
   WebInspectorServiceWithConnection,
+  XCTestServices,
 } from './lib/types.js';
 import AfcService from './services/ios/afc/index.js';
 import { CrashReportsService } from './services/ios/crash-reports/index.js';
@@ -314,6 +315,65 @@ export async function startTestmanagerdService(
     remoteXPC: remoteXPC as RemoteXpcConnection,
     testmanagerdService,
   };
+}
+
+/**
+ * Start all services needed for an XCTest session using a single RemoteXPC
+ * connection for service discovery. This avoids ECONNRESET errors caused by
+ * opening multiple RemoteXPC connections simultaneously through the tunnel.
+ *
+ * The RemoteXPC connection is closed internally after port discovery.
+ * Callers are responsible for closing execTestmanagerd, controlTestmanagerd,
+ * and dvtService when done.
+ */
+export async function startXCTestServices(
+  udid: string,
+): Promise<XCTestServices> {
+  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
+  const host = tunnelConnection.host;
+
+  // Discover all ports via single RSD lookup, then close RemoteXPC
+  let testmanagerdPort: number;
+  let dvtPort: number;
+  try {
+    testmanagerdPort = parseInt(
+      remoteXPC.findService(DvtTestmanagedProxyService.RSD_SERVICE_NAME).port,
+      10,
+    );
+    dvtPort = parseInt(
+      remoteXPC.findService(DVTSecureSocketProxyService.RSD_SERVICE_NAME).port,
+      10,
+    );
+  } finally {
+    await remoteXPC.close();
+  }
+
+  // Create individual DTX connections with cleanup on partial failure
+  let execTestmanagerd: DvtTestmanagedProxyService | null = null;
+  let controlTestmanagerd: DvtTestmanagedProxyService | null = null;
+  let dvtService: DVTSecureSocketProxyService | null = null;
+  try {
+    execTestmanagerd = new DvtTestmanagedProxyService([host, testmanagerdPort]);
+    await execTestmanagerd.connect();
+
+    controlTestmanagerd = new DvtTestmanagedProxyService([
+      host,
+      testmanagerdPort,
+    ]);
+    await controlTestmanagerd.connect();
+
+    dvtService = new DVTSecureSocketProxyService([host, dvtPort]);
+    await dvtService.connect();
+  } catch (err) {
+    await dvtService?.close().catch(() => {});
+    await controlTestmanagerd?.close().catch(() => {});
+    await execTestmanagerd?.close().catch(() => {});
+    throw err;
+  }
+
+  const processControl = new ProcessControl(dvtService);
+
+  return { execTestmanagerd, controlTestmanagerd, dvtService, processControl };
 }
 
 export async function createRemoteXPCConnection(udid: string) {

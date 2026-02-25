@@ -540,7 +540,16 @@ describe('Testmanagerd Service', function () {
               ),
             ]);
 
-            log.info(`[exec callback] ${selector}`);
+            if (selector === '_XCT_logDebugMessage:') {
+              const raw = auxiliaries[0];
+              const msg =
+                typeof raw === 'string'
+                  ? raw
+                  : (raw?.$objects?.[1] ?? JSON.stringify(raw));
+              log.debug(`[runner] ${String(msg).trimEnd()}`);
+            } else {
+              log.info(`[exec callback] ${selector}`);
+            }
 
             if (selector === '_XCT_testRunnerReadyWithCapabilities:') {
               log.info(
