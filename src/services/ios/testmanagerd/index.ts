@@ -209,7 +209,7 @@ export class DvtTestmanagedProxyService extends BaseService {
     const payloadBuffer = payload ?? Buffer.alloc(0);
 
     const payloadHeader = DTXMessage.buildPayloadHeader({
-      flags: 3, // Response flag
+      flags: DTX_CONSTANTS.REPLY_TYPE,
       auxiliaryLength: 0,
       totalLength: BigInt(payloadBuffer.length),
     });
@@ -266,6 +266,31 @@ export class DvtTestmanagedProxyService extends BaseService {
     }
 
     return [decodedData, aux];
+  }
+
+  /**
+   * Receive a plist message with a timeout. Returns null on timeout instead of
+   * throwing, and properly cleans up socket listeners to prevent leaks.
+   * @param channel The channel to receive from
+   * @param timeoutMs Timeout in milliseconds
+   * @returns Tuple of [decoded data, auxiliary values], or null on timeout
+   */
+  async recvPlistWithTimeout(
+    channel: number = DvtTestmanagedProxyService.BROADCAST_CHANNEL,
+    timeoutMs: number = 2000,
+  ): Promise<[any, any[]] | null> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await this.recvPlist(channel, controller.signal);
+    } catch (err: any) {
+      if (controller.signal.aborted) {
+        return null;
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   /**
@@ -379,7 +404,7 @@ export class DvtTestmanagedProxyService extends BaseService {
       `Testmanagerd handshake complete. Found ${Object.keys(this.supportedIdentifiers).length} supported identifiers`,
     );
 
-    await this.drainBufferedMessages();
+    this.drainBufferedMessages();
   }
 
   private extractSelectorFromResponse(ret: any): string {
@@ -411,7 +436,7 @@ export class DvtTestmanagedProxyService extends BaseService {
     return extractCapabilityStrings(objects);
   }
 
-  private async drainBufferedMessages(): Promise<void> {
+  private drainBufferedMessages(): void {
     if (this.readBuffer.length === 0) {
       return;
     }
@@ -426,10 +451,7 @@ export class DvtTestmanagedProxyService extends BaseService {
 
         const totalSize = DTX_CONSTANTS.MESSAGE_HEADER_SIZE + header.length;
         if (this.readBuffer.length >= totalSize) {
-          this.readBuffer = this.readBuffer.subarray(
-            DTX_CONSTANTS.MESSAGE_HEADER_SIZE,
-          );
-          this.readBuffer = this.readBuffer.subarray(header.length);
+          this.readBuffer = this.readBuffer.subarray(totalSize);
         } else {
           break;
         }
@@ -493,15 +515,15 @@ export class DvtTestmanagedProxyService extends BaseService {
     }
 
     while (this.readBuffer.length < length) {
-      const chunk = await new Promise<Buffer>((resolve, reject) => {
-        if (signal?.aborted) {
-          reject(new DOMException('Read aborted', 'AbortError'));
-          return;
-        }
+      if (signal?.aborted) {
+        throw new DOMException('Read aborted', 'AbortError');
+      }
 
+      const chunk = await new Promise<Buffer>((resolve, reject) => {
         const cleanup = () => {
           this.socket?.off('data', onData);
           this.socket?.off('error', onError);
+          this.socket?.off('close', onClose);
           signal?.removeEventListener('abort', onAbort);
         };
 
@@ -515,13 +537,20 @@ export class DvtTestmanagedProxyService extends BaseService {
           reject(err);
         };
 
+        const onClose = () => {
+          cleanup();
+          reject(new Error('Socket closed during read'));
+        };
+
         const onAbort = () => {
           cleanup();
           reject(new DOMException('Read aborted', 'AbortError'));
         };
 
+        // Register all listeners before any async gap to prevent data race
         this.socket!.once('data', onData);
         this.socket!.once('error', onError);
+        this.socket!.once('close', onClose);
         signal?.addEventListener('abort', onAbort, { once: true });
       });
 
@@ -635,9 +664,17 @@ export class DvtTestmanagedProxyService extends BaseService {
       return this.parseAuxiliaryStandard(buffer);
     }
 
-    // Try AuxiliaryHeader format: skip the 16-byte header and parse
-    // the remaining data as DTX PrimitiveDictionary key-value pairs
-    return this.parseAuxiliaryPrimitiveDictionary(buffer.subarray(16));
+    // Alternate format used by go-ios / iOS 17+ testmanagerd callbacks:
+    // The first 16 bytes are an AuxiliaryHeader (magic + length) that does
+    // not match the standard MESSAGE_AUX_MAGIC. The remaining bytes are
+    // DTX PrimitiveDictionary key-value pairs (see go-ios dtx.go).
+    const result = this.parseAuxiliaryPrimitiveDictionary(buffer.subarray(16));
+    if (result.length === 0) {
+      log.debug(
+        `Unknown auxiliary format (magic=0x${magic.toString(16)}, size=${buffer.length}), returning empty`,
+      );
+    }
+    return result;
   }
 
   /**

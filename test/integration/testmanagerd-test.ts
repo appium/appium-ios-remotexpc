@@ -16,17 +16,18 @@ import {
 import * as Services from '../../src/services.js';
 import { MessageAux } from '../../src/services/ios/dvt/index.js';
 import type { AppInfo } from '../../src/services/ios/installation-proxy/types.js';
+import {
+  DEFAULT_EXEC_CAPABILITIES,
+  TESTMANAGERD_CHANNEL,
+} from '../../src/services/ios/testmanagerd/xcuitest.js';
 
 const log = logger.getLogger('Testmanagerd.test');
 log.level = 'debug';
 
-const TESTMANAGERD_CHANNEL =
-  'dtxproxy:XCTestManager_IDEInterface:XCTestManager_DaemonConnectionInterface';
-
 const XCODE_VERSION = 36;
 
 describe('Testmanagerd Service', function () {
-  this.timeout(60000);
+  this.timeout(120000);
 
   const udid = process.env.UDID || '00008030-001E290A3EF2402E';
 
@@ -300,10 +301,12 @@ describe('Testmanagerd Service', function () {
    *   1. Look up the XCTest runner app via InstallationProxy
    *   2. Write XCTestConfiguration to the app sandbox via HouseArrest
    *   3. Open two testmanagerd connections (control + exec)
-   *   4. Init control session
-   *   5. Init exec session
-   *   6. Launch the test runner app with XCTestConfigurationFilePath env var via ProcessControl
-   *   7. Authorize test session with the launched PID
+   *   4. Init exec session
+   *   5. Launch the test runner app with XCTestConfigurationFilePath env var via ProcessControl
+   *   6. Start background listener for exec callbacks
+   *   7. Init control session + authorize test session with PID
+   *   8. Start test plan execution
+   *   9. Wait for _XCT_didFinishExecutingTestPlan
    *
    * Requires: XCTEST_BUNDLE_ID env var set to a dev-signed XCTest runner app
    * installed on the device (e.g., 'com.example.WebDriverAgentRunner.xctrunner')
@@ -317,9 +320,7 @@ describe('Testmanagerd Service', function () {
     let dvtConn: DVTServiceWithConnection | null = null;
     let launchedPid: number = 0;
 
-    const xctestBundleId =
-      process.env.XCTEST_BUNDLE_ID ||
-      'com.appium.test.XCTestTargetAppUITests.xctrunner';
+    const xctestBundleId = process.env.XCTEST_BUNDLE_ID;
 
     before(function () {
       if (!xctestBundleId) {
@@ -373,11 +374,11 @@ describe('Testmanagerd Service', function () {
       installProxyConn = await Services.startInstallationProxyService(udid);
       const lookupResult =
         await installProxyConn.installationProxyService.lookup(
-          [xctestBundleId],
+          [xctestBundleId!],
           { returnAttributes: ['*'] },
         );
 
-      const appInfo: AppInfo = lookupResult[xctestBundleId];
+      const appInfo: AppInfo = lookupResult[xctestBundleId!];
       expect(appInfo, `App ${xctestBundleId} not found on device`).to.not.be
         .undefined;
       expect(appInfo.Path).to.be.a('string');
@@ -405,7 +406,6 @@ describe('Testmanagerd Service', function () {
       const sessionId = crypto.randomUUID();
       const configFileName = `${targetName}-${sessionId.toUpperCase()}.xctestconfiguration`;
       const configRelativePath = `/tmp/${configFileName}`;
-      const configAbsolutePath = `${appContainer}${configRelativePath}`;
 
       const encoder = new XCTestConfigurationEncoder();
       const archived = encoder.encodeXCTestConfiguration({
@@ -421,8 +421,9 @@ describe('Testmanagerd Service', function () {
       const configData = createBinaryPlist(archived);
 
       houseArrestConn = await Services.startHouseArrestService(udid);
-      const afcService =
-        await houseArrestConn.houseArrestService.vendContainer(xctestBundleId);
+      const afcService = await houseArrestConn.houseArrestService.vendContainer(
+        xctestBundleId!,
+      );
 
       try {
         try {
@@ -460,18 +461,7 @@ describe('Testmanagerd Service', function () {
       execInitArgs.appendObj({ __type: 'NSUUID', uuid: sessionId });
       execInitArgs.appendObj({
         __type: 'XCTCapabilities',
-        capabilities: {
-          'XCTIssue capability': 1,
-          'daemon container sandbox extension': 1,
-          'delayed attachment transfer': 1,
-          'expected failure test capability': 1,
-          'request diagnostics for specific devices': 1,
-          'skipped test capability': 1,
-          'test case run configurations': 1,
-          'test iterations': 1,
-          'test timeout capability': 1,
-          'ubiquitous test identifiers': 1,
-        },
+        capabilities: DEFAULT_EXEC_CAPABILITIES,
       });
 
       await execConn.testmanagerdService.sendMessage(
@@ -507,7 +497,7 @@ describe('Testmanagerd Service', function () {
       };
 
       launchedPid = await dvtConn.processControl.launch({
-        bundleId: xctestBundleId,
+        bundleId: xctestBundleId!,
         environment: appEnv,
         arguments: [],
         killExisting: true,
@@ -529,59 +519,58 @@ describe('Testmanagerd Service', function () {
       // up the control session. We must respond with the XCTestConfiguration.
       // ═══════════════════════════════════════════════════════════════
       let testFinished = false;
-      let stopListening = false;
+      let listenerError: Error | null = null;
+      const listenerAbort = new AbortController();
+
       const execCallbackListener = (async () => {
-        while (!stopListening) {
-          try {
-            const [selector, auxiliaries] = await Promise.race([
-              execConn!.testmanagerdService.recvPlist(execCode),
-              new Promise<never>((_, reject) =>
-                setTimeout(() => reject(new Error('listenTimeout')), 2000),
-              ),
-            ]);
+        while (!listenerAbort.signal.aborted) {
+          const result =
+            await execConn!.testmanagerdService.recvPlistWithTimeout(
+              execCode,
+              2000,
+            );
 
-            if (selector === '_XCT_logDebugMessage:') {
-              const raw = auxiliaries[0];
-              const msg =
-                typeof raw === 'string'
-                  ? raw
-                  : (raw?.$objects?.[1] ?? JSON.stringify(raw));
-              log.debug(`[runner] ${String(msg).trimEnd()}`);
-            } else {
-              log.info(`[exec callback] ${selector}`);
-            }
+          if (!result) {
+            continue; // Timeout — poll again
+          }
 
-            if (selector === '_XCT_testRunnerReadyWithCapabilities:') {
-              log.info(
-                'Test runner ready! Sending XCTestConfiguration response...',
-              );
-              await execConn!.testmanagerdService.sendReply(
-                execCode,
-                configPayload,
-              );
-              log.info('XCTestConfiguration response sent');
-            }
+          const [selector, auxiliaries] = result;
 
-            if (selector === '_XCT_didFinishExecutingTestPlan') {
-              testFinished = true;
-              log.info('Test plan finished!');
-              break;
-            }
+          if (selector === '_XCT_logDebugMessage:') {
+            const raw = auxiliaries[0];
+            const msg =
+              typeof raw === 'string'
+                ? raw
+                : (raw?.$objects?.[1] ?? JSON.stringify(raw));
+            log.debug(`[runner] ${String(msg).trimEnd()}`);
+          } else {
+            log.info(`[exec callback] ${selector}`);
+          }
 
-            if (
-              selector ===
-              '_XCT_testCaseDidFinishForTestClass:method:withStatus:duration:'
-            ) {
-              log.info(
-                `Test result: ${auxiliaries[0]}/${auxiliaries[1]} - status: ${auxiliaries[2]} (${auxiliaries[3]}s)`,
-              );
-            }
-          } catch (err: any) {
-            if (err.message === 'listenTimeout') {
-              continue;
-            }
-            log.debug(`[exec listener] error: ${err.message}`);
+          if (selector === '_XCT_testRunnerReadyWithCapabilities:') {
+            log.info(
+              'Test runner ready! Sending XCTestConfiguration response...',
+            );
+            await execConn!.testmanagerdService.sendReply(
+              execCode,
+              configPayload,
+            );
+            log.info('XCTestConfiguration response sent');
+          }
+
+          if (selector === '_XCT_didFinishExecutingTestPlan') {
+            testFinished = true;
+            log.info('Test plan finished!');
             break;
+          }
+
+          if (
+            selector ===
+            '_XCT_testCaseDidFinishForTestClass:method:withStatus:duration:'
+          ) {
+            log.info(
+              `Test result: ${auxiliaries[0]}/${auxiliaries[1]} - status: ${auxiliaries[2]} (${auxiliaries[3]}s)`,
+            );
           }
         }
       })();
@@ -640,23 +629,37 @@ describe('Testmanagerd Service', function () {
       log.debug('Test plan execution started');
 
       // Wait for the background listener to finish or timeout
-      const maxWaitMs = 30000;
+      const maxWaitMs = 90000;
       const startTime = Date.now();
       while (!testFinished && Date.now() - startTime < maxWaitMs) {
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
-      stopListening = true;
+      listenerAbort.abort();
 
-      // Wait for background listener to fully stop
+      // Wait for background listener to fully stop and propagate errors
       try {
         await execCallbackListener;
-      } catch {}
+      } catch (err) {
+        listenerError = err as Error;
+      }
+
+      // Assert the test plan actually completed
+      if (listenerError) {
+        throw new Error(
+          `Exec callback listener failed: ${listenerError.message}`,
+        );
+      }
+
+      expect(
+        testFinished,
+        'XCTest plan did not finish — _XCT_didFinishExecutingTestPlan was never received within 90s',
+      ).to.be.true;
 
       log.info(
         '=== Full XCTest launch flow completed successfully without xcodebuild ===',
       );
       log.info(
-        `Session: ${sessionId}, PID: ${absPid}, Bundle: ${xctestBundleId}, finished: ${testFinished}`,
+        `Session: ${sessionId}, PID: ${absPid}, Bundle: ${xctestBundleId}`,
       );
     });
   });

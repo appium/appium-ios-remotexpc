@@ -1783,6 +1783,18 @@ export interface TestmanagerdService extends BaseService {
   recvPlist(channel?: number, signal?: AbortSignal): Promise<[any, any[]]>;
 
   /**
+   * Receive a plist message with a timeout. Returns null on timeout instead
+   * of throwing, and properly cleans up socket listeners to prevent leaks.
+   * @param channel The channel to receive from
+   * @param timeoutMs Timeout in milliseconds
+   * @returns Tuple of [decoded data, auxiliary values], or null on timeout
+   */
+  recvPlistWithTimeout(
+    channel?: number,
+    timeoutMs?: number,
+  ): Promise<[any, any[]] | null>;
+
+  /**
    * Send a DTX reply message for the last received message on a channel.
    * Used for responding to callbacks like _XCT_testRunnerReadyWithCapabilities:.
    * @param channel The channel code
@@ -1813,6 +1825,12 @@ export interface TestmanagerdServiceWithConnection {
  * Unlike other *WithConnection types, there is no remoteXPC field here.
  * The RemoteXPC connection is closed internally after port discovery. Callers
  * are responsible for closing execTestmanagerd, controlTestmanagerd, and dvtService.
+ *
+ * To get ProcessControl, construct it from dvtService:
+ * ```typescript
+ * import { ProcessControl } from 'appium-ios-remotexpc';
+ * const processControl = new ProcessControl(services.dvtService);
+ * ```
  */
 export interface XCTestServices {
   /** Testmanagerd connection for the exec session (capabilities, test callbacks) */
@@ -1821,6 +1839,4 @@ export interface XCTestServices {
   controlTestmanagerd: TestmanagerdService;
   /** DVT service for instruments (process control, etc.) */
   dvtService: DVTSecureSocketProxyService;
-  /** ProcessControl instrument for launching/killing apps */
-  processControl: ProcessControlService;
 }

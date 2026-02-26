@@ -11,18 +11,18 @@ import {
 
 const log = getLogger('XCUITestService');
 
-/** Default Xcode protocol version */
+/** Default Xcode protocol version (matches pymobiledevice3) */
 const XCODE_VERSION = 36;
 
 /** Testmanagerd channel identifier for XCTest session management */
-const TESTMANAGERD_CHANNEL =
+export const TESTMANAGERD_CHANNEL =
   'dtxproxy:XCTestManager_IDEInterface:XCTestManager_DaemonConnectionInterface';
 
 /**
  * Default XCTCapabilities sent to the exec session.
  * These match the capabilities sent by go-ios for iOS 17+.
  */
-const DEFAULT_EXEC_CAPABILITIES: Record<string, number> = {
+export const DEFAULT_EXEC_CAPABILITIES: Record<string, number> = {
   'XCTIssue capability': 1,
   'daemon container sandbox extension': 1,
   'delayed attachment transfer': 1,
@@ -78,9 +78,10 @@ export interface XCUITestOptions {
  * });
  * await xcuitest.initExecSession();
  * // ... launch test app externally via ProcessControl ...
+ * xcuitest.startExecCallbackListener(testBundlePath);
  * await xcuitest.initControlSessionAndAuthorize(pid);
  * await xcuitest.startExecutingTestPlan();
- * // ... listen for callbacks ...
+ * // ... wait for completion or poll xcuitest.getIsRunning() ...
  * await xcuitest.stop();
  * ```
  */
@@ -97,7 +98,7 @@ export class XCUITestService {
   private isRunning: boolean = false;
   private configPayload: Buffer | null = null;
   private callbackListenerPromise: Promise<void> | null = null;
-  private stopListening: boolean = false;
+  private listenerAbortController: AbortController | null = null;
 
   constructor(config: {
     controlConnection: DvtTestmanagedProxyService;
@@ -145,22 +146,29 @@ export class XCUITestService {
    * XCTestConfiguration reply. Must be called after launching the test app
    * but before `initControlSessionAndAuthorize`.
    *
+   * The listener uses `recvPlistWithTimeout` to poll for messages,
+   * and can be immediately canceled via `stop()`.
+   *
    * @param testBundlePath Path to the test bundle on device
    */
   startExecCallbackListener(testBundlePath: string): void {
     this.configPayload = this.createXCTestConfiguration(testBundlePath);
-    this.stopListening = false;
+    this.listenerAbortController = new AbortController();
+    const { signal } = this.listenerAbortController;
 
     this.callbackListenerPromise = (async () => {
-      while (!this.stopListening) {
+      while (!signal.aborted) {
         try {
-          const [selector, auxiliaries] = await Promise.race([
-            this.execConnection.recvPlist(this.execChannelCode),
-            new Promise<never>((_, reject) =>
-              setTimeout(() => reject(new Error('listenTimeout')), 2000),
-            ),
-          ]);
+          const result = await this.execConnection.recvPlistWithTimeout(
+            this.execChannelCode,
+            2000,
+          );
 
+          if (!result) {
+            continue; // Timeout — poll again
+          }
+
+          const [selector, auxiliaries] = result;
           this.handleCallback(selector, auxiliaries);
 
           if (
@@ -182,8 +190,8 @@ export class XCUITestService {
             break;
           }
         } catch (err: any) {
-          if (err.message === 'listenTimeout') {
-            continue;
+          if (signal.aborted) {
+            break;
           }
           log.debug(`Exec listener error: ${err.message}`);
           break;
@@ -266,43 +274,18 @@ export class XCUITestService {
   }
 
   /**
-   * Receive and handle a message from the exec connection.
-   * Returns the selector and auxiliary data.
-   */
-  async receiveExecMessage(): Promise<{ selector: any; auxiliaries: any[] }> {
-    const [selector, auxiliaries] = await this.execConnection.recvPlist(
-      this.execChannelCode,
-    );
-    this.handleCallback(selector, auxiliaries);
-    return { selector, auxiliaries };
-  }
-
-  /**
-   * Receive and handle a message from the control connection.
-   * Returns the selector and auxiliary data.
-   */
-  async receiveControlMessage(): Promise<{
-    selector: any;
-    auxiliaries: any[];
-  }> {
-    const [selector, auxiliaries] = await this.controlConnection.recvPlist(
-      this.controlChannelCode,
-    );
-    this.handleCallback(selector, auxiliaries);
-    return { selector, auxiliaries };
-  }
-
-  /**
    * Stop the XCUITest session.
-   * Closes both testmanagerd connections.
+   * Immediately aborts the background listener and closes both
+   * testmanagerd connections.
    */
   async stop(): Promise<void> {
     log.info('Stopping XCUITest session...');
 
     this.isRunning = false;
-    this.stopListening = true;
 
-    // Wait for background listener to stop
+    // Immediately abort the background listener
+    this.listenerAbortController?.abort();
+
     if (this.callbackListenerPromise) {
       try {
         await this.callbackListenerPromise;
@@ -347,14 +330,17 @@ export class XCUITestService {
   }
 
   /**
-   * Get the exec channel code (for external listeners)
+   * Get the exec channel code (for external listeners that need
+   * direct access to the exec connection after `stop()` is NOT being
+   * called — do not use concurrently with the background listener)
    */
   getExecChannelCode(): number {
     return this.execChannelCode;
   }
 
   /**
-   * Get the exec connection (for external listeners)
+   * Get the exec connection (for external listeners that need
+   * direct access — do not use concurrently with the background listener)
    */
   getExecConnection(): DvtTestmanagedProxyService {
     return this.execConnection;

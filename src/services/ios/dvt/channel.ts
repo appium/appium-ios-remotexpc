@@ -5,7 +5,7 @@ import type { MessageAux } from './dtx-message.js';
  * Both DVTSecureSocketProxyService and DvtTestmanagedProxyService implement this.
  */
 export interface DTXServiceProvider {
-  recvPlist(channel: number): Promise<[any, any[]]>;
+  recvPlist(channel: number, signal?: AbortSignal): Promise<[any, any[]]>;
   sendMessage(
     channel: number,
     selector: string | null,
