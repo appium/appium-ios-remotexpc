@@ -1,9 +1,18 @@
 import crypto from 'node:crypto';
+import { EventEmitter } from 'node:events';
 
 import { getLogger } from '../../../lib/logger.js';
 import { createBinaryPlist } from '../../../lib/plist/index.js';
+import type {
+  TestmanagerdService,
+  XCTestServices,
+} from '../../../lib/types.js';
+import * as Services from '../../../services.js';
 import { MessageAux } from '../dvt/dtx-message.js';
-import type { DvtTestmanagedProxyService } from './index.js';
+import { DVTSecureSocketProxyService } from '../dvt/index.js';
+import { ProcessControl } from '../dvt/instruments/process-control.js';
+import { InstallationProxyService } from '../installation-proxy/index.js';
+import { DvtTestmanagedProxyService } from './index.js';
 import {
   XCTestConfigurationEncoder,
   type XCTestConfigurationParams,
@@ -48,6 +57,42 @@ export interface XCUITestOptions {
   args?: string[];
   /** Xcode protocol version (default: 36) */
   xcodeVersion?: number;
+  /** Full path to app under test on device */
+  targetAppPath?: string;
+  /** Product module name for XCTestConfiguration */
+  productModuleName?: string;
+}
+
+/** High-level XCTest runner options */
+export interface XCTestRunnerOptions {
+  /** Device UDID */
+  udid: string;
+  /** Bundle ID of test runner app (.xctrunner) */
+  testRunnerBundleId: string;
+  /** Bundle ID of app under test */
+  appUnderTestBundleId: string;
+  /** Bundle ID of xctest bundle (without .xctrunner) */
+  xctestBundleId: string;
+  /** Max wait for plan completion in ms (default: 180000) */
+  timeoutMs?: number;
+  /** Polling interval in ms (default: 500) */
+  pollIntervalMs?: number;
+  /** Xcode protocol version */
+  xcodeVersion?: number;
+  /** Extra launch environment variables */
+  launchEnvironment?: Record<string, string>;
+  /** Launch arguments */
+  launchArguments?: string[];
+  /** Kill existing runner process before launch (default: true) */
+  killExisting?: boolean;
+}
+
+/** Result returned by high-level XCTest run */
+export interface XCTestRunResult {
+  status: 'passed' | 'timed_out';
+  sessionIdentifier: string;
+  testRunnerPid: number;
+  durationMs: number;
 }
 
 /**
@@ -83,8 +128,8 @@ export interface XCUITestOptions {
  * ```
  */
 export class XCUITestService {
-  private readonly controlConnection: DvtTestmanagedProxyService;
-  private readonly execConnection: DvtTestmanagedProxyService;
+  private readonly controlConnection: TestmanagerdService;
+  private readonly execConnection: TestmanagerdService;
   private readonly options: XCUITestOptions;
   private readonly xcodeVersion: number;
 
@@ -96,10 +141,13 @@ export class XCUITestService {
   private configPayload: Buffer | null = null;
   private callbackListenerPromise: Promise<void> | null = null;
   private listenerAbortController: AbortController | null = null;
+  private lastListenerError: Error | null = null;
+  private configReplySentResolve: (() => void) | null = null;
+  private configReplySentPromise: Promise<void> | null = null;
 
   constructor(config: {
-    controlConnection: DvtTestmanagedProxyService;
-    execConnection: DvtTestmanagedProxyService;
+    controlConnection: TestmanagerdService;
+    execConnection: TestmanagerdService;
     options: XCUITestOptions;
   }) {
     this.controlConnection = config.controlConnection;
@@ -160,6 +208,10 @@ export class XCUITestService {
     }
 
     this.configPayload = this.createXCTestConfiguration(testBundlePath);
+    this.lastListenerError = null;
+    this.configReplySentPromise = new Promise<void>((resolve) => {
+      this.configReplySentResolve = resolve;
+    });
     this.listenerAbortController = new AbortController();
     const { signal } = this.listenerAbortController;
 
@@ -190,9 +242,13 @@ export class XCUITestService {
               this.configPayload,
             );
             log.info('XCTestConfiguration response sent');
+            this.configReplySentResolve?.();
           }
 
-          if (selector === '_XCT_didFinishExecutingTestPlan') {
+          if (
+            typeof selector === 'string' &&
+            selector.startsWith('_XCT_didFinishExecutingTestPlan')
+          ) {
             this.isRunning = false;
             break;
           }
@@ -200,7 +256,10 @@ export class XCUITestService {
           if (signal.aborted) {
             break;
           }
-          log.debug(`Exec listener error: ${err.message}`);
+          this.lastListenerError =
+            err instanceof Error ? err : new Error(String(err));
+          this.isRunning = false;
+          log.debug(`Exec listener error: ${this.lastListenerError.message}`);
           break;
         }
       }
@@ -268,9 +327,19 @@ export class XCUITestService {
 
   /**
    * Start executing the test plan.
+   * Waits for the XCTestConfiguration reply to be sent before proceeding,
+   * since the device ignores the test plan start if the config hasn't been
+   * delivered yet.
    * Uses magic channel -1 (0xFFFFFFFF as signed int32).
    */
   async startExecutingTestPlan(): Promise<void> {
+    if (this.configReplySentPromise) {
+      log.debug(
+        'Waiting for XCTestConfiguration reply before starting test plan...',
+      );
+      await this.configReplySentPromise;
+    }
+
     log.debug('Starting test plan execution...');
 
     const args = new MessageAux();
@@ -297,6 +366,11 @@ export class XCUITestService {
     log.info('Stopping XCUITest session...');
 
     this.isRunning = false;
+
+    // Resolve config promise so startExecutingTestPlan won't hang
+    this.configReplySentResolve?.();
+    this.configReplySentPromise = null;
+    this.configReplySentResolve = null;
 
     // Immediately abort the background listener
     this.listenerAbortController?.abort();
@@ -345,6 +419,10 @@ export class XCUITestService {
     return this.isRunning;
   }
 
+  getLastListenerError(): Error | null {
+    return this.lastListenerError;
+  }
+
   /**
    * Get the exec channel code (for external listeners that need
    * direct access to the exec connection after `stop()` is NOT being
@@ -358,7 +436,7 @@ export class XCUITestService {
    * Get the exec connection (for external listeners that need
    * direct access — do not use concurrently with the background listener)
    */
-  getExecConnection(): DvtTestmanagedProxyService {
+  getExecConnection(): TestmanagerdService {
     return this.execConnection;
   }
 
@@ -374,8 +452,10 @@ export class XCUITestService {
       testBundleURL: `file://${testBundlePath}`,
       sessionIdentifier: this.sessionIdentifier,
       targetApplicationBundleID: this.options.targetBundleId,
+      targetApplicationPath: this.options.targetAppPath,
       initializeForUITesting: true,
       reportResultsToIDE: true,
+      productModuleName: this.options.productModuleName,
     };
 
     const archived = encoder.encodeXCTestConfiguration(params);
@@ -390,7 +470,11 @@ export class XCUITestService {
     switch (selector) {
       case '_XCT_logDebugMessage:':
         if (auxiliaries.length > 0) {
-          log.debug(`[XCTest] ${auxiliaries[0]}`);
+          const msg =
+            typeof auxiliaries[0] === 'string'
+              ? auxiliaries[0]
+              : JSON.stringify(auxiliaries[0]);
+          log.debug(`[XCTest] ${msg}`);
         }
         break;
 
@@ -434,4 +518,232 @@ export class XCUITestService {
         break;
     }
   }
+}
+
+function getXctestNameFromBundleId(xctestBundleId: string): string {
+  return xctestBundleId.split('.').at(-1) || xctestBundleId;
+}
+
+type InstalledAppInfo = {
+  Path?: string;
+  CFBundleExecutable?: string;
+};
+
+/**
+ * High-level XCTest runner that manages service setup, launch, execution, and cleanup.
+ */
+export class XCTestRunner extends EventEmitter {
+  private readonly options: XCTestRunnerOptions;
+  private services: XCTestServices | null = null;
+  private xcuitest: XCUITestService | null = null;
+  private launchedPid: number = 0;
+
+  constructor(options: XCTestRunnerOptions) {
+    super();
+    this.options = options;
+  }
+
+  async run(): Promise<XCTestRunResult> {
+    const timeoutMs = this.options.timeoutMs ?? 180000;
+    const pollIntervalMs = this.options.pollIntervalMs ?? 500;
+    const startTime = Date.now();
+
+    try {
+      this.emit('step', 'start_services');
+      const { remoteXPC, tunnelConnection } =
+        await Services.createRemoteXPCConnection(this.options.udid);
+      const host = tunnelConnection.host;
+
+      let testmanagerdPort: number;
+      let dvtPort: number;
+      let installationProxyPort: number;
+      try {
+        testmanagerdPort = parseInt(
+          remoteXPC.findService(DvtTestmanagedProxyService.RSD_SERVICE_NAME)
+            .port,
+          10,
+        );
+        dvtPort = parseInt(
+          remoteXPC.findService(DVTSecureSocketProxyService.RSD_SERVICE_NAME)
+            .port,
+          10,
+        );
+        installationProxyPort = parseInt(
+          remoteXPC.findService(InstallationProxyService.RSD_SERVICE_NAME).port,
+          10,
+        );
+      } finally {
+        await remoteXPC.close().catch(() => {});
+      }
+
+      const execTestmanagerd = new DvtTestmanagedProxyService([
+        host,
+        testmanagerdPort,
+      ]);
+      await execTestmanagerd.connect();
+      const controlTestmanagerd = new DvtTestmanagedProxyService([
+        host,
+        testmanagerdPort,
+      ]);
+      await controlTestmanagerd.connect();
+      const dvtService = new DVTSecureSocketProxyService([host, dvtPort]);
+      await dvtService.connect();
+      const processControl = new ProcessControl(dvtService);
+
+      this.services = {
+        execTestmanagerd,
+        controlTestmanagerd,
+        dvtService,
+        processControl,
+      };
+      const installationProxyService = new InstallationProxyService([
+        host,
+        installationProxyPort,
+      ]);
+
+      this.emit('step', 'lookup_apps');
+      const appLookup = await installationProxyService.lookup(
+        [this.options.testRunnerBundleId, this.options.appUnderTestBundleId],
+        { returnAttributes: ['Path', 'CFBundleExecutable'] },
+      );
+      installationProxyService.close();
+
+      const runnerApp = appLookup[this.options.testRunnerBundleId] as
+        | InstalledAppInfo
+        | undefined;
+      if (!runnerApp?.Path) {
+        throw new Error(
+          `Runner app not found: ${this.options.testRunnerBundleId}`,
+        );
+      }
+
+      const targetApp = appLookup[this.options.appUnderTestBundleId] as
+        | InstalledAppInfo
+        | undefined;
+      if (!targetApp?.Path) {
+        throw new Error(
+          `Target app not found: ${this.options.appUnderTestBundleId}`,
+        );
+      }
+
+      const xctestName = getXctestNameFromBundleId(this.options.xctestBundleId);
+      const runnerPath = runnerApp.Path;
+      const targetPath = targetApp.Path;
+      const testBundlePath = `${runnerPath}/PlugIns/${xctestName}.xctest`;
+
+      this.xcuitest = new XCUITestService({
+        controlConnection: this.services.controlTestmanagerd,
+        execConnection: this.services.execTestmanagerd,
+        options: {
+          udid: this.options.udid,
+          xctestBundleId: this.options.testRunnerBundleId,
+          targetBundleId: this.options.appUnderTestBundleId,
+          targetAppPath: targetPath,
+          productModuleName: xctestName,
+          xcodeVersion: this.options.xcodeVersion,
+        },
+      });
+
+      const sessionId = this.xcuitest.getSessionIdentifier();
+
+      this.emit('step', 'init_exec');
+      await this.xcuitest.initExecSession();
+
+      this.emit('step', 'launch_runner');
+      const appEnv: Record<string, string> = {
+        CA_ASSERT_MAIN_THREAD_TRANSACTIONS: '0',
+        CA_DEBUG_TRANSACTIONS: '0',
+        DYLD_INSERT_LIBRARIES: '/Developer/usr/lib/libMainThreadChecker.dylib',
+        DYLD_FRAMEWORK_PATH: '/System/Developer/Library/Frameworks',
+        DYLD_LIBRARY_PATH: '/System/Developer/usr/lib',
+        MTC_CRASH_ON_REPORT: '1',
+        NSUnbufferedIO: 'YES',
+        OS_ACTIVITY_DT_MODE: 'YES',
+        SQLITE_ENABLE_THREAD_ASSERTIONS: '1',
+        XCTestBundlePath: testBundlePath,
+        XCTestConfigurationFilePath: '',
+        XCTestManagerVariant: 'DDI',
+        XCTestSessionIdentifier: sessionId.toUpperCase(),
+        ...(this.options.launchEnvironment ?? {}),
+      };
+
+      this.launchedPid = await this.services.processControl.launch({
+        bundleId: this.options.testRunnerBundleId,
+        environment: appEnv,
+        arguments: this.options.launchArguments ?? [],
+        killExisting: this.options.killExisting ?? true,
+      });
+
+      this.emit('step', 'authorize_and_run');
+      this.xcuitest.startExecCallbackListener(testBundlePath);
+      await this.xcuitest.initControlSessionAndAuthorize(
+        Math.abs(this.launchedPid),
+      );
+      await this.xcuitest.startExecutingTestPlan();
+
+      const deadline = Date.now() + timeoutMs;
+      while (this.xcuitest.getIsRunning() && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+      }
+
+      const durationMs = Date.now() - startTime;
+      const listenerError = this.xcuitest.getLastListenerError();
+      if (listenerError) {
+        throw new Error(
+          `Exec callback listener failed: ${listenerError.message}`,
+        );
+      }
+      if (this.xcuitest.getIsRunning()) {
+        return {
+          status: 'timed_out',
+          sessionIdentifier: sessionId,
+          testRunnerPid: Math.abs(this.launchedPid),
+          durationMs,
+        };
+      }
+
+      return {
+        status: 'passed',
+        sessionIdentifier: sessionId,
+        testRunnerPid: Math.abs(this.launchedPid),
+        durationMs,
+      };
+    } finally {
+      await this.close();
+    }
+  }
+
+  async close(): Promise<void> {
+    if (this.services?.processControl && this.launchedPid) {
+      await this.services.processControl
+        .kill(Math.abs(this.launchedPid))
+        .catch(() => {});
+      this.launchedPid = 0;
+    }
+
+    if (this.xcuitest) {
+      await this.xcuitest.stop().catch(() => {});
+      this.xcuitest = null;
+    }
+
+    if (this.services?.dvtService) {
+      await this.services.dvtService.close().catch(() => {});
+    }
+    this.services = null;
+  }
+}
+
+/** Create a high-level XCTest runner instance. */
+export async function createXCTestRunner(
+  options: XCTestRunnerOptions,
+): Promise<XCTestRunner> {
+  return new XCTestRunner(options);
+}
+
+/** High-level API to run an XCTest bundle. */
+export async function runXCTest(
+  options: XCTestRunnerOptions,
+): Promise<XCTestRunResult> {
+  const runner = await createXCTestRunner(options);
+  return await runner.run();
 }

@@ -73,8 +73,17 @@ export type {
 export { PowerAssertionType } from './lib/types.js';
 export { NetworkMessageType } from './services/ios/dvt/instruments/network-monitor.js';
 export { ProcessControl } from './services/ios/dvt/instruments/process-control.js';
-export { XCUITestService } from './services/ios/testmanagerd/xcuitest.js';
-export type { XCUITestOptions } from './services/ios/testmanagerd/xcuitest.js';
+export {
+  XCUITestService,
+  XCTestRunner,
+  createXCTestRunner,
+  runXCTest,
+} from './services/ios/testmanagerd/xcuitest.js';
+export type {
+  XCUITestOptions,
+  XCTestRunnerOptions,
+  XCTestRunResult,
+} from './services/ios/testmanagerd/xcuitest.js';
 export { XCTestConfigurationEncoder } from './services/ios/testmanagerd/xctestconfiguration.js';
 export { createBinaryPlist } from './lib/plist/index.js';
 export {
