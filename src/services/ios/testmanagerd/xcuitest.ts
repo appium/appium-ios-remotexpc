@@ -9,6 +9,7 @@ import type {
 } from '../../../lib/types.js';
 import * as Services from '../../../services.js';
 import { MessageAux } from '../dvt/dtx-message.js';
+import { decodeNSKeyedArchiver } from '../dvt/nskeyedarchiver-decoder.js';
 import { InstallationProxyService } from '../installation-proxy/index.js';
 import {
   XCTestConfigurationEncoder,
@@ -56,6 +57,8 @@ const SELECTOR = {
   testBundleReady: '_XCT_testBundleReadyWithProtocolVersion:minimumVersion:',
   testCaseStarted:
     '_XCT_testCaseDidStartWithIdentifier:testCaseRunConfiguration:',
+  testCaseFailed:
+    '_XCT_testCaseDidFailForTestClass:method:withMessage:file:line:',
   testCaseFinished: '_XCT_testCaseWithIdentifier:didFinishWithStatus:duration:',
   testSuiteStarted: '_XCT_testSuiteWithIdentifier:didStartAt:',
   testSuiteFinished:
@@ -109,6 +112,58 @@ export function getXctestNameFromBundleId(xctestBundleId: string): string {
   return xctestBundleId.split('.').at(-1) || xctestBundleId;
 }
 
+/**
+ * Resolve an auxiliary value to a string identifier.
+ *
+ * DTX auxiliary objects may be:
+ * - A plain string (already resolved)
+ * - An NSKeyedArchiver-encoded object (e.g., XCTTestIdentifier)
+ *   which decodes to `{ c: ['TestClass', 'testMethod'], ... }`
+ *   where `c` = components, `ocm` = onlyCountMatches, `os` = ordered set
+ * - A raw object/dict that needs stringification
+ */
+function resolveTestIdentifier(value: any): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  // Try decoding NSKeyedArchiver if it's an archived object
+  let decoded = value;
+  if (
+    value &&
+    typeof value === 'object' &&
+    value.$archiver === 'NSKeyedArchiver'
+  ) {
+    try {
+      decoded = decodeNSKeyedArchiver(value);
+    } catch {
+      // Fall through to other strategies
+    }
+  }
+
+  if (typeof decoded === 'string') {
+    return decoded;
+  }
+
+  if (decoded && typeof decoded === 'object') {
+    // XCTTestIdentifier uses abbreviated keys:
+    //   c = components, e.g. ['BasicUITests', 'testExample']
+    const components = decoded.c ?? decoded.components;
+    if (Array.isArray(components) && components.length > 0) {
+      return components.filter((v: any) => typeof v === 'string').join('/');
+    }
+    if (typeof decoded.identifier === 'string') {
+      return decoded.identifier;
+    }
+    if (typeof decoded.name === 'string') {
+      return decoded.name;
+    }
+  }
+
+  // Last resort
+  return JSON.stringify(value);
+}
+
 function isTransportError(err: unknown): boolean {
   return (
     err instanceof Error &&
@@ -132,6 +187,14 @@ export type XCTestEvent =
       minimumVersion: number;
     }
   | { type: 'testCaseStarted'; identifier: string }
+  | {
+      type: 'testCaseFailed';
+      testClass: string;
+      method: string;
+      message: string;
+      file: string;
+      line: number;
+    }
   | {
       type: 'testCaseFinished';
       identifier: string;
@@ -175,23 +238,39 @@ export function parseCallback(
       };
 
     case SELECTOR.testCaseStarted:
-      return { type: 'testCaseStarted', identifier: String(auxiliaries[0]) };
+      return {
+        type: 'testCaseStarted',
+        identifier: resolveTestIdentifier(auxiliaries[0]),
+      };
+
+    case SELECTOR.testCaseFailed:
+      return {
+        type: 'testCaseFailed',
+        testClass: resolveTestIdentifier(auxiliaries[0]),
+        method: resolveTestIdentifier(auxiliaries[1]),
+        message: resolveTestIdentifier(auxiliaries[2]),
+        file: resolveTestIdentifier(auxiliaries[3]),
+        line: Number(auxiliaries[4] ?? 0),
+      };
 
     case SELECTOR.testCaseFinished:
       return {
         type: 'testCaseFinished',
-        identifier: String(auxiliaries[0]),
-        status: String(auxiliaries[1]),
+        identifier: resolveTestIdentifier(auxiliaries[0]),
+        status: resolveTestIdentifier(auxiliaries[1]),
         duration: Number(auxiliaries[2]),
       };
 
     case SELECTOR.testSuiteStarted:
-      return { type: 'testSuiteStarted', identifier: String(auxiliaries[0]) };
+      return {
+        type: 'testSuiteStarted',
+        identifier: resolveTestIdentifier(auxiliaries[0]),
+      };
 
     case SELECTOR.testSuiteFinished:
       return {
         type: 'testSuiteFinished',
-        identifier: String(auxiliaries[0]),
+        identifier: resolveTestIdentifier(auxiliaries[0]),
         runCount: Number(auxiliaries[2]),
         skipCount: Number(auxiliaries[3]),
         failureCount: Number(auxiliaries[4]),
@@ -266,6 +345,8 @@ export interface XCUITestOptions {
   targetAppPath?: string;
   /** Product module name for XCTestConfiguration */
   productModuleName?: string;
+  /** Whether to initialize for UI testing (default: true) */
+  initializeForUITesting?: boolean;
 }
 
 /** High-level XCTest runner options */
@@ -288,6 +369,8 @@ export interface XCTestRunnerOptions {
   launchArguments?: string[];
   /** Kill existing runner process before launch (default: true) */
   killExisting?: boolean;
+  /** Test type: 'ui' initializes for UI testing, 'app' does not (default: 'ui') */
+  testType?: 'ui' | 'app';
 }
 
 /** Test summary counts parsed from test suite finished callback. */
@@ -685,7 +768,7 @@ export class XCUITestService extends EventEmitter {
       sessionIdentifier: this.sessionIdentifier,
       targetApplicationBundleID: this.options.targetBundleId,
       targetApplicationPath: this.options.targetAppPath,
-      initializeForUITesting: true,
+      initializeForUITesting: this.options.initializeForUITesting ?? true,
       reportResultsToIDE: true,
       productModuleName: this.options.productModuleName,
     };
@@ -719,6 +802,12 @@ export class XCUITestService extends EventEmitter {
 
       case 'testCaseStarted':
         log.debug(`Test case started: ${event.identifier}`);
+        break;
+
+      case 'testCaseFailed':
+        log.debug(
+          `Test case failed: ${event.testClass}/${event.method} - ${event.message} (${event.file}:${event.line})`,
+        );
         break;
 
       case 'testCaseFinished':
@@ -800,6 +889,7 @@ export class XCTestRunner extends EventEmitter {
           targetAppPath: targetPath,
           productModuleName: xctestName,
           xcodeVersion: this.options.xcodeVersion,
+          initializeForUITesting: this.options.testType !== 'app',
         },
       });
 
@@ -842,9 +932,9 @@ export class XCTestRunner extends EventEmitter {
         );
       }
 
-      this.emit('step', 'authorize_and_run');
       this.xcuitest.startExecCallbackListener(testBundlePath);
 
+      this.emit('step', 'authorize');
       try {
         await this.xcuitest.initControlSessionAndAuthorize(
           Math.abs(this.launchedPid),
@@ -856,6 +946,7 @@ export class XCTestRunner extends EventEmitter {
         );
       }
 
+      this.emit('step', 'start_plan');
       try {
         await this.xcuitest.startExecutingTestPlan();
       } catch (err) {
@@ -1012,9 +1103,7 @@ export class XCTestRunner extends EventEmitter {
 // #endregion
 
 /** Create a high-level XCTest runner instance. */
-export async function createXCTestRunner(
-  options: XCTestRunnerOptions,
-): Promise<XCTestRunner> {
+export function createXCTestRunner(options: XCTestRunnerOptions): XCTestRunner {
   return new XCTestRunner(options);
 }
 
@@ -1022,6 +1111,6 @@ export async function createXCTestRunner(
 export async function runXCTest(
   options: XCTestRunnerOptions,
 ): Promise<XCTestRunResult> {
-  const runner = await createXCTestRunner(options);
+  const runner = createXCTestRunner(options);
   return await runner.run();
 }
