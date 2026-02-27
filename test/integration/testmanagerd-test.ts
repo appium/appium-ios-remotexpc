@@ -26,14 +26,54 @@ log.level = 'debug';
 
 const XCODE_VERSION = 36;
 
+/**
+ * Run:
+ * `UDID=<device-udid> TEST_RUNNER_BUNDLE_ID=<xctrunner-bundle-id> APP_UNDER_TEST_BUNDLE_ID=<target-app-bundle-id> XCTEST_BUNDLE_ID=<xctest-bundle-id> npm run test:testmanagerd`
+ *
+ * Example:
+ * `UDID=<device-udid> TEST_RUNNER_BUNDLE_ID=com.appium.test.XCTestTargetAppUITests.xctrunner APP_UNDER_TEST_BUNDLE_ID=com.appium.test.XCTestTargetApp XCTEST_BUNDLE_ID=com.appium.test.XCTestTargetAppUITests npm run test:testmanagerd`
+ */
+
+async function lookupInstalledApp(
+  udid: string,
+  bundleId: string,
+): Promise<AppInfo> {
+  const installProxyConn = await Services.startInstallationProxyService(udid);
+  try {
+    const lookup = await installProxyConn.installationProxyService.lookup(
+      [bundleId],
+      { returnAttributes: ['*'] },
+    );
+    const appInfo = lookup[bundleId];
+    expect(appInfo, `App ${bundleId} not found on device`).to.not.be.undefined;
+    return appInfo;
+  } finally {
+    try {
+      await installProxyConn.remoteXPC.close();
+    } catch {}
+  }
+}
+
+function resolveTargetName(execName: string): string {
+  return execName.includes('-Runner')
+    ? execName.slice(0, execName.indexOf('-Runner'))
+    : execName;
+}
+
+function getXctestNameFromBundleId(xctestBundleId: string): string {
+  return xctestBundleId.split('.').at(-1) || xctestBundleId;
+}
+
 describe('Testmanagerd Service', function () {
   this.timeout(120000);
 
-  const udid = process.env.UDID || '00008030-001E290A3EF2402E';
+  const udid = process.env.UDID || '';
 
   before(function () {
     if (!udid) {
-      throw new Error('Set UDID env var to execute tests.');
+      throw new Error(
+        'Set UDID. Example: UDID=<device-udid> TEST_RUNNER_BUNDLE_ID=com.appium.test.XCTestTargetAppUITests.xctrunner APP_UNDER_TEST_BUNDLE_ID=com.appium.test.XCTestTargetApp XCTEST_BUNDLE_ID=com.appium.test.XCTestTargetAppUITests npm run test:testmanagerd',
+      );
     }
   });
 
@@ -55,8 +95,6 @@ describe('Testmanagerd Service', function () {
     });
 
     it('should connect two independent testmanagerd instances and complete handshakes', async function () {
-      // Open two separate testmanagerd connections (control + exec)
-      // This mirrors the xcuitest driver pattern of two simultaneous DTX connections
       controlConnection = await Services.startTestmanagerdService(udid);
       execConnection = await Services.startTestmanagerdService(udid);
 
@@ -93,8 +131,6 @@ describe('Testmanagerd Service', function () {
         );
       const channelCode = controlChannel.getCode();
 
-      // Send _IDE_initiateControlSessionWithProtocolVersion:
-      // This is the first real testmanagerd call in the XCTest launch flow
       const args = new MessageAux();
       args.appendObj(XCODE_VERSION);
 
@@ -108,17 +144,21 @@ describe('Testmanagerd Service', function () {
         await controlConnection!.testmanagerdService.recvPlist(channelCode);
 
       log.debug('Control session init result:', result);
-
-      // The device should acknowledge the control session init
-      // Result is typically the protocol version number the device supports
       expect(result).to.not.be.null;
     });
   });
 
   describe('XCTestConfiguration write via HouseArrest', function () {
     let houseArrestConnection: HouseArrestServiceWithConnection | null = null;
-    // This needs a dev-signed app installed on the device
-    const bundleId = process.env.XCTEST_BUNDLE_ID || 'com.testigng.lt';
+    const testRunnerBundleId = process.env.TEST_RUNNER_BUNDLE_ID;
+    const appUnderTestBundleId = process.env.APP_UNDER_TEST_BUNDLE_ID;
+    const xctestBundleId = process.env.XCTEST_BUNDLE_ID;
+
+    before(function () {
+      if (!testRunnerBundleId || !appUnderTestBundleId || !xctestBundleId) {
+        this.skip();
+      }
+    });
 
     after(async function () {
       if (houseArrestConnection) {
@@ -130,55 +170,51 @@ describe('Testmanagerd Service', function () {
 
     it('should encode XCTestConfiguration, write to device, and read back', async function () {
       houseArrestConnection = await Services.startHouseArrestService(udid);
+      const appInfo = await lookupInstalledApp(udid, testRunnerBundleId!);
+      const appPath = appInfo.Path!;
+      const xctestName = getXctestNameFromBundleId(xctestBundleId!);
+      const testBundleURL = `file://${appPath}/PlugIns/${xctestName}.xctest`;
 
-      // 1. Create and serialize XCTestConfiguration
       const sessionId = 'AABBCCDD-1122-3344-5566-778899AABBCC';
       const encoder = new XCTestConfigurationEncoder();
       const archived = encoder.encodeXCTestConfiguration({
-        testBundleURL: 'file:///path/to/Runner.xctest',
+        testBundleURL,
         sessionIdentifier: sessionId,
-        targetApplicationBundleID: bundleId,
+        targetApplicationBundleID: appUnderTestBundleId!,
         initializeForUITesting: true,
         reportResultsToIDE: true,
       });
 
-      // Verify the archived structure before serializing
       expect(archived).to.have.property('$archiver', 'NSKeyedArchiver');
       expect(archived).to.have.property('$version', 100000);
       expect(archived.$objects).to.be.an('array');
 
-      // 2. Serialize to binary plist
       const plistData = createBinaryPlist(archived);
       expect(plistData).to.be.instanceOf(Buffer);
       expect(plistData.length).to.be.greaterThan(0);
 
       log.debug(`Serialized XCTestConfiguration: ${plistData.length} bytes`);
 
-      // 3. Write to device via HouseArrest
       const afcService =
-        await houseArrestConnection.houseArrestService.vendContainer(bundleId);
+        await houseArrestConnection.houseArrestService.vendContainer(
+          testRunnerBundleId!,
+        );
 
       const configFileName = `Runner-${sessionId.toUpperCase()}.xctestconfiguration`;
       const remotePath = `/tmp/${configFileName}`;
 
       try {
-        // Ensure /tmp exists
         try {
           await afcService.mkdir('/tmp');
-        } catch {
-          // /tmp may already exist
-        }
+        } catch {}
 
-        // Write configuration file
         await afcService.setFileContents(remotePath, plistData);
         log.debug(`Wrote XCTestConfiguration to ${remotePath}`);
 
-        // 4. Read it back
         const readBack = await afcService.getFileContents(remotePath);
         expect(readBack).to.be.instanceOf(Buffer);
         expect(readBack.length).to.equal(plistData.length);
 
-        // 5. Verify the read-back data is valid NSKeyedArchive
         const parsed = parseBinaryPlist(readBack);
         expect(parsed).to.have.property('$archiver', 'NSKeyedArchiver');
         expect(parsed).to.have.property('$version', 100000);
@@ -188,7 +224,6 @@ describe('Testmanagerd Service', function () {
           'XCTestConfiguration round-trip verified: write → read → parse succeeded',
         );
       } finally {
-        // Cleanup
         try {
           await afcService.rm(remotePath);
         } catch {}
@@ -221,13 +256,11 @@ describe('Testmanagerd Service', function () {
     });
 
     it('should connect testmanagerd + DVT, launch app via ProcessControl, and authorize PID on control session', async function () {
-      // 1. Connect both services
       testmanagerdConnection = await Services.startTestmanagerdService(udid);
       dvtConnection = await Services.startDVTService(udid);
 
       log.debug('Connected to testmanagerd and DVT services');
 
-      // 2. Create testmanagerd control channel
       const controlChannel =
         await testmanagerdConnection.testmanagerdService.makeChannel(
           TESTMANAGERD_CHANNEL,
@@ -235,7 +268,6 @@ describe('Testmanagerd Service', function () {
       const channelCode = controlChannel.getCode();
       expect(channelCode).to.be.greaterThan(0);
 
-      // 3. Initiate control session
       const initArgs = new MessageAux();
       initArgs.appendObj(XCODE_VERSION);
 
@@ -250,9 +282,7 @@ describe('Testmanagerd Service', function () {
       log.debug('Control session initiated:', initResult);
       expect(initResult).to.not.be.null;
 
-      // 4. Launch Calculator via DVT ProcessControl
-      // Note: iOS may return a negative PID when the process is launched
-      // in a suspended or special state. The absolute value is the real PID.
+      // iOS may return negative PIDs for suspended launch states.
       const pid = await dvtConnection.processControl.launch({
         bundleId: 'com.apple.calculator',
         killExisting: true,
@@ -261,9 +291,6 @@ describe('Testmanagerd Service', function () {
       expect(pid).to.not.equal(0);
       log.debug(`Launched Calculator with PID: ${pid}`);
 
-      // 5. Authorize the test session with the launched PID
-      // This is the key integration point: testmanagerd needs to know about
-      // the process that ProcessControl launched
       const authArgs = new MessageAux();
       authArgs.appendObj(pid);
 
@@ -276,14 +303,10 @@ describe('Testmanagerd Service', function () {
       const [authResult] =
         await testmanagerdConnection.testmanagerdService.recvPlist(channelCode);
       log.debug('Authorization result:', authResult);
-
-      // Authorization should return a response (typically the PID or an ack)
-      // The important thing is it doesn't throw an error
       log.debug(
         'Successfully authorized test session for Calculator PID via testmanagerd',
       );
 
-      // 6. Cleanup: kill the launched app (use absolute PID)
       const absPid = Math.abs(pid);
       try {
         await dvtConnection.processControl.kill(absPid);
@@ -294,25 +317,10 @@ describe('Testmanagerd Service', function () {
     });
   });
 
-  /**
-   * Full XCTest launch flow — the "xcodebuild replacement" test.
-   *
-   * This test replicates what xcodebuild does under the hood when launching WDA:
-   *   1. Look up the XCTest runner app via InstallationProxy
-   *   2. Write XCTestConfiguration to the app sandbox via HouseArrest
-   *   3. Open two testmanagerd connections (control + exec)
-   *   4. Init exec session
-   *   5. Launch the test runner app with XCTestConfigurationFilePath env var via ProcessControl
-   *   6. Start background listener for exec callbacks
-   *   7. Init control session + authorize test session with PID
-   *   8. Start test plan execution
-   *   9. Wait for _XCT_didFinishExecutingTestPlan
-   *
-   * Requires: XCTEST_BUNDLE_ID env var set to a dev-signed XCTest runner app
-   * installed on the device (e.g., 'com.example.WebDriverAgentRunner.xctrunner')
-   */
   describe('Full XCTest launch flow (xcodebuild replacement)', function () {
-    // All connections we open
+    const mochaTimeoutMs = Number(
+      process.env.XCTEST_MOCHA_TIMEOUT_MS || 360000,
+    );
     let installProxyConn: InstallationProxyServiceWithConnection | null = null;
     let houseArrestConn: HouseArrestServiceWithConnection | null = null;
     let controlConn: TestmanagerdServiceWithConnection | null = null;
@@ -320,16 +328,21 @@ describe('Testmanagerd Service', function () {
     let dvtConn: DVTServiceWithConnection | null = null;
     let launchedPid: number = 0;
 
+    const testRunnerBundleId = process.env.TEST_RUNNER_BUNDLE_ID;
+    const appUnderTestBundleId = process.env.APP_UNDER_TEST_BUNDLE_ID;
     const xctestBundleId = process.env.XCTEST_BUNDLE_ID;
 
+    beforeEach(function () {
+      this.timeout(mochaTimeoutMs);
+    });
+
     before(function () {
-      if (!xctestBundleId) {
+      if (!testRunnerBundleId || !appUnderTestBundleId || !xctestBundleId) {
         this.skip();
       }
     });
 
     after(async function () {
-      // Kill launched process if still alive
       if (launchedPid && dvtConn) {
         try {
           await dvtConn.processControl.kill(Math.abs(launchedPid));
@@ -337,7 +350,6 @@ describe('Testmanagerd Service', function () {
         } catch {}
       }
 
-      // Close all connections
       const connections: Array<{ close: () => Promise<void> } | null> = [];
 
       if (controlConn) {
@@ -367,19 +379,15 @@ describe('Testmanagerd Service', function () {
     });
 
     it('should execute full XCTest launch lifecycle without xcodebuild', async function () {
-      // ═══════════════════════════════════════════════════════════════
-      // Step 1: Look up XCTest runner app info via InstallationProxy
-      // This replaces xcodebuild's implicit knowledge of the app path
-      // ═══════════════════════════════════════════════════════════════
       installProxyConn = await Services.startInstallationProxyService(udid);
       const lookupResult =
         await installProxyConn.installationProxyService.lookup(
-          [xctestBundleId!],
+          [testRunnerBundleId!],
           { returnAttributes: ['*'] },
         );
 
-      const appInfo: AppInfo = lookupResult[xctestBundleId!];
-      expect(appInfo, `App ${xctestBundleId} not found on device`).to.not.be
+      const appInfo: AppInfo = lookupResult[testRunnerBundleId!];
+      expect(appInfo, `App ${testRunnerBundleId} not found on device`).to.not.be
         .undefined;
       expect(appInfo.Path).to.be.a('string');
 
@@ -390,39 +398,43 @@ describe('Testmanagerd Service', function () {
         'string',
       );
 
-      // Derive target name from executable (e.g., 'WebDriverAgentRunner-Runner' → 'WebDriverAgentRunner')
-      const targetName = execName.includes('-Runner')
-        ? execName.substring(0, execName.indexOf('-Runner'))
-        : execName;
+      const targetName = resolveTargetName(execName);
+      const xctestName = getXctestNameFromBundleId(xctestBundleId!);
+      const targetAppBundleId = appUnderTestBundleId!;
+      const targetLookup =
+        await installProxyConn.installationProxyService.lookup(
+          [targetAppBundleId],
+          { returnAttributes: ['Path'] },
+        );
+      const targetAppPath = targetLookup[targetAppBundleId]?.Path;
+      expect(
+        targetAppPath,
+        `Target app ${targetAppBundleId} not found on device`,
+      ).to.be.a('string');
 
       log.debug(
         `App info: path=${appPath}, container=${appContainer}, exec=${execName}, target=${targetName}`,
       );
 
-      // ═══════════════════════════════════════════════════════════════
-      // Step 2: Write XCTestConfiguration to device via HouseArrest
-      // This is what xcodebuild generates internally
-      // ═══════════════════════════════════════════════════════════════
       const sessionId = crypto.randomUUID();
-      const configFileName = `${targetName}-${sessionId.toUpperCase()}.xctestconfiguration`;
+      const configFileName = `${xctestName}-${sessionId.toUpperCase()}.xctestconfiguration`;
       const configRelativePath = `/tmp/${configFileName}`;
 
       const encoder = new XCTestConfigurationEncoder();
       const archived = encoder.encodeXCTestConfiguration({
-        testBundleURL: `file://${appPath}/PlugIns/${targetName}.xctest`,
+        testBundleURL: `file://${appPath}/PlugIns/${xctestName}.xctest`,
         sessionIdentifier: sessionId,
-        targetApplicationBundleID: 'com.appium.test.XCTestTargetApp',
-        targetApplicationPath:
-          '/private/var/containers/Bundle/Application/XCTestTargetApp.app',
+        targetApplicationBundleID: targetAppBundleId,
+        targetApplicationPath: targetAppPath,
         initializeForUITesting: true,
         reportResultsToIDE: true,
-        productModuleName: targetName,
+        productModuleName: xctestName,
       });
       const configData = createBinaryPlist(archived);
 
       houseArrestConn = await Services.startHouseArrestService(udid);
       const afcService = await houseArrestConn.houseArrestService.vendContainer(
-        xctestBundleId!,
+        testRunnerBundleId!,
       );
 
       try {
@@ -437,21 +449,6 @@ describe('Testmanagerd Service', function () {
         afcService.close();
       }
 
-      // ═══════════════════════════════════════════════════════════════
-      // Step 3: Open two testmanagerd connections (control + exec)
-      // xcodebuild opens these internally via DTX
-      // ═══════════════════════════════════════════════════════════════
-      // go-ios iOS 17+ flow:
-      //   1. Exec session (conn1) with capabilities
-      //   2. Launch app via AppService (we use ProcessControl)
-      //   3. Control session (conn2) with capabilities
-      //   4. Authorize test session
-      //   5. Start test plan
-      //   6. Dispatch callbacks
-
-      // ═══════════════════════════════════════════════════════════════
-      // Step 4: Init exec session first (conn1)
-      // ═══════════════════════════════════════════════════════════════
       execConn = await Services.startTestmanagerdService(udid);
       const execChannel =
         await execConn.testmanagerdService.makeChannel(TESTMANAGERD_CHANNEL);
@@ -473,13 +470,9 @@ describe('Testmanagerd Service', function () {
         await execConn.testmanagerdService.recvPlist(execCode);
       log.debug('Exec session init result:', execResult);
 
-      // ═══════════════════════════════════════════════════════════════
-      // Step 5: Launch test runner app via ProcessControl
-      // (go-ios uses AppService for iOS 17+, we use ProcessControl)
-      // ═══════════════════════════════════════════════════════════════
       dvtConn = await Services.startDVTService(udid);
 
-      const testBundlePath = `${appPath}/PlugIns/${targetName}.xctest`;
+      const testBundlePath = `${appPath}/PlugIns/${xctestName}.xctest`;
       const appEnv: Record<string, string> = {
         CA_ASSERT_MAIN_THREAD_TRANSACTIONS: '0',
         CA_DEBUG_TRANSACTIONS: '0',
@@ -491,13 +484,13 @@ describe('Testmanagerd Service', function () {
         OS_ACTIVITY_DT_MODE: 'YES',
         SQLITE_ENABLE_THREAD_ASSERTIONS: '1',
         XCTestBundlePath: testBundlePath,
-        XCTestConfigurationFilePath: '',
+        XCTestConfigurationFilePath: configRelativePath,
         XCTestManagerVariant: 'DDI',
         XCTestSessionIdentifier: sessionId.toUpperCase(),
       };
 
       launchedPid = await dvtConn.processControl.launch({
-        bundleId: xctestBundleId!,
+        bundleId: testRunnerBundleId!,
         environment: appEnv,
         arguments: [],
         killExisting: true,
@@ -510,14 +503,8 @@ describe('Testmanagerd Service', function () {
         `Launched XCTest runner with PID: ${launchedPid} (abs: ${absPid})`,
       );
 
-      // Prepare the XCTestConfiguration payload for the readiness response
       const configPayload = createBinaryPlist(archived);
 
-      // ═══════════════════════════════════════════════════════════════
-      // Step 6: Start background listener for exec callbacks
-      // _XCT_testRunnerReadyWithCapabilities: may arrive while we set
-      // up the control session. We must respond with the XCTestConfiguration.
-      // ═══════════════════════════════════════════════════════════════
       let testFinished = false;
       let listenerError: Error | null = null;
       const listenerAbort = new AbortController();
@@ -531,7 +518,7 @@ describe('Testmanagerd Service', function () {
             );
 
           if (!result) {
-            continue; // Timeout — poll again
+            continue;
           }
 
           const [selector, auxiliaries] = result;
@@ -558,7 +545,10 @@ describe('Testmanagerd Service', function () {
             log.info('XCTestConfiguration response sent');
           }
 
-          if (selector === '_XCT_didFinishExecutingTestPlan') {
+          if (
+            typeof selector === 'string' &&
+            selector.startsWith('_XCT_didFinishExecutingTestPlan')
+          ) {
             testFinished = true;
             log.info('Test plan finished!');
             break;
@@ -575,9 +565,6 @@ describe('Testmanagerd Service', function () {
         }
       })();
 
-      // ═══════════════════════════════════════════════════════════════
-      // Step 7: Init control session (conn2), then authorize
-      // ═══════════════════════════════════════════════════════════════
       controlConn = await Services.startTestmanagerdService(udid);
       const controlChannel =
         await controlConn.testmanagerdService.makeChannel(TESTMANAGERD_CHANNEL);
@@ -598,9 +585,6 @@ describe('Testmanagerd Service', function () {
         await controlConn.testmanagerdService.recvPlist(controlCode);
       log.debug('Control session init result:', controlResult);
 
-      // ═══════════════════════════════════════════════════════════════
-      // Step 8: Authorize test session with the launched PID
-      // ═══════════════════════════════════════════════════════════════
       const authArgs = new MessageAux();
       authArgs.appendObj(absPid);
 
@@ -613,13 +597,9 @@ describe('Testmanagerd Service', function () {
         await controlConn.testmanagerdService.recvPlist(controlCode);
       log.debug('Authorization result:', authResult);
 
-      // ═══════════════════════════════════════════════════════════════
-      // Step 9: Start test plan execution
-      // ═══════════════════════════════════════════════════════════════
       const planArgs = new MessageAux();
       planArgs.appendObj(XCODE_VERSION);
 
-      // Magic channel -1 for test plan execution
       await execConn!.testmanagerdService.sendMessage(
         -1,
         '_IDE_startExecutingTestPlanWithProtocolVersion:',
@@ -628,22 +608,22 @@ describe('Testmanagerd Service', function () {
       );
       log.debug('Test plan execution started');
 
-      // Wait for the background listener to finish or timeout
-      const maxWaitMs = 90000;
+      const maxWaitMs = Number(
+        process.env.XCTEST_PLAN_TIMEOUT_MS ||
+          Math.max(60000, mochaTimeoutMs - 30000),
+      );
       const startTime = Date.now();
       while (!testFinished && Date.now() - startTime < maxWaitMs) {
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
       listenerAbort.abort();
 
-      // Wait for background listener to fully stop and propagate errors
       try {
         await execCallbackListener;
       } catch (err) {
         listenerError = err as Error;
       }
 
-      // Assert the test plan actually completed
       if (listenerError) {
         throw new Error(
           `Exec callback listener failed: ${listenerError.message}`,
@@ -652,14 +632,14 @@ describe('Testmanagerd Service', function () {
 
       expect(
         testFinished,
-        'XCTest plan did not finish — _XCT_didFinishExecutingTestPlan was never received within 90s',
+        `XCTest plan did not finish — no finish callback was received within ${maxWaitMs}ms`,
       ).to.be.true;
 
       log.info(
         '=== Full XCTest launch flow completed successfully without xcodebuild ===',
       );
       log.info(
-        `Session: ${sessionId}, PID: ${absPid}, Bundle: ${xctestBundleId}`,
+        `Session: ${sessionId}, PID: ${absPid}, Runner: ${testRunnerBundleId}, XCTest: ${xctestBundleId}, Target: ${appUnderTestBundleId}`,
       );
     });
   });

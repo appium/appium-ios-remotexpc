@@ -11,17 +11,14 @@ import {
 
 const log = getLogger('XCUITestService');
 
-/** Default Xcode protocol version (matches pymobiledevice3) */
+/** Default Xcode protocol version */
 const XCODE_VERSION = 36;
 
 /** Testmanagerd channel identifier for XCTest session management */
 export const TESTMANAGERD_CHANNEL =
   'dtxproxy:XCTestManager_IDEInterface:XCTestManager_DaemonConnectionInterface';
 
-/**
- * Default XCTCapabilities sent to the exec session.
- * These match the capabilities sent by go-ios for iOS 17+.
- */
+/** Default XCTCapabilities sent to the exec session. */
 export const DEFAULT_EXEC_CAPABILITIES: Record<string, number> = {
   'XCTIssue capability': 1,
   'daemon container sandbox extension': 1,
