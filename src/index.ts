@@ -76,13 +76,19 @@ export { ProcessControl } from './services/ios/dvt/instruments/process-control.j
 export {
   XCUITestService,
   XCTestRunner,
+  XCTestRunError,
   createXCTestRunner,
   runXCTest,
+  getXctestNameFromBundleId,
+  parseCallback,
 } from './services/ios/testmanagerd/xcuitest.js';
 export type {
   XCUITestOptions,
   XCTestRunnerOptions,
   XCTestRunResult,
+  XCTestRunStage,
+  XCTestEvent,
+  XCTestSummary,
 } from './services/ios/testmanagerd/xcuitest.js';
 export { XCTestConfigurationEncoder } from './services/ios/testmanagerd/xctestconfiguration.js';
 export { createBinaryPlist } from './lib/plist/index.js';

@@ -1835,4 +1835,6 @@ export interface XCTestServices {
   dvtService: DVTSecureSocketProxyService;
   /** ProcessControl instrument for launching/killing apps */
   processControl: ProcessControlService;
+  /** Optional InstallationProxy for app lookup (when requested via startXCTestServices) */
+  installationProxy?: InstallationProxyService;
 }

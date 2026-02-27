@@ -6,7 +6,11 @@ import type {
   HouseArrestServiceWithConnection,
   TestmanagerdServiceWithConnection,
 } from '../../src/index.js';
-import { XCTestConfigurationEncoder, runXCTest } from '../../src/index.js';
+import {
+  XCTestConfigurationEncoder,
+  getXctestNameFromBundleId,
+  runXCTest,
+} from '../../src/index.js';
 import {
   createBinaryPlist,
   parseBinaryPlist,
@@ -20,6 +24,23 @@ const log = logger.getLogger('Testmanagerd.test');
 log.level = 'debug';
 
 const XCODE_VERSION = 36;
+
+const UDID = process.env.UDID || '';
+const TEST_RUNNER_BUNDLE_ID = process.env.TEST_RUNNER_BUNDLE_ID;
+const APP_UNDER_TEST_BUNDLE_ID = process.env.APP_UNDER_TEST_BUNDLE_ID;
+const XCTEST_BUNDLE_ID = process.env.XCTEST_BUNDLE_ID;
+
+async function safeClose(
+  ...closeables: Array<{ close(): Promise<void> } | null | undefined>
+): Promise<void> {
+  for (const c of closeables) {
+    try {
+      await c?.close();
+    } catch {
+      // Ignore close errors during cleanup
+    }
+  }
+}
 
 /**
  * Run:
@@ -43,29 +64,15 @@ async function lookupInstalledApp(
     expect(appInfo, `App ${bundleId} not found on device`).to.not.be.undefined;
     return appInfo;
   } finally {
-    try {
-      await installProxyConn.remoteXPC.close();
-    } catch {}
+    await safeClose(installProxyConn.remoteXPC);
   }
-}
-
-function resolveTargetName(execName: string): string {
-  return execName.includes('-Runner')
-    ? execName.slice(0, execName.indexOf('-Runner'))
-    : execName;
-}
-
-function getXctestNameFromBundleId(xctestBundleId: string): string {
-  return xctestBundleId.split('.').at(-1) || xctestBundleId;
 }
 
 describe('Testmanagerd Service', function () {
   this.timeout(120000);
 
-  const udid = process.env.UDID || '';
-
   before(function () {
-    if (!udid) {
+    if (!UDID) {
       throw new Error(
         'Set UDID. Example: UDID=<device-udid> TEST_RUNNER_BUNDLE_ID=com.appium.test.XCTestTargetAppUITests.xctrunner APP_UNDER_TEST_BUNDLE_ID=com.appium.test.XCTestTargetApp XCTEST_BUNDLE_ID=com.appium.test.XCTestTargetAppUITests npm run test:testmanagerd',
       );
@@ -77,21 +84,17 @@ describe('Testmanagerd Service', function () {
     let execConnection: TestmanagerdServiceWithConnection | null = null;
 
     after(async function () {
-      for (const conn of [controlConnection, execConnection]) {
-        if (conn) {
-          try {
-            await conn.testmanagerdService.close();
-          } catch {}
-          try {
-            await conn.remoteXPC.close();
-          } catch {}
-        }
-      }
+      await safeClose(
+        controlConnection?.testmanagerdService,
+        controlConnection?.remoteXPC,
+        execConnection?.testmanagerdService,
+        execConnection?.remoteXPC,
+      );
     });
 
     it('should connect two independent testmanagerd instances and complete handshakes', async function () {
-      controlConnection = await Services.startTestmanagerdService(udid);
-      execConnection = await Services.startTestmanagerdService(udid);
+      controlConnection = await Services.startTestmanagerdService(UDID);
+      execConnection = await Services.startTestmanagerdService(UDID);
 
       expect(controlConnection.testmanagerdService).to.not.be.null;
       expect(execConnection.testmanagerdService).to.not.be.null;
@@ -145,29 +148,26 @@ describe('Testmanagerd Service', function () {
 
   describe('XCTestConfiguration write via HouseArrest', function () {
     let houseArrestConnection: HouseArrestServiceWithConnection | null = null;
-    const testRunnerBundleId = process.env.TEST_RUNNER_BUNDLE_ID;
-    const appUnderTestBundleId = process.env.APP_UNDER_TEST_BUNDLE_ID;
-    const xctestBundleId = process.env.XCTEST_BUNDLE_ID;
 
     before(function () {
-      if (!testRunnerBundleId || !appUnderTestBundleId || !xctestBundleId) {
+      if (
+        !TEST_RUNNER_BUNDLE_ID ||
+        !APP_UNDER_TEST_BUNDLE_ID ||
+        !XCTEST_BUNDLE_ID
+      ) {
         this.skip();
       }
     });
 
     after(async function () {
-      if (houseArrestConnection) {
-        try {
-          await houseArrestConnection.remoteXPC.close();
-        } catch {}
-      }
+      await safeClose(houseArrestConnection?.remoteXPC);
     });
 
     it('should encode XCTestConfiguration, write to device, and read back', async function () {
-      houseArrestConnection = await Services.startHouseArrestService(udid);
-      const appInfo = await lookupInstalledApp(udid, testRunnerBundleId!);
+      houseArrestConnection = await Services.startHouseArrestService(UDID);
+      const appInfo = await lookupInstalledApp(UDID, TEST_RUNNER_BUNDLE_ID!);
       const appPath = appInfo.Path!;
-      const xctestName = getXctestNameFromBundleId(xctestBundleId!);
+      const xctestName = getXctestNameFromBundleId(XCTEST_BUNDLE_ID!);
       const testBundleURL = `file://${appPath}/PlugIns/${xctestName}.xctest`;
 
       const sessionId = 'AABBCCDD-1122-3344-5566-778899AABBCC';
@@ -175,7 +175,7 @@ describe('Testmanagerd Service', function () {
       const archived = encoder.encodeXCTestConfiguration({
         testBundleURL,
         sessionIdentifier: sessionId,
-        targetApplicationBundleID: appUnderTestBundleId!,
+        targetApplicationBundleID: APP_UNDER_TEST_BUNDLE_ID!,
         initializeForUITesting: true,
         reportResultsToIDE: true,
       });
@@ -192,7 +192,7 @@ describe('Testmanagerd Service', function () {
 
       const afcService =
         await houseArrestConnection.houseArrestService.vendContainer(
-          testRunnerBundleId!,
+          TEST_RUNNER_BUNDLE_ID!,
         );
 
       const configFileName = `Runner-${sessionId.toUpperCase()}.xctestconfiguration`;
@@ -232,27 +232,17 @@ describe('Testmanagerd Service', function () {
     let dvtConnection: DVTServiceWithConnection | null = null;
 
     after(async function () {
-      if (testmanagerdConnection) {
-        try {
-          await testmanagerdConnection.testmanagerdService.close();
-        } catch {}
-        try {
-          await testmanagerdConnection.remoteXPC.close();
-        } catch {}
-      }
-      if (dvtConnection) {
-        try {
-          await dvtConnection.dvtService.close();
-        } catch {}
-        try {
-          await dvtConnection.remoteXPC.close();
-        } catch {}
-      }
+      await safeClose(
+        testmanagerdConnection?.testmanagerdService,
+        testmanagerdConnection?.remoteXPC,
+        dvtConnection?.dvtService,
+        dvtConnection?.remoteXPC,
+      );
     });
 
     it('should connect testmanagerd + DVT, launch app via ProcessControl, and authorize PID on control session', async function () {
-      testmanagerdConnection = await Services.startTestmanagerdService(udid);
-      dvtConnection = await Services.startDVTService(udid);
+      testmanagerdConnection = await Services.startTestmanagerdService(UDID);
+      dvtConnection = await Services.startDVTService(UDID);
 
       log.debug('Connected to testmanagerd and DVT services');
 
@@ -313,12 +303,12 @@ describe('Testmanagerd Service', function () {
   });
 
   describe('Full XCTest launch flow (xcodebuild replacement)', function () {
-    const testRunnerBundleId = process.env.TEST_RUNNER_BUNDLE_ID;
-    const appUnderTestBundleId = process.env.APP_UNDER_TEST_BUNDLE_ID;
-    const xctestBundleId = process.env.XCTEST_BUNDLE_ID;
-
     before(function () {
-      if (!testRunnerBundleId || !appUnderTestBundleId || !xctestBundleId) {
+      if (
+        !TEST_RUNNER_BUNDLE_ID ||
+        !APP_UNDER_TEST_BUNDLE_ID ||
+        !XCTEST_BUNDLE_ID
+      ) {
         this.skip();
       }
     });
@@ -327,10 +317,10 @@ describe('Testmanagerd Service', function () {
       this.timeout(Number(process.env.XCTEST_MOCHA_TIMEOUT_MS || 360000));
 
       const result = await runXCTest({
-        udid,
-        testRunnerBundleId: testRunnerBundleId!,
-        appUnderTestBundleId: appUnderTestBundleId!,
-        xctestBundleId: xctestBundleId!,
+        udid: UDID,
+        testRunnerBundleId: TEST_RUNNER_BUNDLE_ID!,
+        appUnderTestBundleId: APP_UNDER_TEST_BUNDLE_ID!,
+        xctestBundleId: XCTEST_BUNDLE_ID!,
         timeoutMs: Number(process.env.XCTEST_PLAN_TIMEOUT_MS || 300000),
       });
 

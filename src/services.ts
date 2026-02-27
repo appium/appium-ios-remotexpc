@@ -317,6 +317,12 @@ export async function startTestmanagerdService(
   };
 }
 
+/** Options for {@link startXCTestServices}. */
+export interface StartXCTestServicesOptions {
+  /** Also resolve and return an InstallationProxyService for app lookup. */
+  includeInstallationProxy?: boolean;
+}
+
 /**
  * Start all services needed for an XCTest session using a single RemoteXPC
  * connection for service discovery. This avoids ECONNRESET errors caused by
@@ -328,6 +334,7 @@ export async function startTestmanagerdService(
  */
 export async function startXCTestServices(
   udid: string,
+  options?: StartXCTestServicesOptions,
 ): Promise<XCTestServices> {
   const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
   const host = tunnelConnection.host;
@@ -335,6 +342,7 @@ export async function startXCTestServices(
   // Discover all ports via single RSD lookup, then close RemoteXPC
   let testmanagerdPort: number;
   let dvtPort: number;
+  let installationProxyPort: number | undefined;
   try {
     testmanagerdPort = parseInt(
       remoteXPC.findService(DvtTestmanagedProxyService.RSD_SERVICE_NAME).port,
@@ -344,6 +352,12 @@ export async function startXCTestServices(
       remoteXPC.findService(DVTSecureSocketProxyService.RSD_SERVICE_NAME).port,
       10,
     );
+    if (options?.includeInstallationProxy) {
+      installationProxyPort = parseInt(
+        remoteXPC.findService(InstallationProxyService.RSD_SERVICE_NAME).port,
+        10,
+      );
+    }
   } finally {
     await remoteXPC.close();
   }
@@ -352,6 +366,7 @@ export async function startXCTestServices(
   let execTestmanagerd: DvtTestmanagedProxyService | null = null;
   let controlTestmanagerd: DvtTestmanagedProxyService | null = null;
   let dvtService: DVTSecureSocketProxyService | null = null;
+  let installationProxy: InstallationProxyService | undefined;
   try {
     execTestmanagerd = new DvtTestmanagedProxyService([host, testmanagerdPort]);
     await execTestmanagerd.connect();
@@ -364,7 +379,15 @@ export async function startXCTestServices(
 
     dvtService = new DVTSecureSocketProxyService([host, dvtPort]);
     await dvtService.connect();
+
+    if (installationProxyPort !== undefined) {
+      installationProxy = new InstallationProxyService([
+        host,
+        installationProxyPort,
+      ]);
+    }
   } catch (err) {
+    installationProxy?.close();
     await dvtService?.close().catch(() => {});
     await controlTestmanagerd?.close().catch(() => {});
     await execTestmanagerd?.close().catch(() => {});
@@ -373,7 +396,13 @@ export async function startXCTestServices(
 
   const processControl = new ProcessControl(dvtService);
 
-  return { execTestmanagerd, controlTestmanagerd, dvtService, processControl };
+  return {
+    execTestmanagerd,
+    controlTestmanagerd,
+    dvtService,
+    processControl,
+    installationProxy,
+  };
 }
 
 export async function createRemoteXPCConnection(udid: string) {
