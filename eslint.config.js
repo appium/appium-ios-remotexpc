@@ -1,5 +1,4 @@
 import appiumConfig from '@appium/eslint-config-appium-ts';
-import unicorn from 'eslint-plugin-unicorn';
 
 export default [
   ...appiumConfig,
@@ -8,12 +7,7 @@ export default [
     linterOptions: {
       reportUnusedDisableDirectives: 'off',
     },
-    plugins: {
-      unicorn: unicorn,
-    },
     rules: {
-      quotes: ['error', 'single'],
-      semi: ['error', 'always'],
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/member-ordering': [
         'error',
@@ -40,6 +34,5 @@ export default [
         },
       ],
     },
-    ignores: ['**/build/**', '**/node_modules/**'],
   },
 ];

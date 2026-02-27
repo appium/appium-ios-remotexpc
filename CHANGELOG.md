@@ -1,3 +1,15 @@
+## [0.30.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.29.1...v0.30.0) (2026-02-16)
+
+### Features
+
+* **syslog:** implement binary protocol parser for os_trace_relay ([#144](https://github.com/appium/appium-ios-remotexpc/issues/144)) ([5ba7470](https://github.com/appium/appium-ios-remotexpc/commit/5ba7470e975048f6bae810027f1dd8282a7c0b6f))
+
+## [0.29.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.29.0...v0.29.1) (2026-02-16)
+
+### Miscellaneous Chores
+
+* **deps-dev:** bump eslint-plugin-unicorn from 62.0.0 to 63.0.0 in the dev-dependencies group ([#145](https://github.com/appium/appium-ios-remotexpc/issues/145)) ([1c90396](https://github.com/appium/appium-ios-remotexpc/commit/1c9039662941d1cb550667529e9159f2b6ebaff0))
+
 ## [0.29.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.28.2...v0.29.0) (2026-02-11)
 
 ### Features
