@@ -152,11 +152,21 @@ export class XCUITestService {
    * @param testBundlePath Path to the test bundle on device
    */
   startExecCallbackListener(testBundlePath: string): void {
+    if (this.callbackListenerPromise) {
+      log.debug(
+        'Exec callback listener already running. Restarting with fresh configuration.',
+      );
+      this.listenerAbortController?.abort();
+      this.callbackListenerPromise.catch(() => {});
+      this.callbackListenerPromise = null;
+      this.listenerAbortController = null;
+    }
+
     this.configPayload = this.createXCTestConfiguration(testBundlePath);
     this.listenerAbortController = new AbortController();
     const { signal } = this.listenerAbortController;
 
-    this.callbackListenerPromise = (async () => {
+    const listenerPromise: Promise<void> = (async () => {
       while (!signal.aborted) {
         try {
           const result = await this.execConnection.recvPlistWithTimeout(
@@ -197,7 +207,15 @@ export class XCUITestService {
           break;
         }
       }
-    })();
+    })().finally(() => {
+      if (this.callbackListenerPromise === listenerPromise) {
+        this.callbackListenerPromise = null;
+      }
+      if (this.listenerAbortController?.signal === signal) {
+        this.listenerAbortController = null;
+      }
+    });
+    this.callbackListenerPromise = listenerPromise;
   }
 
   /**
@@ -292,6 +310,7 @@ export class XCUITestService {
       } catch {}
       this.callbackListenerPromise = null;
     }
+    this.listenerAbortController = null;
 
     try {
       await this.controlConnection.close();

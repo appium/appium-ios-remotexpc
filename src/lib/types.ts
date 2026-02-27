@@ -1825,12 +1825,6 @@ export interface TestmanagerdServiceWithConnection {
  * Unlike other *WithConnection types, there is no remoteXPC field here.
  * The RemoteXPC connection is closed internally after port discovery. Callers
  * are responsible for closing execTestmanagerd, controlTestmanagerd, and dvtService.
- *
- * To get ProcessControl, construct it from dvtService:
- * ```typescript
- * import { ProcessControl } from 'appium-ios-remotexpc';
- * const processControl = new ProcessControl(services.dvtService);
- * ```
  */
 export interface XCTestServices {
   /** Testmanagerd connection for the exec session (capabilities, test callbacks) */
@@ -1839,4 +1833,6 @@ export interface XCTestServices {
   controlTestmanagerd: TestmanagerdService;
   /** DVT service for instruments (process control, etc.) */
   dvtService: DVTSecureSocketProxyService;
+  /** ProcessControl instrument for launching/killing apps */
+  processControl: ProcessControlService;
 }

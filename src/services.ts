@@ -371,7 +371,9 @@ export async function startXCTestServices(
     throw err;
   }
 
-  return { execTestmanagerd, controlTestmanagerd, dvtService };
+  const processControl = new ProcessControl(dvtService);
+
+  return { execTestmanagerd, controlTestmanagerd, dvtService, processControl };
 }
 
 export async function createRemoteXPCConnection(udid: string) {

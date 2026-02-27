@@ -43,6 +43,8 @@ export class DvtTestmanagedProxyService extends BaseService {
   private lastChannelCode: number = 0;
   private curMessageId: number = 0;
   private lastReceivedMessageId: number = 0;
+  private readonly lastReceivedMessageIdByChannel: Map<number, number> =
+    new Map();
   private readonly channelCache: Map<string, Channel> = new Map();
   private readonly channelMessages: Map<number, ChannelFragmenter> = new Map();
   private isHandshakeComplete: boolean = false;
@@ -206,6 +208,16 @@ export class DvtTestmanagedProxyService extends BaseService {
       throw new Error('Not connected to testmanagerd service');
     }
 
+    const normalizedChannel = Math.abs(channel);
+    const replyIdentifier =
+      this.lastReceivedMessageIdByChannel.get(normalizedChannel) ??
+      this.lastReceivedMessageId;
+    if (!replyIdentifier) {
+      throw new Error(
+        `No received message ID available for channel ${channel}. Call recvPlist/recvMessage before sendReply.`,
+      );
+    }
+
     const payloadBuffer = payload ?? Buffer.alloc(0);
 
     const payloadHeader = DTXMessage.buildPayloadHeader({
@@ -220,7 +232,7 @@ export class DvtTestmanagedProxyService extends BaseService {
       fragmentId: 0,
       fragmentCount: 1,
       length: DTX_CONSTANTS.PAYLOAD_HEADER_SIZE + payloadBuffer.length,
-      identifier: this.lastReceivedMessageId,
+      identifier: replyIdentifier,
       conversationIndex: 1,
       channelCode: channel,
       expectsReply: 0,
@@ -353,15 +365,27 @@ export class DvtTestmanagedProxyService extends BaseService {
         args.appendInt(code);
       }
 
-      try {
-        await this.sendMessage(
-          DvtTestmanagedProxyService.BROADCAST_CHANNEL,
-          '_channelCanceled:',
-          args,
-          false,
+      if (this.socket?.destroyed || !this.socket?.writable) {
+        log.debug(
+          'Skipping _channelCanceled_ message because socket is already closed',
         );
-      } catch (error) {
-        log.debug('Error sending channel canceled message:', error);
+      } else {
+        try {
+          await this.sendMessage(
+            DvtTestmanagedProxyService.BROADCAST_CHANNEL,
+            '_channelCanceled:',
+            args,
+            false,
+          );
+        } catch (error) {
+          if (this.isExpectedCloseError(error)) {
+            log.debug(
+              'Ignoring expected socket-close error while sending _channelCanceled_',
+            );
+          } else {
+            log.debug('Error sending channel canceled message:', error);
+          }
+        }
       }
     }
 
@@ -371,6 +395,7 @@ export class DvtTestmanagedProxyService extends BaseService {
     this.isHandshakeComplete = false;
     this.channelCache.clear();
     this.channelMessages.clear();
+    this.lastReceivedMessageIdByChannel.clear();
     this.channelMessages.set(
       DvtTestmanagedProxyService.BROADCAST_CHANNEL,
       new ChannelFragmenter(),
@@ -492,6 +517,10 @@ export class DvtTestmanagedProxyService extends BaseService {
         this.curMessageId = header.identifier;
       }
       this.lastReceivedMessageId = header.identifier;
+      this.lastReceivedMessageIdByChannel.set(
+        receivedChannel,
+        header.identifier,
+      );
 
       if (header.fragmentCount > 1 && header.fragmentId === 0) {
         continue;
@@ -585,6 +614,23 @@ export class DvtTestmanagedProxyService extends BaseService {
     if (hasNSErrorIndicators(response)) {
       throw new Error(`${context}: ${JSON.stringify(response)}`);
     }
+  }
+
+  private isExpectedCloseError(error: unknown): boolean {
+    if (!error || typeof error !== 'object') {
+      return false;
+    }
+    const err = error as Partial<Error> & { code?: string };
+    if (err.code === 'EPIPE' || err.code === 'ECONNRESET') {
+      return true;
+    }
+    const message = (err.message ?? '').toLowerCase();
+    return (
+      message.includes('write after fin') ||
+      message.includes('write after end') ||
+      message.includes('socket has been ended by the other party') ||
+      message.includes('socket closed')
+    );
   }
 
   private archiveValue(value: any): Buffer {
