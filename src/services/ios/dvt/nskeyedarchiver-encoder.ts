@@ -62,15 +62,8 @@ export class NSKeyedArchiverEncoder {
     } else if (Array.isArray(value)) {
       index = this.archiveArray(value);
     } else if (typeof value === 'object') {
-      // Check for marker types used by testmanagerd protocol
-      if (value.__type === 'NSUUID') {
-        index = this.archiveNSUUID(value.uuid);
-      } else if (value.__type === 'XCTCapabilities') {
-        index = this.archiveXCTCapabilities(value.capabilities ?? {});
-      } else {
-        // Treat generic objects as dictionaries
-        index = this.archiveDictionary(value);
-      }
+      // Treat generic objects as dictionaries
+      index = this.archiveDictionary(value);
     } else {
       // Fallback (e.g. symbols, functions) — encode as $null to avoid breaking pipelines
       log.warn(
@@ -78,36 +71,6 @@ export class NSKeyedArchiverEncoder {
       );
       return 0;
     }
-
-    return index;
-  }
-
-  protected archiveNSUUID(uuidString: string): number {
-    const index = this.objects.length;
-    this.objects.push(null); // Placeholder
-
-    const uuidBytes = Buffer.from(uuidString.replace(/-/g, ''), 'hex');
-    const classUid = this.getClassUid('NSUUID', 'NSObject');
-
-    this.objects[index] = {
-      'NS.uuidbytes': uuidBytes,
-      $class: new PlistUID(classUid),
-    };
-
-    return index;
-  }
-
-  protected archiveXCTCapabilities(capabilities: Record<string, any>): number {
-    const index = this.objects.length;
-    this.objects.push(null); // Placeholder
-
-    const dictIndex = this.archiveDictionary(capabilities);
-    const classUid = this.getClassUid('XCTCapabilities', 'NSObject');
-
-    this.objects[index] = {
-      'capabilities-dictionary': new PlistUID(dictIndex),
-      $class: new PlistUID(classUid),
-    };
 
     return index;
   }

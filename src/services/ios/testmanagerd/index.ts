@@ -12,7 +12,6 @@ import { ChannelFragmenter } from '../dvt/channel-fragmenter.js';
 import { Channel } from '../dvt/channel.js';
 import { DTXMessage, DTX_CONSTANTS, MessageAux } from '../dvt/dtx-message.js';
 import { decodeNSKeyedArchiver } from '../dvt/nskeyedarchiver-decoder.js';
-import { NSKeyedArchiverEncoder } from '../dvt/nskeyedarchiver-encoder.js';
 import {
   extractCapabilityStrings,
   extractNSDictionary,
@@ -20,6 +19,7 @@ import {
   hasNSErrorIndicators,
   isNSDictionaryFormat,
 } from '../dvt/utils.js';
+import { TestmanagerdEncoder } from './testmanagerd-encoder.js';
 
 const log = getLogger('DvtTestmanagedProxyService');
 
@@ -634,7 +634,7 @@ export class DvtTestmanagedProxyService extends BaseService {
   }
 
   private archiveValue(value: any): Buffer {
-    const encoder = new NSKeyedArchiverEncoder();
+    const encoder = new TestmanagerdEncoder();
     const archived = encoder.encode(value);
     return createBinaryPlist(archived);
   }
