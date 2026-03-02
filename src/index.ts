@@ -71,6 +71,8 @@ export type {
   ProcessControlService,
   ProcessLaunchOptions,
   OutputReceivedEvent,
+  TestmanagerdService,
+  TestmanagerdServiceWithConnection,
 } from './lib/types.js';
 export { PowerAssertionType } from './lib/types.js';
 export { NetworkMessageType } from './services/ios/dvt/instruments/network-monitor.js';
