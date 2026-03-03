@@ -1,6 +1,7 @@
-import { Transform, type TransformCallback } from 'stream';
+import { Transform, type TransformCallback } from 'node:stream';
 
 import { getLogger } from '../logger.js';
+import { isBinaryPlist } from './binary-plist-parser.js';
 import { UTF8_ENCODING } from './constants.js';
 import { parsePlist } from './unified-plist-parser.js';
 import {
@@ -36,6 +37,25 @@ export class PlistServiceDecoder extends Transform {
         return callback();
       }
 
+      // Check if this is a binary plist BEFORE converting to string
+      // This prevents corrupting binary data with UTF-8 conversion
+      if (isBinaryPlist(plistData)) {
+        log.debug('Detected binary plist format, parsing directly');
+        try {
+          this._parseAndProcess(plistData, callback);
+        } catch (error) {
+          log.error(
+            `Failed to parse binary plist: ${error instanceof Error ? error.message : String(error)}`,
+          );
+          // Log first few bytes for debugging
+          const preview = plistData.slice(0, 32).toString('hex');
+          log.debug(`Binary plist preview (hex): ${preview}`);
+          callback(error as Error);
+        }
+        return;
+      }
+
+      // Only convert to string if it's not a binary plist (i.e., it's XML)
       // Check if this is XML data with potential binary header and trim content before XML declaration
       const dataStr = plistData.toString(
         UTF8_ENCODING,
@@ -54,7 +74,6 @@ export class PlistServiceDecoder extends Transform {
 
       // Check for multiple XML declarations which can cause parsing errors
       const fullDataStr = ensureString(plistData);
-
       // Check for potential corruption indicators and handle them
       if (hasUnicodeReplacementCharacter(plistData)) {
         log.debug(
@@ -127,6 +146,15 @@ export class PlistServiceDecoder extends Transform {
     // Store the result in the static property for later access
     if (typeof result === 'object' && result !== null) {
       PlistServiceDecoder.lastDecodedResult = result;
+
+      // Log parsed result for debugging
+      if (result.__selector) {
+        log.debug(`Parsed plist with selector: ${result.__selector}`);
+      } else {
+        log.debug(
+          `Parsed plist without selector. Keys: ${Object.keys(result).join(', ')}`,
+        );
+      }
     }
 
     this.push(result);

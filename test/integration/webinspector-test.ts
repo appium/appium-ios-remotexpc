@@ -65,7 +65,7 @@ describe('WebInspectorService', function () {
     expect(messages[0]).to.have.property('__selector');
     expect(messages[0]).to.have.property('__argument');
 
-    service.stopListening();
+    await service.stopListening();
     await listenTask;
   });
 
@@ -139,7 +139,7 @@ describe('WebInspectorService', function () {
         await new Promise((resolve) => setTimeout(resolve, 1000));
       }
 
-      service.stopListening();
+      await service.stopListening();
       await listenTask;
 
       if (!foundSafari || !realAppId || !realPageId) {
@@ -164,11 +164,15 @@ describe('WebInspectorService', function () {
         }
       })();
 
-      await service.forwardSocketSetup(sessionId, realAppId, realPageId, false);
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      // Give the listener time to initialize
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
+      await service.forwardSocketSetup(sessionId, realAppId, realPageId, false);
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+
+      log.info(messages);
       expect(messages.length).to.be.greaterThan(0);
-      service.stopListening();
+      await service.stopListening();
       await listenTask;
     });
 
@@ -209,13 +213,25 @@ describe('WebInspectorService', function () {
 
       // Setup socket
       await service.forwardSocketSetup(sessionId, realAppId, realPageId, false);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 3000));
 
-      // Get target ID
-      const targetEvent = cdpResponses.find(
-        (msg) => msg.method === 'Target.targetCreated',
-      );
+      // Get target ID - wait for it with polling
+      let targetEvent: any = null;
+      for (let i = 0; i < 10; i++) {
+        targetEvent = cdpResponses.find(
+          (msg) => msg.method === 'Target.targetCreated',
+        );
+        if (targetEvent) {
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+
       if (!targetEvent) {
+        log.error(
+          'CDP responses received:',
+          JSON.stringify(cdpResponses, null, 2),
+        );
         throw new Error('Target.targetCreated event not received');
       }
 
@@ -236,7 +252,7 @@ describe('WebInspectorService', function () {
         },
       });
 
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
       // Parse nested responses
       const dispatchMessages = cdpResponses.filter(
@@ -249,7 +265,7 @@ describe('WebInspectorService', function () {
       expect(nestedResponse.result).to.exist;
       expect(nestedResponse.result.result.value).to.equal(2);
 
-      service.stopListening();
+      await service.stopListening();
       await listenTask;
     });
 
@@ -267,12 +283,13 @@ describe('WebInspectorService', function () {
         }
       })();
 
+      log.info(messages);
       await service.forwardIndicateWebView(realAppId, realPageId, true);
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await service.forwardIndicateWebView(realAppId, realPageId, false);
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      service.stopListening();
+      await service.stopListening();
       await listenTask;
     });
   });
@@ -292,7 +309,7 @@ describe('WebInspectorService', function () {
     );
 
     await new Promise((resolve) => setTimeout(resolve, 1000));
-    service.stopListening();
+    await service.stopListening();
     await listenTask;
   });
 
@@ -309,7 +326,7 @@ describe('WebInspectorService', function () {
     await new Promise((resolve) => setTimeout(resolve, 500));
     const firstCount = count;
 
-    service.stopListening();
+    await service.stopListening();
     await listenTask;
 
     await service.getConnectedApplications();
@@ -328,7 +345,7 @@ describe('WebInspectorService', function () {
     await new Promise((resolve) => setTimeout(resolve, 500));
 
     expect(count).to.be.greaterThan(firstCount);
-    service.stopListening();
+    await service.stopListening();
     await listenTask;
   });
 });

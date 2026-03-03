@@ -1,5 +1,5 @@
-import { randomUUID } from 'crypto';
-import { EventEmitter } from 'events';
+import { randomUUID } from 'node:crypto';
+import { EventEmitter } from 'node:events';
 
 import { getLogger } from '../../../lib/logger.js';
 import type { PlistDictionary, PlistMessage } from '../../../lib/types.js';
@@ -42,6 +42,13 @@ export class WebInspectorService extends BaseService {
     '_rpc_forwardIndicateWebView:';
 
   private connection: ServiceConnection | null = null;
+  /**
+   * Promise-based lock that prevents concurrent connection establishment.
+   * This ensures only one TCP connection is ever created, even when
+   * `connectToWebInspectorService()` is called concurrently by the background
+   * message listener task and by `setConnectionKey()`.
+   */
+  private _connectionPromise: Promise<ServiceConnection> | null = null;
   private messageEmitter: EventEmitter = new EventEmitter();
   private isReceiving: boolean = false;
   private readonly connectionId: string;
@@ -146,25 +153,33 @@ export class WebInspectorService extends BaseService {
   /**
    * Stop listening to messages
    */
-  stopListening(): void {
+  async stopListening(): Promise<void> {
     this.isReceiving = false;
     this.messageEmitter.emit('stop');
+
+    // Wait for the background receiver to finish
+    if (this.receivePromise) {
+      await this.receivePromise;
+      this.receivePromise = null;
+    }
+
+    // Remove all listeners to prevent memory leaks and ensure clean restart
+    this.messageEmitter.removeAllListeners('message');
+    this.messageEmitter.removeAllListeners('stop');
   }
 
   /**
    * Close the connection and clean up resources
    */
   async close(): Promise<void> {
-    this.stopListening();
+    await this.stopListening();
+
+    this._connectionPromise = null;
 
     if (this.connection) {
       await this.connection.close();
       this.connection = null;
       log.debug('WebInspector connection closed');
-    }
-
-    if (this.receivePromise) {
-      await this.receivePromise;
     }
   }
 
@@ -308,34 +323,76 @@ export class WebInspectorService extends BaseService {
   }
 
   /**
-   * Connect to the WebInspector service
+   * Connect to the WebInspector service.
+   *
+   * Uses a promise-based lock (_connectionPromise) to ensure that concurrent
+   * callers (e.g. the background message listener task and setConnectionKey())
+   * share the same connection setup work. Without this lock a race condition
+   * causes two TCP sockets to be opened, the second overwriting the first, and
+   * ultimately messages from the device arriving on the orphaned socket are
+   * never forwarded to the message handler.
+   *
    * @returns Promise resolving to the ServiceConnection instance
    */
-  private async connectToWebInspectorService(): Promise<ServiceConnection> {
+  private connectToWebInspectorService(): Promise<ServiceConnection> {
+    // Fast path: already connected
     if (this.connection) {
-      return this.connection;
+      return Promise.resolve(this.connection);
     }
 
+    // Slow path: serialise concurrent callers behind a single promise so only
+    // one TCP connection is ever created.
+    if (!this._connectionPromise) {
+      this._connectionPromise = this._doConnect();
+    }
+    return this._connectionPromise;
+  }
+
+  /**
+   * Performs the actual connection setup. Should only be called once; all
+   * subsequent callers should await the cached _connectionPromise.
+   */
+  private async _doConnect(): Promise<ServiceConnection> {
     const service = {
       serviceName: WebInspectorService.RSD_SERVICE_NAME,
       port: this.address[1].toString(),
     };
 
-    this.connection = await this.startLockdownService(service);
+    try {
+      const connection = await this.startLockdownService(service);
+      this.connection = connection;
 
-    // Consume the StartService response from RSDCheckin
-    const startServiceResponse = await this.connection.receive();
-    if (startServiceResponse?.Request !== 'StartService') {
-      log.warn(
-        `Expected StartService response, got: ${JSON.stringify(startServiceResponse)}`,
-      );
+      // Some iOS versions send an extra response (e.g. {Request: "StartService"})
+      // immediately after the RSDCheckin handshake and before the first real
+      // WebInspector message.  Consume it here so it does not reach the message
+      // handler as an "invalid plist".  If nothing arrives within 500 ms (common
+      // on iOS 26+) we simply continue.
+      try {
+        const extra = await connection.receive(500);
+        if (extra) {
+          log.debug(
+            `Consumed post-checkin response during connection setup: ${JSON.stringify(extra)}`,
+          );
+        }
+      } catch {
+        // Timeout is normal when the device does not send a post-checkin
+        // response (e.g. iOS 26+).  Silently ignore.
+      }
+
+      // Send the initial connection identifier.
+      // NOTE: setConnectionKey() in the remote-debugger connect mixin also
+      // sends _rpc_reportIdentifier:.  Sending it here as well is intentional:
+      // it is the established handshake sequence for the shim protocol.
+      await this.sendMessage(WebInspectorService.RPC_REPORT_IDENTIFIER, {});
+
+      log.debug('Connected to WebInspector service');
+      return connection;
+    } catch (err) {
+      // Reset on failure so that the next call will try again.
+      this._connectionPromise = null;
+      this.connection = null;
+      throw err;
     }
-
-    // Send initial identifier report
-    await this.sendMessage(WebInspectorService.RPC_REPORT_IDENTIFIER, {});
-
-    log.debug('Connected to WebInspector service');
-    return this.connection;
   }
 
   /**
@@ -352,16 +409,34 @@ export class WebInspectorService extends BaseService {
       try {
         while (this.isReceiving && this.connection) {
           try {
-            const message = await this.connection.receive();
+            // Use a shorter timeout to be more responsive to shutdown
+            const message = await this.connection.receive(1000);
             this.messageEmitter.emit('message', message);
           } catch (error) {
-            if (this.isReceiving) {
-              log.error('Error receiving message:', error);
-              this.messageEmitter.emit('error', error);
+            // Check if we're still receiving - if not, exit quietly
+            if (!this.isReceiving) {
+              log.debug('Message receiver stopped during receive operation');
+              break;
             }
+
+            // Check if it's a timeout error (expected when no messages are arriving)
+            const errorMessage =
+              error instanceof Error ? error.message : String(error);
+            if (errorMessage.includes('Timed out waiting for plist response')) {
+              // This is normal - just continue waiting for more messages
+              log.debug(
+                'No messages received in the last second, continuing to listen...',
+              );
+              continue;
+            }
+
+            // For other errors, log and exit
+            log.error('Error receiving message:', error);
+            this.messageEmitter.emit('error', error);
             break;
           }
         }
+        log.debug('Message receiver loop exited cleanly');
       } finally {
         this.isReceiving = false;
       }
