@@ -350,8 +350,7 @@ export class WebInspectorService extends BaseService {
       this.connection = connection;
 
       // Consume the StartService response from RSDCheckin so it does not reach the message
-      // handler as an "invalid plist".  If nothing arrives within 500 ms (common
-      // on iOS 26+) we simply continue.
+      // handler as an "invalid plist". Continue if nothing is received within 500ms.
       try {
         const extra = await connection.receive(500);
         if (extra) {
@@ -364,7 +363,7 @@ export class WebInspectorService extends BaseService {
       }
 
       // Send the initial connection identifier.
-      // NOTE: setConnectionKey() in the remote-debugger connect mixin also
+      // NOTE: setConnectionKey() in the appium-remote-debugger connect mixin also
       // sends _rpc_reportIdentifier:.  Sending it here as well is intentional:
       // it is the established handshake sequence for the shim protocol.
       await this.sendMessage(WebInspectorService.RPC_REPORT_IDENTIFIER, {});
