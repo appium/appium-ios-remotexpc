@@ -12,7 +12,7 @@ describe('WebInspectorService', function () {
 
   let service: WebInspectorService;
   let remoteXPC: any;
-  const udid = process.env.UDID || '00008030-000318693E32402E';
+  const udid = process.env.UDID || '';
   const sessionId = 'test-session-' + Date.now();
   let realAppId: string | null = null;
   let realPageId: number | null = null;

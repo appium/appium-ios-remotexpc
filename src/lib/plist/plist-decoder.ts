@@ -36,7 +36,6 @@ export class PlistServiceDecoder extends Transform {
         return callback();
       }
 
-      // Only convert to string if it's not a binary plist (i.e., it's XML)
       // Check if this is XML data with potential binary header and trim content before XML declaration
       const dataStr = plistData.toString(
         UTF8_ENCODING,
@@ -55,6 +54,7 @@ export class PlistServiceDecoder extends Transform {
 
       // Check for multiple XML declarations which can cause parsing errors
       const fullDataStr = ensureString(plistData);
+
       // Check for potential corruption indicators and handle them
       if (hasUnicodeReplacementCharacter(plistData)) {
         log.debug(

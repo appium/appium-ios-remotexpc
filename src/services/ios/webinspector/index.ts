@@ -18,8 +18,8 @@ export interface WebInspectorMessage extends PlistDictionary {
 
 /**
  * WebInspectorService provides an API to:
- * - Send messages to webinspectord
- * - Listen to messages from webinspectord
+ * - Send messages to webinspector
+ * - Listen to messages from webinspector
  * - Communicate with web views and Safari on iOS devices
  *
  * This service is used for web automation, inspection, and debugging.
@@ -318,7 +318,6 @@ export class WebInspectorService extends BaseService {
 
   /**
    * Connect to the WebInspector service.
-   *
    * @returns Promise resolving to the ServiceConnection instance
    */
   private connectToWebInspectorService(): Promise<ServiceConnection> {
