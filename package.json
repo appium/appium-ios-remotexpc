@@ -1,6 +1,6 @@
 {
   "name": "appium-ios-remotexpc",
-  "version": "0.28.1",
+  "version": "0.30.0",
   "main": "build/src/index.js",
   "types": "build/src/index.d.ts",
   "type": "module",
@@ -53,6 +53,7 @@
     "test:dvt:applist": "mocha test/integration/dvt_instruments/app-listing-test.ts --exit --timeout 1m",
     "test:dvt:notification": "mocha test/integration/dvt_instruments/notifications-test.ts --exit --timeout 1m",
     "test:dvt:network-monitor": "mocha test/integration/dvt_instruments/network-monitor-test.ts --exit --timeout 1m",
+    "test:dvt:process-control": "mocha test/integration/process-control-test.ts --exit --timeout 1m",
     "test:tunnel-creation": "sudo tsx scripts/test-tunnel-creation.ts",
     "test:tunnel-creation:lsof": "sudo tsx scripts/test-tunnel-creation.ts --keep-open"
   },
@@ -80,7 +81,6 @@
     "chai": "^6.0.1",
     "chai-as-promised": "^8.0.1",
     "conventional-changelog-conventionalcommits": "^9.1.0",
-    "eslint-plugin-unicorn": "^62.0.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "mocha": "^11.1.0",

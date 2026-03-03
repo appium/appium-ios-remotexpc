@@ -17,6 +17,11 @@ export type { Device as UsbmuxDevice } from './lib/usbmux/index.js';
 export type { RemoteXpcConnection } from './lib/remote-xpc/remote-xpc-connection.js';
 export type { AfcService } from './services/ios/afc/index.js';
 export type { InstallationProxyService } from './services/ios/installation-proxy/index.js';
+export type {
+  SyslogEntry,
+  SyslogLabel,
+  SyslogLogLevel,
+} from './services/ios/syslog-service/syslog-entry-parser.js';
 
 export type {
   CrashReportsService,
@@ -63,6 +68,9 @@ export type {
   ConnectionDetectionEvent,
   ConnectionUpdateEvent,
   NetworkEvent,
+  ProcessControlService,
+  ProcessLaunchOptions,
+  OutputReceivedEvent,
 } from './lib/types.js';
 export { PowerAssertionType } from './lib/types.js';
 export { NetworkMessageType } from './services/ios/dvt/instruments/network-monitor.js';

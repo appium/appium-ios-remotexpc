@@ -1,3 +1,28 @@
+## [0.30.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.29.1...v0.30.0) (2026-02-16)
+
+### Features
+
+* **syslog:** implement binary protocol parser for os_trace_relay ([#144](https://github.com/appium/appium-ios-remotexpc/issues/144)) ([5ba7470](https://github.com/appium/appium-ios-remotexpc/commit/5ba7470e975048f6bae810027f1dd8282a7c0b6f))
+
+## [0.29.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.29.0...v0.29.1) (2026-02-16)
+
+### Miscellaneous Chores
+
+* **deps-dev:** bump eslint-plugin-unicorn from 62.0.0 to 63.0.0 in the dev-dependencies group ([#145](https://github.com/appium/appium-ios-remotexpc/issues/145)) ([1c90396](https://github.com/appium/appium-ios-remotexpc/commit/1c9039662941d1cb550667529e9159f2b6ebaff0))
+
+## [0.29.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.28.2...v0.29.0) (2026-02-11)
+
+### Features
+
+* **dvt:** add ProcessControl instrument for process management ([#136](https://github.com/appium/appium-ios-remotexpc/issues/136)) ([b74a225](https://github.com/appium/appium-ios-remotexpc/commit/b74a2257ab137ccc61c74aa5d6828061d87e95ef))
+
+## [0.28.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.28.1...v0.28.2) (2026-02-10)
+
+### Miscellaneous Chores
+
+* **deps:** bump actions/checkout from 6.0.1 to 6.0.2 ([#139](https://github.com/appium/appium-ios-remotexpc/issues/139)) ([953ca88](https://github.com/appium/appium-ios-remotexpc/commit/953ca88e72fe3b3765ffbece8cb1a5292e68fe46))
+* **deps:** bump actions/setup-node from 6.1.0 to 6.2.0 ([#140](https://github.com/appium/appium-ios-remotexpc/issues/140)) ([54dbc01](https://github.com/appium/appium-ios-remotexpc/commit/54dbc01b8fabab6ccd7452ec274e97dc881498dc))
+
 ## [0.28.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.28.0...v0.28.1) (2026-02-03)
 
 ### Miscellaneous Chores
