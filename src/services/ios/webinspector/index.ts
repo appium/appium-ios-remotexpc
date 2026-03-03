@@ -42,12 +42,6 @@ export class WebInspectorService extends BaseService {
     '_rpc_forwardIndicateWebView:';
 
   private connection: ServiceConnection | null = null;
-  /**
-   * Promise-based lock that prevents concurrent connection establishment.
-   * This ensures only one TCP connection is ever created, even when
-   * `connectToWebInspectorService()` is called concurrently by the background
-   * message listener task and by `setConnectionKey()`.
-   */
   private _connectionPromise: Promise<ServiceConnection> | null = null;
   private messageEmitter: EventEmitter = new EventEmitter();
   private isReceiving: boolean = false;
@@ -325,13 +319,6 @@ export class WebInspectorService extends BaseService {
   /**
    * Connect to the WebInspector service.
    *
-   * Uses a promise-based lock (_connectionPromise) to ensure that concurrent
-   * callers (e.g. the background message listener task and setConnectionKey())
-   * share the same connection setup work. Without this lock a race condition
-   * causes two TCP sockets to be opened, the second overwriting the first, and
-   * ultimately messages from the device arriving on the orphaned socket are
-   * never forwarded to the message handler.
-   *
    * @returns Promise resolving to the ServiceConnection instance
    */
   private connectToWebInspectorService(): Promise<ServiceConnection> {
@@ -340,7 +327,7 @@ export class WebInspectorService extends BaseService {
       return Promise.resolve(this.connection);
     }
 
-    // Slow path: serialise concurrent callers behind a single promise so only
+    // Slow path: serialize concurrent callers behind a single promise so only
     // one TCP connection is ever created.
     if (!this._connectionPromise) {
       this._connectionPromise = this._doConnect();
@@ -362,9 +349,7 @@ export class WebInspectorService extends BaseService {
       const connection = await this.startLockdownService(service);
       this.connection = connection;
 
-      // Some iOS versions send an extra response (e.g. {Request: "StartService"})
-      // immediately after the RSDCheckin handshake and before the first real
-      // WebInspector message.  Consume it here so it does not reach the message
+      // Consume the StartService response from RSDCheckin so it does not reach the message
       // handler as an "invalid plist".  If nothing arrives within 500 ms (common
       // on iOS 26+) we simply continue.
       try {
@@ -375,8 +360,7 @@ export class WebInspectorService extends BaseService {
           );
         }
       } catch {
-        // Timeout is normal when the device does not send a post-checkin
-        // response (e.g. iOS 26+).  Silently ignore.
+        // Timeout is normal when the device does not send a post-checkin response
       }
 
       // Send the initial connection identifier.
@@ -409,11 +393,9 @@ export class WebInspectorService extends BaseService {
       try {
         while (this.isReceiving && this.connection) {
           try {
-            // Use a shorter timeout to be more responsive to shutdown
             const message = await this.connection.receive(1000);
             this.messageEmitter.emit('message', message);
           } catch (error) {
-            // Check if we're still receiving - if not, exit quietly
             if (!this.isReceiving) {
               log.debug('Message receiver stopped during receive operation');
               break;
@@ -423,7 +405,7 @@ export class WebInspectorService extends BaseService {
             const errorMessage =
               error instanceof Error ? error.message : String(error);
             if (errorMessage.includes('Timed out waiting for plist response')) {
-              // This is normal - just continue waiting for more messages
+              // Normal - just continue waiting for more messages
               log.debug(
                 'No messages received in the last second, continuing to listen...',
               );

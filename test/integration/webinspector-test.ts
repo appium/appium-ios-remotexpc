@@ -12,7 +12,7 @@ describe('WebInspectorService', function () {
 
   let service: WebInspectorService;
   let remoteXPC: any;
-  const udid = process.env.UDID || '';
+  const udid = process.env.UDID || '00008030-000318693E32402E';
   const sessionId = 'test-session-' + Date.now();
   let realAppId: string | null = null;
   let realPageId: number | null = null;
@@ -215,17 +215,10 @@ describe('WebInspectorService', function () {
       await service.forwardSocketSetup(sessionId, realAppId, realPageId, false);
       await new Promise((resolve) => setTimeout(resolve, 3000));
 
-      // Get target ID - wait for it with polling
-      let targetEvent: any = null;
-      for (let i = 0; i < 10; i++) {
-        targetEvent = cdpResponses.find(
-          (msg) => msg.method === 'Target.targetCreated',
-        );
-        if (targetEvent) {
-          break;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 500));
-      }
+      // Get target ID
+      const targetEvent = cdpResponses.find(
+        (msg) => msg.method === 'Target.targetCreated',
+      );
 
       if (!targetEvent) {
         log.error(
