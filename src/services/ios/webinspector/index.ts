@@ -160,10 +160,15 @@ export class WebInspectorService extends BaseService {
     this.isReceiving = false;
     this.messageEmitter.emit('stop');
 
-    // Wait for the background receiver to finish
-    if (this.receivePromise) {
-      await this.receivePromise;
-      this.receivePromise = null;
+    try {
+      // Wait for the background receiver to finish
+      if (this.receivePromise) {
+        await this.receivePromise;
+        this.receivePromise = null;
+      }
+    } catch (e) {
+      log.error('Error while stopping message receiver:', e);
+      return;
     }
 
     // Remove all listeners to prevent memory leaks and ensure clean restart

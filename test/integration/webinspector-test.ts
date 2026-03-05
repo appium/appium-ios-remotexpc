@@ -65,7 +65,7 @@ describe('WebInspectorService', function () {
     expect(messages[0]).to.have.property('__selector');
     expect(messages[0]).to.have.property('__argument');
 
-    await service.stopListening();
+    await service.stopListeningAsync();
     await listenTask;
   });
 
@@ -139,7 +139,7 @@ describe('WebInspectorService', function () {
         await new Promise((resolve) => setTimeout(resolve, 1000));
       }
 
-      await service.stopListening();
+      await service.stopListeningAsync();
       await listenTask;
 
       if (!foundSafari || !realAppId || !realPageId) {
@@ -172,7 +172,7 @@ describe('WebInspectorService', function () {
 
       log.info(messages);
       expect(messages.length).to.be.greaterThan(0);
-      await service.stopListening();
+      await service.stopListeningAsync();
       await listenTask;
     });
 
