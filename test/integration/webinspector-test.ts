@@ -258,7 +258,7 @@ describe('WebInspectorService', function () {
       expect(nestedResponse.result).to.exist;
       expect(nestedResponse.result.result.value).to.equal(2);
 
-      await service.stopListening();
+      await service.stopListeningAsync();
       await listenTask;
     });
 
@@ -282,7 +282,7 @@ describe('WebInspectorService', function () {
       await service.forwardIndicateWebView(realAppId, realPageId, false);
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      await service.stopListening();
+      await service.stopListeningAsync();
       await listenTask;
     });
   });
@@ -302,7 +302,7 @@ describe('WebInspectorService', function () {
     );
 
     await new Promise((resolve) => setTimeout(resolve, 1000));
-    await service.stopListening();
+    await service.stopListeningAsync();
     await listenTask;
   });
 
@@ -319,7 +319,7 @@ describe('WebInspectorService', function () {
     await new Promise((resolve) => setTimeout(resolve, 500));
     const firstCount = count;
 
-    await service.stopListening();
+    await service.stopListeningAsync();
     await listenTask;
 
     await service.getConnectedApplications();
@@ -338,7 +338,7 @@ describe('WebInspectorService', function () {
     await new Promise((resolve) => setTimeout(resolve, 500));
 
     expect(count).to.be.greaterThan(firstCount);
-    await service.stopListening();
+    await service.stopListeningAsync();
     await listenTask;
   });
 });

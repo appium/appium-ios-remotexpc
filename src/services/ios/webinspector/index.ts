@@ -146,8 +146,17 @@ export class WebInspectorService extends BaseService {
 
   /**
    * Stop listening to messages
+   * @Deprecated Use stopListeningAsync() instead for connecting with multiple connections
    */
-  async stopListening(): Promise<void> {
+  stopListening(): void {
+    this.isReceiving = false;
+    this.messageEmitter.emit('stop');
+  }
+
+  /**
+   * Stop listening to messages
+   */
+  async stopListeningAsync(): Promise<void> {
     this.isReceiving = false;
     this.messageEmitter.emit('stop');
 
@@ -166,7 +175,7 @@ export class WebInspectorService extends BaseService {
    * Close the connection and clean up resources
    */
   async close(): Promise<void> {
-    await this.stopListening();
+    await this.stopListeningAsync();
 
     this._connectionPromise = null;
 
@@ -320,7 +329,7 @@ export class WebInspectorService extends BaseService {
    * Connect to the WebInspector service.
    * @returns Promise resolving to the ServiceConnection instance
    */
-  private connectToWebInspectorService(): Promise<ServiceConnection> {
+  private async connectToWebInspectorService(): Promise<ServiceConnection> {
     // Fast path: already connected
     if (this.connection) {
       return Promise.resolve(this.connection);
@@ -391,7 +400,7 @@ export class WebInspectorService extends BaseService {
       try {
         while (this.isReceiving && this.connection) {
           try {
-            const message = await this.connection.receive(1000);
+            const message = await this.connection.receive();
             this.messageEmitter.emit('message', message);
           } catch (error) {
             if (!this.isReceiving) {
