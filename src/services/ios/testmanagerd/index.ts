@@ -21,8 +21,6 @@ import {
 } from '../dvt/utils.js';
 import { TestmanagerdEncoder } from './testmanagerd-encoder.js';
 
-export { Channel, ChannelFragmenter, DTXMessage, DTX_CONSTANTS, MessageAux };
-
 const log = getLogger('DvtTestmanagedProxyService');
 
 const MIN_ERROR_DESCRIPTION_LENGTH = 20;
