@@ -68,11 +68,7 @@ export class DVTSecureSocketProxyService extends BaseService {
     // DVT uses DTX binary protocol, connect without plist-based RSDCheckin
     this.connection = await this.startLockdownWithoutCheckin(service);
     this.socket = this.connection.getSocket();
-
-    // Remove SSL context if present for raw DTX communication
-    if ('_sslobj' in this.socket) {
-      (this.socket as any)._sslobj = null;
-    }
+    this.stripSSL(this.socket);
 
     await this.performHandshake();
   }

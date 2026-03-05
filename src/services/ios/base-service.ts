@@ -75,6 +75,16 @@ export class BaseService {
       throw error;
     }
   }
+
+  /**
+   * Remove any SSL wrapper from the socket so raw binary protocols (DTX)
+   * can read/write directly. Both DVT and testmanagerd services require this.
+   */
+  protected stripSSL(socket: import('net').Socket): void {
+    if ('_sslobj' in socket) {
+      (socket as any)._sslobj = null;
+    }
+  }
 }
 
 export default BaseService;
