@@ -42,7 +42,7 @@ export class WebInspectorService extends BaseService {
     '_rpc_forwardIndicateWebView:';
 
   private connection: ServiceConnection | null = null;
-  private _connectionPromise: Promise<ServiceConnection> | null = null;
+  private connectionPromise: Promise<ServiceConnection> | null = null;
   private messageEmitter: EventEmitter = new EventEmitter();
   private isReceiving: boolean = false;
   private readonly connectionId: string;
@@ -146,7 +146,7 @@ export class WebInspectorService extends BaseService {
 
   /**
    * Stop listening to messages
-   * @Deprecated Use stopListeningAsync() instead for connecting with multiple connections
+   * @deprecated Use stopListeningAsync() instead for connecting with multiple connections
    */
   stopListening(): void {
     this.isReceiving = false;
@@ -167,8 +167,8 @@ export class WebInspectorService extends BaseService {
         this.receivePromise = null;
       }
     } catch (e) {
-      log.error('Error while stopping message receiver:', e);
-      return;
+      log.warn('Error while stopping message receiver:', e);
+      this.receivePromise = null;
     }
 
     // Remove all listeners to prevent memory leaks and ensure clean restart
@@ -182,7 +182,7 @@ export class WebInspectorService extends BaseService {
   async close(): Promise<void> {
     await this.stopListeningAsync();
 
-    this._connectionPromise = null;
+    this.connectionPromise = null;
 
     if (this.connection) {
       await this.connection.close();
@@ -342,15 +342,15 @@ export class WebInspectorService extends BaseService {
 
     // Slow path: serialize concurrent callers behind a single promise so only
     // one TCP connection is ever created.
-    if (!this._connectionPromise) {
-      this._connectionPromise = this._doConnect();
+    if (!this.connectionPromise) {
+      this.connectionPromise = this._doConnect();
     }
-    return this._connectionPromise;
+    return this.connectionPromise;
   }
 
   /**
    * Performs the actual connection setup. Should only be called once; all
-   * subsequent callers should await the cached _connectionPromise.
+   * subsequent callers should await the cached connectionPromise.
    */
   private async _doConnect(): Promise<ServiceConnection> {
     const service = {
@@ -385,7 +385,7 @@ export class WebInspectorService extends BaseService {
       return connection;
     } catch (err) {
       // Reset on failure so that the next call will try again.
-      this._connectionPromise = null;
+      this.connectionPromise = null;
       this.connection = null;
       throw err;
     }
