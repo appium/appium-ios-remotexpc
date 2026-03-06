@@ -1,3 +1,9 @@
+## [0.31.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.31.0...v0.31.1) (2026-03-06)
+
+### Miscellaneous Chores
+
+* **lint:** run lint:fix on all files ([#150](https://github.com/appium/appium-ios-remotexpc/issues/150)) ([8b404ad](https://github.com/appium/appium-ios-remotexpc/commit/8b404ad947e36145a2c363fff56a1bef11aa35b4))
+
 ## [0.31.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.30.1...v0.31.0) (2026-03-06)
 
 ### Features

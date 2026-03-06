@@ -1,4 +1,4 @@
-import { posix as path } from 'path';
+import { posix as path } from 'node:path';
 
 import { getLogger } from '../../../lib/logger.js';
 

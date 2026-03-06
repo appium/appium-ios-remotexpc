@@ -76,7 +76,7 @@ export interface SocketOptions {
  */
 async function fileExists(path: string): Promise<boolean> {
   try {
-    await import('fs').then((fs) => fs.promises.access(path));
+    await import('node:fs').then((fs) => fs.promises.access(path));
     return true;
   } catch {
     return false;

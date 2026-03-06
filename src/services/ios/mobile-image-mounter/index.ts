@@ -1,7 +1,7 @@
-import { createHash } from 'crypto';
-import { Stats, promises as fs } from 'fs';
-import { performance } from 'perf_hooks';
-import { Readable } from 'stream';
+import { createHash } from 'node:crypto';
+import { Stats, promises as fs } from 'node:fs';
+import { performance } from 'node:perf_hooks';
+import { Readable } from 'node:stream';
 
 import { getLogger } from '../../../lib/logger.js';
 import { parseXmlPlist } from '../../../lib/plist/index.js';
