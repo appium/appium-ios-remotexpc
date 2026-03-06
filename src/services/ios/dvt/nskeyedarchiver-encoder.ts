@@ -8,9 +8,9 @@ const log = getLogger('NSKeyedArchiverEncoder');
  * capable of satisfying NSSecureCoding requirements.
  */
 export class NSKeyedArchiverEncoder {
-  private objects: any[] = ['$null'];
-  private objectCache = new Map<any, number>(); // Cache for object identity/deduplication
-  private classes = new Map<string, number>(); // Cache for class definitions
+  protected objects: any[] = ['$null'];
+  protected objectCache = new Map<any, number>(); // Cache for object identity/deduplication
+  protected classes = new Map<string, number>(); // Cache for class definitions
 
   /**
    * Encode the root value into NSKeyedArchiver format
@@ -26,7 +26,7 @@ export class NSKeyedArchiverEncoder {
     };
   }
 
-  private archiveObject(value: any): number {
+  protected archiveObject(value: any): number {
     if (value === null || value === undefined) {
       return 0; // $null is always at index 0
     }
@@ -75,7 +75,7 @@ export class NSKeyedArchiverEncoder {
     return index;
   }
 
-  private archiveArray(array: any[]): number {
+  protected archiveArray(array: any[]): number {
     const index = this.objects.length;
     this.objects.push(null); // Placeholder
     this.objectCache.set(array, index);
@@ -97,7 +97,7 @@ export class NSKeyedArchiverEncoder {
     return index;
   }
 
-  private archiveDictionary(dict: Record<string, any>): number {
+  protected archiveDictionary(dict: Record<string, any>): number {
     const index = this.objects.length;
     this.objects.push(null); // Placeholder
     this.objectCache.set(dict, index);
@@ -117,7 +117,7 @@ export class NSKeyedArchiverEncoder {
     return index;
   }
 
-  private archiveBuffer(buffer: Buffer): number {
+  protected archiveBuffer(buffer: Buffer): number {
     const index = this.objects.length;
     this.objects.push(null);
     this.objectCache.set(buffer, index);
@@ -132,7 +132,7 @@ export class NSKeyedArchiverEncoder {
     return index;
   }
 
-  private getClassUid(classname: string, ...superclasses: string[]): number {
+  protected getClassUid(classname: string, ...superclasses: string[]): number {
     if (this.classes.has(classname)) {
       return this.classes.get(classname)!;
     }

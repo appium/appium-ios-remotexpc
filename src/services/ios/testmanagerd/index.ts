@@ -2,7 +2,6 @@ import type net from 'node:net';
 
 import { getLogger } from '../../../lib/logger.js';
 import {
-  PlistUID,
   createBinaryPlist,
   parseBinaryPlist,
 } from '../../../lib/plist/index.js';
@@ -12,29 +11,112 @@ import type {
 } from '../../../lib/types.js';
 import { ServiceConnection } from '../../../service-connection.js';
 import { BaseService, type Service, stripSSL } from '../base-service.js';
-import { ChannelFragmenter } from './channel-fragmenter.js';
-import { Channel } from './channel.js';
-import { DTXMessage, DTX_CONSTANTS, MessageAux } from './dtx-message.js';
-import { decodeNSKeyedArchiver } from './nskeyedarchiver-decoder.js';
-import { NSKeyedArchiverEncoder } from './nskeyedarchiver-encoder.js';
+import { ChannelFragmenter } from '../dvt/channel-fragmenter.js';
+import { Channel } from '../dvt/channel.js';
+import { DTXMessage, DTX_CONSTANTS, MessageAux } from '../dvt/dtx-message.js';
+import { decodeNSKeyedArchiver } from '../dvt/nskeyedarchiver-decoder.js';
 import {
   extractCapabilityStrings,
   extractNSDictionary,
   extractNSKeyedArchiverObjects,
   hasNSErrorIndicators,
   isNSDictionaryFormat,
-} from './utils.js';
+} from '../dvt/utils.js';
+import { TestmanagerdEncoder } from './testmanagerd-encoder.js';
 
-const log = getLogger('DVTSecureSocketProxyService');
+const log = getLogger('DvtTestmanagedProxyService');
 
 const MIN_ERROR_DESCRIPTION_LENGTH = 20;
 
+/** Error codes that indicate normal socket closure. */
+const EXPECTED_CLOSE_CODES = ['EPIPE', 'ECONNRESET'];
+
+/** Error message substrings that indicate normal socket closure. */
+const EXPECTED_CLOSE_MESSAGES = [
+  'write after fin',
+  'write after end',
+  'socket has been ended by the other party',
+  'socket closed',
+];
+
 /**
- * DVTSecureSocketProxyService provides access to Apple's DTServiceHub functionality
- * This service enables various instruments and debugging capabilities through the DTX protocol
+ * Determine whether an error is an expected socket-close error
+ * that can be safely ignored during teardown.
  */
-export class DVTSecureSocketProxyService extends BaseService {
-  static readonly RSD_SERVICE_NAME = 'com.apple.instruments.dtservicehub';
+export function isExpectedCloseError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  const err = error as Partial<Error> & { code?: string };
+  if (err.code && EXPECTED_CLOSE_CODES.includes(err.code)) {
+    return true;
+  }
+  const message = (err.message ?? '').toLowerCase();
+  return EXPECTED_CLOSE_MESSAGES.some((msg) => message.includes(msg));
+}
+
+/**
+ * Read a single PrimitiveDictionary entry from a buffer.
+ */
+export function readPrimitiveDictEntry(
+  buffer: Buffer,
+  offset: number,
+): { data: any; newOffset: number } {
+  const type = buffer.readUInt32LE(offset);
+  offset += 4;
+
+  switch (type) {
+    case DTX_CONSTANTS.PRIMITIVE_TYPE_NULL:
+      return { data: null, newOffset: offset };
+
+    case DTX_CONSTANTS.PRIMITIVE_TYPE_UINT32:
+      return {
+        data: buffer.readUInt32LE(offset),
+        newOffset: offset + 4,
+      };
+
+    case DTX_CONSTANTS.PRIMITIVE_TYPE_INT64:
+      return {
+        data: Number(buffer.readBigUInt64LE(offset)),
+        newOffset: offset + 8,
+      };
+
+    case DTX_CONSTANTS.PRIMITIVE_TYPE_STRING:
+    case DTX_CONSTANTS.PRIMITIVE_TYPE_BYTEARRAY: {
+      const length = buffer.readUInt32LE(offset);
+      offset += 4;
+      const data = buffer.subarray(offset, offset + length);
+
+      if (type === DTX_CONSTANTS.PRIMITIVE_TYPE_STRING) {
+        return { data: data.toString('utf8'), newOffset: offset + length };
+      }
+
+      // For bytearrays, try to decode as NSKeyedArchiver plist
+      let parsed: any = data;
+      try {
+        const plistData = parseBinaryPlist(data);
+        parsed = decodeNSKeyedArchiver(plistData);
+      } catch {
+        // Not a plist, return raw buffer
+      }
+      return { data: parsed, newOffset: offset + length };
+    }
+
+    default:
+      throw new Error(`Unknown PrimitiveDict type: 0x${type.toString(16)}`);
+  }
+}
+
+/**
+ * DvtTestmanagedProxyService provides access to Apple's testmanagerd functionality
+ * over the DTX binary protocol. This service enables XCTest session management
+ * for running tests without xcodebuild.
+ *
+ * It uses the same DTX protocol as DVTSecureSocketProxyService but connects
+ * to a different RSD service (com.apple.dt.testmanagerd.remote).
+ */
+export class DvtTestmanagedProxyService extends BaseService {
+  static readonly RSD_SERVICE_NAME = 'com.apple.dt.testmanagerd.remote';
   static readonly BROADCAST_CHANNEL = 0;
 
   private connection: ServiceConnection | null = null;
@@ -42,6 +124,9 @@ export class DVTSecureSocketProxyService extends BaseService {
   private supportedIdentifiers: PlistDictionary = {};
   private lastChannelCode: number = 0;
   private curMessageId: number = 0;
+  private lastReceivedMessageId: number = 0;
+  private readonly lastReceivedMessageIdByChannel: Map<number, number> =
+    new Map();
   private readonly channelCache: Map<string, Channel> = new Map();
   private readonly channelMessages: Map<number, ChannelFragmenter> = new Map();
   private isHandshakeComplete: boolean = false;
@@ -50,13 +135,13 @@ export class DVTSecureSocketProxyService extends BaseService {
   constructor(address: [string, number]) {
     super(address);
     this.channelMessages.set(
-      DVTSecureSocketProxyService.BROADCAST_CHANNEL,
+      DvtTestmanagedProxyService.BROADCAST_CHANNEL,
       new ChannelFragmenter(),
     );
   }
 
   /**
-   * Connect to the DVT service and perform handshake
+   * Connect to the testmanagerd service and perform DTX handshake
    */
   async connect(): Promise<void> {
     if (this.connection) {
@@ -64,11 +149,11 @@ export class DVTSecureSocketProxyService extends BaseService {
     }
 
     const service: Service = {
-      serviceName: DVTSecureSocketProxyService.RSD_SERVICE_NAME,
+      serviceName: DvtTestmanagedProxyService.RSD_SERVICE_NAME,
       port: this.address[1].toString(),
     };
 
-    // DVT uses DTX binary protocol, connect without plist-based RSDCheckin
+    // testmanagerd uses DTX binary protocol, connect without plist-based RSDCheckin
     this.connection = await this.startLockdownWithoutCheckin(service);
     this.socket = this.connection.getSocket();
     stripSSL(this.socket);
@@ -85,7 +170,7 @@ export class DVTSecureSocketProxyService extends BaseService {
 
   /**
    * Create a communication channel for a specific service identifier
-   * @param identifier The service identifier (e.g., 'com.apple.instruments.server.services.LocationSimulation')
+   * @param identifier The channel identifier (e.g., 'dtxproxy:XCTestManager_IDEInterface:XCTestManager_DaemonConnectionInterface')
    * @returns The created channel instance
    */
   async makeChannel(identifier: string): Promise<Channel> {
@@ -131,7 +216,7 @@ export class DVTSecureSocketProxyService extends BaseService {
   ): Promise<void> {
     const { args = null, expectsReply = true } = options;
     if (!this.socket) {
-      throw new Error('Not connected to DVT service');
+      throw new Error('Not connected to testmanagerd service');
     }
 
     this.curMessageId++;
@@ -164,7 +249,7 @@ export class DVTSecureSocketProxyService extends BaseService {
       identifier: this.curMessageId,
       conversationIndex: 0,
       channelCode: channel,
-      expectsReply: expectsReply ? 1 : 0,
+      expectsReply: Number(expectsReply),
     });
 
     const message = Buffer.concat([
@@ -186,23 +271,86 @@ export class DVTSecureSocketProxyService extends BaseService {
   }
 
   /**
+   * Send a DTX reply message for the last received message on a channel.
+   * Used for responding to callbacks like _XCT_testRunnerReadyWithCapabilities:.
+   *
+   * @param channel The channel code
+   * @param payload Optional archived payload to include in the reply
+   */
+  async sendReply(
+    channel: number,
+    payload: Buffer | null = null,
+  ): Promise<void> {
+    if (!this.socket) {
+      throw new Error('Not connected to testmanagerd service');
+    }
+
+    const normalizedChannel = Math.abs(channel);
+    const replyIdentifier =
+      this.lastReceivedMessageIdByChannel.get(normalizedChannel) ??
+      this.lastReceivedMessageId;
+    if (!replyIdentifier) {
+      throw new Error(
+        `No received message ID available for channel ${channel}. Call recvPlist/recvMessage before sendReply.`,
+      );
+    }
+
+    const payloadBuffer = payload ?? Buffer.alloc(0);
+
+    const payloadHeader = DTXMessage.buildPayloadHeader({
+      flags: DTX_CONSTANTS.REPLY_TYPE,
+      auxiliaryLength: 0,
+      totalLength: BigInt(payloadBuffer.length),
+    });
+
+    const messageHeader = DTXMessage.buildMessageHeader({
+      magic: DTX_CONSTANTS.MESSAGE_HEADER_MAGIC,
+      cb: DTX_CONSTANTS.MESSAGE_HEADER_SIZE,
+      fragmentId: 0,
+      fragmentCount: 1,
+      length: DTX_CONSTANTS.PAYLOAD_HEADER_SIZE + payloadBuffer.length,
+      identifier: replyIdentifier,
+      conversationIndex: 1,
+      channelCode: channel,
+      expectsReply: 0,
+    });
+
+    const message = Buffer.concat([
+      messageHeader,
+      payloadHeader,
+      payloadBuffer,
+    ]);
+
+    await new Promise<void>((resolve, reject) => {
+      this.socket!.write(message, (err) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve();
+        }
+      });
+    });
+  }
+
+  /**
    * Receive a plist message from a channel
    * @param channel The channel to receive from
+   * @param signal Optional AbortSignal for cancellation
    * @returns Tuple of [decoded data, auxiliary values]
    */
   async recvPlist(
-    channel: number = DVTSecureSocketProxyService.BROADCAST_CHANNEL,
+    channel: number = DvtTestmanagedProxyService.BROADCAST_CHANNEL,
+    signal?: AbortSignal,
   ): Promise<[any, any[]]> {
-    const [data, aux] = await this.recvMessage(channel);
+    const [data, aux] = await this.recvMessage(channel, signal);
 
     let decodedData = null;
     if (data?.length) {
       try {
         decodedData = parseBinaryPlist(data);
-        // decode NSKeyedArchiver format
         decodedData = decodeNSKeyedArchiver(decodedData);
       } catch (error) {
-        log.warn('Failed to parse plist data:', error);
+        log.debug('Failed to parse plist data:', error);
       }
     }
 
@@ -210,25 +358,56 @@ export class DVTSecureSocketProxyService extends BaseService {
   }
 
   /**
+   * Receive a plist message with a timeout. Returns null on timeout instead of
+   * throwing, and properly cleans up socket listeners to prevent leaks.
+   * @param channel The channel to receive from
+   * @param timeoutMs Timeout in milliseconds
+   * @returns Tuple of [decoded data, auxiliary values], or null on timeout
+   */
+  async recvPlistWithTimeout(
+    channel: number = DvtTestmanagedProxyService.BROADCAST_CHANNEL,
+    timeoutMs: number = 2000,
+  ): Promise<[any, any[]] | null> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      return await this.recvPlist(channel, controller.signal);
+    } catch (err: any) {
+      if (controller.signal.aborted) {
+        return null;
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /**
    * Receive a raw message from a channel
    * @param channel The channel to receive from
+   * @param signal Optional AbortSignal for cancellation
    * @returns Tuple of [raw data, auxiliary values]
    */
   async recvMessage(
-    channel: number = DVTSecureSocketProxyService.BROADCAST_CHANNEL,
+    channel: number = DvtTestmanagedProxyService.BROADCAST_CHANNEL,
+    signal?: AbortSignal,
   ): Promise<[Buffer | null, any[]]> {
-    const packetData = await this.recvPacketFragments(channel);
+    const packetData = await this.recvPacketFragments(channel, signal);
 
     const payloadHeader = DTXMessage.parsePayloadHeader(packetData);
 
-    const compression = (payloadHeader.flags & 0xff000) >> 12;
+    const compression =
+      (payloadHeader.flags & DTX_CONSTANTS.COMPRESSION_MASK) >>
+      DTX_CONSTANTS.COMPRESSION_SHIFT;
     if (compression) {
-      throw new Error('Compressed messages not supported');
+      log.debug(
+        `Skipping compressed DTX message (type=${compression}, flags=0x${payloadHeader.flags.toString(16)}, size=${payloadHeader.totalLength})`,
+      );
+      return [null, []];
     }
 
     let offset = DTX_CONSTANTS.PAYLOAD_HEADER_SIZE;
 
-    // Parse auxiliary data if present
     let aux: any[] = [];
     if (payloadHeader.auxiliaryLength > 0) {
       const auxBuffer = packetData.subarray(
@@ -239,7 +418,6 @@ export class DVTSecureSocketProxyService extends BaseService {
       offset += payloadHeader.auxiliaryLength;
     }
 
-    // Extract object data
     const objSize =
       Number(payloadHeader.totalLength) - payloadHeader.auxiliaryLength;
     const data =
@@ -249,14 +427,13 @@ export class DVTSecureSocketProxyService extends BaseService {
   }
 
   /**
-   * Close the DVT service connection
+   * Close the testmanagerd service connection
    */
   async close(): Promise<void> {
     if (!this.connection) {
       return;
     }
 
-    // Send channel cancellation for all active channels
     const activeCodes = Array.from(this.channelMessages.keys()).filter(
       (code) => code > 0,
     );
@@ -267,14 +444,26 @@ export class DVTSecureSocketProxyService extends BaseService {
         args.appendInt(code);
       }
 
-      try {
-        await this.sendMessage(
-          DVTSecureSocketProxyService.BROADCAST_CHANNEL,
-          '_channelCanceled:',
-          { args, expectsReply: false },
+      if (this.socket?.destroyed || !this.socket?.writable) {
+        log.debug(
+          'Skipping _channelCanceled_ message because socket is already closed',
         );
-      } catch (error) {
-        log.debug('Error sending channel canceled message:', error);
+      } else {
+        try {
+          await this.sendMessage(
+            DvtTestmanagedProxyService.BROADCAST_CHANNEL,
+            '_channelCanceled:',
+            { args, expectsReply: false },
+          );
+        } catch (error) {
+          if (this.isExpectedCloseError(error)) {
+            log.debug(
+              'Ignoring expected socket-close error while sending _channelCanceled_',
+            );
+          } else {
+            log.debug('Error sending channel canceled message:', error);
+          }
+        }
       }
     }
 
@@ -284,15 +473,13 @@ export class DVTSecureSocketProxyService extends BaseService {
     this.isHandshakeComplete = false;
     this.channelCache.clear();
     this.channelMessages.clear();
+    this.lastReceivedMessageIdByChannel.clear();
     this.channelMessages.set(
-      DVTSecureSocketProxyService.BROADCAST_CHANNEL,
+      DvtTestmanagedProxyService.BROADCAST_CHANNEL,
       new ChannelFragmenter(),
     );
   }
 
-  /**
-   * Perform DTX protocol handshake to establish connection and retrieve capabilities
-   */
   private async performHandshake(): Promise<void> {
     const args = new MessageAux();
     args.appendObj({
@@ -316,17 +503,14 @@ export class DVTSecureSocketProxyService extends BaseService {
       throw new Error('Invalid handshake response: missing capabilities');
     }
 
-    // Extract server capabilities from auxiliary data
     this.supportedIdentifiers = this.extractCapabilitiesFromAuxData(aux[0]);
-
     this.isHandshakeComplete = true;
 
     log.debug(
-      `DVT handshake complete. Found ${Object.keys(this.supportedIdentifiers).length} supported identifiers`,
+      `Testmanagerd handshake complete. Found ${Object.keys(this.supportedIdentifiers).length} supported identifiers`,
     );
 
-    // Consume any additional messages buffered after handshake
-    await this.drainBufferedMessages();
+    this.drainBufferedMessages();
   }
 
   private extractSelectorFromResponse(ret: any): string {
@@ -358,10 +542,7 @@ export class DVTSecureSocketProxyService extends BaseService {
     return extractCapabilityStrings(objects);
   }
 
-  /**
-   * Drain any buffered messages that arrived during handshake
-   */
-  private async drainBufferedMessages(): Promise<void> {
+  private drainBufferedMessages(): void {
     if (this.readBuffer.length === 0) {
       return;
     }
@@ -376,11 +557,7 @@ export class DVTSecureSocketProxyService extends BaseService {
 
         const totalSize = DTX_CONSTANTS.MESSAGE_HEADER_SIZE + header.length;
         if (this.readBuffer.length >= totalSize) {
-          // Consume complete buffered message
-          this.readBuffer = this.readBuffer.subarray(
-            DTX_CONSTANTS.MESSAGE_HEADER_SIZE,
-          );
-          this.readBuffer = this.readBuffer.subarray(header.length);
+          this.readBuffer = this.readBuffer.subarray(totalSize);
         } else {
           break;
         }
@@ -390,25 +567,24 @@ export class DVTSecureSocketProxyService extends BaseService {
     }
   }
 
-  /**
-   * Receive packet fragments until a complete message is available for the specified channel
-   */
-  private async recvPacketFragments(channel: number): Promise<Buffer> {
+  private async recvPacketFragments(
+    channel: number,
+    signal?: AbortSignal,
+  ): Promise<Buffer> {
     while (true) {
       const fragmenter = this.channelMessages.get(channel);
       if (!fragmenter) {
         throw new Error(`No fragmenter for channel ${channel}`);
       }
 
-      // Check if we have a complete message
       const message = fragmenter.get();
       if (message) {
         return message;
       }
 
-      // Read next message header
       const headerData = await this.readExact(
         DTX_CONSTANTS.MESSAGE_HEADER_SIZE,
+        signal,
       );
       const header = DTXMessage.parseMessageHeader(headerData);
 
@@ -418,76 +594,92 @@ export class DVTSecureSocketProxyService extends BaseService {
         this.channelMessages.set(receivedChannel, new ChannelFragmenter());
       }
 
-      // Update message ID tracker
       if (!header.conversationIndex && header.identifier > this.curMessageId) {
         this.curMessageId = header.identifier;
       }
+      this.lastReceivedMessageId = header.identifier;
+      this.lastReceivedMessageIdByChannel.set(
+        receivedChannel,
+        header.identifier,
+      );
 
-      // Skip first fragment header for multi-fragment messages
       if (header.fragmentCount > 1 && header.fragmentId === 0) {
         continue;
       }
 
-      // Read message payload
-      const messageData = await this.readExact(header.length);
+      const messageData = await this.readExact(header.length, signal);
 
-      // Add fragment to appropriate channel
       const targetFragmenter = this.channelMessages.get(receivedChannel)!;
       targetFragmenter.addFragment(header, messageData);
     }
   }
 
-  /**
-   * Read exact number of bytes from socket with buffering
-   */
-  private async readExact(length: number): Promise<Buffer> {
+  private async readExact(
+    length: number,
+    signal?: AbortSignal,
+  ): Promise<Buffer> {
     if (!this.socket) {
       throw new Error(
         `${this.constructor.name} is not initialized. Call connect() before sending messages.`,
       );
     }
 
-    // Keep reading until we have enough data
     while (this.readBuffer.length < length) {
+      signal?.throwIfAborted();
+
       const chunk = await new Promise<Buffer>((resolve, reject) => {
+        const cleanup = () => {
+          this.socket?.off('data', onData);
+          this.socket?.off('error', onError);
+          this.socket?.off('close', onClose);
+          signal?.removeEventListener('abort', onAbort);
+        };
+
         const onData = (data: Buffer) => {
-          this.socket!.off('data', onData);
-          this.socket!.off('error', onError);
+          cleanup();
           resolve(data);
         };
 
         const onError = (err: Error) => {
-          this.socket!.off('data', onData);
-          this.socket!.off('error', onError);
+          cleanup();
           reject(err);
         };
 
+        const onClose = () => {
+          cleanup();
+          reject(new Error('Socket closed during read'));
+        };
+
+        const onAbort = () => {
+          cleanup();
+          reject(
+            signal?.reason ?? new DOMException('Read aborted', 'AbortError'),
+          );
+        };
+
+        // Register all listeners before any async gap to prevent data race
         this.socket!.once('data', onData);
         this.socket!.once('error', onError);
+        this.socket!.once('close', onClose);
+        signal?.addEventListener('abort', onAbort, { once: true });
       });
 
       this.readBuffer = Buffer.concat([this.readBuffer, chunk]);
     }
 
-    // Extract exact amount requested
     const result = this.readBuffer.subarray(0, length);
     this.readBuffer = this.readBuffer.subarray(length);
 
     return result;
   }
 
-  /**
-   * Check if response contains an NSError and throw if present
-   */
   private checkForNSError(response: any, context: string): void {
     if (!response || typeof response !== 'object') {
       return;
     }
 
-    // Check NSKeyedArchiver format
     const objects = extractNSKeyedArchiverObjects(response);
     if (objects) {
-      // Check for NSError indicators in $objects
       const hasNSError = objects.some((o) => hasNSErrorIndicators(o));
 
       if (hasNSError) {
@@ -500,32 +692,25 @@ export class DVTSecureSocketProxyService extends BaseService {
       }
     }
 
-    // Check direct NSError format
     if (hasNSErrorIndicators(response)) {
       throw new Error(`${context}: ${JSON.stringify(response)}`);
     }
   }
 
-  /**
-   * Archive a value using NSKeyedArchiver format for DTX protocol
-   */
-  private archiveValue(value: any): Buffer {
-    const encoder = new NSKeyedArchiverEncoder();
-    const archived = encoder.encode(value);
+  private isExpectedCloseError(error: unknown): boolean {
+    return isExpectedCloseError(error);
+  }
 
+  private archiveValue(value: any): Buffer {
+    const encoder = new TestmanagerdEncoder();
+    const archived = encoder.encode(value);
     return createBinaryPlist(archived);
   }
 
-  /**
-   * Archive a selector string for DTX messages
-   */
   private archiveSelector(selector: string): Buffer {
     return this.archiveValue(selector);
   }
 
-  /**
-   * Build auxiliary data buffer with NSKeyedArchiver encoding for objects
-   */
   private buildAuxiliaryData(args: MessageAux): Buffer {
     const values = args.getValues();
 
@@ -536,17 +721,14 @@ export class DVTSecureSocketProxyService extends BaseService {
     const itemBuffers: Buffer[] = [];
 
     for (const auxValue of values) {
-      // Empty dictionary marker
       const dictMarker = Buffer.alloc(4);
       dictMarker.writeUInt32LE(DTX_CONSTANTS.EMPTY_DICTIONARY, 0);
       itemBuffers.push(dictMarker);
 
-      // Type marker
       const typeBuffer = Buffer.alloc(4);
       typeBuffer.writeUInt32LE(auxValue.type, 0);
       itemBuffers.push(typeBuffer);
 
-      // Value data
       switch (auxValue.type) {
         case DTX_CONSTANTS.AUX_TYPE_INT32: {
           const valueBuffer = Buffer.alloc(4);
@@ -578,7 +760,6 @@ export class DVTSecureSocketProxyService extends BaseService {
 
     const itemsData = Buffer.concat(itemBuffers);
 
-    // Build header: magic + total size of items
     const header = Buffer.alloc(16);
     header.writeBigUInt64LE(BigInt(DTX_CONSTANTS.MESSAGE_AUX_MAGIC), 0);
     header.writeBigUInt64LE(BigInt(itemsData.length), 8);
@@ -586,13 +767,6 @@ export class DVTSecureSocketProxyService extends BaseService {
     return Buffer.concat([header, itemsData]);
   }
 
-  /**
-   * Parse auxiliary data from buffer
-   *
-   * The auxiliary data format can be:
-   * 1. Standard format: [magic:8][size:8][items...]
-   * 2. NSKeyedArchiver bplist format (for handshake responses)
-   */
   private parseAuxiliaryData(buffer: Buffer): any[] {
     if (buffer.length < 16) {
       return [];
@@ -600,66 +774,59 @@ export class DVTSecureSocketProxyService extends BaseService {
 
     const magic = buffer.readBigUInt64LE(0);
 
-    // Check if this is NSKeyedArchiver bplist format (handshake response)
-    if (magic !== BigInt(DTX_CONSTANTS.MESSAGE_AUX_MAGIC)) {
-      return this.parseAuxiliaryAsBplist(buffer);
+    if (magic === BigInt(DTX_CONSTANTS.MESSAGE_AUX_MAGIC)) {
+      return this.parseAuxiliaryStandard(buffer);
     }
 
-    // Standard auxiliary format
-    return this.parseAuxiliaryStandard(buffer);
+    // Alternate format used by go-ios / iOS 17+ testmanagerd callbacks:
+    // The first 16 bytes are an AuxiliaryHeader (magic + length) that does
+    // not match the standard MESSAGE_AUX_MAGIC. The remaining bytes are
+    // DTX PrimitiveDictionary key-value pairs (see go-ios dtx.go).
+    const result = this.parseAuxiliaryPrimitiveDictionary(buffer.subarray(16));
+    if (result.length === 0) {
+      log.debug(
+        `Unknown auxiliary format (magic=0x${magic.toString(16)}, size=${buffer.length}), returning empty`,
+      );
+    }
+    return result;
   }
 
   /**
-   * Parse auxiliary data in NSKeyedArchiver bplist format
+   * Parse DTX PrimitiveDictionary key-value pairs.
+   * Each entry is: [type:4][value...] where type determines the value format.
+   * Keys are always null (type 0x0A), values follow immediately after.
    */
-  private parseAuxiliaryAsBplist(buffer: Buffer): any[] {
-    // Find bplist header in buffer
-    const bplistMagic = 'bplist00';
-    for (let i = 0; i < Math.min(100, buffer.length - 8); i++) {
-      if (buffer.toString('ascii', i, i + 8) === bplistMagic) {
-        try {
-          const plistBuffer = buffer.subarray(i);
-          const parsed = parseBinaryPlist(plistBuffer);
-          return Array.isArray(parsed) ? parsed : [parsed];
-        } catch (error) {
-          log.warn('Failed to parse auxiliary bplist:', error);
-        }
+  private parseAuxiliaryPrimitiveDictionary(buffer: Buffer): any[] {
+    const values: any[] = [];
+    let offset = 0;
+
+    while (offset + 4 <= buffer.length) {
+      // Read key (always t_null = 0x0A in practice)
+      const keyType = buffer.readUInt32LE(offset);
+      offset += 4;
+
+      if (keyType !== DTX_CONSTANTS.EMPTY_DICTIONARY) {
+        // Not a null key — unexpected, try to skip
+        log.debug(
+          `Unexpected key type 0x${keyType.toString(16)} at offset ${offset - 4}`,
+        );
         break;
       }
-    }
-    return [];
-  }
 
-  /**
-   * Parse auxiliary data in standard DTX format
-   */
-  private parseAuxiliaryStandard(buffer: Buffer): any[] {
-    const values: any[] = [];
-    let offset = 16; // Skip magic (8) + size (8)
-
-    const totalSize = buffer.readBigUInt64LE(8);
-    const endOffset = offset + Number(totalSize);
-
-    while (offset < endOffset && offset < buffer.length) {
-      // Read and validate empty dictionary marker
-      const marker = buffer.readUInt32LE(offset);
-      offset += 4;
-
-      if (marker !== DTX_CONSTANTS.EMPTY_DICTIONARY) {
-        offset -= 4; // Rewind if not the expected marker
+      if (offset + 4 > buffer.length) {
+        break;
       }
 
-      // Read type
-      const type = buffer.readUInt32LE(offset);
-      offset += 4;
-
-      // Read value based on type
+      // Read value
       try {
-        const value = this.parseAuxiliaryValue(buffer, type, offset);
-        values.push(value.data);
-        offset = value.newOffset;
+        const result = this.readPrimitiveDictEntry(buffer, offset);
+        values.push(result.data);
+        offset = result.newOffset;
       } catch (error) {
-        log.warn(`Failed to parse auxiliary value at offset ${offset}:`, error);
+        log.debug(
+          `Failed to parse PrimitiveDict entry at offset ${offset}:`,
+          error,
+        );
         break;
       }
     }
@@ -667,9 +834,47 @@ export class DVTSecureSocketProxyService extends BaseService {
     return values;
   }
 
-  /**
-   * Parse a single auxiliary value
-   */
+  private readPrimitiveDictEntry(
+    buffer: Buffer,
+    offset: number,
+  ): { data: any; newOffset: number } {
+    return readPrimitiveDictEntry(buffer, offset);
+  }
+
+  private parseAuxiliaryStandard(buffer: Buffer): any[] {
+    const values: any[] = [];
+    let offset = 16;
+
+    const totalSize = buffer.readBigUInt64LE(8);
+    const endOffset = offset + Number(totalSize);
+
+    while (offset < endOffset && offset < buffer.length) {
+      const marker = buffer.readUInt32LE(offset);
+      offset += 4;
+
+      if (marker !== DTX_CONSTANTS.EMPTY_DICTIONARY) {
+        offset -= 4;
+      }
+
+      const type = buffer.readUInt32LE(offset);
+      offset += 4;
+
+      try {
+        const value = this.parseAuxiliaryValue(buffer, type, offset);
+        values.push(value.data);
+        offset = value.newOffset;
+      } catch (error) {
+        log.debug(
+          `Failed to parse auxiliary value at offset ${offset}:`,
+          error,
+        );
+        break;
+      }
+    }
+
+    return values;
+  }
+
   private parseAuxiliaryValue(
     buffer: Buffer,
     type: number,
@@ -696,7 +901,7 @@ export class DVTSecureSocketProxyService extends BaseService {
         try {
           parsed = parseBinaryPlist(plistData);
         } catch (error) {
-          log.warn('Failed to parse auxiliary object plist:', error);
+          log.debug('Failed to parse auxiliary object plist:', error);
           parsed = plistData;
         }
 
@@ -711,14 +916,3 @@ export class DVTSecureSocketProxyService extends BaseService {
     }
   }
 }
-
-export { Channel, ChannelFragmenter, DTXMessage, MessageAux, DTX_CONSTANTS };
-export {
-  decodeNSKeyedArchiver,
-  NSKeyedArchiverDecoder,
-} from './nskeyedarchiver-decoder.js';
-export type {
-  DTXMessageHeader,
-  DTXMessagePayloadHeader,
-  MessageAuxValue,
-} from './dtx-message.js';

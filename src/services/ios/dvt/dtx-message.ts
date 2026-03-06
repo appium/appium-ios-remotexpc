@@ -42,12 +42,24 @@ export const DTX_CONSTANTS = {
 
   // Message types
   INSTRUMENTS_MESSAGE_TYPE: 2,
+  REPLY_TYPE: 3,
   EXPECTS_REPLY_MASK: 0x1000,
+
+  // Compression
+  COMPRESSION_MASK: 0xff000,
+  COMPRESSION_SHIFT: 12,
 
   // Auxiliary value types
   AUX_TYPE_OBJECT: 2,
   AUX_TYPE_INT32: 3,
   AUX_TYPE_INT64: 6,
+
+  // PrimitiveDictionary value types
+  PRIMITIVE_TYPE_STRING: 0x01,
+  PRIMITIVE_TYPE_BYTEARRAY: 0x02,
+  PRIMITIVE_TYPE_UINT32: 0x03,
+  PRIMITIVE_TYPE_INT64: 0x06,
+  PRIMITIVE_TYPE_NULL: 0x0a,
 } as const;
 
 /**
