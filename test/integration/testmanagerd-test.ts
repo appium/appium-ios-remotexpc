@@ -27,12 +27,46 @@ const XCTEST_BUNDLE_ID = process.env.XCTEST_BUNDLE_ID;
 const TESTMANAGERD_CHANNEL =
   'dtxproxy:XCTestManager_IDEInterface:XCTestManager_DaemonConnectionInterface';
 
+type TestmanagerdService =
+  TestmanagerdServiceWithConnection['testmanagerdService'];
+
 async function safeClose(
   ...closeables: Array<{ close(): Promise<void> } | null | undefined>
 ): Promise<void> {
   await Promise.allSettled(
     closeables.map((c) => c?.close() ?? Promise.resolve()),
   );
+}
+
+async function makeControlChannel(
+  service: TestmanagerdService,
+): Promise<number> {
+  const channel = await service.makeChannel(TESTMANAGERD_CHANNEL);
+  expect(channel).to.not.be.null;
+  expect(channel.getCode()).to.be.greaterThan(0);
+  return channel.getCode();
+}
+
+async function initiateControlSession(
+  service: TestmanagerdService,
+  channelCode: number,
+): Promise<any> {
+  const args = new MessageAux();
+  args.appendObj(XCODE_VERSION);
+  await service.sendMessage(
+    channelCode,
+    '_IDE_initiateControlSessionWithProtocolVersion:',
+    { args },
+  );
+  const [result] = await service.recvPlist(channelCode);
+  expect(result).to.not.be.null;
+  return result;
+}
+
+function assertNSKeyedArchiverShape(obj: any): void {
+  expect(obj).to.have.property('$archiver', 'NSKeyedArchiver');
+  expect(obj).to.have.property('$version', 100000);
+  expect(obj).to.have.property('$objects').that.is.an('array');
 }
 
 /**
@@ -62,6 +96,8 @@ describe('Testmanagerd Service', function () {
       await safeClose(
         controlConnection?.testmanagerdService,
         controlConnection?.remoteXPC,
+      );
+      await safeClose(
         execConnection?.testmanagerdService,
         execConnection?.remoteXPC,
       );
@@ -73,51 +109,25 @@ describe('Testmanagerd Service', function () {
 
       expect(controlConnection.testmanagerdService).to.not.be.null;
       expect(execConnection.testmanagerdService).to.not.be.null;
-
-      log.debug('Both testmanagerd connections established');
     });
 
     it('should create channels on both connections', async function () {
-      const controlChannel =
-        await controlConnection!.testmanagerdService.makeChannel(
-          TESTMANAGERD_CHANNEL,
-        );
-      expect(controlChannel).to.not.be.null;
-      expect(controlChannel.getCode()).to.be.greaterThan(0);
-
-      const execChannel =
-        await execConnection!.testmanagerdService.makeChannel(
-          TESTMANAGERD_CHANNEL,
-        );
-      expect(execChannel).to.not.be.null;
-      expect(execChannel.getCode()).to.be.greaterThan(0);
-
-      log.debug(
-        `Control channel: ${controlChannel.getCode()}, Exec channel: ${execChannel.getCode()}`,
+      const controlCode = await makeControlChannel(
+        controlConnection!.testmanagerdService,
+      );
+      const execCode = await makeControlChannel(
+        execConnection!.testmanagerdService,
       );
     });
 
     it('should initiate control session with protocol version', async function () {
-      const controlChannel =
-        await controlConnection!.testmanagerdService.makeChannel(
-          TESTMANAGERD_CHANNEL,
-        );
-      const channelCode = controlChannel.getCode();
-
-      const args = new MessageAux();
-      args.appendObj(XCODE_VERSION);
-
-      await controlConnection!.testmanagerdService.sendMessage(
-        channelCode,
-        '_IDE_initiateControlSessionWithProtocolVersion:',
-        { args },
+      const channelCode = await makeControlChannel(
+        controlConnection!.testmanagerdService,
       );
-
-      const [result] =
-        await controlConnection!.testmanagerdService.recvPlist(channelCode);
-
-      log.debug('Control session init result:', result);
-      expect(result).to.not.be.null;
+      const result = await initiateControlSession(
+        controlConnection!.testmanagerdService,
+        channelCode,
+      );
     });
   });
 
@@ -169,9 +179,7 @@ describe('Testmanagerd Service', function () {
         reportResultsToIDE: true,
       });
 
-      expect(archived).to.have.property('$archiver', 'NSKeyedArchiver');
-      expect(archived).to.have.property('$version', 100000);
-      expect(archived.$objects).to.be.an('array');
+      assertNSKeyedArchiverShape(archived);
 
       const plistData = createBinaryPlist(archived);
       expect(plistData).to.be.instanceOf(Buffer);
@@ -199,14 +207,7 @@ describe('Testmanagerd Service', function () {
         expect(readBack).to.be.instanceOf(Buffer);
         expect(readBack.length).to.equal(plistData.length);
 
-        const parsed = parseBinaryPlist(readBack);
-        expect(parsed).to.have.property('$archiver', 'NSKeyedArchiver');
-        expect(parsed).to.have.property('$version', 100000);
-        expect(parsed).to.have.property('$objects').that.is.an('array');
-
-        log.debug(
-          'XCTestConfiguration round-trip verified: write → read → parse succeeded',
-        );
+        assertNSKeyedArchiverShape(parseBinaryPlist(readBack));
       } finally {
         try {
           await afcService.rm(remotePath);
@@ -224,37 +225,21 @@ describe('Testmanagerd Service', function () {
       await safeClose(
         testmanagerdConnection?.testmanagerdService,
         testmanagerdConnection?.remoteXPC,
-        dvtConnection?.dvtService,
-        dvtConnection?.remoteXPC,
       );
+      await safeClose(dvtConnection?.dvtService, dvtConnection?.remoteXPC);
     });
 
     it('should connect testmanagerd + DVT, launch app via ProcessControl, and authorize PID on control session', async function () {
       testmanagerdConnection = await Services.startTestmanagerdService(UDID);
       dvtConnection = await Services.startDVTService(UDID);
 
-      log.debug('Connected to testmanagerd and DVT services');
-
-      const controlChannel =
-        await testmanagerdConnection.testmanagerdService.makeChannel(
-          TESTMANAGERD_CHANNEL,
-        );
-      const channelCode = controlChannel.getCode();
-      expect(channelCode).to.be.greaterThan(0);
-
-      const initArgs = new MessageAux();
-      initArgs.appendObj(XCODE_VERSION);
-
-      await testmanagerdConnection.testmanagerdService.sendMessage(
-        channelCode,
-        '_IDE_initiateControlSessionWithProtocolVersion:',
-        { args: initArgs },
+      const channelCode = await makeControlChannel(
+        testmanagerdConnection.testmanagerdService,
       );
-
-      const [initResult] =
-        await testmanagerdConnection.testmanagerdService.recvPlist(channelCode);
-      log.debug('Control session initiated:', initResult);
-      expect(initResult).to.not.be.null;
+      const initResult = await initiateControlSession(
+        testmanagerdConnection.testmanagerdService,
+        channelCode,
+      );
 
       // iOS may return negative PIDs for suspended launch states
       const pid = await dvtConnection.processControl.launch({
@@ -277,9 +262,6 @@ describe('Testmanagerd Service', function () {
       const [authResult] =
         await testmanagerdConnection.testmanagerdService.recvPlist(channelCode);
       log.debug('Authorization result:', authResult);
-      log.debug(
-        'Successfully authorized test session for Calculator PID via testmanagerd',
-      );
 
       const absPid = Math.abs(pid);
       try {
