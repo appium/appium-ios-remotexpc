@@ -1,3 +1,5 @@
+import type net from 'node:net';
+
 import { getLogger } from '../../lib/logger.js';
 import { ServiceConnection } from '../../service-connection.js';
 
@@ -75,15 +77,15 @@ export class BaseService {
       throw error;
     }
   }
+}
 
-  /**
-   * Remove any SSL wrapper from the socket so raw binary protocols (DTX)
-   * can read/write directly. Both DVT and testmanagerd services require this.
-   */
-  protected stripSSL(socket: import('net').Socket): void {
-    if ('_sslobj' in socket) {
-      (socket as any)._sslobj = null;
-    }
+/**
+ * Remove any SSL wrapper from the socket so raw binary protocols (DTX)
+ * can read/write directly. Both DVT and testmanagerd services require this.
+ */
+export function stripSSL(socket: net.Socket): void {
+  if ('_sslobj' in socket) {
+    (socket as any)._sslobj = null;
   }
 }
 

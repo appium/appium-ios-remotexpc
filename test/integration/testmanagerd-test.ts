@@ -18,13 +18,9 @@ const TESTMANAGERD_CHANNEL =
 async function safeClose(
   ...closeables: Array<{ close(): Promise<void> } | null | undefined>
 ): Promise<void> {
-  for (const c of closeables) {
-    try {
-      await c?.close();
-    } catch {
-      // Ignore close errors during cleanup
-    }
-  }
+  await Promise.allSettled(
+    closeables.map((c) => c?.close() ?? Promise.resolve()),
+  );
 }
 
 /**
@@ -99,7 +95,7 @@ describe('Testmanagerd Service', function () {
       await controlConnection!.testmanagerdService.sendMessage(
         channelCode,
         '_IDE_initiateControlSessionWithProtocolVersion:',
-        args,
+        { args },
       );
 
       const [result] =

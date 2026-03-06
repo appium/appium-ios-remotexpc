@@ -1,3 +1,4 @@
+import type { SendMessageOptions } from '../../../lib/types.js';
 import type { MessageAux } from './dtx-message.js';
 
 /**
@@ -9,8 +10,7 @@ export interface DTXServiceProvider {
   sendMessage(
     channel: number,
     selector: string | null,
-    args?: MessageAux | null,
-    expectsReply?: boolean,
+    options?: SendMessageOptions,
   ): Promise<void>;
 }
 
@@ -65,12 +65,10 @@ export class Channel {
   call(methodName: string): ChannelMethodCall {
     const selector = this.convertToSelector(methodName);
     return (async (args, expectsReply = true) => {
-      await this.service.sendMessage(
-        this.channelCode,
-        selector,
+      await this.service.sendMessage(this.channelCode, selector, {
         args,
         expectsReply,
-      );
+      });
     }) as ChannelMethodCall;
   }
 

@@ -71,6 +71,7 @@ export type {
   ProcessControlService,
   ProcessLaunchOptions,
   OutputReceivedEvent,
+  SendMessageOptions,
   TestmanagerdService,
   TestmanagerdServiceWithConnection,
 } from './lib/types.js';

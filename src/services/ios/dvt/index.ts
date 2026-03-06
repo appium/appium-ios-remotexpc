@@ -1,4 +1,4 @@
-import net from 'node:net';
+import type net from 'node:net';
 
 import { getLogger } from '../../../lib/logger.js';
 import {
@@ -6,9 +6,12 @@ import {
   createBinaryPlist,
   parseBinaryPlist,
 } from '../../../lib/plist/index.js';
-import type { PlistDictionary } from '../../../lib/types.js';
+import type {
+  PlistDictionary,
+  SendMessageOptions,
+} from '../../../lib/types.js';
 import { ServiceConnection } from '../../../service-connection.js';
-import { BaseService, type Service } from '../base-service.js';
+import { BaseService, type Service, stripSSL } from '../base-service.js';
 import { ChannelFragmenter } from './channel-fragmenter.js';
 import { Channel } from './channel.js';
 import { DTXMessage, DTX_CONSTANTS, MessageAux } from './dtx-message.js';
@@ -68,7 +71,7 @@ export class DVTSecureSocketProxyService extends BaseService {
     // DVT uses DTX binary protocol, connect without plist-based RSDCheckin
     this.connection = await this.startLockdownWithoutCheckin(service);
     this.socket = this.connection.getSocket();
-    this.stripSSL(this.socket);
+    stripSSL(this.socket);
 
     await this.performHandshake();
   }
@@ -101,7 +104,7 @@ export class DVTSecureSocketProxyService extends BaseService {
     args.appendInt(channelCode);
     args.appendObj(identifier);
 
-    await this.sendMessage(0, '_requestChannelWithCode:identifier:', args);
+    await this.sendMessage(0, '_requestChannelWithCode:identifier:', { args });
 
     const [ret] = await this.recvPlist();
 
@@ -119,15 +122,14 @@ export class DVTSecureSocketProxyService extends BaseService {
    * Send a DTX message on a channel
    * @param channel The channel code
    * @param selector The ObjectiveC method selector
-   * @param args Optional message arguments
-   * @param expectsReply Whether a reply is expected
+   * @param options Optional message options
    */
   async sendMessage(
     channel: number,
     selector: string | null = null,
-    args: MessageAux | null = null,
-    expectsReply: boolean = true,
+    options: SendMessageOptions = {},
   ): Promise<void> {
+    const { args = null, expectsReply = true } = options;
     if (!this.socket) {
       throw new Error('Not connected to DVT service');
     }
@@ -269,8 +271,7 @@ export class DVTSecureSocketProxyService extends BaseService {
         await this.sendMessage(
           DVTSecureSocketProxyService.BROADCAST_CHANNEL,
           '_channelCanceled:',
-          args,
-          false,
+          { args, expectsReply: false },
         );
       } catch (error) {
         log.debug('Error sending channel canceled message:', error);
@@ -298,7 +299,10 @@ export class DVTSecureSocketProxyService extends BaseService {
       'com.apple.private.DTXBlockCompression': 0,
       'com.apple.private.DTXConnection': 1,
     });
-    await this.sendMessage(0, '_notifyOfPublishedCapabilities:', args, false);
+    await this.sendMessage(0, '_notifyOfPublishedCapabilities:', {
+      args,
+      expectsReply: false,
+    });
 
     const [retData, aux] = await this.recvMessage();
     const ret = retData ? parseBinaryPlist(retData) : null;

@@ -1757,6 +1757,16 @@ export interface InstallationProxyServiceWithConnection {
 }
 
 /**
+ * Options for sending a DTX message
+ */
+export interface SendMessageOptions {
+  /** Optional message arguments */
+  args?: any | null;
+  /** Whether a reply is expected (default: true) */
+  expectsReply?: boolean;
+}
+
+/**
  * Testmanagerd DTX service interface for XCTest session management
  */
 export interface TestmanagerdService extends BaseService {
@@ -1776,14 +1786,12 @@ export interface TestmanagerdService extends BaseService {
    * Send a DTX message on a channel
    * @param channel The channel code
    * @param selector The ObjectiveC method selector
-   * @param args Optional message arguments
-   * @param expectsReply Whether a reply is expected
+   * @param options Optional message options
    */
   sendMessage(
     channel: number,
     selector: string | null,
-    args?: any | null,
-    expectsReply?: boolean,
+    options?: SendMessageOptions,
   ): Promise<void>;
 
   /**
