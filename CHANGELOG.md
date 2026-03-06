@@ -1,3 +1,9 @@
+## [0.30.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.30.0...v0.30.1) (2026-03-06)
+
+### Miscellaneous Chores
+
+* **web-inspector:** fix race condition for multiple connections ([#149](https://github.com/appium/appium-ios-remotexpc/issues/149)) ([9d995fc](https://github.com/appium/appium-ios-remotexpc/commit/9d995fcb35d1307e2564550bd9c0dcc7def4f20c))
+
 ## [0.30.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.29.1...v0.30.0) (2026-02-16)
 
 ### Features

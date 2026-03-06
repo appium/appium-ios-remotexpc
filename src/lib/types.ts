@@ -2,7 +2,7 @@
  * Common type definitions for the appium-ios-remotexpc library
  */
 import type { PacketData } from 'appium-ios-tuntap';
-import { EventEmitter } from 'events';
+import { EventEmitter } from 'node:events';
 
 import type { ServiceConnection } from '../service-connection.js';
 import AfcService from '../services/ios/afc/index.js';
@@ -1121,8 +1121,14 @@ export interface WebInspectorService extends BaseService {
 
   /**
    * Stop listening to messages
+   * @deprecated Use stopListeningAsync() instead for connecting with multiple connections
    */
   stopListening(): void;
+
+  /**
+   * Stop listening to messages
+   */
+  stopListeningAsync(): Promise<void>;
 
   /**
    * Close the connection and clean up resources
