@@ -1755,3 +1755,98 @@ export interface InstallationProxyServiceWithConnection {
   /** The RemoteXPC connection for service management */
   remoteXPC: RemoteXpcConnection;
 }
+
+/**
+ * Testmanagerd DTX service interface for XCTest session management
+ */
+export interface TestmanagerdService extends BaseService {
+  /**
+   * Connect to the testmanagerd service and perform DTX handshake
+   */
+  connect(): Promise<void>;
+
+  /**
+   * Create a communication channel for a specific identifier
+   * @param identifier The channel identifier
+   * @returns The created channel
+   */
+  makeChannel(identifier: string): Promise<any>;
+
+  /**
+   * Send a DTX message on a channel
+   * @param channel The channel code
+   * @param selector The ObjectiveC method selector
+   * @param args Optional message arguments
+   * @param expectsReply Whether a reply is expected
+   */
+  sendMessage(
+    channel: number,
+    selector: string | null,
+    args?: any | null,
+    expectsReply?: boolean,
+  ): Promise<void>;
+
+  /**
+   * Receive a plist message from a channel
+   * @param channel The channel to receive from
+   * @param signal Optional AbortSignal for cancellation
+   * @returns Tuple of [decoded data, auxiliary values]
+   */
+  recvPlist(channel?: number, signal?: AbortSignal): Promise<[any, any[]]>;
+
+  /**
+   * Receive a plist message with a timeout. Returns null on timeout instead
+   * of throwing, and properly cleans up socket listeners to prevent leaks.
+   * @param channel The channel to receive from
+   * @param timeoutMs Timeout in milliseconds
+   * @returns Tuple of [decoded data, auxiliary values], or null on timeout
+   */
+  recvPlistWithTimeout(
+    channel?: number,
+    timeoutMs?: number,
+  ): Promise<[any, any[]] | null>;
+
+  /**
+   * Send a DTX reply message for the last received message on a channel.
+   * Used for responding to callbacks like _XCT_testRunnerReadyWithCapabilities:.
+   * @param channel The channel code
+   * @param payload Optional archived payload to include in the reply
+   */
+  sendReply(channel: number, payload?: Buffer | null): Promise<void>;
+
+  /**
+   * Close the testmanagerd service connection
+   */
+  close(): Promise<void>;
+}
+
+/**
+ * Represents a TestmanagerdService instance with its associated RemoteXPC connection
+ */
+export interface TestmanagerdServiceWithConnection {
+  /** The testmanagerd service instance */
+  testmanagerdService: TestmanagerdService;
+  /** The RemoteXPC connection for service management */
+  remoteXPC: RemoteXpcConnection;
+}
+
+/**
+ * All services needed for an XCTest session, created via a single RemoteXPC connection.
+ * Using one connection for service discovery avoids ECONNRESET errors from the tunnel.
+ *
+ * Unlike other *WithConnection types, there is no remoteXPC field here.
+ * The RemoteXPC connection is closed internally after port discovery. Callers
+ * are responsible for closing execTestmanagerd, controlTestmanagerd, and dvtService.
+ */
+export interface XCTestServices {
+  /** Testmanagerd connection for the exec session (capabilities, test callbacks) */
+  execTestmanagerd: TestmanagerdService;
+  /** Testmanagerd connection for the control session (authorize, test plan) */
+  controlTestmanagerd: TestmanagerdService;
+  /** DVT service for instruments (process control, etc.) */
+  dvtService: DVTSecureSocketProxyService;
+  /** ProcessControl instrument for launching/killing apps */
+  processControl: ProcessControlService;
+  /** Optional InstallationProxy for app lookup (when requested via startXCTestServices) */
+  installationProxy?: InstallationProxyService;
+}

@@ -42,6 +42,7 @@ export const DTX_CONSTANTS = {
 
   // Message types
   INSTRUMENTS_MESSAGE_TYPE: 2,
+  REPLY_TYPE: 3,
   EXPECTS_REPLY_MASK: 0x1000,
 
   // Auxiliary value types

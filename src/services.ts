@@ -16,7 +16,9 @@ import type {
   PowerAssertionServiceWithConnection,
   SpringboardServiceWithConnection,
   SyslogService as SyslogServiceType,
+  TestmanagerdServiceWithConnection,
   WebInspectorServiceWithConnection,
+  XCTestServices,
 } from './lib/types.js';
 import AfcService from './services/ios/afc/index.js';
 import { CrashReportsService } from './services/ios/crash-reports/index.js';
@@ -40,6 +42,7 @@ import { NotificationProxyService } from './services/ios/notification-proxy/inde
 import { PowerAssertionService } from './services/ios/power-assertion/index.js';
 import { SpringBoardService } from './services/ios/springboard-service/index.js';
 import SyslogService from './services/ios/syslog-service/index.js';
+import { DvtTestmanagedProxyService } from './services/ios/testmanagerd/index.js';
 import { WebInspectorService } from './services/ios/webinspector/index.js';
 
 const APPIUM_XCUITEST_DRIVER_NAME = 'appium-xcuitest-driver';
@@ -290,6 +293,115 @@ export async function startDVTService(
     notification,
     networkMonitor,
     processControl,
+  };
+}
+
+export async function startTestmanagerdService(
+  udid: string,
+): Promise<TestmanagerdServiceWithConnection> {
+  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
+  const testmanagerdDescriptor = remoteXPC.findService(
+    DvtTestmanagedProxyService.RSD_SERVICE_NAME,
+  );
+
+  const testmanagerdService = new DvtTestmanagedProxyService([
+    tunnelConnection.host,
+    parseInt(testmanagerdDescriptor.port, 10),
+  ]);
+
+  await testmanagerdService.connect();
+
+  return {
+    remoteXPC: remoteXPC as RemoteXpcConnection,
+    testmanagerdService,
+  };
+}
+
+/** Options for {@link startXCTestServices}. */
+export interface StartXCTestServicesOptions {
+  /** Also resolve and return an InstallationProxyService for app lookup. */
+  includeInstallationProxy?: boolean;
+}
+
+/**
+ * Start all services needed for an XCTest session using a single RemoteXPC
+ * connection for service discovery. This avoids ECONNRESET errors caused by
+ * opening multiple RemoteXPC connections simultaneously through the tunnel.
+ *
+ * The RemoteXPC connection is closed internally after port discovery.
+ * Callers are responsible for closing execTestmanagerd, controlTestmanagerd,
+ * and dvtService when done.
+ */
+export async function startXCTestServices(
+  udid: string,
+  options?: StartXCTestServicesOptions,
+): Promise<XCTestServices> {
+  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
+  const host = tunnelConnection.host;
+
+  // Discover all ports via single RSD lookup, then close RemoteXPC
+  let testmanagerdPort: number;
+  let dvtPort: number;
+  let installationProxyPort: number | undefined;
+  try {
+    testmanagerdPort = parseInt(
+      remoteXPC.findService(DvtTestmanagedProxyService.RSD_SERVICE_NAME).port,
+      10,
+    );
+    dvtPort = parseInt(
+      remoteXPC.findService(DVTSecureSocketProxyService.RSD_SERVICE_NAME).port,
+      10,
+    );
+    if (options?.includeInstallationProxy) {
+      installationProxyPort = parseInt(
+        remoteXPC.findService(InstallationProxyService.RSD_SERVICE_NAME).port,
+        10,
+      );
+    }
+  } finally {
+    await remoteXPC.close();
+  }
+
+  // Create individual DTX connections with cleanup on partial failure
+  let execTestmanagerd: DvtTestmanagedProxyService | null = null;
+  let controlTestmanagerd: DvtTestmanagedProxyService | null = null;
+  let dvtService: DVTSecureSocketProxyService | null = null;
+  let installationProxy: InstallationProxyService | undefined;
+  try {
+    execTestmanagerd = new DvtTestmanagedProxyService([host, testmanagerdPort]);
+    await execTestmanagerd.connect();
+
+    controlTestmanagerd = new DvtTestmanagedProxyService([
+      host,
+      testmanagerdPort,
+    ]);
+    await controlTestmanagerd.connect();
+
+    dvtService = new DVTSecureSocketProxyService([host, dvtPort]);
+    await dvtService.connect();
+
+    if (installationProxyPort !== undefined) {
+      installationProxy = new InstallationProxyService([
+        host,
+        installationProxyPort,
+      ]);
+    }
+  } catch (err) {
+    installationProxy?.close();
+    await dvtService?.close().catch(() => {});
+    await controlTestmanagerd?.close().catch(() => {});
+    await execTestmanagerd?.close().catch(() => {});
+    throw err;
+  }
+
+  const processControl = new ProcessControl(dvtService);
+
+  return {
+    execTestmanagerd,
+    controlTestmanagerd,
+    dvtService,
+    processControl,
+    installationProxy,
   };
 }
 
