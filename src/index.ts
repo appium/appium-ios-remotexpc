@@ -77,6 +77,8 @@ export type {
 } from './lib/types.js';
 export { PowerAssertionType } from './lib/types.js';
 export { NetworkMessageType } from './services/ios/dvt/instruments/network-monitor.js';
+export { XCTestConfigurationEncoder } from './services/ios/testmanagerd/xctestconfiguration.js';
+export type { XCTestConfigurationParams } from './services/ios/testmanagerd/xctestconfiguration.js';
 export {
   STRONGBOX_CONTAINER_NAME,
   createUsbmux,
