@@ -1,3 +1,9 @@
+## [0.31.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.30.1...v0.31.0) (2026-03-06)
+
+### Features
+
+* add testmanagerd DTX service for XCTest ([#148](https://github.com/appium/appium-ios-remotexpc/issues/148)) ([f7a2335](https://github.com/appium/appium-ios-remotexpc/commit/f7a2335e7194694304c629f8d99fbab5d3d3206a))
+
 ## [0.30.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.30.0...v0.30.1) (2026-03-06)
 
 ### Miscellaneous Chores
