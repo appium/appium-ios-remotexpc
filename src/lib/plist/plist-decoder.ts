@@ -1,4 +1,4 @@
-import { Transform, type TransformCallback } from 'stream';
+import { Transform, type TransformCallback } from 'node:stream';
 
 import { getLogger } from '../logger.js';
 import { UTF8_ENCODING } from './constants.js';
