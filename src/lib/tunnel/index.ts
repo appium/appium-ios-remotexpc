@@ -2,7 +2,7 @@ import {
   type TunnelConnection,
   connectToTunnelLockdown,
 } from 'appium-ios-tuntap';
-import type { TLSSocket } from 'tls';
+import type { TLSSocket } from 'node:tls';
 
 import { getLogger } from '../logger.js';
 import { RemoteXpcConnection } from '../remote-xpc/remote-xpc-connection.js';

@@ -1,4 +1,4 @@
-import { TLSSocket } from 'tls';
+import { TLSSocket } from 'node:tls';
 
 import {
   LockdownService,

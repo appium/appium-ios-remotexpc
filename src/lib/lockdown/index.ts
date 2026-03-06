@@ -1,5 +1,5 @@
 import { Socket } from 'node:net';
-import tls, { type ConnectionOptions, TLSSocket } from 'tls';
+import tls, { type ConnectionOptions, TLSSocket } from 'node:tls';
 
 import { BasePlistService } from '../../base-plist-service.js';
 import { getLogger } from '../logger.js';

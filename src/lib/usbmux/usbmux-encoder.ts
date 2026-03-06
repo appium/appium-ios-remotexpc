@@ -1,4 +1,4 @@
-import { Transform, type TransformCallback } from 'stream';
+import { Transform, type TransformCallback } from 'node:stream';
 
 import { createPlist } from '../plist/index.js';
 import type { PlistDictionary } from '../types.js';

@@ -1,5 +1,5 @@
 import { fs } from '@appium/support';
-import path from 'path';
+import path from 'node:path';
 
 import {
   type MisagentService as MisagentServiceInterface,
