@@ -50,7 +50,7 @@ npm install appium-ios-remotexpc
 
 Controls the logging verbosity of the library.
 
-- **Default**: `info`
+- **Default**: `error`
 - **Possible values**: Standard log levels supported by @appium/support logger
   - `silly` - Most verbose, logs everything
   - `verbose` - Very detailed logs
