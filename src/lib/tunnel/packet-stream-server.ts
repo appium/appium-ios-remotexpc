@@ -1,6 +1,6 @@
 import type { PacketConsumer, PacketData } from 'appium-ios-tuntap';
-import { EventEmitter } from 'events';
-import { type Server, type Socket, createServer } from 'net';
+import { EventEmitter } from 'node:events';
+import { type Server, type Socket, createServer } from 'node:net';
 
 import { getLogger } from '../logger.js';
 

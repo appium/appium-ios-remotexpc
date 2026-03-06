@@ -1,5 +1,5 @@
 import type { PacketConsumer, PacketData } from 'appium-ios-tuntap';
-import { EventEmitter } from 'events';
+import { EventEmitter } from 'node:events';
 
 import { getLogger } from '../../../lib/logger.js';
 import { isBinaryPlist } from '../../../lib/plist/binary-plist-parser.js';
