@@ -1,3 +1,9 @@
+## [0.32.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.31.1...v0.32.0) (2026-03-11)
+
+### Features
+
+* **testmanagerd:** add XCTestConfiguration encoder for XCTest session setup ([#151](https://github.com/appium/appium-ios-remotexpc/issues/151)) ([b6b4c3d](https://github.com/appium/appium-ios-remotexpc/commit/b6b4c3d33dd8e617550fc23f411044c366ff540f))
+
 ## [0.31.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.31.0...v0.31.1) (2026-03-06)
 
 ### Miscellaneous Chores
