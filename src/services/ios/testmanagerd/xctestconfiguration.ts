@@ -195,10 +195,21 @@ export interface XCTestConfigurationParams {
   targetApplicationEnvironment?: Record<string, string> | null;
 }
 
+export interface NSUUIDMarker {
+  __type: 'NSUUID';
+  uuid: string;
+}
+
+export interface NSURLMarker {
+  __type: 'NSURL';
+  base: string | null;
+  relative: string;
+}
+
 /**
  * Helper to create an NSUUID marker object
  */
-export function createNSUUID(uuid: string): { __type: 'NSUUID'; uuid: string } {
+export function createNSUUID(uuid: string): NSUUIDMarker {
   return { __type: 'NSUUID', uuid };
 }
 
@@ -208,6 +219,6 @@ export function createNSUUID(uuid: string): { __type: 'NSUUID'; uuid: string } {
 export function createNSURL(
   relative: string,
   base: string | null = null,
-): { __type: 'NSURL'; base: string | null; relative: string } {
+): NSURLMarker {
   return { __type: 'NSURL', base, relative };
 }
