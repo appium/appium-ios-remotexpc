@@ -6,7 +6,7 @@ import { PairingError } from '../errors.js';
 import { NetworkClient } from '../network/index.js';
 import { PairingProtocol } from '../pairing-protocol/index.js';
 import type { UserInputInterface } from '../pairing-protocol/types.js';
-import type { PairingConfig, PairingResult } from '../types.js';
+import type { AppleTVPairingResult, PairingConfig } from '../types.js';
 
 const log = getLogger('AppleTVPairingService');
 
@@ -30,7 +30,9 @@ export class AppleTVPairingService {
     );
   }
 
-  async discoverAndPair(deviceSelector?: string): Promise<PairingResult> {
+  async discoverAndPair(
+    deviceSelector?: string,
+  ): Promise<AppleTVPairingResult> {
     try {
       const devices = await this.discoveryService.discoverDevices();
 

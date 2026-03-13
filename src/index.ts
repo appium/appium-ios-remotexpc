@@ -80,6 +80,13 @@ export { NetworkMessageType } from './services/ios/dvt/instruments/network-monit
 export { XCTestConfigurationEncoder } from './services/ios/testmanagerd/xctestconfiguration.js';
 export type { XCTestConfigurationParams } from './services/ios/testmanagerd/xctestconfiguration.js';
 export {
+  AppleTVPairingService,
+  UserInputService,
+} from './lib/apple-tv/pairing/index.js';
+export { AppleTVTunnelService } from './lib/apple-tv/tunnel/index.js';
+export type { AppleTVPairingResult } from './lib/apple-tv/types.js';
+
+export {
   STRONGBOX_CONTAINER_NAME,
   createUsbmux,
   Services,

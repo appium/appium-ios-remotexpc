@@ -1,6 +1,6 @@
 {
   "name": "appium-ios-remotexpc",
-  "version": "0.32.0",
+  "version": "0.33.0",
   "main": "build/src/index.js",
   "types": "build/src/index.d.ts",
   "type": "module",
@@ -89,6 +89,7 @@
     "rimraf": "^6.0.1",
     "semantic-release": "^25.0.2",
     "sinon": "^21.0.0",
+    "tinyexec": "1.0.2",
     "ts-node": "^10.9.2",
     "tsx": "^4.7.0",
     "typescript": "^5.2.2"
@@ -102,6 +103,9 @@
     "axios": "^1.12.0",
     "minimatch": "^10.1.1",
     "npm-run-all2": "^8.0.4"
+  },
+  "overrides": {
+    "tinyexec": "1.0.2"
   },
   "files": [
     "src",
