@@ -74,11 +74,33 @@ export type {
   SendMessageOptions,
   TestmanagerdService,
   TestmanagerdServiceWithConnection,
+  XCTestServices,
 } from './lib/types.js';
 export { PowerAssertionType } from './lib/types.js';
 export { NetworkMessageType } from './services/ios/dvt/instruments/network-monitor.js';
 export { XCTestConfigurationEncoder } from './services/ios/testmanagerd/xctestconfiguration.js';
 export type { XCTestConfigurationParams } from './services/ios/testmanagerd/xctestconfiguration.js';
+export { ProcessControl } from './services/ios/dvt/instruments/process-control.js';
+export {
+  XCUITestService,
+  XCTestRunner,
+  createXCTestRunner,
+  runXCTest,
+} from './services/ios/testmanagerd/xcuitest.js';
+export {
+  XCTestRunError,
+  getXctestNameFromBundleId,
+  parseCallback,
+} from './services/ios/testmanagerd/xctest-types.js';
+export type {
+  XCUITestOptions,
+  XCTestRunnerOptions,
+  XCTestRunResult,
+  XCTestRunStage,
+  XCTestEvent,
+  XCTestSummary,
+} from './services/ios/testmanagerd/xctest-types.js';
+export { createBinaryPlist } from './lib/plist/index.js';
 export {
   STRONGBOX_CONTAINER_NAME,
   createUsbmux,

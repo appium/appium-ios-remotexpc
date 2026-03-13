@@ -6,7 +6,7 @@ import type {
   HouseArrestServiceWithConnection,
   TestmanagerdServiceWithConnection,
 } from '../../src/index.js';
-import { XCTestConfigurationEncoder } from '../../src/index.js';
+import { XCTestConfigurationEncoder, runXCTest } from '../../src/index.js';
 import {
   createBinaryPlist,
   parseBinaryPlist,
@@ -19,7 +19,7 @@ log.level = 'debug';
 
 const XCODE_VERSION = 36;
 
-const UDID = process.env.UDID || '';
+const UDID = process.env.UDID || '00008030-001E290A3EF2402E';
 const TEST_RUNNER_BUNDLE_ID = process.env.TEST_RUNNER_BUNDLE_ID;
 const APP_UNDER_TEST_BUNDLE_ID = process.env.APP_UNDER_TEST_BUNDLE_ID;
 const XCTEST_BUNDLE_ID = process.env.XCTEST_BUNDLE_ID;
@@ -270,6 +270,37 @@ describe('Testmanagerd Service', function () {
       } catch (error) {
         log.debug('Error killing calculator (may have already exited):', error);
       }
+    });
+  });
+
+  describe('Full XCTest launch flow', function () {
+    before(function () {
+      if (
+        !TEST_RUNNER_BUNDLE_ID ||
+        !APP_UNDER_TEST_BUNDLE_ID ||
+        !XCTEST_BUNDLE_ID
+      ) {
+        this.skip();
+      }
+    });
+
+    it('should execute full XCTest launch lifecycle via runXCTest', async function () {
+      this.timeout(Number(process.env.XCTEST_MOCHA_TIMEOUT_MS || 360000));
+
+      const result = await runXCTest({
+        udid: UDID,
+        testRunnerBundleId: TEST_RUNNER_BUNDLE_ID!,
+        appUnderTestBundleId: APP_UNDER_TEST_BUNDLE_ID!,
+        xctestBundleId: XCTEST_BUNDLE_ID!,
+        timeoutMs: Number(process.env.XCTEST_PLAN_TIMEOUT_MS || 300000),
+      });
+
+      log.debug('XCTest run result:', result);
+
+      expect(result.status).to.equal('passed');
+      expect(result.sessionIdentifier).to.be.a('string');
+      expect(result.testRunnerPid).to.be.greaterThan(0);
+      expect(result.durationMs).to.be.greaterThan(0);
     });
   });
 });

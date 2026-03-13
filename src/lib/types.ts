@@ -1837,3 +1837,23 @@ export interface TestmanagerdServiceWithConnection {
   /** The RemoteXPC connection for service management */
   remoteXPC: RemoteXpcConnection;
 }
+
+/**
+ * All services needed for an XCTest session, created via a single RemoteXPC connection.
+ * Using one connection for service discovery avoids ECONNRESET errors from the tunnel.
+ *
+ * The RemoteXPC connection is closed internally after port discovery. Callers
+ * are responsible for closing execTestmanagerd, controlTestmanagerd, and dvtService.
+ */
+export interface XCTestServices {
+  /** Testmanagerd connection for the exec session (capabilities, test callbacks) */
+  execTestmanagerd: TestmanagerdService;
+  /** Testmanagerd connection for the control session (authorize, test plan) */
+  controlTestmanagerd: TestmanagerdService;
+  /** DVT service for instruments (process control, etc.) */
+  dvtService: DVTSecureSocketProxyService;
+  /** ProcessControl instrument for launching/killing apps */
+  processControl: ProcessControlService;
+  /** Optional InstallationProxy for app lookup (when requested via startXCTestServices) */
+  installationProxy?: InstallationProxyService;
+}
