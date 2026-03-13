@@ -91,6 +91,7 @@
     "sinon": "^21.0.0",
     "ts-node": "^10.9.2",
     "tsx": "^4.7.0",
+    "tinyexec": "^1.0.3",
     "typescript": "^5.2.2"
   },
   "dependencies": {
