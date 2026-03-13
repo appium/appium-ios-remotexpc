@@ -185,10 +185,7 @@ export class XCUITestService extends EventEmitter {
             this.configReplyDeferred?.resolve();
           }
 
-          if (
-            typeof selector === 'string' &&
-            selector.startsWith(SELECTOR.testPlanFinished)
-          ) {
+          if (selector === SELECTOR.testPlanFinished) {
             this.running = false;
             const status =
               this.lastTestSummary && this.lastTestSummary.failureCount > 0
@@ -204,6 +201,10 @@ export class XCUITestService extends EventEmitter {
           this.lastListenerError =
             err instanceof Error ? err : new Error(String(err));
           this.running = false;
+
+          // Unblock startExecutingTestPlan if it's waiting for config reply
+          this.configReplyDeferred?.resolve();
+          this.configReplyDeferred = null;
 
           if (isTransportError(err)) {
             log.debug(
@@ -317,7 +318,9 @@ export class XCUITestService extends EventEmitter {
    */
   async waitForCompletion(): Promise<'passed' | 'failed'> {
     if (!this.finishedDeferred) {
-      return 'passed';
+      throw new Error(
+        'startExecCallbackListener must be called before waitForCompletion',
+      );
     }
     return await this.finishedDeferred.promise;
   }
@@ -459,12 +462,16 @@ export class XCUITestService extends EventEmitter {
           runCount: event.runCount,
           skipCount: event.skipCount,
           failureCount: event.failureCount,
+          expectedFailureCount: event.expectedFailureCount,
+          uncaughtExceptionCount: event.uncaughtExceptionCount,
+          testDuration: event.testDuration,
+          totalDuration: event.totalDuration,
         };
         break;
 
       case 'testPlanFinished':
         log.info('Test plan execution finished');
-        this.running = false;
+        // State update (this.running) and deferred resolution handled by the listener loop
         break;
 
       case 'unknown':
@@ -634,6 +641,11 @@ export class XCTestRunner extends EventEmitter {
   }
 
   async close(): Promise<void> {
+    if (this.installationProxy) {
+      this.installationProxy.close();
+      this.installationProxy = null;
+    }
+
     if (this.services?.processControl && this.launchedPid) {
       await this.services.processControl
         .kill(Math.abs(this.launchedPid))

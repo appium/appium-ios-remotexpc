@@ -91,6 +91,9 @@ export class Deferred<T> {
 
 /** Extract the xctest module name from a bundle identifier. */
 export function getXctestNameFromBundleId(xctestBundleId: string): string {
+  if (!xctestBundleId) {
+    throw new Error('xctestBundleId must not be empty');
+  }
   return xctestBundleId.split('.').at(-1) || xctestBundleId;
 }
 
@@ -189,6 +192,10 @@ export type XCTestEvent =
       runCount: number;
       skipCount: number;
       failureCount: number;
+      expectedFailureCount: number;
+      uncaughtExceptionCount: number;
+      testDuration: number;
+      totalDuration: number;
     }
   | { type: 'testPlanFinished' }
   | { type: 'unknown'; selector: string };
@@ -229,8 +236,14 @@ export function parseCallback(
         type: 'testCaseFailed',
         testClass: resolveTestIdentifier(auxiliaries[0]),
         method: resolveTestIdentifier(auxiliaries[1]),
-        message: resolveTestIdentifier(auxiliaries[2]),
-        file: resolveTestIdentifier(auxiliaries[3]),
+        message:
+          typeof auxiliaries[2] === 'string'
+            ? auxiliaries[2]
+            : String(auxiliaries[2] ?? ''),
+        file:
+          typeof auxiliaries[3] === 'string'
+            ? auxiliaries[3]
+            : String(auxiliaries[3] ?? ''),
         line: Number(auxiliaries[4] ?? 0),
       };
 
@@ -252,9 +265,14 @@ export function parseCallback(
       return {
         type: 'testSuiteFinished',
         identifier: resolveTestIdentifier(auxiliaries[0]),
+        // auxiliaries[1] = didFinishAt (timestamp)
         runCount: Number(auxiliaries[2]),
         skipCount: Number(auxiliaries[3]),
         failureCount: Number(auxiliaries[4]),
+        expectedFailureCount: Number(auxiliaries[5] ?? 0),
+        uncaughtExceptionCount: Number(auxiliaries[6] ?? 0),
+        testDuration: Number(auxiliaries[7] ?? 0),
+        totalDuration: Number(auxiliaries[8] ?? 0),
       };
 
     case SELECTOR.testPlanFinished:
@@ -359,6 +377,10 @@ export interface XCTestSummary {
   runCount: number;
   skipCount: number;
   failureCount: number;
+  expectedFailureCount: number;
+  uncaughtExceptionCount: number;
+  testDuration: number;
+  totalDuration: number;
 }
 
 /** Result returned by high-level XCTest run */
