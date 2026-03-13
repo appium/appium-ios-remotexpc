@@ -66,7 +66,6 @@ describe('Tunnel and Syslog Service', function () {
     it('should capture and emit syslog messages (requires active tunnel with packet source)', async function () {
       if (!packetStreamClient) {
         this.skip();
-        return;
       }
       const messages: string[] = [];
       syslogService.on('message', (message: string) => {
