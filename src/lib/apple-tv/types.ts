@@ -23,6 +23,9 @@ export interface PairingResult {
   error?: Error;
 }
 
+/** Public type for Apple TV pairing results (e.g. from discoverAndPair). */
+export type AppleTVPairingResult = PairingResult;
+
 // Configuration options for the pairing process
 export interface PairingConfig {
   timeout: number;

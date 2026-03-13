@@ -130,6 +130,24 @@ const remoteXPC = await TunnelManager.createRemoteXPCConnection(
 const services = remoteXPC.getServices();
 ```
 
+### Apple TV / tvOS over WiFi
+
+Apple TV and tvOS devices over WiFi are supported. The following symbols are part of the public API and are intended for external use (e.g. by the Appium XCUITest driver):
+
+```typescript
+import {
+  AppleTVPairingService,
+  UserInputService,
+  AppleTVTunnelService,
+} from 'appium-ios-remotexpc';
+
+const userInput = new UserInputService();
+const pairing = new AppleTVPairingService(userInput);
+const result = await pairing.discoverAndPair('Living Room');
+```
+
+For step-by-step pairing instructions, see the [Apple TV Pairing Instructions](docs/apple-tv-pairing-guide.md).
+
 ## Development
 
 ### Setup
