@@ -1,3 +1,17 @@
+## [0.33.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.32.0...v0.33.0) (2026-03-13)
+
+### Features
+
+* Publish entities needed for AppleTV pairing ([#152](https://github.com/appium/appium-ios-remotexpc/issues/152)) ([20ac17b](https://github.com/appium/appium-ios-remotexpc/commit/20ac17ba2f1c3fb77313625619bbf406921d86c4))
+
+### Bug Fixes
+
+* Force pin tinyexec ([#154](https://github.com/appium/appium-ios-remotexpc/issues/154)) ([d60a7e6](https://github.com/appium/appium-ios-remotexpc/commit/d60a7e6633a6fa8bd1badbecd04e68cbf3270544))
+
+### Miscellaneous Chores
+
+* Fix release script ([#153](https://github.com/appium/appium-ios-remotexpc/issues/153)) ([9466c9c](https://github.com/appium/appium-ios-remotexpc/commit/9466c9cf507f0e5558e3a1ab45eecfea3d4155f7))
+
 ## [0.32.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.31.1...v0.32.0) (2026-03-11)
 
 ### Features
