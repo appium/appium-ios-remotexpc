@@ -1,6 +1,7 @@
 // Core exports
 export type {
   AppleTVDeviceInfo,
+  AppleTVPairingResult,
   PairingKeys,
   PairingResult,
   PairingConfig,
