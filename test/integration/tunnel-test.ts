@@ -14,7 +14,7 @@ import {
 
 const log = logger.getLogger('TunnelTest');
 
-const udid = process.env.UDID || '00008030-000318693E32402E';
+const udid = process.env.UDID || '';
 
 describe('Tunnel and Syslog Service', function () {
   this.timeout(60000);
