@@ -357,7 +357,7 @@ async function getTunnelRegistryClient(): Promise<TunnelApiClient> {
     String(tunnelRegistryPort).trim() === ''
   ) {
     throw new Error(
-      'Tunnel registry port not found. Please run the tunnel creation script first: sudo appium driver run xcuitest tunnel-creation',
+      'Tunnel registry port not found. Please run the tunnel creation script first',
     );
   }
   return new TunnelApiClient(
@@ -370,7 +370,7 @@ async function getTunnelInformation(udid: string) {
   const tunnelExists = await tunnelApiClient.hasTunnel(udid);
   if (!tunnelExists) {
     throw new Error(
-      `No tunnel found for device ${udid}. Please run the tunnel creation script first: sudo appium driver run xcuitest tunnel-creation`,
+      `No tunnel found for device ${udid}. Please run the tunnel creation script first`,
     );
   }
   const tunnelConnection = await tunnelApiClient.getTunnelConnection(udid);
