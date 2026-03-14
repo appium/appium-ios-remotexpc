@@ -1,5 +1,6 @@
 import { strongbox } from '@appium/strongbox';
 
+import { getLogger } from './lib/logger.js';
 import { RemoteXpcConnection } from './lib/remote-xpc/remote-xpc-connection.js';
 import { TunnelManager } from './lib/tunnel/index.js';
 import { TunnelApiClient } from './lib/tunnel/tunnel-api-client.js';
@@ -46,6 +47,7 @@ import { WebInspectorService } from './services/ios/webinspector/index.js';
 
 const APPIUM_XCUITEST_DRIVER_NAME = 'appium-xcuitest-driver';
 const TUNNEL_REGISTRY_PORT = 'tunnelRegistryPort';
+const log = getLogger('Services');
 
 export async function startDiagnosticsService(
   udid: string,
@@ -323,6 +325,53 @@ export async function createRemoteXPCConnection(udid: string) {
     tunnelConnection.port,
   );
   return { remoteXPC, tunnelConnection };
+}
+
+/**
+ * Returns the list of device UDIDs currently in the tunnel registry.
+ * Used to include tunnel-only devices (e.g. Apple TV over WiFi)
+ * in the "connected devices" list for session validation.
+ *
+ * @param timeoutMs - Timeout in milliseconds for the registry fetch (default 3000).
+ * @returns Promise resolving to an array of UDIDs. Resolves to [] on any failure
+ * (missing port, registry unreachable, parse error); never throws.
+ */
+export async function getAvailableTunnelUdids(
+  timeoutMs: number = 3000,
+): Promise<string[]> {
+  try {
+    const box = strongbox(APPIUM_XCUITEST_DRIVER_NAME);
+    const item = await box.createItem(TUNNEL_REGISTRY_PORT);
+    const tunnelRegistryPort = await item.read();
+    if (
+      tunnelRegistryPort === undefined ||
+      String(tunnelRegistryPort).trim() === ''
+    ) {
+      log.info('Tunnel registry port is not set or empty; returning no UDIDs');
+      return [];
+    }
+    const baseUrl = `http://127.0.0.1:${tunnelRegistryPort}/remotexpc/tunnels`;
+    const client = new TunnelApiClient(baseUrl);
+    const registryPromise = client.fetchRegistry();
+    const timeoutPromise = new Promise<never>((_resolve, reject) =>
+      setTimeout(() => reject(new Error('Timeout')), timeoutMs),
+    );
+    const registry = await Promise.race([registryPromise, timeoutPromise]);
+    if (registry?.tunnels && typeof registry.tunnels === 'object') {
+      return Object.keys(registry.tunnels);
+    }
+    log.warn(
+      'Tunnel registry response missing or invalid tunnels; returning no UDIDs',
+    );
+    return [];
+  } catch (err) {
+    const message =
+      err instanceof Error && err.message === 'Timeout'
+        ? `Registry fetch timed out after ${timeoutMs}ms`
+        : `Registry fetch failed: ${err instanceof Error ? err.message : err}`;
+    log.warn(message);
+    return [];
+  }
 }
 
 // #region Private Functions
