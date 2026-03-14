@@ -1,7 +1,6 @@
 import { strongbox } from '@appium/strongbox';
 
 import { TUNNEL_CONTAINER_NAME } from './constants.js';
-import { getLogger } from './lib/logger.js';
 import { RemoteXpcConnection } from './lib/remote-xpc/remote-xpc-connection.js';
 import { TunnelManager } from './lib/tunnel/index.js';
 import { TunnelApiClient } from './lib/tunnel/tunnel-api-client.js';
@@ -47,7 +46,6 @@ import { DvtTestmanagedProxyService } from './services/ios/testmanagerd/index.js
 import { WebInspectorService } from './services/ios/webinspector/index.js';
 
 const TUNNEL_REGISTRY_PORT = 'tunnelRegistryPort';
-const log = getLogger('Services');
 
 export async function startDiagnosticsService(
   udid: string,
