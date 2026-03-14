@@ -1,3 +1,9 @@
+## [0.33.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.33.1...v0.33.2) (2026-03-14)
+
+### Miscellaneous Chores
+
+* no endpoint log ([#157](https://github.com/appium/appium-ios-remotexpc/issues/157)) ([a9206cb](https://github.com/appium/appium-ios-remotexpc/commit/a9206cb06fbb30292f8c4fa07a4332fbc5958b7b))
+
 ## [0.33.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.33.0...v0.33.1) (2026-03-14)
 
 ### Miscellaneous Chores
