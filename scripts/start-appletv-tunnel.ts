@@ -160,7 +160,6 @@ async function main(): Promise<void> {
     log.info(
       `   - GET /remotexpc/tunnels/${deviceInfo.identifier} - Get tunnel by identifier`,
     );
-    log.info('   - GET /remotexpc/tunnels/metadata - Get registry metadata');
 
     log.info('\n✅ Apple TV tunnel is ready!');
     log.info(`Use: --rsd ${tunnel.Address} ${tunnel.RsdPort}`);
