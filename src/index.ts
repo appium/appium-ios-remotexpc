@@ -1,4 +1,7 @@
-import { STRONGBOX_CONTAINER_NAME } from './constants.js';
+import {
+  STRONGBOX_CONTAINER_NAME,
+  TUNNEL_CONTAINER_NAME,
+} from './constants.js';
 import { createLockdownServiceByUDID } from './lib/lockdown/index.js';
 import {
   PacketStreamClient,
@@ -88,6 +91,7 @@ export type { AppleTVPairingResult } from './lib/apple-tv/types.js';
 
 export {
   STRONGBOX_CONTAINER_NAME,
+  TUNNEL_CONTAINER_NAME,
   createUsbmux,
   Services,
   Usbmux,

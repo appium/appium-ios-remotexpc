@@ -1,5 +1,6 @@
 import { strongbox } from '@appium/strongbox';
 
+import { TUNNEL_CONTAINER_NAME } from './constants.js';
 import { getLogger } from './lib/logger.js';
 import { RemoteXpcConnection } from './lib/remote-xpc/remote-xpc-connection.js';
 import { TunnelManager } from './lib/tunnel/index.js';
@@ -45,7 +46,6 @@ import SyslogService from './services/ios/syslog-service/index.js';
 import { DvtTestmanagedProxyService } from './services/ios/testmanagerd/index.js';
 import { WebInspectorService } from './services/ios/webinspector/index.js';
 
-const APPIUM_XCUITEST_DRIVER_NAME = 'appium-xcuitest-driver';
 const TUNNEL_REGISTRY_PORT = 'tunnelRegistryPort';
 const log = getLogger('Services');
 
@@ -333,51 +333,57 @@ export async function createRemoteXPCConnection(udid: string) {
  * in the "connected devices" list for session validation.
  *
  * @param timeoutMs - Timeout in milliseconds for the registry fetch (default 3000).
- * @returns Promise resolving to an array of UDIDs. Resolves to [] on any failure
- * (missing port, registry unreachable, parse error); never throws.
+ * @returns Promise resolving to an array of UDIDs. Returns [] only when the
+ * registry is reachable and reports no tunnels.
+ * @throws When tunnel registry port is missing or empty in strongbox.
+ * @throws When registry is unreachable, request times out, or response is invalid.
  */
 export async function getAvailableTunnelUdids(
   timeoutMs: number = 3000,
 ): Promise<string[]> {
+  const box = strongbox(TUNNEL_CONTAINER_NAME);
+  const item = await box.createItem(TUNNEL_REGISTRY_PORT);
+  const tunnelRegistryPort = await item.read();
+  if (
+    tunnelRegistryPort === undefined ||
+    String(tunnelRegistryPort).trim() === ''
+  ) {
+    throw new Error(
+      'Tunnel registry port not in strongbox or empty. Run the tunnel creation script first.',
+    );
+  }
+  const baseUrl = `http://127.0.0.1:${tunnelRegistryPort}/remotexpc/tunnels`;
+  const client = new TunnelApiClient(baseUrl);
+  let registry: Awaited<ReturnType<TunnelApiClient['fetchRegistry']>>;
   try {
-    const box = strongbox(APPIUM_XCUITEST_DRIVER_NAME);
-    const item = await box.createItem(TUNNEL_REGISTRY_PORT);
-    const tunnelRegistryPort = await item.read();
-    if (
-      tunnelRegistryPort === undefined ||
-      String(tunnelRegistryPort).trim() === ''
-    ) {
-      log.info('Tunnel registry port is not set or empty; returning no UDIDs');
-      return [];
-    }
-    const baseUrl = `http://127.0.0.1:${tunnelRegistryPort}/remotexpc/tunnels`;
-    const client = new TunnelApiClient(baseUrl);
     const registryPromise = client.fetchRegistry();
     const timeoutPromise = new Promise<never>((_resolve, reject) =>
-      setTimeout(() => reject(new Error('Timeout')), timeoutMs),
+      setTimeout(
+        () =>
+          reject(
+            new Error(`Tunnel registry fetch timed out after ${timeoutMs}ms`),
+          ),
+        timeoutMs,
+      ),
     );
-    const registry = await Promise.race([registryPromise, timeoutPromise]);
-    if (registry?.tunnels && typeof registry.tunnels === 'object') {
-      return Object.keys(registry.tunnels);
-    }
-    log.warn(
-      'Tunnel registry response missing or invalid tunnels; returning no UDIDs',
-    );
-    return [];
+    registry = await Promise.race([registryPromise, timeoutPromise]);
   } catch (err) {
-    const message =
-      err instanceof Error && err.message === 'Timeout'
-        ? `Registry fetch timed out after ${timeoutMs}ms`
-        : `Registry fetch failed: ${err instanceof Error ? err.message : err}`;
-    log.warn(message);
-    return [];
+    const message = err instanceof Error ? err.message : String(err);
+    log.warn(`Tunnel registry fetch failed: ${message}`);
+    throw err;
   }
+  if (!registry?.tunnels || typeof registry.tunnels !== 'object') {
+    throw new Error(
+      'Tunnel registry response missing or invalid tunnels object',
+    );
+  }
+  return Object.keys(registry.tunnels);
 }
 
 // #region Private Functions
 
 async function getTunnelInformation(udid: string) {
-  const box = strongbox(APPIUM_XCUITEST_DRIVER_NAME);
+  const box = strongbox(TUNNEL_CONTAINER_NAME);
   const item = await box.createItem(TUNNEL_REGISTRY_PORT);
   const tunnelRegistryPort = await item.read();
   if (tunnelRegistryPort === undefined) {
