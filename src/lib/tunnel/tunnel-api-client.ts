@@ -18,7 +18,7 @@ const DEFAULT_TIMEOUT_MS = 10_000;
  * This client handles communication with the API server for tunnel data
  */
 export class TunnelApiClient {
-  private apiBaseUrl: string;
+  private readonly apiBaseUrl: string;
   private readonly strict: boolean;
   private readonly timeoutMs: number;
 
@@ -31,14 +31,6 @@ export class TunnelApiClient {
     this.apiBaseUrl = apiBaseUrl;
     this.strict = options.strict ?? false;
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  }
-
-  /**
-   * Set the API base URL
-   * @param url - New base URL for the API server
-   */
-  setApiBaseUrl(url: string): void {
-    this.apiBaseUrl = url;
   }
 
   /**
