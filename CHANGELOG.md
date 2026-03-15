@@ -1,3 +1,9 @@
+## [0.34.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.33.2...v0.34.0) (2026-03-15)
+
+### Features
+
+* add getAvailableDevices to list tunnelled devices ([#158](https://github.com/appium/appium-ios-remotexpc/issues/158)) ([c08bba8](https://github.com/appium/appium-ios-remotexpc/commit/c08bba8686e5c5aae248eef09cb9e315fefe42b1))
+
 ## [0.33.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.33.1...v0.33.2) (2026-03-14)
 
 ### Miscellaneous Chores
