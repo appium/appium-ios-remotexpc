@@ -3,7 +3,10 @@ import { strongbox } from '@appium/strongbox';
 import { TUNNEL_CONTAINER_NAME } from './constants.js';
 import { RemoteXpcConnection } from './lib/remote-xpc/remote-xpc-connection.js';
 import { TunnelManager } from './lib/tunnel/index.js';
-import { TunnelApiClient } from './lib/tunnel/tunnel-api-client.js';
+import {
+  TunnelApiClient,
+  type TunnelApiClientOptions,
+} from './lib/tunnel/tunnel-api-client.js';
 import type {
   CrashReportsServiceWithConnection,
   DVTServiceWithConnection,
@@ -335,20 +338,16 @@ export async function createRemoteXPCConnection(udid: string) {
  * @throws When tunnel registry port is missing or empty in strongbox.
  * @throws When registry is unreachable or response is invalid.
  */
-export async function getAvailableTunnelUdids(): Promise<string[]> {
-  const client = await getTunnelRegistryClient();
-  const registry = await client.fetchRegistry();
-  if (!registry?.tunnels || typeof registry.tunnels !== 'object') {
-    throw new Error(
-      'Tunnel registry response missing or invalid tunnels object',
-    );
-  }
-  return Object.keys(registry.tunnels);
+export async function getAvailableDevices(): Promise<string[]> {
+  const client = await getTunnelRegistryClient({ strict: true });
+  return await client.getAvailableDevices();
 }
 
 // #region Private Functions
 
-async function getTunnelRegistryClient(): Promise<TunnelApiClient> {
+async function getTunnelRegistryClient(
+  options: TunnelApiClientOptions = {},
+): Promise<TunnelApiClient> {
   const box = strongbox(TUNNEL_CONTAINER_NAME);
   const item = await box.createItem(TUNNEL_REGISTRY_PORT);
   const tunnelRegistryPort = await item.read();
@@ -362,6 +361,7 @@ async function getTunnelRegistryClient(): Promise<TunnelApiClient> {
   }
   return new TunnelApiClient(
     `http://127.0.0.1:${tunnelRegistryPort}/remotexpc/tunnels`,
+    options,
   );
 }
 
