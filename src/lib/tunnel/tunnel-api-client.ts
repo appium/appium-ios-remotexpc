@@ -66,10 +66,7 @@ export class TunnelApiClient {
 
       return (await response.json()) as TunnelRegistry;
     } catch (error) {
-      log.warn(`Failed to fetch tunnel registry from API: ${error}`);
-      if (this.strict) {
-        throw error;
-      }
+      this.handleFetchError('Failed to fetch tunnel registry from API', error);
       return EMPTY_REGISTRY;
     }
   }
@@ -95,10 +92,7 @@ export class TunnelApiClient {
 
       return (await response.json()) as TunnelRegistryEntry;
     } catch (error) {
-      log.warn(`Failed to fetch tunnel for UDID ${udid}: ${error}`);
-      if (this.strict) {
-        throw error;
-      }
+      this.handleFetchError(`Failed to fetch tunnel for UDID ${udid}`, error);
       return null;
     }
   }
@@ -126,10 +120,10 @@ export class TunnelApiClient {
 
       return (await response.json()) as TunnelRegistryEntry;
     } catch (error) {
-      log.warn(`Failed to fetch tunnel for device ID ${deviceId}: ${error}`);
-      if (this.strict) {
-        throw error;
-      }
+      this.handleFetchError(
+        `Failed to fetch tunnel for device ID ${deviceId}`,
+        error,
+      );
       return null;
     }
   }
@@ -143,10 +137,7 @@ export class TunnelApiClient {
       const registry = await this.fetchRegistry();
       return Object.values(registry.tunnels);
     } catch (error) {
-      log.warn(`Failed to fetch all tunnels: ${error}`);
-      if (this.strict) {
-        throw error;
-      }
+      this.handleFetchError('Failed to fetch all tunnels', error);
       return [];
     }
   }
@@ -170,10 +161,7 @@ export class TunnelApiClient {
       const registry = await this.fetchRegistry();
       return registry.metadata;
     } catch (error) {
-      log.warn(`Failed to fetch registry metadata: ${error}`);
-      if (this.strict) {
-        throw error;
-      }
+      this.handleFetchError('Failed to fetch registry metadata', error);
       return EMPTY_REGISTRY.metadata;
     }
   }
@@ -211,10 +199,7 @@ export class TunnelApiClient {
       const registry = await this.fetchRegistry();
       return Object.keys(registry.tunnels);
     } catch (error) {
-      log.warn(`Failed to fetch available devices: ${error}`);
-      if (this.strict) {
-        throw error;
-      }
+      this.handleFetchError('Failed to fetch available devices', error);
       return [];
     }
   }
@@ -239,10 +224,11 @@ export class TunnelApiClient {
 
       return response.ok;
     } catch (error) {
-      log.error(`Failed to update tunnel for UDID ${entry.udid}: ${error}`);
-      if (this.strict) {
-        throw error;
-      }
+      this.handleFetchError(
+        `Failed to update tunnel for UDID ${entry.udid}`,
+        error,
+        'error',
+      );
       return false;
     }
   }
@@ -261,11 +247,32 @@ export class TunnelApiClient {
 
       return response.ok;
     } catch (error) {
-      log.error(`Failed to delete tunnel for UDID ${udid}: ${error}`);
-      if (this.strict) {
-        throw error;
-      }
+      this.handleFetchError(
+        `Failed to delete tunnel for UDID ${udid}`,
+        error,
+        'error',
+      );
       return false;
+    }
+  }
+
+  /**
+   * On strict: throws Error with message and cause. Otherwise logs and returns.
+   */
+  private handleFetchError(
+    messagePrefix: string,
+    error: unknown,
+    logLevel: 'warn' | 'error' = 'warn',
+  ): void {
+    const detail = error instanceof Error ? error.message : String(error);
+    const message = `${messagePrefix}: ${detail}`;
+    if (this.strict) {
+      throw new Error(message, { cause: error });
+    }
+    if (logLevel === 'error') {
+      log.error(message);
+    } else {
+      log.warn(message);
     }
   }
 
