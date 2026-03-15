@@ -27,10 +27,7 @@ export class TunnelApiClient {
    * @param apiBaseUrl - Base URL for the API server
    * @param options - Optional settings
    */
-  constructor(
-    apiBaseUrl: string = 'http://localhost:42314/remotexpc/tunnels',
-    options: TunnelApiClientOptions = {},
-  ) {
+  constructor(apiBaseUrl: string, options: TunnelApiClientOptions = {}) {
     this.apiBaseUrl = apiBaseUrl;
     this.strict = options.strict ?? false;
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
