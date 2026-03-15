@@ -3,27 +3,34 @@ import type { TunnelRegistry, TunnelRegistryEntry } from '../types.js';
 
 const log = getLogger('TunnelApiClient');
 
+const EMPTY_REGISTRY: TunnelRegistry = {
+  tunnels: {},
+  metadata: {
+    lastUpdated: new Date().toISOString(),
+    totalTunnels: 0,
+    activeTunnels: 0,
+  },
+};
+const DEFAULT_TIMEOUT_MS = 10_000;
+
 /**
  * API client for tunnel registry operations
  * This client handles communication with the API server for tunnel data
  */
 export class TunnelApiClient {
-  private apiBaseUrl: string;
+  private readonly apiBaseUrl: string;
+  private readonly strict: boolean;
+  private readonly timeoutMs: number;
 
   /**
    * Create a new TunnelApiClient
    * @param apiBaseUrl - Base URL for the API server
+   * @param options - Optional settings
    */
-  constructor(apiBaseUrl: string = 'http://localhost:42314/remotexpc/tunnels') {
+  constructor(apiBaseUrl: string, options: TunnelApiClientOptions = {}) {
     this.apiBaseUrl = apiBaseUrl;
-  }
-
-  /**
-   * Set the API base URL
-   * @param url - New base URL for the API server
-   */
-  setApiBaseUrl(url: string): void {
-    this.apiBaseUrl = url;
+    this.strict = options.strict ?? false;
+    this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   }
 
   /**
@@ -40,7 +47,7 @@ export class TunnelApiClient {
    */
   async fetchRegistry(): Promise<TunnelRegistry> {
     try {
-      const response = await fetch(this.apiBaseUrl);
+      const response = await this.fetchWithTimeout(this.apiBaseUrl);
 
       if (!response.ok) {
         throw new Error(`API request failed with status: ${response.status}`);
@@ -48,16 +55,8 @@ export class TunnelApiClient {
 
       return (await response.json()) as TunnelRegistry;
     } catch (error) {
-      log.warn(`Failed to fetch tunnel registry from API: ${error}`);
-      // Return empty registry as fallback
-      return {
-        tunnels: {},
-        metadata: {
-          lastUpdated: new Date().toISOString(),
-          totalTunnels: 0,
-          activeTunnels: 0,
-        },
-      };
+      this.handleFetchError('Failed to fetch tunnel registry from API', error);
+      return EMPTY_REGISTRY;
     }
   }
 
@@ -68,7 +67,9 @@ export class TunnelApiClient {
    */
   async getTunnelByUdid(udid: string): Promise<TunnelRegistryEntry | null> {
     try {
-      const response = await fetch(`${this.apiBaseUrl}/${udid}`);
+      const response = await this.fetchWithTimeout(
+        `${this.apiBaseUrl}/${udid}`,
+      );
 
       if (response.status === 404) {
         return null;
@@ -80,7 +81,7 @@ export class TunnelApiClient {
 
       return (await response.json()) as TunnelRegistryEntry;
     } catch (error) {
-      log.warn(`Failed to fetch tunnel for UDID ${udid}: ${error}`);
+      this.handleFetchError(`Failed to fetch tunnel for UDID ${udid}`, error);
       return null;
     }
   }
@@ -94,7 +95,9 @@ export class TunnelApiClient {
     deviceId: number,
   ): Promise<TunnelRegistryEntry | null> {
     try {
-      const response = await fetch(`${this.apiBaseUrl}/device/${deviceId}`);
+      const response = await this.fetchWithTimeout(
+        `${this.apiBaseUrl}/device/${deviceId}`,
+      );
 
       if (response.status === 404) {
         return null;
@@ -106,7 +109,10 @@ export class TunnelApiClient {
 
       return (await response.json()) as TunnelRegistryEntry;
     } catch (error) {
-      log.warn(`Failed to fetch tunnel for device ID ${deviceId}: ${error}`);
+      this.handleFetchError(
+        `Failed to fetch tunnel for device ID ${deviceId}`,
+        error,
+      );
       return null;
     }
   }
@@ -120,7 +126,7 @@ export class TunnelApiClient {
       const registry = await this.fetchRegistry();
       return Object.values(registry.tunnels);
     } catch (error) {
-      log.warn(`Failed to fetch all tunnels: ${error}`);
+      this.handleFetchError('Failed to fetch all tunnels', error);
       return [];
     }
   }
@@ -144,12 +150,8 @@ export class TunnelApiClient {
       const registry = await this.fetchRegistry();
       return registry.metadata;
     } catch (error) {
-      log.warn(`Failed to fetch registry metadata: ${error}`);
-      return {
-        lastUpdated: new Date().toISOString(),
-        totalTunnels: 0,
-        activeTunnels: 0,
-      };
+      this.handleFetchError('Failed to fetch registry metadata', error);
+      return EMPTY_REGISTRY.metadata;
     }
   }
 
@@ -186,7 +188,7 @@ export class TunnelApiClient {
       const registry = await this.fetchRegistry();
       return Object.keys(registry.tunnels);
     } catch (error) {
-      log.warn(`Failed to fetch available devices: ${error}`);
+      this.handleFetchError('Failed to fetch available devices', error);
       return [];
     }
   }
@@ -198,17 +200,24 @@ export class TunnelApiClient {
    */
   async updateTunnel(entry: TunnelRegistryEntry): Promise<boolean> {
     try {
-      const response = await fetch(`${this.apiBaseUrl}/${entry.udid}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
+      const response = await this.fetchWithTimeout(
+        `${this.apiBaseUrl}/${entry.udid}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(entry),
         },
-        body: JSON.stringify(entry),
-      });
+      );
 
       return response.ok;
     } catch (error) {
-      log.error(`Failed to update tunnel for UDID ${entry.udid}: ${error}`);
+      this.handleFetchError(
+        `Failed to update tunnel for UDID ${entry.udid}`,
+        error,
+        'error',
+      );
       return false;
     }
   }
@@ -220,14 +229,70 @@ export class TunnelApiClient {
    */
   async deleteTunnel(udid: string): Promise<boolean> {
     try {
-      const response = await fetch(`${this.apiBaseUrl}/${udid}`, {
-        method: 'DELETE',
-      });
+      const response = await this.fetchWithTimeout(
+        `${this.apiBaseUrl}/${udid}`,
+        { method: 'DELETE' },
+      );
 
       return response.ok;
     } catch (error) {
-      log.error(`Failed to delete tunnel for UDID ${udid}: ${error}`);
+      this.handleFetchError(
+        `Failed to delete tunnel for UDID ${udid}`,
+        error,
+        'error',
+      );
       return false;
     }
   }
+
+  /**
+   * On strict: throws Error with message and cause. Otherwise logs and returns.
+   */
+  private handleFetchError(
+    messagePrefix: string,
+    error: unknown,
+    logLevel: 'warn' | 'error' = 'warn',
+  ): void {
+    const detail = error instanceof Error ? error.message : String(error);
+    const message = `${messagePrefix}: ${detail}`;
+    if (this.strict) {
+      throw new Error(message, { cause: error });
+    }
+    if (logLevel === 'error') {
+      log.error(message);
+    } else {
+      log.warn(message);
+    }
+  }
+
+  private async fetchWithTimeout(
+    url: string,
+    init?: RequestInit,
+  ): Promise<Response> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
+    try {
+      const response = await fetch(url, {
+        ...init,
+        signal: controller.signal,
+      });
+      return response;
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error(
+          `Tunnel registry request timed out after ${this.timeoutMs}ms`,
+        );
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+}
+
+export interface TunnelApiClientOptions {
+  /** When true, methods throw on fetch/API errors instead of returning fallback values. Default false. */
+  strict?: boolean;
+  /** Request timeout in milliseconds. Default 10000 (10 seconds). */
+  timeoutMs?: number;
 }
