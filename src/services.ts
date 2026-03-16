@@ -24,6 +24,7 @@ import type {
   WebInspectorServiceWithConnection,
 } from './lib/types.js';
 import AfcService from './services/ios/afc/index.js';
+import { type Service } from './services/ios/base-service.js';
 import { CrashReportsService } from './services/ios/crash-reports/index.js';
 import DiagnosticsService from './services/ios/diagnostic-service/index.js';
 import { DVTSecureSocketProxyService } from './services/ios/dvt/index.js';
@@ -167,6 +168,45 @@ export async function startSyslogService(
 ): Promise<SyslogServiceType> {
   const { tunnelConnection } = await createRemoteXPCConnection(udid);
   return new SyslogService([tunnelConnection.host, tunnelConnection.port]);
+}
+
+const RSD_SYSLOG_BINARY_SERVICE_NAME = 'com.apple.os_trace_relay.shim.remote';
+const RSD_SYSLOG_TEXT_SERVICE_NAME = 'com.apple.syslog_relay.shim.remote';
+
+/**
+ * Resolve the syslog binary service (os_trace_relay RemoteXPC shim).
+ * Returns an unstarted SyslogService and its service descriptor using a single
+ * RemoteXPC connection. Call syslogService.start(serviceDescriptor, packetSource, { pid }).
+ */
+export async function startSyslogBinaryService(
+  udid: string,
+): Promise<{ syslogService: SyslogServiceType; serviceDescriptor: Service }> {
+  return startSyslogWithServiceName(udid, RSD_SYSLOG_BINARY_SERVICE_NAME);
+}
+
+/**
+ * Resolve the syslog text-relay service (iOS 18+ RemoteXPC shim).
+ * Returns an unstarted SyslogService and its service descriptor using a single
+ * RemoteXPC connection. Call syslogService.start(serviceDescriptor, ..., { textMode: true }).
+ */
+export async function startSyslogTextService(
+  udid: string,
+): Promise<{ syslogService: SyslogServiceType; serviceDescriptor: Service }> {
+  return startSyslogWithServiceName(udid, RSD_SYSLOG_TEXT_SERVICE_NAME);
+}
+
+async function startSyslogWithServiceName(
+  udid: string,
+  serviceName: string,
+): Promise<{ syslogService: SyslogServiceType; serviceDescriptor: Service }> {
+  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
+  return {
+    syslogService: new SyslogService([
+      tunnelConnection.host,
+      tunnelConnection.port,
+    ]),
+    serviceDescriptor: remoteXPC.findService(serviceName),
+  };
 }
 
 /**

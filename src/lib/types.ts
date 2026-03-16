@@ -1230,6 +1230,13 @@ export interface SyslogOptions {
   pid?: number;
   /** Whether to enable verbose logging */
   enableVerboseLogging?: boolean;
+  /**
+   * Use text-relay mode (com.apple.syslog_relay.shim.remote).
+   * After RSDCheckin the device streams \n\x00-delimited text lines with no
+   * further handshake.  When false (default) the binary os_trace_relay
+   * protocol is used instead.
+   */
+  textMode?: boolean;
 }
 
 /**
