@@ -1,3 +1,47 @@
+## [0.34.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.34.1...v0.34.2) (2026-03-16)
+
+### Bug Fixes
+
+* Ensure dns-sd is always terminated ([#161](https://github.com/appium/appium-ios-remotexpc/issues/161)) ([a12ff10](https://github.com/appium/appium-ios-remotexpc/commit/a12ff105ab12ebdd308a80cbe72200c9dabe8a5d))
+
+## [0.34.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.34.0...v0.34.1) (2026-03-16)
+
+### Miscellaneous Chores
+
+* remove too much log ([#162](https://github.com/appium/appium-ios-remotexpc/issues/162)) ([737895d](https://github.com/appium/appium-ios-remotexpc/commit/737895d5990d67e9faa3e53369b3ee459bd3fd14))
+
+## [0.34.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.33.2...v0.34.0) (2026-03-15)
+
+### Features
+
+* add getAvailableDevices to list tunnelled devices ([#158](https://github.com/appium/appium-ios-remotexpc/issues/158)) ([c08bba8](https://github.com/appium/appium-ios-remotexpc/commit/c08bba8686e5c5aae248eef09cb9e315fefe42b1))
+
+## [0.33.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.33.1...v0.33.2) (2026-03-14)
+
+### Miscellaneous Chores
+
+* no endpoint log ([#157](https://github.com/appium/appium-ios-remotexpc/issues/157)) ([a9206cb](https://github.com/appium/appium-ios-remotexpc/commit/a9206cb06fbb30292f8c4fa07a4332fbc5958b7b))
+
+## [0.33.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.33.0...v0.33.1) (2026-03-14)
+
+### Miscellaneous Chores
+
+* Remove tinyexec pin ([#156](https://github.com/appium/appium-ios-remotexpc/issues/156)) ([2295372](https://github.com/appium/appium-ios-remotexpc/commit/2295372a92a1aec3d8c57fb657857137452e704b))
+
+## [0.33.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.32.0...v0.33.0) (2026-03-13)
+
+### Features
+
+* Publish entities needed for AppleTV pairing ([#152](https://github.com/appium/appium-ios-remotexpc/issues/152)) ([20ac17b](https://github.com/appium/appium-ios-remotexpc/commit/20ac17ba2f1c3fb77313625619bbf406921d86c4))
+
+### Bug Fixes
+
+* Force pin tinyexec ([#154](https://github.com/appium/appium-ios-remotexpc/issues/154)) ([d60a7e6](https://github.com/appium/appium-ios-remotexpc/commit/d60a7e6633a6fa8bd1badbecd04e68cbf3270544))
+
+### Miscellaneous Chores
+
+* Fix release script ([#153](https://github.com/appium/appium-ios-remotexpc/issues/153)) ([9466c9c](https://github.com/appium/appium-ios-remotexpc/commit/9466c9cf507f0e5558e3a1ab45eecfea3d4155f7))
+
 ## [0.32.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.31.1...v0.32.0) (2026-03-11)
 
 ### Features

@@ -1,8 +1,12 @@
 import { strongbox } from '@appium/strongbox';
 
+import { TUNNEL_CONTAINER_NAME } from './constants.js';
 import { RemoteXpcConnection } from './lib/remote-xpc/remote-xpc-connection.js';
 import { TunnelManager } from './lib/tunnel/index.js';
-import { TunnelApiClient } from './lib/tunnel/tunnel-api-client.js';
+import {
+  TunnelApiClient,
+  type TunnelApiClientOptions,
+} from './lib/tunnel/tunnel-api-client.js';
 import type {
   CrashReportsServiceWithConnection,
   DVTServiceWithConnection,
@@ -45,7 +49,6 @@ import SyslogService from './services/ios/syslog-service/index.js';
 import { DvtTestmanagedProxyService } from './services/ios/testmanagerd/index.js';
 import { WebInspectorService } from './services/ios/webinspector/index.js';
 
-const APPIUM_XCUITEST_DRIVER_NAME = 'appium-xcuitest-driver';
 const TUNNEL_REGISTRY_PORT = 'tunnelRegistryPort';
 
 export async function startDiagnosticsService(
@@ -414,24 +417,49 @@ export async function createRemoteXPCConnection(udid: string) {
   return { remoteXPC, tunnelConnection };
 }
 
+/**
+ * Returns the list of device UDIDs currently in the tunnel registry.
+ * Used to include tunnel-only devices (e.g. Apple TV over WiFi)
+ * in the "connected devices" list for session validation.
+ *
+ * @returns Promise resolving to an array of UDIDs. Returns [] only when the
+ * registry is reachable and reports no tunnels.
+ * @throws When tunnel registry port is missing or empty in strongbox.
+ * @throws When registry is unreachable or response is invalid.
+ */
+export async function getAvailableDevices(): Promise<string[]> {
+  const client = await getTunnelRegistryClient({ strict: true });
+  return await client.getAvailableDevices();
+}
+
 // #region Private Functions
 
-async function getTunnelInformation(udid: string) {
-  const box = strongbox(APPIUM_XCUITEST_DRIVER_NAME);
+async function getTunnelRegistryClient(
+  options: TunnelApiClientOptions = {},
+): Promise<TunnelApiClient> {
+  const box = strongbox(TUNNEL_CONTAINER_NAME);
   const item = await box.createItem(TUNNEL_REGISTRY_PORT);
   const tunnelRegistryPort = await item.read();
-  if (tunnelRegistryPort === undefined) {
+  if (
+    tunnelRegistryPort === undefined ||
+    String(tunnelRegistryPort).trim() === ''
+  ) {
     throw new Error(
-      'Tunnel registry port not found. Please run the tunnel creation script first: sudo appium driver run xcuitest tunnel-creation',
+      'Tunnel registry port not found. Please run the tunnel creation script first',
     );
   }
-  const tunnelApiClient = new TunnelApiClient(
+  return new TunnelApiClient(
     `http://127.0.0.1:${tunnelRegistryPort}/remotexpc/tunnels`,
+    options,
   );
+}
+
+async function getTunnelInformation(udid: string) {
+  const tunnelApiClient = await getTunnelRegistryClient();
   const tunnelExists = await tunnelApiClient.hasTunnel(udid);
   if (!tunnelExists) {
     throw new Error(
-      `No tunnel found for device ${udid}. Please run the tunnel creation script first: sudo appium driver run xcuitest tunnel-creation`,
+      `No tunnel found for device ${udid}. Please run the tunnel creation script first`,
     );
   }
   const tunnelConnection = await tunnelApiClient.getTunnelConnection(udid);
