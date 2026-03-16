@@ -1,3 +1,21 @@
+## [0.34.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.34.1...v0.34.2) (2026-03-16)
+
+### Bug Fixes
+
+* Ensure dns-sd is always terminated ([#161](https://github.com/appium/appium-ios-remotexpc/issues/161)) ([a12ff10](https://github.com/appium/appium-ios-remotexpc/commit/a12ff105ab12ebdd308a80cbe72200c9dabe8a5d))
+
+## [0.34.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.34.0...v0.34.1) (2026-03-16)
+
+### Miscellaneous Chores
+
+* remove too much log ([#162](https://github.com/appium/appium-ios-remotexpc/issues/162)) ([737895d](https://github.com/appium/appium-ios-remotexpc/commit/737895d5990d67e9faa3e53369b3ee459bd3fd14))
+
+## [0.34.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.33.2...v0.34.0) (2026-03-15)
+
+### Features
+
+* add getAvailableDevices to list tunnelled devices ([#158](https://github.com/appium/appium-ios-remotexpc/issues/158)) ([c08bba8](https://github.com/appium/appium-ios-remotexpc/commit/c08bba8686e5c5aae248eef09cb9e315fefe42b1))
+
 ## [0.33.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.33.1...v0.33.2) (2026-03-14)
 
 ### Miscellaneous Chores

@@ -129,7 +129,6 @@ export class AfcService {
   }
 
   async stat(filePath: string): Promise<StatInfo> {
-    log.debug(`Getting file info for: ${filePath}`);
     try {
       const data = await this._doOperation(
         AfcOpcode.GET_FILE_INFO,

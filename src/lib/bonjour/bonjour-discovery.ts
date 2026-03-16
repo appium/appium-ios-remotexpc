@@ -451,7 +451,7 @@ export class BonjourDiscovery extends EventEmitter {
     try {
       await this.initializeBrowsing(serviceType, domain);
     } catch (error) {
-      this.cleanup();
+      this.stopBrowsing();
       throw error;
     }
   }
@@ -460,11 +460,19 @@ export class BonjourDiscovery extends EventEmitter {
    * Stop browsing for services
    */
   stopBrowsing(): void {
-    if (this._browseProcess && !this._browseProcess.killed) {
-      log.info('Stopping Bonjour discovery');
-      this._browseProcess.kill('SIGTERM');
+    if (this._browseProcess) {
+      log.debug('Cleaning up BonjourDiscovery resources');
+      if (!this._browseProcess.killed) {
+        try {
+          this._browseProcess.kill('SIGTERM');
+        } catch (err) {
+          log.warn(`Failed to kill browse process: ${err}`);
+        }
+      }
     }
-    this.cleanup();
+    this._browseProcess = undefined;
+    this._isDiscovering = false;
+    this._discoveredServices.clear();
   }
 
   /**
@@ -603,7 +611,7 @@ export class BonjourDiscovery extends EventEmitter {
     });
     process.on('close', (code: number | null) => {
       log.debug(`dns-sd browse process closed with code: ${code}`);
-      this.cleanup();
+      this.stopBrowsing();
     });
   }
 
@@ -631,15 +639,5 @@ export class BonjourDiscovery extends EventEmitter {
     }
 
     return devices;
-  }
-
-  /**
-   * Cleanup resources
-   */
-  private cleanup(): void {
-    log.debug('Cleaning up BonjourDiscovery resources');
-    this._browseProcess = undefined;
-    this._isDiscovering = false;
-    this._discoveredServices.clear();
   }
 }
