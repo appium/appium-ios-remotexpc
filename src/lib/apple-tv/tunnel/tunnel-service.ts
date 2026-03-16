@@ -420,26 +420,26 @@ export class AppleTVTunnelService {
           '_remotepairing._tcp',
           'local',
         );
-
-        if (resolved.hostname && resolved.port) {
-          const ipResult = await lookup(
-            resolved.hostname.endsWith('.')
-              ? resolved.hostname.slice(0, -1)
-              : resolved.hostname,
-            { family: 4 },
-          );
-
-          devices.push({
-            name: resolved.name,
-            identifier: resolved.txtRecord?.identifier || resolved.name,
-            hostname: resolved.hostname,
-            ip: ipResult.address,
-            port: resolved.port,
-            model: resolved.txtRecord?.model || '',
-            version: resolved.txtRecord?.ver || '',
-            minVersion: resolved.txtRecord?.minVer || '17',
-          });
+        if (!resolved.hostname || !resolved.port) {
+          continue;
         }
+
+        const ipResult = await lookup(resolved.hostname.replace(/\.$/, ''), {
+          family: 4,
+        });
+
+        // TODO: filter out Apple TV devices from the list
+        // TODO: currently all devices advertising itself to Bonjour are in there
+        devices.push({
+          name: resolved.name,
+          identifier: resolved.txtRecord?.identifier || resolved.name,
+          hostname: resolved.hostname,
+          ip: ipResult.address,
+          port: resolved.port,
+          model: resolved.txtRecord?.model ?? '',
+          version: resolved.txtRecord?.ver ?? '',
+          minVersion: resolved.txtRecord?.minVer ?? '17',
+        });
       } catch (err) {
         appleTVLog.debug(`Failed to resolve service ${service.name}: ${err}`);
       }
