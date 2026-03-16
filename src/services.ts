@@ -170,6 +170,9 @@ export async function startSyslogService(
   return new SyslogService([tunnelConnection.host, tunnelConnection.port]);
 }
 
+const RSD_SYSLOG_BINARY_SERVICE_NAME = 'com.apple.os_trace_relay.shim.remote';
+const RSD_SYSLOG_TEXT_SERVICE_NAME = 'com.apple.syslog_relay.shim.remote';
+
 /**
  * Resolve the syslog binary service (os_trace_relay RemoteXPC shim).
  * Returns an unstarted SyslogService and its service descriptor using a single
@@ -178,16 +181,7 @@ export async function startSyslogService(
 export async function startSyslogBinaryService(
   udid: string,
 ): Promise<{ syslogService: SyslogServiceType; serviceDescriptor: Service }> {
-  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
-  return {
-    syslogService: new SyslogService([
-      tunnelConnection.host,
-      tunnelConnection.port,
-    ]),
-    serviceDescriptor: remoteXPC.findService(
-      'com.apple.os_trace_relay.shim.remote',
-    ),
-  };
+  return startSyslogWithServiceName(udid, RSD_SYSLOG_BINARY_SERVICE_NAME);
 }
 
 /**
@@ -198,16 +192,20 @@ export async function startSyslogBinaryService(
 export async function startSyslogTextService(
   udid: string,
 ): Promise<{ syslogService: SyslogServiceType; serviceDescriptor: Service }> {
-  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
+  return startSyslogWithServiceName(udid, RSD_SYSLOG_TEXT_SERVICE_NAME);
+}
 
+async function startSyslogWithServiceName(
+  udid: string,
+  serviceName: string,
+): Promise<{ syslogService: SyslogServiceType; serviceDescriptor: Service }> {
+  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
   return {
     syslogService: new SyslogService([
       tunnelConnection.host,
       tunnelConnection.port,
     ]),
-    serviceDescriptor: remoteXPC.findService(
-      'com.apple.syslog_relay.shim.remote',
-    ),
+    serviceDescriptor: remoteXPC.findService(serviceName),
   };
 }
 

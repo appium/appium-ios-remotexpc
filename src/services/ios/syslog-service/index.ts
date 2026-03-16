@@ -116,7 +116,6 @@ class SyslogService extends EventEmitter implements SyslogServiceInterface {
         socket.on('data', this.rawDataHandler);
         socket.resume();
         log.info('Syslog text-relay capture started');
-        this.emit('start', null);
       } else {
         this.attachPacketSource(packetSource);
         const request = {

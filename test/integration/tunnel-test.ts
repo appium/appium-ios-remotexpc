@@ -14,7 +14,41 @@ import {
 
 const log = logger.getLogger('TunnelTest');
 
+const NOOP_PACKET_SOURCE = {
+  addPacketConsumer: () => {},
+  removePacketConsumer: () => {},
+};
+
 const udid = process.env.UDID || '';
+
+function registerCommonSyslogTests(
+  getService: () => ISyslogService,
+  getDescriptor: () => any,
+  getPacketSource: () => any,
+  getOptions: () => object,
+  shouldSkip?: () => boolean,
+) {
+  it('should resolve service descriptor', function () {
+    expect(getDescriptor()).to.not.be.undefined;
+    expect(getDescriptor().port).to.be.a('string');
+  });
+
+  it('should start without error', async function () {
+    if (shouldSkip?.()) {
+      this.skip();
+    }
+    await getService().start(getDescriptor(), getPacketSource(), getOptions());
+  });
+
+  it('should stop cleanly', async function () {
+    if (shouldSkip?.()) {
+      this.skip();
+    }
+    const svc = getService();
+    await svc.start(getDescriptor(), getPacketSource(), getOptions());
+    await svc.stop();
+  });
+}
 
 describe('Tunnel and Syslog Service', function () {
   this.timeout(60000);
@@ -48,20 +82,13 @@ describe('Tunnel and Syslog Service', function () {
       await TunnelManager.closeAllTunnels();
     });
 
-    it('should find os_trace_relay service', function () {
-      expect(serviceDescriptor).to.not.be.undefined;
-      expect(serviceDescriptor.port).to.be.a('string');
-    });
-
-    it('should start syslog service (requires active tunnel with packet source)', async function () {
-      if (!packetStreamClient) {
-        this.skip();
-      }
-      await syslogService.start(serviceDescriptor, packetStreamClient, {
-        pid: -1,
-      });
-      expect(true).to.be.true;
-    });
+    registerCommonSyslogTests(
+      () => syslogService,
+      () => serviceDescriptor,
+      () => packetStreamClient,
+      () => ({ pid: -1 }),
+      () => !packetStreamClient,
+    );
 
     it('should capture and emit syslog messages (requires active tunnel with packet source)', async function () {
       if (!packetStreamClient) {
@@ -99,26 +126,11 @@ describe('Tunnel and Syslog Service', function () {
       } catch {}
     });
 
-    it('should find syslog_relay service', function () {
-      expect(serviceDescriptor).to.not.be.undefined;
-      expect(serviceDescriptor.port).to.be.a('string');
-    });
-
-    it('should start in text mode without error', async function () {
-      await syslogService.start(
-        serviceDescriptor,
-        { addPacketConsumer: () => {}, removePacketConsumer: () => {} },
-        { pid: -1, textMode: true },
-      );
-    });
-
-    it('should stop cleanly', async function () {
-      await syslogService.start(
-        serviceDescriptor,
-        { addPacketConsumer: () => {}, removePacketConsumer: () => {} },
-        { pid: -1, textMode: true },
-      );
-      await syslogService.stop();
-    });
+    registerCommonSyslogTests(
+      () => syslogService,
+      () => serviceDescriptor,
+      () => NOOP_PACKET_SOURCE,
+      () => ({ pid: -1, textMode: true }),
+    );
   });
 });
