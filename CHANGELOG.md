@@ -1,3 +1,9 @@
+## [0.34.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.34.0...v0.34.1) (2026-03-16)
+
+### Miscellaneous Chores
+
+* remove too much log ([#162](https://github.com/appium/appium-ios-remotexpc/issues/162)) ([737895d](https://github.com/appium/appium-ios-remotexpc/commit/737895d5990d67e9faa3e53369b3ee459bd3fd14))
+
 ## [0.34.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.33.2...v0.34.0) (2026-03-15)
 
 ### Features
