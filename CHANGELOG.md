@@ -1,3 +1,9 @@
+## [0.34.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.34.1...v0.34.2) (2026-03-16)
+
+### Bug Fixes
+
+* Ensure dns-sd is always terminated ([#161](https://github.com/appium/appium-ios-remotexpc/issues/161)) ([a12ff10](https://github.com/appium/appium-ios-remotexpc/commit/a12ff105ab12ebdd308a80cbe72200c9dabe8a5d))
+
 ## [0.34.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.34.0...v0.34.1) (2026-03-16)
 
 ### Miscellaneous Chores
