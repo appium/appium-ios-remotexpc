@@ -460,12 +460,14 @@ export class BonjourDiscovery extends EventEmitter {
    * Stop browsing for services
    */
   stopBrowsing(): void {
-    log.debug('Cleaning up BonjourDiscovery resources');
-    if (this._browseProcess && !this._browseProcess.killed) {
-      try {
-        this._browseProcess.kill('SIGTERM');
-      } catch (err) {
-        log.warn(`Failed to kill browse process: ${err}`);
+    if (this._browseProcess) {
+      log.debug('Cleaning up BonjourDiscovery resources');
+      if (!this._browseProcess.killed) {
+        try {
+          this._browseProcess.kill('SIGTERM');
+        } catch (err) {
+          log.warn(`Failed to kill browse process: ${err}`);
+        }
       }
     }
     this._browseProcess = undefined;
