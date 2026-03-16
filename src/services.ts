@@ -1,4 +1,4 @@
-import { strongbox } from '@appium/strongbox';
+import { BaseItem, strongbox } from '@appium/strongbox';
 
 import { TUNNEL_CONTAINER_NAME } from './constants.js';
 import { RemoteXpcConnection } from './lib/remote-xpc/remote-xpc-connection.js';
@@ -389,7 +389,7 @@ async function getTunnelRegistryClient(
   options: TunnelApiClientOptions = {},
 ): Promise<TunnelApiClient> {
   const box = strongbox(TUNNEL_CONTAINER_NAME);
-  const item = await box.createItem(TUNNEL_REGISTRY_PORT);
+  const item = new BaseItem(TUNNEL_REGISTRY_PORT, box);
   const tunnelRegistryPort = await item.read();
   if (
     tunnelRegistryPort === undefined ||
