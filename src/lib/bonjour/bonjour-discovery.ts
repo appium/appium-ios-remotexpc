@@ -269,71 +269,53 @@ function parseResolveOutput(
   serviceType: string,
   domain: string,
 ): BonjourService | null {
-  return parseOutput<BonjourService | null>(
-    output,
-    (line: string, result: BonjourService | null) => {
-      // If we already found a result, return it (early termination)
-      if (result) {
-        return result;
-      }
+  const lines = output.split('\n');
 
-      const reachableMatch = line.match(DNS_SD_PATTERNS.REACHABLE);
-      if (reachableMatch) {
-        const [, hostname, port, interfaceIndex] = reachableMatch;
-        const txtRecord = parseTxtRecord(output);
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
 
-        return {
-          name: serviceName,
-          type: serviceType,
-          domain,
-          hostname,
-          port: parseInt(port, 10),
-          txtRecord,
-          interfaceIndex: parseInt(interfaceIndex, 10),
-        };
-      }
-      return result;
-    },
-    null as BonjourService | null,
-  );
+    if (shouldSkipLine(line)) {
+      continue;
+    }
+
+    const reachableMatch = line.match(DNS_SD_PATTERNS.REACHABLE);
+    if (reachableMatch) {
+      const [, hostname, port, interfaceIndex] = reachableMatch;
+      // According to dns-sd output, TXT record key/value pairs are on the next line
+      const txtLine = lines[i + 1] ?? '';
+      const txtRecord = parseTxtRecord(txtLine);
+
+      return {
+        name: serviceName,
+        type: serviceType,
+        domain,
+        hostname,
+        port: parseInt(port, 10),
+        txtRecord,
+        interfaceIndex: parseInt(interfaceIndex, 10),
+      };
+    }
+  }
+
+  return null;
 }
 
 /**
  * Generic method to parse output with different reducer functions
  */
-function parseOutput<T>(
-  output: string,
-  reducer: (line: string, accumulator: T) => T,
-  initialValue: T,
-): T {
-  const lines = output.split('\n');
-  let result = initialValue;
-
-  for (const line of lines) {
-    if (shouldSkipLine(line)) {
-      continue;
-    }
-    result = reducer(line, result);
-  }
-
-  return result;
-}
-
-/**
- * Parse TXT record from output
- */
-function parseTxtRecord(output: string): Record<string, string> {
+function parseTxtRecord(txtLine: string): Record<string, string> {
   const txtRecord: Record<string, string> = {};
-  const txtMatch = output.match(DNS_SD_PATTERNS.TXT_RECORD);
 
-  if (txtMatch) {
-    const [, identifier, authTag, model, name, ver, minVer] = txtMatch;
-    txtRecord.identifier = identifier;
-    txtRecord.authTag = authTag;
-    txtRecord.model = model;
-    txtRecord.name = name;
-    txtRecord.ver = ver;
-    txtRecord.minVer = minVer;
+  // Parse space-separated key=value pairs from the TXT line.
+  // Example:
+  // " identifier=... authTag=kbgk6s4m ver=24 minVer=8 flags=0"
+  const pairRegex = /(\S+?)=([^\s]+)/g;
+  let match: RegExpExecArray | null;
+
+  // eslint-disable-next-line no-cond-assign
+  while ((match = pairRegex.exec(txtLine)) !== null) {
+    const [, key, value] = match;
+    txtRecord[key] = value;
   }
 
   return txtRecord;

@@ -1,4 +1,4 @@
-import { strongbox } from '@appium/strongbox';
+import { BaseItem, strongbox } from '@appium/strongbox';
 import { readdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
@@ -53,11 +53,8 @@ export class PairingStorage implements PairingStorageInterface {
 
   async load(deviceId: string): Promise<PairRecord | null> {
     const itemName = `${APPLETV_PAIRING_PREFIX}${deviceId}`;
-
+    const item = new BaseItem(itemName, this.box);
     try {
-      const item =
-        this.box.getItem(itemName) ?? (await this.box.createItem(itemName));
-
       const pairingData = await item.read();
 
       if (!pairingData) {
