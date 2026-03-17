@@ -1,3 +1,9 @@
+## [0.35.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.34.2...v0.35.0) (2026-03-16)
+
+### Features
+
+* **syslog:** add text mode  ([#155](https://github.com/appium/appium-ios-remotexpc/issues/155)) ([310a6aa](https://github.com/appium/appium-ios-remotexpc/commit/310a6aa27b768271ed58983e818e1e72048dbabf))
+
 ## [0.34.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.34.1...v0.34.2) (2026-03-16)
 
 ### Bug Fixes

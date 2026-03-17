@@ -33,6 +33,9 @@ const DEFAULT_SYSLOG_REQUEST = {
   StreamFlags: 60,
 } as const;
 
+/** Delimiter used by syslog_relay text protocol: newline + null byte */
+const SYSLOG_LINE_SPLITTER = Buffer.from([0x0a, 0x00]);
+
 /**
  * syslog-service provides functionality to capture and process syslog messages
  * from a remote device using Apple's XPC services.
@@ -44,6 +47,7 @@ class SyslogService extends EventEmitter implements SyslogServiceInterface {
   private packetStreamPromise: Promise<void> | null = null;
   private isCapturing = false;
   private enableVerboseLogging = false;
+  private rawDataHandler: ((data: Buffer) => void) | null = null;
   private readonly syslogParser: SyslogProtocolParser;
 
   /**
@@ -78,26 +82,56 @@ class SyslogService extends EventEmitter implements SyslogServiceInterface {
       await this.stop();
     }
 
-    const { pid = -1, enableVerboseLogging = false } = options;
+    const {
+      pid = -1,
+      enableVerboseLogging = false,
+      textMode = false,
+    } = options;
     this.enableVerboseLogging = enableVerboseLogging;
     this.isCapturing = true;
-
-    this.attachPacketSource(packetSource);
 
     try {
       this.connection = await this.baseService.startLockdownService(service);
 
-      const request = {
-        ...DEFAULT_SYSLOG_REQUEST,
-        Pid: pid,
-      };
+      if (textMode) {
+        // syslog_relay.shim.remote: after RSDCheckin the device immediately
+        // streams \n\x00-delimited plain-text log lines. No further request.
+        const socket = this.connection.getSocket();
+        socket.unpipe();
+        let textBuf = Buffer.alloc(0);
+        this.rawDataHandler = (data: Buffer) => {
+          if (!this.isCapturing) {
+            return;
+          }
+          textBuf = Buffer.concat([textBuf, data]);
+          let idx: number;
+          while ((idx = textBuf.indexOf(SYSLOG_LINE_SPLITTER)) !== -1) {
+            const line = textBuf.subarray(0, idx).toString('utf8').trim();
+            textBuf = textBuf.subarray(idx + SYSLOG_LINE_SPLITTER.length);
+            if (line.length > 0) {
+              this.emit('message', line);
+            }
+          }
+        };
+        socket.on('data', this.rawDataHandler);
+        socket.resume();
+        log.info('Syslog text-relay capture started');
+      } else {
+        this.attachPacketSource(packetSource);
+        const request = {
+          ...DEFAULT_SYSLOG_REQUEST,
+          Pid: pid,
+        };
 
-      const response = await this.connection.sendPlistRequest(request);
-      log.info(`Syslog capture started: ${response}`);
-      this.emit('start', response);
+        const response = await this.connection.sendPlistRequest(request);
+        log.info(`Syslog capture started: ${response}`);
+        this.emit('start', response);
+      }
     } catch (error) {
       this.isCapturing = false;
-      this.detachPacketSource();
+      if (!textMode) {
+        this.detachPacketSource();
+      }
       throw error;
     }
   }
@@ -110,6 +144,11 @@ class SyslogService extends EventEmitter implements SyslogServiceInterface {
     if (!this.isCapturing) {
       log.info('No syslog capture in progress.');
       return;
+    }
+
+    if (this.rawDataHandler && this.connection) {
+      this.connection.getSocket().removeListener('data', this.rawDataHandler);
+      this.rawDataHandler = null;
     }
 
     this.detachPacketSource();
