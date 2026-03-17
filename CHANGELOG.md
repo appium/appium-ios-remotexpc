@@ -1,3 +1,9 @@
+## [0.35.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.35.1...v0.35.2) (2026-03-17)
+
+### Bug Fixes
+
+* Improve the parsing of dns-sd tool output ([#164](https://github.com/appium/appium-ios-remotexpc/issues/164)) ([3332103](https://github.com/appium/appium-ios-remotexpc/commit/3332103982f9e9c9720b397231ee3869c29d13de))
+
 ## [0.35.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.35.0...v0.35.1) (2026-03-17)
 
 ### Bug Fixes
