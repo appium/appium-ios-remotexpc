@@ -1,3 +1,9 @@
+## [0.35.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.35.0...v0.35.1) (2026-03-17)
+
+### Bug Fixes
+
+* strongbox usage ([#165](https://github.com/appium/appium-ios-remotexpc/issues/165)) ([b0db71f](https://github.com/appium/appium-ios-remotexpc/commit/b0db71f23ac4bc52130981b947134470f6267f1f))
+
 ## [0.35.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.34.2...v0.35.0) (2026-03-16)
 
 ### Features
