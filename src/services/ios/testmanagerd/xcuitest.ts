@@ -1,6 +1,6 @@
+import { timing } from '@appium/support';
 import crypto from 'node:crypto';
 import { EventEmitter } from 'node:events';
-import { performance } from 'node:perf_hooks';
 
 import { getLogger } from '../../../lib/logger.js';
 import { createBinaryPlist } from '../../../lib/plist/index.js';
@@ -32,7 +32,7 @@ import {
   getXctestNameFromBundleId,
   isTransportError,
   parseCallback,
-} from './xctest-types.js';
+} from './xctest-common.js';
 import {
   XCTestConfigurationEncoder,
   type XCTestConfigurationParams,
@@ -512,11 +512,11 @@ export class XCTestRunner extends EventEmitter<XCTestRunnerEvents> {
   }
 
   async run(): Promise<XCTestRunResult> {
-    const startTime = performance.now();
+    const timer = new timing.Timer().start();
 
     try {
       await this.setupAndLaunch();
-      return await this.executeAndWait(startTime);
+      return await this.executeAndWait(timer);
     } finally {
       await this.close();
     }
@@ -640,7 +640,9 @@ export class XCTestRunner extends EventEmitter<XCTestRunnerEvents> {
     }
   }
 
-  private async executeAndWait(startTime: number): Promise<XCTestRunResult> {
+  private async executeAndWait(
+    timer: InstanceType<typeof timing.Timer>,
+  ): Promise<XCTestRunResult> {
     const timeoutMs = this.options.timeoutMs ?? 180000;
     const sessionId = this.xcuitest!.sessionIdentifier;
 
@@ -653,7 +655,7 @@ export class XCTestRunner extends EventEmitter<XCTestRunnerEvents> {
       timeout,
     ]);
 
-    const durationMs = Math.round(performance.now() - startTime);
+    const durationMs = Math.round(timer.getDuration().asMilliSeconds);
     const testSummary = this.xcuitest!.lastTestSummary ?? undefined;
     const listenerError = this.xcuitest!.lastListenerError;
 

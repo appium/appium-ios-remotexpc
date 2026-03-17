@@ -96,7 +96,7 @@ export {
   createDeferred,
   getXctestNameFromBundleId,
   parseCallback,
-} from './services/ios/testmanagerd/xctest-types.js';
+} from './services/ios/testmanagerd/xctest-common.js';
 export type {
   XCUITestOptions,
   XCUITestServiceEvents,
@@ -106,7 +106,7 @@ export type {
   XCTestRunStage,
   XCTestEvent,
   XCTestSummary,
-} from './services/ios/testmanagerd/xctest-types.js';
+} from './services/ios/testmanagerd/xctest-common.js';
 export { createBinaryPlist } from './lib/plist/index.js';
 export {
   AppleTVPairingService,
