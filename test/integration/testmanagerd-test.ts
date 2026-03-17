@@ -19,7 +19,7 @@ log.level = 'debug';
 
 const XCODE_VERSION = 36;
 
-const UDID = process.env.UDID || '00008030-001E290A3EF2402E';
+const UDID = process.env.UDID || '';
 const TEST_RUNNER_BUNDLE_ID = process.env.TEST_RUNNER_BUNDLE_ID;
 const APP_UNDER_TEST_BUNDLE_ID = process.env.APP_UNDER_TEST_BUNDLE_ID;
 const XCTEST_BUNDLE_ID = process.env.XCTEST_BUNDLE_ID;
