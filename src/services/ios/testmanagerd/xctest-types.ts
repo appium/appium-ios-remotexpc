@@ -75,18 +75,17 @@ export const TRANSPORT_ERROR_CODES = new Set([
 
 // #region Utilities
 
-/** A minimal deferred promise wrapper. */
-export class Deferred<T> {
-  readonly promise: Promise<T>;
-  resolve!: (value: T | PromiseLike<T>) => void;
-  reject!: (reason?: unknown) => void;
+/** Deferred promise with externally accessible resolve/reject. */
+export interface DeferredPromise<T> {
+  promise: Promise<T>;
+  resolve: (value: T | PromiseLike<T>) => void;
+  reject: (reason?: unknown) => void;
+}
 
-  constructor() {
-    this.promise = new Promise<T>((resolve, reject) => {
-      this.resolve = resolve;
-      this.reject = reject;
-    });
-  }
+/** Create a deferred promise using native Promise.withResolvers (Node 22+). */
+export function createDeferred<T>(): DeferredPromise<T> {
+  // @ts-expect-error -- Promise.withResolvers is available at runtime (Node 22+) but lib is es2023
+  return Promise.withResolvers<T>();
 }
 
 /** Extract the xctest module name from a bundle identifier. */
@@ -160,6 +159,20 @@ export function isTransportError(err: unknown): boolean {
 // #endregion
 
 // #region Event Types
+
+/** Event type constants for XCTest callback events. */
+export const XCTestEventType = {
+  Log: 'log',
+  TestRunnerReady: 'testRunnerReady',
+  TestBundleReady: 'testBundleReady',
+  TestCaseStarted: 'testCaseStarted',
+  TestCaseFailed: 'testCaseFailed',
+  TestCaseFinished: 'testCaseFinished',
+  TestSuiteStarted: 'testSuiteStarted',
+  TestSuiteFinished: 'testSuiteFinished',
+  TestPlanFinished: 'testPlanFinished',
+  Unknown: 'unknown',
+} as const;
 
 /** Discriminated union of typed XCTest callback events. */
 export type XCTestEvent =
@@ -321,6 +334,17 @@ export class XCTestRunError extends Error {
 }
 
 // #endregion
+
+/** Event map for XCUITestService — used for typed EventEmitter. */
+export interface XCUITestServiceEvents {
+  xctest: [event: XCTestEvent];
+}
+
+/** Event map for XCTestRunner — used for typed EventEmitter. */
+export interface XCTestRunnerEvents {
+  xctest: [event: XCTestEvent];
+  step: [stage: XCTestRunStage];
+}
 
 // #region Option & Result Types
 

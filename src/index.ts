@@ -92,11 +92,15 @@ export {
 } from './services/ios/testmanagerd/xcuitest.js';
 export {
   XCTestRunError,
+  XCTestEventType,
+  createDeferred,
   getXctestNameFromBundleId,
   parseCallback,
 } from './services/ios/testmanagerd/xctest-types.js';
 export type {
   XCUITestOptions,
+  XCUITestServiceEvents,
+  XCTestRunnerEvents,
   XCTestRunnerOptions,
   XCTestRunResult,
   XCTestRunStage,
