@@ -82,10 +82,21 @@ export interface DeferredPromise<T> {
   reject: (reason?: unknown) => void;
 }
 
-/** Create a deferred promise using native Promise.withResolvers (Node 22+). */
+/** Create a deferred promise with externally accessible resolve/reject. */
 export function createDeferred<T>(): DeferredPromise<T> {
-  // @ts-expect-error -- Promise.withResolvers is available at runtime (Node 22+) but lib is es2023
-  return Promise.withResolvers<T>();
+  if ('withResolvers' in Promise) {
+    // Node 22+ native implementation
+    // @ts-expect-error -- Promise.withResolvers exists at runtime but lib is es2023
+    return Promise.withResolvers<T>();
+  }
+  // Node 20 fallback
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
 }
 
 /** Extract the xctest module name from a bundle identifier. */

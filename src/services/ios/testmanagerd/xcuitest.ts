@@ -169,7 +169,7 @@ export class XCUITestService extends EventEmitter<XCUITestServiceEvents> {
         try {
           const result = await this.execConnection.recvPlistWithTimeout(
             this.execChannelCode,
-            2000,
+            1000,
           );
 
           if (!result) {
