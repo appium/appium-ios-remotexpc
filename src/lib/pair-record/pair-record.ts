@@ -84,10 +84,8 @@ export async function savePairRecord(
 ): Promise<void> {
   const itemName = getItemName(udid);
   try {
-    const item = await getBox().createItemWithValue(
-      itemName,
-      JSON.stringify(pairRecord, null, 2),
-    );
+    const item = new BaseItem(itemName, getBox());
+    await item.write(JSON.stringify(pairRecord, null, 2));
     log.info(`Pair record saved: ${item.id}`);
   } catch (error) {
     log.error(`Failed to save pair record for ${udid}: ${error}`);
