@@ -67,8 +67,9 @@ export class DnssdDiscoveryBackend implements IDeviceDiscoveryBackend {
     });
 
     browser.on('error', (err: Error) => {
-      browserError = err;
-      log.warn(`dnssd browser error: ${err.message}`);
+      const message = formatDnssdBrowserErrorMessage(err);
+      browserError = new Error(message, { cause: err });
+      log.warn(`dnssd browser error: ${message}`);
     });
 
     browser.start();
@@ -110,4 +111,12 @@ async function resolveIpAddress(
   } catch {
     return undefined;
   }
+}
+
+function formatDnssdBrowserErrorMessage(err: Error): string {
+  const baseMessage = err.message || String(err);
+  if (typeof process.getuid === 'function' && process.getuid() !== 0) {
+    return `${baseMessage}. Current user is not root. Try running with sudo.`;
+  }
+  return baseMessage;
 }
