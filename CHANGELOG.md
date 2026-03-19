@@ -1,3 +1,9 @@
+## [0.36.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.35.3...v0.36.0) (2026-03-19)
+
+### Features
+
+* **testmanagerd:** add XCUITest orchestration ([#163](https://github.com/appium/appium-ios-remotexpc/issues/163)) ([964d367](https://github.com/appium/appium-ios-remotexpc/commit/964d36797f60be1894a21c58523eaf9f6a3294f6))
+
 ## [0.35.3](https://github.com/appium/appium-ios-remotexpc/compare/v0.35.2...v0.35.3) (2026-03-19)
 
 ### Bug Fixes
