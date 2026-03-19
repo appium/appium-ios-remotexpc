@@ -83,6 +83,7 @@
     "chai": "^6.0.1",
     "chai-as-promised": "^8.0.1",
     "conventional-changelog-conventionalcommits": "^9.1.0",
+    "esmock": "^2.7.3",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "mocha": "^11.1.0",
