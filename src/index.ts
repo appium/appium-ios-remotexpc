@@ -109,6 +109,15 @@ export type {
 } from './services/ios/testmanagerd/xctest-common.js';
 export { createBinaryPlist } from './lib/plist/index.js';
 export {
+  createDiscoveryBackend,
+  DnssdDiscoveryBackend,
+  DevicectlDiscoveryBackend,
+} from './lib/discovery/index.js';
+export type {
+  DiscoveredDevice,
+  IDeviceDiscoveryBackend,
+} from './lib/discovery/index.js';
+export {
   AppleTVPairingService,
   UserInputService,
 } from './lib/apple-tv/pairing/index.js';

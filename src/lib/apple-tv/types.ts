@@ -26,6 +26,20 @@ export interface PairingResult {
 /** Public type for Apple TV pairing results (e.g. from discoverAndPair). */
 export type AppleTVPairingResult = PairingResult;
 
+// Represents a discovered Apple TV target used by pairing/tunnel domain flows
+export interface AppleTVDevice {
+  name: string;
+  identifier: string;
+  hostname: string;
+  ip?: string;
+  port: number;
+  model: string;
+  version: string;
+  minVersion: string;
+  authTag?: string;
+  interfaceIndex?: number;
+}
+
 // Configuration options for the pairing process
 export interface PairingConfig {
   timeout: number;

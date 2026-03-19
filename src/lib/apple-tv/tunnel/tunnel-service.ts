@@ -1,11 +1,14 @@
 import { util } from '@appium/support';
-import { lookup } from 'node:dns/promises';
 import * as tls from 'node:tls';
 
-import type { AppleTVDevice } from '../../bonjour/bonjour-discovery.js';
-import { BonjourDiscovery } from '../../bonjour/bonjour-discovery.js';
+import { createDiscoveryBackend } from '../../discovery/discovery-backend-factory.js';
 import { getLogger } from '../../logger.js';
-import { DEFAULT_PAIRING_CONFIG } from '../constants.js';
+import {
+  APPLE_TV_DISCOVERY_DOMAIN,
+  APPLE_TV_DISCOVERY_SERVICE_TYPE,
+  DEFAULT_PAIRING_CONFIG,
+} from '../constants.js';
+import { toAppleTVDevices } from '../discovered-device-mapper.js';
 import {
   decryptChaCha20Poly1305,
   encryptChaCha20Poly1305,
@@ -17,6 +20,7 @@ import { PairVerificationProtocol } from '../pairing-protocol/index.js';
 import type { VerificationKeys } from '../pairing-protocol/pair-verification-protocol.js';
 import { PairingStorage } from '../storage/pairing-storage.js';
 import type { PairRecord } from '../storage/types.js';
+import type { AppleTVDevice } from '../types.js';
 import type { TcpListenerInfo, TlsPskConnectionOptions } from './types.js';
 
 const log = getLogger('TunnelService');
@@ -257,7 +261,7 @@ export class AppleTVTunnelService {
   private logDiscoveredDevices(devices: AppleTVDevice[]): void {
     appleTVLog.debug('Step 1: Device Discovery success');
     appleTVLog.debug(
-      `Found ${util.pluralize('device', devices.length, true)} via Bonjour`,
+      `Found ${util.pluralize('device', devices.length, true)} via discovery backend`,
     );
 
     if (devices.length > 0) {
@@ -403,52 +407,16 @@ export class AppleTVTunnelService {
   }
 
   private async discoverDevices(): Promise<AppleTVDevice[]> {
-    const discovery = new BonjourDiscovery();
-
-    await discovery.startBrowsing('_remotepairing._tcp', 'local');
-    await new Promise((resolve) =>
-      setTimeout(resolve, DEFAULT_PAIRING_CONFIG.discoveryTimeout),
+    const backend = createDiscoveryBackend(process.platform, {
+      serviceType: APPLE_TV_DISCOVERY_SERVICE_TYPE,
+      domain: APPLE_TV_DISCOVERY_DOMAIN,
+    });
+    const discoveredDevices = await backend.discoverDevices(
+      DEFAULT_PAIRING_CONFIG.discoveryTimeout,
     );
-
-    const services = discovery.getDiscoveredServices();
-    const devices: AppleTVDevice[] = [];
-
-    for (const service of services) {
-      try {
-        const resolved = await discovery.resolveService(
-          service.name,
-          '_remotepairing._tcp',
-          'local',
-        );
-        if (!resolved.hostname || !resolved.port) {
-          continue;
-        }
-
-        const ipResult = await lookup(resolved.hostname.replace(/\.$/, ''), {
-          family: 4,
-        });
-
-        // TODO: filter out Apple TV devices from the list
-        // TODO: currently all devices advertising itself to Bonjour are in there
-        devices.push({
-          name: resolved.name,
-          identifier: resolved.txtRecord?.identifier || resolved.name,
-          hostname: resolved.hostname,
-          ip: ipResult.address,
-          port: resolved.port,
-          model: resolved.txtRecord?.model ?? '',
-          version: resolved.txtRecord?.ver ?? '',
-          minVersion: resolved.txtRecord?.minVer ?? '17',
-        });
-      } catch (err) {
-        appleTVLog.debug(`Failed to resolve service ${service.name}: ${err}`);
-      }
-    }
-
-    discovery.stopBrowsing();
-
+    const devices = toAppleTVDevices(discoveredDevices);
     if (devices.length === 0) {
-      throw new Error('No devices found via Bonjour discovery');
+      throw new Error('No devices found via discovery backend');
     }
 
     return devices;

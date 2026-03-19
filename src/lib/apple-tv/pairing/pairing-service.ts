@@ -1,19 +1,27 @@
-import type { AppleTVDevice } from '../../bonjour/bonjour-discovery.js';
+import { createDiscoveryBackend } from '../../discovery/index.js';
 import { getLogger } from '../../logger.js';
-import { DEFAULT_PAIRING_CONFIG } from '../constants.js';
-import { DeviceDiscoveryService } from '../discovery/index.js';
+import {
+  APPLE_TV_DISCOVERY_DOMAIN,
+  APPLE_TV_DISCOVERY_SERVICE_TYPE,
+  DEFAULT_PAIRING_CONFIG,
+} from '../constants.js';
+import { toAppleTVDevices } from '../discovered-device-mapper.js';
 import { PairingError } from '../errors.js';
 import { NetworkClient } from '../network/index.js';
 import { PairingProtocol } from '../pairing-protocol/index.js';
 import type { UserInputInterface } from '../pairing-protocol/types.js';
-import type { AppleTVPairingResult, PairingConfig } from '../types.js';
+import type {
+  AppleTVDevice,
+  AppleTVPairingResult,
+  PairingConfig,
+} from '../types.js';
 
 const log = getLogger('AppleTVPairingService');
 
 /** Main service orchestrating Apple TV device discovery and pairing */
 export class AppleTVPairingService {
   private readonly networkClient: NetworkClient;
-  private readonly discoveryService: DeviceDiscoveryService;
+  private readonly config: PairingConfig;
   private readonly userInput: UserInputInterface;
   private readonly pairingProtocol: PairingProtocol;
 
@@ -21,8 +29,8 @@ export class AppleTVPairingService {
     userInput: UserInputInterface,
     config: PairingConfig = DEFAULT_PAIRING_CONFIG,
   ) {
+    this.config = config;
     this.networkClient = new NetworkClient(config);
-    this.discoveryService = new DeviceDiscoveryService(config);
     this.userInput = userInput;
     this.pairingProtocol = new PairingProtocol(
       this.networkClient,
@@ -34,7 +42,7 @@ export class AppleTVPairingService {
     deviceSelector?: string,
   ): Promise<AppleTVPairingResult> {
     try {
-      const devices = await this.discoveryService.discoverDevices();
+      const devices = await this.discoverDevices();
 
       if (devices.length === 0) {
         const errorMessage =
@@ -83,6 +91,29 @@ export class AppleTVPairingService {
       throw error;
     } finally {
       this.networkClient.disconnect();
+    }
+  }
+
+  private async discoverDevices(): Promise<AppleTVDevice[]> {
+    try {
+      const backend = createDiscoveryBackend(process.platform, {
+        serviceType: APPLE_TV_DISCOVERY_SERVICE_TYPE,
+        domain: APPLE_TV_DISCOVERY_DOMAIN,
+      });
+      log.info(
+        `Discovering Apple TV devices (waiting ${this.config.discoveryTimeout / 1000} seconds)...`,
+      );
+      const discoveredDevices = await backend.discoverDevices(
+        this.config.discoveryTimeout,
+      );
+      return toAppleTVDevices(discoveredDevices);
+    } catch (error) {
+      log.error('Device discovery failed:', error);
+      throw new PairingError(
+        'Device discovery failed',
+        'DISCOVERY_ERROR',
+        error,
+      );
     }
   }
 
