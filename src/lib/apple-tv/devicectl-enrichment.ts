@@ -1,4 +1,5 @@
 import { listDevicectlDeviceRecords } from '../discovery/devicectl-device-records.js';
+import type { DevicectlDeviceRecord } from '../discovery/devicectl-device-records.js';
 import type { DiscoveredDevice } from '../discovery/types.js';
 
 function normalizeHost(host?: string): string | undefined {
@@ -23,11 +24,10 @@ function hostMatchingKeys(host?: string): string[] {
 
 function mergeMetadata(
   base: DiscoveredDevice['metadata'],
-  extra: DiscoveredDevice['metadata'],
+  extra: DevicectlDeviceRecord,
 ): DiscoveredDevice['metadata'] {
   return {
     ...base,
-    ...extra,
     identifier: extra.identifier || base.identifier,
     model: extra.model || base.model,
     version: extra.version || base.version,
@@ -52,9 +52,11 @@ export async function enrichDiscoveredDevicesWithDevicectl(
 
   const byHost = records.reduce<Map<string, (typeof records)[0]>>(
     (acc, record) => {
-      for (const key of hostMatchingKeys(record.hostname)) {
-        if (!acc.has(key)) {
-          acc.set(key, record);
+      for (const hostname of record.hostnames) {
+        for (const key of hostMatchingKeys(hostname)) {
+          if (!acc.has(key)) {
+            acc.set(key, record);
+          }
         }
       }
       return acc;
@@ -71,7 +73,7 @@ export async function enrichDiscoveredDevicesWithDevicectl(
     }
     return {
       ...device,
-      metadata: mergeMetadata(device.metadata, match.metadata),
+      metadata: mergeMetadata(device.metadata, match),
     };
   });
 }

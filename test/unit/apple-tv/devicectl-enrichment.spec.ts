@@ -56,13 +56,11 @@ describe('devicectl-enrichment', function () {
     ];
     const records: DevicectlDeviceRecord[] = [
       {
-        hostname: 'sample-device.coredevice.local',
-        metadata: {
-          identifier: 'udid-123',
-          model: 'AppleTV6,2',
-          version: '17.4',
-          deviceType: 'tv',
-        },
+        hostnames: ['sample-device.coredevice.local', 'sample-device.local'],
+        identifier: 'udid-123',
+        model: 'AppleTV6,2',
+        version: '17.4',
+        deviceType: 'tv',
       },
     ];
 
@@ -94,13 +92,11 @@ describe('devicectl-enrichment', function () {
     ];
     const records: DevicectlDeviceRecord[] = [
       {
-        hostname: 'kitchen.coredevice.local',
-        metadata: {
-          identifier: 'udid-456',
-          model: 'AppleTV11,1',
-          version: '18.0',
-          deviceType: 'tv',
-        },
+        hostnames: ['kitchen.coredevice.local'],
+        identifier: 'udid-456',
+        model: 'AppleTV11,1',
+        version: '18.0',
+        deviceType: 'tv',
       },
     ];
 

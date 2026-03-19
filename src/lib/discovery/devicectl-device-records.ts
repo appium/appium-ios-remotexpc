@@ -4,39 +4,15 @@ import {
 } from 'node-devicectl';
 
 import { getLogger } from '../logger.js';
-import type { DiscoveredDeviceMetadata } from './types.js';
 
 const log = getLogger('DevicectlDeviceRecords');
+
 export interface DevicectlDeviceRecord {
-  hostname?: string;
-  metadata: DiscoveredDeviceMetadata;
-}
-
-function getPreferredHostname(device: DevicectlDeviceInfo): string | undefined {
-  const hosts = [
-    ...(device.connectionProperties.localHostnames ?? []),
-    ...device.connectionProperties.potentialHostnames,
-  ];
-  const host = hosts.find(Boolean);
-  if (!host) {
-    return undefined;
-  }
-  return host.endsWith('.') ? host : `${host}.`;
-}
-
-function toDevicectlRecord(device: DevicectlDeviceInfo): DevicectlDeviceRecord {
-  const hostname = getPreferredHostname(device);
-  const identifier = device.hardwareProperties.udid || device.identifier;
-  const metadata: DiscoveredDeviceMetadata = {
-    identifier,
-    model: device.hardwareProperties.productType ?? '',
-    version: device.deviceProperties.osVersionNumber ?? '',
-    deviceType: device.hardwareProperties.deviceType,
-  };
-  return {
-    hostname,
-    metadata,
-  };
+  hostnames: string[];
+  identifier?: string;
+  model?: string;
+  version?: string;
+  deviceType?: string;
 }
 
 export async function listDevicectlDeviceRecords(): Promise<
@@ -49,4 +25,25 @@ export async function listDevicectlDeviceRecords(): Promise<
     log.info('No device records found via devicectl');
   }
   return records;
+}
+
+function getHostnames(device: DevicectlDeviceInfo): string[] {
+  const hosts = [
+    ...(device.connectionProperties.localHostnames ?? []),
+    ...device.connectionProperties.potentialHostnames,
+  ];
+  const normalized = hosts
+    .filter((host): host is string => Boolean(host))
+    .map((host) => (host.endsWith('.') ? host : `${host}.`));
+  return Array.from(new Set(normalized));
+}
+
+function toDevicectlRecord(device: DevicectlDeviceInfo): DevicectlDeviceRecord {
+  return {
+    hostnames: getHostnames(device),
+    identifier: device.hardwareProperties.udid,
+    model: device.hardwareProperties.productType ?? '',
+    version: device.deviceProperties.osVersionNumber ?? '',
+    deviceType: device.hardwareProperties.deviceType,
+  };
 }

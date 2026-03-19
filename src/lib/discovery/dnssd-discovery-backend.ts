@@ -7,7 +7,7 @@ import { getLogger } from '../logger.js';
 import {
   DISCOVERY_DEFAULT_DOMAIN,
   DISCOVERY_DEFAULT_SERVICE_TYPE,
-  DISCOVERY_TIMEOUTS,
+  DISCOVERY_DEFAULT_TIMEOUT_MS,
 } from './constants.js';
 import type {
   DiscoveredDevice,
@@ -74,7 +74,7 @@ export class DnssdDiscoveryBackend implements IDeviceDiscoveryBackend {
 
     browser.start();
     try {
-      await delay(Math.max(timeoutMs, DISCOVERY_TIMEOUTS.DEFAULT_DISCOVERY));
+      await delay(Math.max(timeoutMs, DISCOVERY_DEFAULT_TIMEOUT_MS));
       if (browserError) {
         throw browserError;
       }
