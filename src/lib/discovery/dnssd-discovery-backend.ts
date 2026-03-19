@@ -12,12 +12,13 @@ import {
 import type {
   DiscoveredDevice,
   DiscoveryOptions,
+  DnssdDiscoveryMetadata,
   IDeviceDiscoveryBackend,
 } from './types.js';
 
 const log = getLogger('DnssdDiscoveryBackend');
 
-export class DnssdDiscoveryBackend implements IDeviceDiscoveryBackend {
+export class DnssdDiscoveryBackend implements IDeviceDiscoveryBackend<'dnssd'> {
   constructor(
     private readonly options: DiscoveryOptions = {
       serviceType: DISCOVERY_DEFAULT_SERVICE_TYPE,
@@ -25,14 +26,16 @@ export class DnssdDiscoveryBackend implements IDeviceDiscoveryBackend {
     },
   ) {}
 
-  async discoverDevices(timeoutMs: number): Promise<DiscoveredDevice[]> {
+  async discoverDevices(
+    timeoutMs: number,
+  ): Promise<DiscoveredDevice<'dnssd'>[]> {
     const serviceType =
       this.options.serviceType || DISCOVERY_DEFAULT_SERVICE_TYPE;
     const domain = this.options.domain || DISCOVERY_DEFAULT_DOMAIN;
     const browser = new dnssd.Browser(serviceType, {
       domain,
     });
-    const devices = new Map<string, DiscoveredDevice>();
+    const devices = new Map<string, DiscoveredDevice<'dnssd'>>();
     let browserError: Error | null = null;
 
     browser.on('serviceUp', async (service: Service) => {
@@ -44,6 +47,14 @@ export class DnssdDiscoveryBackend implements IDeviceDiscoveryBackend {
         const txt = service.txt ?? {};
         const ip = await resolveIpAddress(hostname, service.addresses);
         const identifier = txt.identifier ?? service.name ?? hostname;
+        const metadata: DnssdDiscoveryMetadata = {
+          identifier,
+          model: txt.model ?? '',
+          version: txt.ver ?? '',
+          minVersion: txt.minVer ?? '17',
+          authTag: txt.authTag,
+          serviceType,
+        };
         devices.set(identifier, {
           id: identifier,
           name: service.name ?? identifier,
@@ -51,14 +62,7 @@ export class DnssdDiscoveryBackend implements IDeviceDiscoveryBackend {
           ip,
           port: service.port,
           source: 'dnssd',
-          metadata: {
-            identifier,
-            model: txt.model ?? '',
-            version: txt.ver ?? '',
-            minVersion: txt.minVer ?? '17',
-            authTag: txt.authTag,
-            serviceType,
-          },
+          metadata,
         });
       } catch (err) {
         log.warn(`Failed to process dnssd service: ${err}`);

@@ -1,9 +1,9 @@
 import { createDiscoveryBackend } from '../../discovery/index.js';
 import { getLogger } from '../../logger.js';
 import {
-  APPLE_TV_DISCOVERY_DOMAIN,
-  APPLE_TV_DISCOVERY_SERVICE_TYPE,
   DEFAULT_PAIRING_CONFIG,
+  REMOTE_PAIRING_DISCOVERY_DOMAIN,
+  REMOTE_PAIRING_DISCOVERY_SERVICE_TYPE,
 } from '../constants.js';
 import { toAppleTVDevices } from '../discovered-device-mapper.js';
 import { PairingError } from '../errors.js';
@@ -97,8 +97,8 @@ export class AppleTVPairingService {
   private async discoverDevices(): Promise<AppleTVDevice[]> {
     try {
       const backend = createDiscoveryBackend(process.platform, {
-        serviceType: APPLE_TV_DISCOVERY_SERVICE_TYPE,
-        domain: APPLE_TV_DISCOVERY_DOMAIN,
+        serviceType: REMOTE_PAIRING_DISCOVERY_SERVICE_TYPE,
+        domain: REMOTE_PAIRING_DISCOVERY_DOMAIN,
       });
       log.info(
         `Discovering Apple TV devices (waiting ${this.config.discoveryTimeout / 1000} seconds)...`,

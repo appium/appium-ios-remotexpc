@@ -10,8 +10,8 @@ export const DEFAULT_PAIRING_CONFIG = {
   maxRetries: Number(process.env.APPLETV_MAX_RETRIES) || 3,
 } as const;
 
-export const APPLE_TV_DISCOVERY_SERVICE_TYPE = '_remotepairing._tcp';
-export const APPLE_TV_DISCOVERY_DOMAIN = 'local';
+export const REMOTE_PAIRING_DISCOVERY_SERVICE_TYPE = '_remotepairing._tcp';
+export const REMOTE_PAIRING_DISCOVERY_DOMAIN = 'local';
 
 // TLV8 component type identifiers used in pairing data exchange
 export const PairingDataComponentType = {

@@ -5,7 +5,7 @@ import type { DiscoveryOptions, IDeviceDiscoveryBackend } from './types.js';
 export function createDiscoveryBackend(
   platform: NodeJS.Platform = process.platform,
   options?: DiscoveryOptions,
-): IDeviceDiscoveryBackend {
+): IDeviceDiscoveryBackend<'dnssd' | 'devicectl'> {
   if (platform === 'darwin') {
     return new DevicectlDiscoveryBackend();
   }

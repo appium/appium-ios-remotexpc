@@ -1,9 +1,14 @@
 import { Devicectl } from 'node-devicectl';
 
 import { getLogger } from '../logger.js';
-import type { DiscoveredDevice, IDeviceDiscoveryBackend } from './types.js';
+import type {
+  DevicectlDiscoveryMetadata,
+  DiscoveredDevice,
+  IDeviceDiscoveryBackend,
+} from './types.js';
 
 const log = getLogger('DevicectlDiscoveryBackend');
+const DEFAULT_REMOTE_PAIRING_PORT = 49152;
 type DeviceInfo = Awaited<ReturnType<Devicectl['listDevices']>>[number];
 
 function getPreferredHostname(device: DeviceInfo): string | undefined {
@@ -18,44 +23,46 @@ function getPreferredHostname(device: DeviceInfo): string | undefined {
   return host.endsWith('.') ? host : `${host}.`;
 }
 
-function toDiscoveredDevice(device: DeviceInfo): DiscoveredDevice | null {
-  const platform = device.hardwareProperties.platform?.toLowerCase();
-  if (platform !== 'tvos') {
-    return null;
-  }
-
+function toDiscoveredDevice(
+  device: DeviceInfo,
+): DiscoveredDevice<'devicectl'> | null {
   const hostname = getPreferredHostname(device);
   if (!hostname) {
     return null;
   }
 
+  const identifier = device.hardwareProperties.udid || device.identifier;
+  const metadata: DevicectlDiscoveryMetadata = {
+    identifier,
+    model: device.hardwareProperties.productType ?? '',
+    version: device.deviceProperties.osVersionNumber ?? '',
+    deviceType: device.hardwareProperties.deviceType,
+    // devicectl does not expose remotepairing service port directly
+    port: DEFAULT_REMOTE_PAIRING_PORT,
+  };
+
   return {
-    id: device.identifier,
+    id: identifier,
     name: device.deviceProperties.name,
     hostname,
     ip: device.connectionProperties.tunnelIPAddress,
     source: 'devicectl',
-    metadata: {
-      identifier: device.identifier,
-      model: device.hardwareProperties.productType ?? '',
-      version: device.deviceProperties.osVersionNumber ?? '',
-      minVersion: '17',
-      platform: device.hardwareProperties.platform,
-      productType: device.hardwareProperties.productType,
-      // devicectl does not expose remotepairing service port directly
-      port: 49152,
-    },
+    metadata,
   };
 }
 
-export class DevicectlDiscoveryBackend implements IDeviceDiscoveryBackend {
-  async discoverDevices(timeoutMs: number): Promise<DiscoveredDevice[]> {
+export class DevicectlDiscoveryBackend implements IDeviceDiscoveryBackend<'devicectl'> {
+  async discoverDevices(
+    timeoutMs: number,
+  ): Promise<DiscoveredDevice<'devicectl'>[]> {
     void timeoutMs;
     const devicectl = new Devicectl('');
     const devices = await devicectl.listDevices();
     const mapped = devices
       .map((device) => toDiscoveredDevice(device))
-      .filter((device): device is DiscoveredDevice => Boolean(device));
+      .filter((device): device is DiscoveredDevice<'devicectl'> =>
+        Boolean(device),
+      );
     if (mapped.length === 0) {
       log.info('No matching devices found via devicectl');
     }

@@ -4,9 +4,9 @@ import * as tls from 'node:tls';
 import { createDiscoveryBackend } from '../../discovery/discovery-backend-factory.js';
 import { getLogger } from '../../logger.js';
 import {
-  APPLE_TV_DISCOVERY_DOMAIN,
-  APPLE_TV_DISCOVERY_SERVICE_TYPE,
   DEFAULT_PAIRING_CONFIG,
+  REMOTE_PAIRING_DISCOVERY_DOMAIN,
+  REMOTE_PAIRING_DISCOVERY_SERVICE_TYPE,
 } from '../constants.js';
 import { toAppleTVDevices } from '../discovered-device-mapper.js';
 import {
@@ -408,8 +408,8 @@ export class AppleTVTunnelService {
 
   private async discoverDevices(): Promise<AppleTVDevice[]> {
     const backend = createDiscoveryBackend(process.platform, {
-      serviceType: APPLE_TV_DISCOVERY_SERVICE_TYPE,
-      domain: APPLE_TV_DISCOVERY_DOMAIN,
+      serviceType: REMOTE_PAIRING_DISCOVERY_SERVICE_TYPE,
+      domain: REMOTE_PAIRING_DISCOVERY_DOMAIN,
     });
     const discoveredDevices = await backend.discoverDevices(
       DEFAULT_PAIRING_CONFIG.discoveryTimeout,
