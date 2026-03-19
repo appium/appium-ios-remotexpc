@@ -1,6 +1,9 @@
-import fs from 'node:fs';
-import path from 'node:path';
+import { BaseItem, strongbox } from '@appium/strongbox';
 
+import {
+  PAIR_RECORD_ITEM_PREFIX,
+  STRONGBOX_CONTAINER_NAME,
+} from '../../constants.js';
 import { getLogger } from '../logger.js';
 
 const log = getLogger('PairRecord');
@@ -33,15 +36,6 @@ export interface RawPairRecordResponse {
   RootPrivateKey: Buffer;
   WiFiMACAddress: string;
   EscrowBag: Buffer;
-}
-
-/**
- * Converts a buffer containing PEM data to a string
- * @param buffer - Buffer containing PEM data
- * @returns String representation of the PEM data
- */
-function bufferToPEMString(buffer: Buffer): string {
-  return buffer.toString('utf8');
 }
 
 /**
@@ -78,16 +72,8 @@ export function processPlistResponse(
   };
 }
 
-/* --- File storage functions remain unchanged --- */
-
-const RECORDS_DIR = path.join(process.cwd(), '../../.records');
-
-async function ensureRecordsDirectoryExists(): Promise<void> {
-  await fs.promises.mkdir(RECORDS_DIR, { recursive: true, mode: 0o777 });
-}
-
 /**
- * Saves a pair record to the filesystem.
+ * Saves a pair record to Strongbox (stable, environment-independent location).
  * @param udid - Device UDID.
  * @param pairRecord - Pair record to save.
  * @returns Promise that resolves when record is saved.
@@ -96,16 +82,11 @@ export async function savePairRecord(
   udid: string,
   pairRecord: PairRecord,
 ): Promise<void> {
-  await ensureRecordsDirectoryExists();
-
-  const recordPath = path.join(RECORDS_DIR, `${udid}-record.json`);
+  const itemName = getItemName(udid);
+  const item = new BaseItem(itemName, getBox());
   try {
-    await fs.promises.writeFile(
-      recordPath,
-      JSON.stringify(pairRecord, null, 2),
-      { mode: 0o777 },
-    );
-    log.info(`Pair record saved: ${recordPath}`);
+    await item.write(JSON.stringify(pairRecord, null, 2));
+    log.info(`Pair record saved: ${item.id}`);
   } catch (error) {
     log.error(`Failed to save pair record for ${udid}: ${error}`);
     throw error;
@@ -113,22 +94,42 @@ export async function savePairRecord(
 }
 
 /**
- * Gets a saved pair record from the filesystem.
+ * Gets a saved pair record from Strongbox.
  * @param udid - Device UDID.
  * @returns Promise that resolves with the pair record or null if not found.
  */
 export async function getPairRecord(udid: string): Promise<PairRecord | null> {
-  const recordPath = path.join(RECORDS_DIR, `${udid}-record.json`);
-
+  const itemName = getItemName(udid);
+  const item = new BaseItem(itemName, getBox());
   try {
-    const data = await fs.promises.readFile(recordPath, 'utf8');
-    return JSON.parse(data) as PairRecord;
+    const data = await item.read();
+    return data ? (JSON.parse(data as string) as PairRecord) : null;
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return null;
-    }
-
     log.error(`Failed to read pair record for ${udid}: ${error}`);
     throw error;
   }
 }
+
+// #region Private helpers
+let box: ReturnType<typeof strongbox> | undefined;
+
+function getBox(): ReturnType<typeof strongbox> {
+  if (box === undefined) {
+    box = strongbox(STRONGBOX_CONTAINER_NAME);
+  }
+  return box;
+}
+
+function getItemName(udid: string): string {
+  return `${PAIR_RECORD_ITEM_PREFIX}${udid}`;
+}
+
+/**
+ * Converts a buffer containing PEM data to a string
+ * @param buffer - Buffer containing PEM data
+ * @returns String representation of the PEM data
+ */
+function bufferToPEMString(buffer: Buffer): string {
+  return buffer.toString('utf8');
+}
+// #endregion

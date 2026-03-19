@@ -1,3 +1,9 @@
+## [0.35.3](https://github.com/appium/appium-ios-remotexpc/compare/v0.35.2...v0.35.3) (2026-03-19)
+
+### Bug Fixes
+
+* Strongbox usage for pair records management ([#170](https://github.com/appium/appium-ios-remotexpc/issues/170)) ([0db6c81](https://github.com/appium/appium-ios-remotexpc/commit/0db6c81cb27d9e6acaa20db1c82ba359c10644a2))
+
 ## [0.35.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.35.1...v0.35.2) (2026-03-17)
 
 ### Bug Fixes

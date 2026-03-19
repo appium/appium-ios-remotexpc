@@ -2,10 +2,12 @@ import { BaseItem, strongbox } from '@appium/strongbox';
 import { readdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
-import { STRONGBOX_CONTAINER_NAME } from '../../../constants.js';
+import {
+  APPLETV_PAIRING_PREFIX,
+  STRONGBOX_CONTAINER_NAME,
+} from '../../../constants.js';
 import { getLogger } from '../../logger.js';
 import { createXmlPlist, parseXmlPlist } from '../../plist/index.js';
-import { APPLETV_PAIRING_PREFIX } from '../constants.js';
 import { PairingError } from '../errors.js';
 import type { PairingConfig } from '../types.js';
 import type { PairRecord, PairingStorageInterface } from './types.js';
