@@ -1,53 +1,30 @@
-export type DiscoverySource = 'dnssd' | 'devicectl';
-
-export interface DnssdDiscoveryMetadata {
+export interface DiscoveredDeviceMetadata {
   identifier?: string;
   model?: string;
   version?: string;
+  /** @deprecated Retained for backward compatibility; not actively used. */
   minVersion?: string;
-  authTag?: string;
-  serviceType: string;
-}
-
-export interface DevicectlDiscoveryMetadata {
-  identifier: string;
-  model?: string;
-  version?: string;
   deviceType?: string;
-  port?: number;
+  /** @deprecated Retained for backward compatibility; not actively used. */
+  authTag?: string;
+  /** @deprecated Retained for backward compatibility; not actively used. */
+  serviceType?: string;
 }
 
-export interface DiscoveryMetadataBySource {
-  dnssd: DnssdDiscoveryMetadata;
-  devicectl: DevicectlDiscoveryMetadata;
-}
-
-export interface DiscoveredDevice<
-  TSource extends DiscoverySource = DiscoverySource,
-> {
+export interface DiscoveredDevice {
   id: string;
   name: string;
   hostname?: string;
   ip?: string;
   port?: number;
-  source: TSource;
-  metadata: DiscoveryMetadataBySource[TSource];
+  metadata: DiscoveredDeviceMetadata;
 }
-
-export type AnyDiscoveredDevice = {
-  [TSource in DiscoverySource]: DiscoveredDevice<TSource>;
-}[DiscoverySource];
-
-export type DiscoveredDeviceFor<TSource extends DiscoverySource> =
-  TSource extends DiscoverySource ? DiscoveredDevice<TSource> : never;
 
 export interface DiscoveryOptions {
   serviceType: string;
   domain?: string;
 }
 
-export interface IDeviceDiscoveryBackend<
-  TSource extends DiscoverySource = DiscoverySource,
-> {
-  discoverDevices(timeoutMs: number): Promise<DiscoveredDeviceFor<TSource>[]>;
+export interface IDeviceDiscoveryBackend {
+  discoverDevices(timeoutMs: number): Promise<DiscoveredDevice[]>;
 }

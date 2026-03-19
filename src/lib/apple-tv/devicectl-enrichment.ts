@@ -1,0 +1,77 @@
+import { listDevicectlDeviceRecords } from '../discovery/devicectl-device-records.js';
+import type { DiscoveredDevice } from '../discovery/types.js';
+
+function normalizeHost(host?: string): string | undefined {
+  if (!host) {
+    return undefined;
+  }
+  return host.replace(/\.$/, '').toLowerCase();
+}
+
+function hostMatchingKeys(host?: string): string[] {
+  const normalized = normalizeHost(host);
+  if (!normalized) {
+    return [];
+  }
+  const keys = new Set<string>([normalized]);
+  const short = normalized.split('.')[0];
+  if (short) {
+    keys.add(short);
+  }
+  return Array.from(keys);
+}
+
+function mergeMetadata(
+  base: DiscoveredDevice['metadata'],
+  extra: DiscoveredDevice['metadata'],
+): DiscoveredDevice['metadata'] {
+  return {
+    ...base,
+    ...extra,
+    identifier: extra.identifier || base.identifier,
+    model: extra.model || base.model,
+    version: extra.version || base.version,
+    deviceType: extra.deviceType || base.deviceType,
+    minVersion: base.minVersion,
+    authTag: base.authTag,
+    serviceType: base.serviceType,
+  };
+}
+
+export async function enrichDiscoveredDevicesWithDevicectl(
+  devices: DiscoveredDevice[],
+): Promise<DiscoveredDevice[]> {
+  if (process.platform !== 'darwin' || devices.length === 0) {
+    return devices;
+  }
+
+  const records = await listDevicectlDeviceRecords();
+  if (records.length === 0) {
+    return devices;
+  }
+
+  const byHost = records.reduce<Map<string, (typeof records)[0]>>(
+    (acc, record) => {
+      for (const key of hostMatchingKeys(record.hostname)) {
+        if (!acc.has(key)) {
+          acc.set(key, record);
+        }
+      }
+      return acc;
+    },
+    new Map<string, (typeof records)[0]>(),
+  );
+
+  return devices.map((device) => {
+    const match = hostMatchingKeys(device.hostname)
+      .map((key) => byHost.get(key))
+      .find(Boolean);
+    if (!match) {
+      return device;
+    }
+    return {
+      ...device,
+      metadata: mergeMetadata(device.metadata, match.metadata),
+    };
+  });
+}

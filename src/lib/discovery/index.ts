@@ -1,13 +1,9 @@
 export { createDiscoveryBackend } from './discovery-backend-factory.js';
 export { DnssdDiscoveryBackend } from './dnssd-discovery-backend.js';
-export { DevicectlDiscoveryBackend } from './devicectl-discovery-backend.js';
+export { listDevicectlDeviceRecords } from './devicectl-device-records.js';
 export type {
-  AnyDiscoveredDevice,
-  DevicectlDiscoveryMetadata,
   DiscoveredDevice,
-  DiscoveryMetadataBySource,
+  DiscoveredDeviceMetadata,
   DiscoveryOptions,
-  DnssdDiscoveryMetadata,
-  DiscoverySource,
   IDeviceDiscoveryBackend,
 } from './types.js';

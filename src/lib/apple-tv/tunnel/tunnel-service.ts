@@ -8,6 +8,7 @@ import {
   REMOTE_PAIRING_DISCOVERY_DOMAIN,
   REMOTE_PAIRING_DISCOVERY_SERVICE_TYPE,
 } from '../constants.js';
+import { enrichDiscoveredDevicesWithDevicectl } from '../devicectl-enrichment.js';
 import { toAppleTVDevices } from '../discovered-device-mapper.js';
 import {
   decryptChaCha20Poly1305,
@@ -339,9 +340,18 @@ export class AppleTVTunnelService {
     pairRecord: PairRecord,
     failedAttempts: { identifier: string; error: string }[],
   ): Promise<{ socket: tls.TLSSocket; device: AppleTVDevice } | null> {
+    const connectionTarget = device.ip ?? device.hostname;
+    if (!connectionTarget) {
+      failedAttempts.push({
+        identifier,
+        error: 'Connection failed: no IP or hostname available',
+      });
+      return null;
+    }
+
     try {
       this.sequenceNumber = 0;
-      await this.networkClient.connect(device.ip!, device.port);
+      await this.networkClient.connect(connectionTarget, device.port);
 
       try {
         await this.performHandshake();
@@ -355,7 +365,7 @@ export class AppleTVTunnelService {
         this.networkClient.disconnect();
 
         const tlsSocket = await this.createTlsPskConnection(
-          device.ip!,
+          connectionTarget,
           listenerInfo.port,
           keys,
         );
@@ -365,7 +375,7 @@ export class AppleTVTunnelService {
         appleTVLog.info(
           `📱 Connected to device: ${device.identifier} (${device.name})`,
         );
-        appleTVLog.info(`   IP: ${device.ip}:${device.port}`);
+        appleTVLog.info(`   Target: ${connectionTarget}:${device.port}`);
 
         return { socket: tlsSocket, device };
       } catch (error: any) {
@@ -380,7 +390,7 @@ export class AppleTVTunnelService {
     } catch (connectionError: any) {
       const errorMessage = connectionError.message || String(connectionError);
       appleTVLog.debug(
-        `Failed to connect to ${device.ip}:${device.port}: ${errorMessage}`,
+        `Failed to connect to ${connectionTarget}:${device.port}: ${errorMessage}`,
       );
       failedAttempts.push({
         identifier,
@@ -414,7 +424,9 @@ export class AppleTVTunnelService {
     const discoveredDevices = await backend.discoverDevices(
       DEFAULT_PAIRING_CONFIG.discoveryTimeout,
     );
-    const devices = toAppleTVDevices(discoveredDevices);
+    const enrichedDevices =
+      await enrichDiscoveredDevicesWithDevicectl(discoveredDevices);
+    const devices = toAppleTVDevices(enrichedDevices);
     if (devices.length === 0) {
       throw new Error('No devices found via discovery backend');
     }

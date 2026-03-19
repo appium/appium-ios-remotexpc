@@ -5,6 +5,7 @@ import {
   REMOTE_PAIRING_DISCOVERY_DOMAIN,
   REMOTE_PAIRING_DISCOVERY_SERVICE_TYPE,
 } from '../constants.js';
+import { enrichDiscoveredDevicesWithDevicectl } from '../devicectl-enrichment.js';
 import { toAppleTVDevices } from '../discovered-device-mapper.js';
 import { PairingError } from '../errors.js';
 import { NetworkClient } from '../network/index.js';
@@ -106,7 +107,9 @@ export class AppleTVPairingService {
       const discoveredDevices = await backend.discoverDevices(
         this.config.discoveryTimeout,
       );
-      return toAppleTVDevices(discoveredDevices);
+      const enrichedDevices =
+        await enrichDiscoveredDevicesWithDevicectl(discoveredDevices);
+      return toAppleTVDevices(enrichedDevices);
     } catch (error) {
       log.error('Device discovery failed:', error);
       throw new PairingError(
