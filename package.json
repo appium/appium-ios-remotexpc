@@ -104,7 +104,7 @@
     "axios": "^1.12.0",
     "dnssd": "^0.x",
     "minimatch": "^10.1.1",
-    "node-devicectl": "^1.1.1",
+    "node-devicectl": "^1.2.0",
     "npm-run-all2": "^8.0.4"
   },
   "files": [
