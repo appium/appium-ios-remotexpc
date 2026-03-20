@@ -19,6 +19,8 @@ import type {
 const log = getLogger('DnssdDiscoveryBackend');
 
 export class DnssdDiscoveryBackend implements IDeviceDiscoveryBackend {
+  private inFlightDiscovery?: Promise<DiscoveredDevice[]>;
+
   constructor(
     private readonly options: DiscoveryOptions = {
       serviceType: DISCOVERY_DEFAULT_SERVICE_TYPE,
@@ -27,43 +29,34 @@ export class DnssdDiscoveryBackend implements IDeviceDiscoveryBackend {
   ) {}
 
   async discoverDevices(timeoutMs: number): Promise<DiscoveredDevice[]> {
+    if (this.inFlightDiscovery) {
+      return await this.inFlightDiscovery;
+    }
+    this.inFlightDiscovery = this.runDiscovery(timeoutMs);
+    try {
+      return await this.inFlightDiscovery;
+    } finally {
+      this.inFlightDiscovery = undefined;
+    }
+  }
+
+  private async runDiscovery(timeoutMs: number): Promise<DiscoveredDevice[]> {
     const serviceType =
       this.options.serviceType || DISCOVERY_DEFAULT_SERVICE_TYPE;
     const domain = this.options.domain || DISCOVERY_DEFAULT_DOMAIN;
     const browser = new dnssd.Browser(serviceType, {
       domain,
     });
-    const devices = new Map<string, DiscoveredDevice>();
+    const devices = new Map<string, Promise<DiscoveredDevice | null>>();
     let browserError: Error | null = null;
 
-    browser.on('serviceUp', async (service: Service) => {
-      try {
-        const hostname = normalizeHostname(service.host);
-        if (!hostname || !service.port) {
-          return;
-        }
-        const txt = service.txt ?? {};
-        const ip = await resolveIpAddress(hostname, service.addresses);
-        const identifier = txt.identifier ?? service.name ?? hostname;
-        const metadata: DiscoveredDeviceMetadata = {
-          identifier,
-          model: txt.model ?? '',
-          version: txt.ver ?? '',
-          minVersion: txt.minVer ?? '17',
-          authTag: txt.authTag,
-          serviceType,
-        };
-        devices.set(identifier, {
-          id: identifier,
-          name: service.name ?? identifier,
-          hostname,
-          ip,
-          port: service.port,
-          metadata,
-        });
-      } catch (err) {
-        log.warn(`Failed to process dnssd service: ${err}`);
+    browser.on('serviceUp', (service: Service) => {
+      const hostname = normalizeHostname(service.host);
+      if (!hostname || !service.port) {
+        return;
       }
+      const key = `${service.name ?? hostname}:${hostname}:${service.port}`;
+      devices.set(key, resolveDiscoveredDevice(service, hostname, serviceType));
     });
 
     browser.on('error', (err: Error) => {
@@ -78,10 +71,54 @@ export class DnssdDiscoveryBackend implements IDeviceDiscoveryBackend {
       if (browserError) {
         throw browserError;
       }
-      return Array.from(devices.values());
+      if (devices.size === 0) {
+        return [];
+      }
+      const resolvedDevices = await Promise.allSettled(devices.values());
+      return resolvedDevices
+        .filter(
+          (item): item is PromiseFulfilledResult<DiscoveredDevice | null> =>
+            item.status === 'fulfilled',
+        )
+        .map((item) => item.value)
+        .filter((device): device is DiscoveredDevice => device !== null);
     } finally {
       browser.stop();
     }
+  }
+}
+
+async function resolveDiscoveredDevice(
+  service: Service,
+  hostname: string,
+  serviceType: string,
+): Promise<DiscoveredDevice | null> {
+  try {
+    if (!service.port) {
+      return null;
+    }
+    const txt = service.txt ?? {};
+    const ip = await resolveIpAddress(hostname, service.addresses);
+    const identifier = txt.identifier ?? service.name ?? hostname;
+    const metadata: DiscoveredDeviceMetadata = {
+      identifier,
+      model: txt.model ?? '',
+      version: txt.ver ?? '',
+      minVersion: txt.minVer ?? '17',
+      authTag: txt.authTag,
+      serviceType,
+    };
+    return {
+      id: identifier,
+      name: service.name ?? identifier,
+      hostname,
+      ip,
+      port: service.port,
+      metadata,
+    };
+  } catch (err) {
+    log.warn(`Failed to process dnssd service: ${err}`);
+    return null;
   }
 }
 
@@ -114,7 +151,7 @@ async function resolveIpAddress(
 }
 
 function formatDnssdBrowserErrorMessage(err: Error): string {
-  const baseMessage = err.message || String(err);
+  const baseMessage = `Device discovery error: ${err.message || String(err)}`;
   if (typeof process.getuid === 'function' && process.getuid() !== 0) {
     return `${baseMessage}. Current user is not root. Try running with sudo.`;
   }
