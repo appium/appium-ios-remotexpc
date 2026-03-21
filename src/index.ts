@@ -9,6 +9,7 @@ import {
   TunnelManager,
 } from './lib/tunnel/index.js';
 import {
+  DEFAULT_TUNNEL_REGISTRY_PORT,
   TunnelRegistryServer,
   startTunnelRegistryServer,
 } from './lib/tunnel/tunnel-registry-server.js';
@@ -128,4 +129,5 @@ export {
   startCoreDeviceProxy,
   TunnelRegistryServer,
   startTunnelRegistryServer,
+  DEFAULT_TUNNEL_REGISTRY_PORT,
 };

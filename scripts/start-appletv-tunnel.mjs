@@ -1,43 +1,70 @@
-#!/usr/bin/env tsx
-import * as tls from 'node:tls';
+#!/usr/bin/env node
+/**
+ * Start an Apple TV Remote XPC tunnel and expose the tunnel registry API.
+ */
 
-import { PacketStreamServer, TunnelManager } from '../src/index.js';
-import type { TunnelRegistry } from '../src/index.js';
-import { AppleTVTunnelService } from '../src/lib/apple-tv/tunnel/index.js';
-import type { AppleTVDevice } from '../src/lib/bonjour/bonjour-discovery.js';
-import { getLogger } from '../src/lib/logger.js';
-import type { TunnelConnection } from '../src/lib/tunnel/index.js';
+import { logger } from '@appium/support';
+import { Command } from 'commander';
 import {
+  AppleTVTunnelService,
   DEFAULT_TUNNEL_REGISTRY_PORT,
+  PacketStreamServer,
+  TunnelManager,
   startTunnelRegistryServer,
-} from '../src/lib/tunnel/tunnel-registry-server.js';
+} from 'appium-ios-remotexpc';
 
-const log = getLogger('WiFiTunnel');
+const log = logger.getLogger('WiFiTunnel');
 const PACKET_STREAM_PORT = 50100;
 
-async function main(): Promise<void> {
-  const args = process.argv.slice(2);
-  const specificDeviceIdentifier = args.find((arg) => !arg.startsWith('-'));
+function parsePort(value) {
+  const port = Number.parseInt(value, 10);
+  if (!Number.isFinite(port) || port <= 0 || port > 65535) {
+    throw new Error(
+      `Invalid port: ${value}. Expected an integer between 1 and 65535.`,
+    );
+  }
+  return port;
+}
 
-  if (specificDeviceIdentifier) {
+async function main() {
+  const program = new Command();
+  program
+    .name('start-appletv-tunnel')
+    .description('Start an Apple TV WiFi tunnel and tunnel registry HTTP API')
+    .argument(
+      '[deviceIdentifier]',
+      'Optional Apple TV device identifier to target',
+    )
+    .option(
+      '--tunnel-registry-port <port>',
+      `Port for tunnel registry API (default: ${DEFAULT_TUNNEL_REGISTRY_PORT})`,
+      parsePort,
+    );
+
+  program.parse(process.argv);
+  const options = program.opts();
+  const deviceIdentifier = program.args[0];
+  const registryPort =
+    options.tunnelRegistryPort ?? DEFAULT_TUNNEL_REGISTRY_PORT;
+
+  if (deviceIdentifier) {
     log.info(
-      `Starting Apple TV tunnel for specific device identifier: ${specificDeviceIdentifier}`,
+      `Starting Apple TV tunnel for specific device identifier: ${deviceIdentifier}`,
     );
   } else {
     log.info('Starting Apple TV tunnel (will try all discovered devices)');
   }
 
   const tunnelService = new AppleTVTunnelService();
-  let tunnel: TunnelConnection | null = null;
-  let tlsSocket: tls.TLSSocket | null = null;
-  let deviceInfo: AppleTVDevice | null = null;
-  let packetStreamServer: PacketStreamServer | null = null;
+  let tunnel = null;
+  let tlsSocket = null;
+  let deviceInfo = null;
+  let packetStreamServer = null;
 
-  const cleanup = async (signal: string): Promise<void> => {
+  const cleanup = async (signal) => {
     log.warn(`\nCleaning up (${signal})...`);
 
     try {
-      // Close packet stream server first
       if (packetStreamServer) {
         log.info('Closing packet stream server...');
         await packetStreamServer.stop();
@@ -89,7 +116,7 @@ async function main(): Promise<void> {
     log.info('Starting Apple TV tunnel...');
     const result = await tunnelService.startTunnel(
       undefined,
-      specificDeviceIdentifier,
+      deviceIdentifier,
     );
     tlsSocket = result.socket;
     deviceInfo = result.device;
@@ -101,13 +128,11 @@ async function main(): Promise<void> {
     log.info('Creating tunnel with TunnelManager...');
     tunnel = await TunnelManager.getTunnel(tlsSocket);
 
-    // Start packet stream server (same as iPhone tunnel)
     let packetStreamPort = 0;
     try {
       packetStreamServer = new PacketStreamServer(PACKET_STREAM_PORT);
       await packetStreamServer.start();
 
-      // Attach packet consumer to tunnel to receive packet data
       const consumer = packetStreamServer.getPacketConsumer();
       if (consumer && tunnel.addPacketConsumer) {
         tunnel.addPacketConsumer(consumer);
@@ -123,7 +148,7 @@ async function main(): Promise<void> {
     const now = Date.now();
     const nowISOString = new Date().toISOString();
 
-    const registry: TunnelRegistry = {
+    const registry = {
       tunnels: {
         [deviceInfo.identifier]: {
           udid: deviceInfo.identifier,
@@ -144,7 +169,7 @@ async function main(): Promise<void> {
       },
     };
 
-    await startTunnelRegistryServer(registry);
+    await startTunnelRegistryServer(registry, registryPort);
 
     log.info('=== TUNNEL ESTABLISHED ===');
     log.info(`Tunnel Address: ${tunnel.Address}`);
@@ -154,7 +179,7 @@ async function main(): Promise<void> {
 
     log.info('\n📁 Tunnel registry API:');
     log.info(
-      `   http://localhost:${DEFAULT_TUNNEL_REGISTRY_PORT}/remotexpc/tunnels`,
+      `   http://localhost:${registryPort}/remotexpc/tunnels`,
     );
     log.info('   - GET /remotexpc/tunnels - List all tunnels');
     log.info(
@@ -169,9 +194,7 @@ async function main(): Promise<void> {
   } catch (error) {
     log.error('Tunnel failed:', error);
     throw error;
-  } finally {
-    await cleanup('Shutdown');
   }
 }
 
-main();
+await main();

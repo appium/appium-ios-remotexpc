@@ -1,37 +1,38 @@
-#!/usr/bin/env tsx
+#!/usr/bin/env node
 /**
- * Test script for creating lockdown service, starting CoreDeviceProxy, and creating tunnel
- * This script demonstrates the tunnel creation workflow for all connected devices
+ * Create lockdown + CoreDeviceProxy tunnels for connected USB devices and expose the tunnel registry API.
  */
+
 import { logger } from '@appium/support';
-import type { ConnectionOptions } from 'tls';
+import { Command } from 'commander';
 
 import {
+  DEFAULT_TUNNEL_REGISTRY_PORT,
   PacketStreamServer,
   TunnelManager,
   createLockdownServiceByUDID,
   createUsbmux,
   startCoreDeviceProxy,
-} from '../src/index.js';
-import type { SocketInfo, TunnelRegistry } from '../src/index.js';
-import {
-  DEFAULT_TUNNEL_REGISTRY_PORT,
   startTunnelRegistryServer,
-} from '../src/lib/tunnel/tunnel-registry-server.js';
-import type { Device } from '../src/lib/usbmux/index.js';
+} from 'appium-ios-remotexpc';
 
 const log = logger.getLogger('TunnelCreation');
-/**
- * Update tunnel registry with new tunnel information
- */
-async function updateTunnelRegistry(
-  results: TunnelResult[],
-): Promise<TunnelRegistry> {
+
+function parsePort(value) {
+  const port = Number.parseInt(value, 10);
+  if (!Number.isFinite(port) || port <= 0 || port > 65535) {
+    throw new Error(
+      `Invalid port: ${value}. Expected an integer between 1 and 65535.`,
+    );
+  }
+  return port;
+}
+
+async function updateTunnelRegistry(results) {
   const now = Date.now();
   const nowISOString = new Date().toISOString();
 
-  // Initialize registry if it doesn't exist
-  const registry: TunnelRegistry = {
+  const registry = {
     tunnels: {},
     metadata: {
       lastUpdated: nowISOString,
@@ -40,7 +41,6 @@ async function updateTunnelRegistry(
     },
   };
 
-  // Update tunnels
   for (const result of results) {
     if (result.success) {
       const udid = result.device.Properties.SerialNumber;
@@ -58,39 +58,21 @@ async function updateTunnelRegistry(
     }
   }
 
-  // Update metadata
   registry.metadata = {
     lastUpdated: nowISOString,
     totalTunnels: Object.keys(registry.tunnels).length,
-    activeTunnels: Object.keys(registry.tunnels).length, // Assuming all are active for now
+    activeTunnels: Object.keys(registry.tunnels).length,
   };
 
   return registry;
 }
 
-const activeServers: Array<{ server: any; port: number }> = [];
-const packetStreamServers: Map<string, PacketStreamServer> = new Map();
+const packetStreamServers = new Map();
 
-const deviceInfoMap: Map<
-  string,
-  {
-    udid: string;
-    address: string;
-    rsdPort?: number;
-    connectionType: string;
-    productId: number;
-  }
-> = new Map();
-
-let PACKET_STREAM_BASE_PORT = 50000;
-/**
- * Setup cleanup handlers for graceful shutdown
- */
-function setupCleanupHandlers(): void {
-  const cleanup = async (signal: string) => {
+function setupCleanupHandlers() {
+  const cleanup = async (signal) => {
     log.warn(`\nCleaning up (${signal})...`);
 
-    // Close all packet stream servers
     if (packetStreamServers.size > 0) {
       log.info(
         `Closing ${packetStreamServers.size} packet stream server(s)...`,
@@ -111,7 +93,6 @@ function setupCleanupHandlers(): void {
     log.info('Cleanup completed.');
   };
 
-  // Handle various termination signals
   process.on('SIGINT', async () => {
     await cleanup('SIGINT (Ctrl+C)');
     process.exit(0);
@@ -125,7 +106,6 @@ function setupCleanupHandlers(): void {
     process.exit(0);
   });
 
-  // Handle uncaught exceptions and unhandled rejections
   process.on('uncaughtException', async (error) => {
     log.error('Uncaught Exception:', error);
     await cleanup('Uncaught Exception');
@@ -137,24 +117,7 @@ function setupCleanupHandlers(): void {
   });
 }
 
-/**
- * Interface for tunnel result
- */
-interface TunnelResult {
-  device: Device;
-  tunnel: {
-    Address: string;
-    RsdPort?: number;
-  };
-  packetStreamPort?: number;
-  success: boolean;
-  error?: string;
-}
-
-async function createTunnelForDevice(
-  device: Device,
-  tlsOptions: Partial<ConnectionOptions>,
-): Promise<TunnelResult & { socket?: any; socketInfo?: SocketInfo }> {
+async function createTunnelForDevice(device, tlsOptions, packetStreamBaseRef) {
   const udid = device.Properties.SerialNumber;
 
   try {
@@ -185,9 +148,9 @@ async function createTunnelForDevice(
       `Tunnel created for address: ${tunnel.Address} with RsdPort: ${tunnel.RsdPort}`,
     );
 
-    let packetStreamPort: number | undefined;
+    let packetStreamPort;
     try {
-      packetStreamPort = PACKET_STREAM_BASE_PORT++;
+      packetStreamPort = packetStreamBaseRef.value++;
       const packetStreamServer = new PacketStreamServer(packetStreamPort);
       await packetStreamServer.start();
 
@@ -214,16 +177,6 @@ async function createTunnelForDevice(
       if (socket && typeof socket === 'object' && socket.setNoDelay) {
         socket.setNoDelay(true);
       }
-
-      const deviceInfo = {
-        udid: device.Properties.SerialNumber,
-        address: tunnel.Address,
-        rsdPort: tunnel.RsdPort,
-        connectionType: device.Properties.ConnectionType,
-        productId: device.Properties.ProductID,
-      };
-
-      deviceInfoMap.set(device.Properties.SerialNumber, deviceInfo);
 
       return {
         device,
@@ -261,14 +214,32 @@ async function createTunnelForDevice(
   }
 }
 
-/**
- */
-async function main(): Promise<void> {
+async function main() {
   setupCleanupHandlers();
 
-  const args = process.argv.slice(2);
-  const keepOpenFlag = args.includes('--keep-open') || args.includes('-k');
-  const specificUdid = args.find((arg) => !arg.startsWith('-'));
+  const program = new Command();
+  program
+    .name('tunnel-creation')
+    .description(
+      'Create tunnels for connected USB devices (lockdown + CoreDeviceProxy)',
+    )
+    .argument('[udid]', 'Optional device UDID (omit for all devices)')
+    .option('--udid <udid>', 'UDID of the device to create tunnel for')
+    .option('-k, --keep-open', 'Keep connections open for lsof inspection')
+    .option(
+      '--packet-stream-base-port <port>',
+      'Base port for packet stream servers (1-65535)',
+      parsePort,
+    )
+    .option(
+      '--tunnel-registry-port <port>',
+      `Port for tunnel registry API (default: ${DEFAULT_TUNNEL_REGISTRY_PORT})`,
+      parsePort,
+    );
+
+  program.parse(process.argv);
+  const options = program.opts();
+  const specificUdid = options.udid ?? program.args[0] ?? undefined;
 
   if (specificUdid) {
     log.info(
@@ -278,16 +249,22 @@ async function main(): Promise<void> {
     log.info('Starting tunnel creation test for all connected devices');
   }
 
-  if (keepOpenFlag) {
+  if (options.keepOpen) {
     log.info('Running in "keep connections open" mode for lsof inspection');
   }
 
-  try {
-    const tlsOptions: Partial<ConnectionOptions> = {
-      rejectUnauthorized: false,
-      minVersion: 'TLSv1.2',
-    };
+  const tlsOptions = {
+    rejectUnauthorized: false,
+    minVersion: 'TLSv1.2',
+  };
 
+  const packetStreamBaseRef = {
+    value: options.packetStreamBasePort ?? 50000,
+  };
+  const registryPort =
+    options.tunnelRegistryPort ?? DEFAULT_TUNNEL_REGISTRY_PORT;
+
+  try {
     log.info('Connecting to usbmuxd...');
     const usbmux = await createUsbmux();
 
@@ -331,10 +308,14 @@ async function main(): Promise<void> {
 
     log.info(`\nProcessing ${devicesToProcess.length} device(s)...`);
 
-    const results: TunnelResult[] = [];
+    const results = [];
 
     for (const device of devicesToProcess) {
-      const result = await createTunnelForDevice(device, tlsOptions);
+      const result = await createTunnelForDevice(
+        device,
+        tlsOptions,
+        packetStreamBaseRef,
+      );
       results.push(result);
 
       if (devicesToProcess.length > 1) {
@@ -353,11 +334,11 @@ async function main(): Promise<void> {
     if (successful.length > 0) {
       log.info('\n✅ Successful tunnels:');
       const registry = await updateTunnelRegistry(results);
-      await startTunnelRegistryServer(registry);
+      await startTunnelRegistryServer(registry, registryPort);
 
       log.info('\n📁 Tunnel registry API:');
       log.info('   The tunnel registry is now available through the API at:');
-      log.info('   http://localhost:42314/remotexpc/tunnels');
+      log.info(`   http://localhost:${registryPort}/remotexpc/tunnels`);
       log.info('\n   Available endpoints:');
       log.info('   - GET /remotexpc/tunnels - List all tunnels');
       log.info('   - GET /remotexpc/tunnels/:udid - Get tunnel by UDID');
@@ -365,15 +346,15 @@ async function main(): Promise<void> {
 
       log.info('\n💡 Example usage:');
       log.info(
-        `   curl http://localhost:${DEFAULT_TUNNEL_REGISTRY_PORT}/remotexpc/tunnels`,
+        `   curl http://localhost:${registryPort}/remotexpc/tunnels`,
       );
       log.info(
-        `   curl http://localhost:${DEFAULT_TUNNEL_REGISTRY_PORT}/remotexpc/tunnels/metadata`,
+        `   curl http://localhost:${registryPort}/remotexpc/tunnels/metadata`,
       );
       if (successful.length > 0) {
         const firstUdid = successful[0].device.Properties.SerialNumber;
         log.info(
-          `   curl http://localhost:${DEFAULT_TUNNEL_REGISTRY_PORT}/remotexpc/tunnels/${firstUdid}`,
+          `   curl http://localhost:${registryPort}/remotexpc/tunnels/${firstUdid}`,
         );
       }
     }
@@ -383,5 +364,4 @@ async function main(): Promise<void> {
   }
 }
 
-// Run the main function
-main();
+await main();
