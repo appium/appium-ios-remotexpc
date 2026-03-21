@@ -8,11 +8,6 @@ export default [
       ecmaVersion: 2022,
       sourceType: 'module',
     },
-    rules: {
-      'no-console': 'off',
-      'promise/prefer-await-to-then': 'off',
-      'promise/prefer-await-to-callbacks': 'off',
-    },
   },
   {
     files: ['**/*.ts'],
