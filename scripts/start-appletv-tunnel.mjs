@@ -7,11 +7,11 @@ import { logger } from '@appium/support';
 import { Command } from 'commander';
 import {
   AppleTVTunnelService,
-  DEFAULT_TUNNEL_REGISTRY_PORT,
   PacketStreamServer,
   TunnelManager,
   startTunnelRegistryServer,
 } from 'appium-ios-remotexpc';
+import { DEFAULT_TUNNEL_REGISTRY_PORT } from '../build/src/lib/tunnel/tunnel-registry-server.js';
 
 const log = logger.getLogger('WiFiTunnel');
 const PACKET_STREAM_PORT = 50100;

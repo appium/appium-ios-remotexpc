@@ -7,7 +7,6 @@ import { logger } from '@appium/support';
 import { Command } from 'commander';
 
 import {
-  DEFAULT_TUNNEL_REGISTRY_PORT,
   PacketStreamServer,
   TunnelManager,
   createLockdownServiceByUDID,
@@ -15,6 +14,7 @@ import {
   startCoreDeviceProxy,
   startTunnelRegistryServer,
 } from 'appium-ios-remotexpc';
+import { DEFAULT_TUNNEL_REGISTRY_PORT } from '../build/src/lib/tunnel/tunnel-registry-server.js';
 
 const log = logger.getLogger('TunnelCreation');
 
