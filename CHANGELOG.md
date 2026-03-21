@@ -1,3 +1,9 @@
+## [0.37.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.36.0...v0.37.0) (2026-03-21)
+
+### Features
+
+* Refactor device discovery ([#171](https://github.com/appium/appium-ios-remotexpc/issues/171)) ([8962683](https://github.com/appium/appium-ios-remotexpc/commit/89626833fac7acb1c72439df5a356cf82c58e833))
+
 ## [0.36.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.35.3...v0.36.0) (2026-03-19)
 
 ### Features
