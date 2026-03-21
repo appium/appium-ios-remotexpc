@@ -182,10 +182,19 @@ All pull requests must pass these checks before merging. The workflows are defin
 - `npm run format` - Run prettier
 - `npm run lint:fix` - Run ESLint with auto-fix
 - `npm test` - Run tests (requires sudo privileges for tunneling)
-- `npm run test:tunnel-creation` - Create tunnels for testing (requires sudo)
+
+CLI helpers under `scripts/` are ESM (`.mjs`) and load the library via the package entrypoint. Run `npm run build` before using them so `appium-ios-remotexpc` resolves to `build/`.
+
+- `npm run tunnel-creation` / `npm run test:tunnel-creation` — Create USB tunnels and start the tunnel registry HTTP API (requires `sudo`)
+- `npm run test:tunnel-creation:lsof` — Same as above with `--keep-open` (for inspecting open sockets)
+- `npm run pair-appletv` — Pair an Apple TV over WiFi for Remote XPC (requires `sudo`)
+- `npm run start-appletv-tunnel` — Start an Apple TV WiFi tunnel and tunnel registry (requires `sudo`)
+
+Pass `--help` after `--` to any of these npm scripts to see CLI flags (for example: `npm run pair-appletv -- --help`).
 
 ## Project Structure
 
+- `/scripts` - Optional CLI helpers (ESM `.mjs`) for tunnels and Apple TV pairing; use via `npm run` entries under [Scripts](#scripts)
 - `/src` - Source code
   - `/lib` - Core libraries
     - `/lockdown` - Device lockdown protocol

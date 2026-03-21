@@ -162,7 +162,7 @@ With a successful pairing, you can:
 
 ## Advanced: CLI Options for Automation
 
-The pairing script supports command-line options for automated workflows and CI/CD pipelines:
+The pairing script (`scripts/pair-appletv.mjs`, exposed as `npm run pair-appletv`) supports command-line options for automated workflows and CI/CD pipelines. Run `npm run build` in this repository before invoking the file directly with `node scripts/pair-appletv.mjs`.
 
 ### Available Options
 
@@ -172,6 +172,8 @@ npm run pair-appletv
 
 # Pair with a specific device by name
 npm run pair-appletv -- --device "Living Room"
+# -d is shorthand for --device
+npm run pair-appletv -- -d "Living Room"
 
 # Pair with a specific device by identifier
 npm run pair-appletv -- --device "AA:BB:CC:DD:EE:FF"
