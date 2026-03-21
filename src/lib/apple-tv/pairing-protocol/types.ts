@@ -1,4 +1,4 @@
-import type { AppleTVDevice } from '../../bonjour/bonjour-discovery.js';
+import type { AppleTVDevice } from '../types.js';
 
 /** Encryption keys derived from SRP session key for secure communication */
 export interface EncryptionKeys {
