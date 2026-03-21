@@ -3,6 +3,18 @@ import appiumConfig from '@appium/eslint-config-appium-ts';
 export default [
   ...appiumConfig,
   {
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+    },
+    rules: {
+      'no-console': 'off',
+      'promise/prefer-await-to-then': 'off',
+      'promise/prefer-await-to-callbacks': 'off',
+    },
+  },
+  {
     files: ['**/*.ts'],
     linterOptions: {
       reportUnusedDisableDirectives: 'off',

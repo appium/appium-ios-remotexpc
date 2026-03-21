@@ -1,25 +1,38 @@
-// Core exports
+/**
+ * Apple TV–specific discovery filter ({@link toAppleTVDevices}) and legacy type aliases.
+ *
+ * Generic Wi‑Fi Remote Pairing lives in {@link ../remote-pairing/index.js}.
+ *
+ * @module
+ */
+
+export { toAppleTVDevices } from './mapper.js';
+
 export type {
-  AppleTVDeviceInfo,
-  AppleTVPairingResult,
-  PairingKeys,
-  PairingResult,
-  PairingConfig,
-  TLV8Item,
-  PairingDataComponentTypeValue,
-  Opack2Value,
-  Opack2Array,
-  Opack2Dictionary,
-} from './types.js';
-export * from './errors.js';
-export * from './constants.js';
-export * from './utils/index.js';
-export * from './deviceInfo/index.js';
-export * from './encryption/index.js';
-export * from './tlv/index.js';
-export * from './srp/index.js';
-export * from './network/index.js';
-export * from './pairing-protocol/index.js';
-export * from './storage/index.js';
-export * from './tunnel/index.js';
-export * from './pairing/index.js';
+  RemotePairingDevice as AppleTVDevice,
+  RemotePairingResult as AppleTVPairingResult,
+  RemotePairingDeviceInfo as AppleTVDeviceInfo,
+} from '../remote-pairing/types.js';
+
+export {
+  RemotePairingTunnelService as AppleTVTunnelService,
+  TunnelService,
+} from '../remote-pairing/tunnel/index.js';
+
+export {
+  RemotePairingService,
+  RemotePairingService as AppleTVPairingService,
+  UserInputService,
+} from '../remote-pairing/pairing/index.js';
+
+export {
+  RemotePairingError as AppleTVError,
+  PairingError,
+  NetworkError,
+  CryptographyError,
+  SRPError,
+  TLV8Error,
+  UserDeniedPairingError,
+  RemotePairingCompletedError,
+  RemotePairingError,
+} from '../remote-pairing/errors.js';

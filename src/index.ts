@@ -109,11 +109,20 @@ export type {
 } from './services/ios/testmanagerd/xctest-common.js';
 export { createBinaryPlist } from './lib/plist/index.js';
 export {
-  AppleTVPairingService,
+  RemotePairingService,
   UserInputService,
-} from './lib/apple-tv/pairing/index.js';
-export { AppleTVTunnelService } from './lib/apple-tv/tunnel/index.js';
-export type { AppleTVPairingResult } from './lib/apple-tv/types.js';
+} from './lib/remote-pairing/pairing/index.js';
+export { RemotePairingTunnelService } from './lib/remote-pairing/tunnel/index.js';
+export type {
+  RemotePairingResult,
+  RemotePairingDevice,
+} from './lib/remote-pairing/types.js';
+/** @deprecated Prefer {@link RemotePairingService} / {@link RemotePairingTunnelService} */
+export {
+  AppleTVPairingService,
+  AppleTVTunnelService,
+} from './lib/apple-tv/index.js';
+export type { AppleTVPairingResult } from './lib/apple-tv/index.js';
 
 export {
   STRONGBOX_CONTAINER_NAME,

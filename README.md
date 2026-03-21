@@ -130,23 +130,23 @@ const remoteXPC = await TunnelManager.createRemoteXPCConnection(
 const services = remoteXPC.getServices();
 ```
 
-### Apple TV / tvOS over WiFi
+### Remote Pairing over Wi‑Fi (iOS, iPadOS, tvOS, …)
 
-Apple TV and tvOS devices over WiFi are supported. The following symbols are part of the public API and are intended for external use (e.g. by the Appium XCUITest driver):
+Wi‑Fi Remote Pairing (`_remotepairing._tcp`) lives under `src/lib/remote-pairing/`. Apple TV–only helpers (e.g. tvOS-focused discovery filtering) are in `src/lib/apple-tv/`. Use `RemotePairingService` from the package root (or the deprecated alias `AppleTVPairingService`):
 
 ```typescript
 import {
-  AppleTVPairingService,
+  RemotePairingService,
   UserInputService,
-  AppleTVTunnelService,
+  RemotePairingTunnelService,
 } from 'appium-ios-remotexpc';
 
 const userInput = new UserInputService();
-const pairing = new AppleTVPairingService(userInput);
+const pairing = new RemotePairingService(userInput);
 const result = await pairing.discoverAndPair('Living Room');
 ```
 
-For step-by-step pairing instructions, see the [Apple TV Pairing Instructions](docs/apple-tv-pairing-guide.md).
+CLI: `npm run pair-remote-device` (or `npm run pair-appletv` as an alias). For step-by-step pairing instructions, see the [pairing guide](docs/apple-tv-pairing-guide.md).
 
 ## Development
 
@@ -176,6 +176,8 @@ This project uses GitHub Actions for continuous integration and Dependabot for d
 All pull requests must pass these checks before merging. The workflows are defined in the `.github/workflows` directory.
 
 ### Scripts
+
+The `scripts/*.mjs` entrypoints import compiled code from `build/`; run `npm run build` after pulling changes (or rely on `prepare` after `npm install`).
 
 - `npm run build` - Clean and build the project
 - `npm run lint` - Run ESLint

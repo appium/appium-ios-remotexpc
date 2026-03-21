@@ -301,7 +301,7 @@ If you need to pair again (e.g., after resetting the Apple TV or changing networ
 
 **Solutions:**
 - Verify the pairing credentials exist in the system credential store
-- On macOS, check Keychain Access for `appletv_pairing_<device_id>` items
+- On macOS, check Keychain Access for `remote_pairing_<device_id>` items (legacy `appletv_pairing_<device_id>` may still be present)
 - Ensure the Apple TV is still on the same network
 - The Apple TV's IP address may have changed - try pairing again
 - Check that no firewall is blocking the tunnel port
@@ -319,6 +319,12 @@ If you need to pair again (e.g., after resetting the Apple TV or changing networ
 - Enterprise networks with client isolation may block peer-to-peer communication
 - Some routers have "AP Isolation" enabled which prevents device communication
 - Test network connectivity by pinging the Apple TV's IP address
+
+## Manual smoke checklist (development)
+
+- **tvOS / Apple TV:** Enter the on-screen PIN when the CLI prompts for it.
+- **iOS / iPadOS:** Approve **Trust This Computer** on the device; after trust, pairing uses the default SRP password (`000000`) without a PIN prompt.
+- **CLI:** `npm run pair-remote-device` (alias: `npm run pair-appletv`).
 
 ## Support
 
