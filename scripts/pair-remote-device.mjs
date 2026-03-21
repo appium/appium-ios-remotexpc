@@ -2,9 +2,6 @@
 /**
  * Remote Pairing CLI. Requires `npm run build` so imports resolve under `build/`.
  */
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
 import { Command } from 'commander';
 
 import {
@@ -15,13 +12,10 @@ import { getLogger } from '../build/src/lib/logger.js';
 
 const log = getLogger('RemotePairingCLI');
 
-/**
- * @param {string} [scriptName]
- */
-export async function main(scriptName = 'pair-remote-device') {
+export async function main() {
   const program = new Command();
   program
-    .name(scriptName)
+    .name('pair-remote-device')
     .description(
       'Pair iPhone, iPad, Apple TV, etc. over Wi‑Fi via _remotepairing._tcp',
     )
@@ -46,14 +40,9 @@ export async function main(scriptName = 'pair-remote-device') {
   }
 }
 
-const isMain =
-  Boolean(process.argv[1]) &&
-  resolve(fileURLToPath(import.meta.url)) === resolve(process.argv[1]);
-
-if (isMain) {
-  try {
-    await main();
-  } catch {
-    process.exit(1);
-  }
+try {
+  await main();
+} catch (error) {
+  log.error(error);
+  process.exit(1);
 }

@@ -34,7 +34,6 @@
     "test:springboard": "mocha test/integration/springboard-service-test.ts --exit --timeout 1m",
     "test:unit": "NODE_ENV=test mocha 'test/unit/**/*.ts' --exit --timeout 2m",
     "tunnel-creation": "sudo node scripts/test-tunnel-creation.mjs",
-    "pair-appletv": "sudo node scripts/pair-appletv.mjs",
     "pair-remote-device": "sudo node scripts/pair-remote-device.mjs",
     "start-appletv-tunnel": "sudo node scripts/start-appletv-tunnel.mjs",
     "test:webinspector": "mocha test/integration/webinspector-test.ts --exit --timeout 1m",

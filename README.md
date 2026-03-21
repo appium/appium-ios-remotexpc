@@ -146,7 +146,7 @@ const pairing = new RemotePairingService(userInput);
 const result = await pairing.discoverAndPair('Living Room');
 ```
 
-CLI: `npm run pair-remote-device` (or `npm run pair-appletv` as an alias). For step-by-step pairing instructions, see the [pairing guide](docs/apple-tv-pairing-guide.md).
+CLI: `npm run pair-remote-device`. For step-by-step pairing instructions, see the [pairing guide](docs/apple-tv-pairing-guide.md).
 
 ## Development
 

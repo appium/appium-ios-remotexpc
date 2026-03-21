@@ -57,7 +57,7 @@ Before beginning the pairing process, ensure you have:
 From your project's root directory in the terminal, execute:
 
 ```bash
-npm run pair-appletv
+npm run pair-remote-device
 ```
 
 **What this command does:**
@@ -168,19 +168,19 @@ The pairing script supports command-line options for automated workflows and CI/
 
 ```bash
 # Interactive mode (default) - discover and select device
-npm run pair-appletv
+npm run pair-remote-device
 
 # Pair with a specific device by name
-npm run pair-appletv -- --device "Living Room"
+npm run pair-remote-device -- --device "Living Room"
 
 # Pair with a specific device by identifier
-npm run pair-appletv -- --device "AA:BB:CC:DD:EE:FF"
+npm run pair-remote-device -- --device "AA:BB:CC:DD:EE:FF"
 
 # Pair with first discovered device (by index)
-npm run pair-appletv -- --device 0
+npm run pair-remote-device -- --device 0
 
 # Show help
-npm run pair-appletv -- --help
+npm run pair-remote-device -- --help
 ```
 
 **Note:** The `--` before the flags is required to pass arguments through npm to the script.
@@ -189,17 +189,17 @@ npm run pair-appletv -- --help
 
 **Example 1: Pair with device by name**
 ```bash
-npm run pair-appletv -- --device "Living Room"
+npm run pair-remote-device -- --device "Living Room"
 ```
 
 **Example 2: Pair with first discovered device (useful for single-device setups)**
 ```bash
-npm run pair-appletv -- --device 0
+npm run pair-remote-device -- --device 0
 ```
 
 **Example 3: Pair with device by identifier**
 ```bash
-npm run pair-appletv -- --device "AA:BB:CC:DD:EE:FF"
+npm run pair-remote-device -- --device "AA:BB:CC:DD:EE:FF"
 ```
 
 ### Expected Output with CLI Options
@@ -324,7 +324,7 @@ If you need to pair again (e.g., after resetting the Apple TV or changing networ
 
 - **tvOS / Apple TV:** Enter the on-screen PIN when the CLI prompts for it.
 - **iOS / iPadOS:** Approve **Trust This Computer** on the device; after trust, pairing uses the default SRP password (`000000`) without a PIN prompt.
-- **CLI:** `npm run pair-remote-device` (alias: `npm run pair-appletv`).
+- **CLI:** `npm run pair-remote-device`.
 
 ## Support
 
