@@ -2,9 +2,6 @@
 /**
  * Wi‑Fi Remote Pairing tunnel + registry. Requires `npm run build`.
  */
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
 import { Command } from 'commander';
 
 import { PacketStreamServer, TunnelManager } from '../build/src/index.js';
@@ -183,15 +180,9 @@ async function main() {
   }
 }
 
-const isMain =
-  Boolean(process.argv[1]) &&
-  resolve(fileURLToPath(import.meta.url)) === resolve(process.argv[1]);
-
-if (isMain) {
-  try {
-    await main();
-  } catch (err) {
-    log.error(err);
-    process.exit(1);
-  }
+try {
+  await main();
+} catch (err) {
+  log.error(err);
+  process.exit(1);
 }
