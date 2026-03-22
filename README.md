@@ -11,7 +11,7 @@ This library provides functionality for:
 
 - Remote XPC (Cross Process Communication) with iOS devices
 - Lockdown communication
-- USB device multiplexing (usbmux)
+- Device multiplexing via **usbmuxd** (lists USB **and** WiFi-attached devices; see below)
 - Property list (plist) handling
 - IPv6 tunneling services to iOS devices using TUN/TAP interfaces
 - System log access
@@ -32,7 +32,7 @@ npm install appium-ios-remotexpc
 ## Features
 
 - **Plist Handling**: Encode, decode, parse, and create property lists for iOS device communication.
-- **USB Device Communication**: Connect to iOS devices over USB using the usbmux protocol.
+- **Device communication over usbmux / usbmuxd**: The system **usbmuxd** daemon exposes a single device list that includes machines plugged in over **USB** and, when pairing and wireless sync are set up, the same iPhone/iPad **over WiFi**. WiFi entries are marked **`ConnectionType: Network`** (USB entries use `ConnectionType: USB`). This library connects through usbmuxd the same way for both; the tunnel path is unchanged (lockdown → CoreDeviceProxy → TUN/TAP → Remote XPC).
 - **Remote XPC**: Establish Remote XPC connections with iOS devices.
 - **Service Architecture**: Connect to various iOS services:
     - System Log Service: Access device logs
@@ -130,6 +130,20 @@ const remoteXPC = await TunnelManager.createRemoteXPCConnection(
 const services = remoteXPC.getServices();
 ```
 
+### iPhone / iPad over WiFi (usbmuxd “network” devices)
+
+**usbmuxd** (the multiplexer daemon, e.g. on macOS) does **not** only list USB devices: once a device is paired with the host and wireless sync / lockdown-over-WiFi is enabled, **the same daemon’s device list includes that device as attached over WiFi**. In plist responses from `ListDevices`, those rows carry **`ConnectionType: Network`** (and a distinct `DeviceID` from any USB listing for the same physical device).
+
+There is no separate “WiFi API” in this library: call `createUsbmux()` → `listDevices()` (or any other client that queries **usbmuxd**) and use the returned **`DeviceID`** and UDID with `createLockdownServiceByUDID` and the tunnel steps in the previous section—identical to USB.
+
+**Typical host-side setup:**
+
+1. Pair the device with this Mac and tap **Trust** on the device if prompted.
+2. Allow the device to connect over WiFi (e.g. in Finder under the device, enable **Show this [device] when on WiFi**, or use Xcode **Devices and Simulators** with the equivalent option so lockdown can reach the device without USB).
+3. Confirm **usbmuxd** reports the device with **`ConnectionType: Network`**—for example by logging the result of `listDevices()` from this library, or by checking another usbmuxd client’s device list while the device is on the same network and not on USB.
+
+For an end-to-end tunnel smoke test with the tunnel registry HTTP API, use `npm run tunnel-creation` or `npm run test:tunnel-creation` (see `scripts/test-tunnel-creation.ts`), usually with **sudo** for TUN/TAP.
+
 ### Apple TV / tvOS over WiFi
 
 Apple TV and tvOS devices over WiFi are supported. The following symbols are part of the public API and are intended for external use (e.g. by the Appium XCUITest driver):
@@ -202,7 +216,7 @@ Pass `--help` after `--` to any of these npm scripts to see CLI flags (for examp
     - `/plist` - Property list processing
     - `/remote-xpc` - XPC connection handling
     - `/tunnel` - Tunneling implementation with tuntap integration
-    - `/usbmux` - USB multiplexing protocol
+    - `/usbmux` - usbmuxd client (USB and WiFi-listed devices)
   - `/services` - Service implementations
     - `/ios`
       - `/diagnostic-service` - Device diagnostics
@@ -217,7 +231,7 @@ npm test
 ```
 
 Note: Integration tests require:
-- Physical iOS devices connected
+- Physical iOS devices connected (USB and/or **WiFi** if the device is paired and visible to usbmux as `Network`)
 - Sudo privileges for tunnel creation
 - Device trust established
 

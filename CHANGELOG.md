@@ -1,3 +1,5 @@
+## [0.37.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.37.0...v0.37.1) (2026-03-21)
+
 ## [0.37.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.36.0...v0.37.0) (2026-03-21)
 
 ### Features
