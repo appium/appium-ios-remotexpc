@@ -59,6 +59,24 @@ describe('TunnelRegistryServer', function () {
     });
   });
 
+  describe('GET /remotexpc/tunnels/metadata', function () {
+    it('should return registry metadata', async function () {
+      const response = await fetch(
+        `http://localhost:${testPort}/remotexpc/tunnels/metadata`,
+      );
+      const data = (await response.json()) as TunnelRegistry['metadata'] & {
+        status: string;
+      };
+
+      expect(response.status).to.equal(200);
+      expect(data).to.have.property('totalTunnels');
+      expect(data).to.have.property('activeTunnels');
+      expect(data).to.have.property('lastUpdated');
+      expect(data.totalTunnels).to.equal(1);
+      expect(data.activeTunnels).to.equal(1);
+    });
+  });
+
   describe('GET /remotexpc/tunnels/:udid', function () {
     it('should return tunnel by UDID', async function () {
       const response = await fetch(
