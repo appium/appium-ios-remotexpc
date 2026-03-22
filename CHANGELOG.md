@@ -1,3 +1,9 @@
+## [0.37.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.37.1...v0.37.2) (2026-03-22)
+
+### Miscellaneous Chores
+
+* Migrate scripts to ESM/.mjs ([#173](https://github.com/appium/appium-ios-remotexpc/issues/173)) ([8d6053b](https://github.com/appium/appium-ios-remotexpc/commit/8d6053b6bfde353296905daf345b8e15d4307873))
+
 ## [0.37.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.37.0...v0.37.1) (2026-03-21)
 
 ## [0.37.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.36.0...v0.37.0) (2026-03-21)
