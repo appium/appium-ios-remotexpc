@@ -27,6 +27,13 @@ export interface RouteRecord {
 }
 
 /**
+ * Pathname from {@link IncomingMessage.url} (path + query on the request line).
+ */
+export function getRequestPathname(req: IncomingMessage): string {
+  return new URL(req.url || '/', 'http://localhost').pathname;
+}
+
+/**
  * Linear router: tries routes in order until method + path + guard match.
  * Path patterns are compiled with path-to-regexp once at dispatcher creation.
  *
@@ -35,16 +42,12 @@ export interface RouteRecord {
  */
 export function createRouteDispatcher(
   routes: readonly RouteRecord[],
-): (
-  req: IncomingMessage,
-  res: ServerResponse,
-  pathname: string,
-  method: string,
-) => Promise<boolean> {
+): (req: IncomingMessage, res: ServerResponse) => Promise<boolean> {
   const compiled = compileRoutes(routes);
 
-  return async (req, res, pathname, method) => {
-    const m = (method || 'GET').toUpperCase();
+  return async (req, res) => {
+    const pathname = getRequestPathname(req);
+    const m = (req.method || 'GET').toUpperCase();
     for (const { route, matcher } of compiled) {
       if (route.method !== m) {
         continue;

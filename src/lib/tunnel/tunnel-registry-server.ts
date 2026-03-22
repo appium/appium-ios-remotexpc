@@ -1,5 +1,4 @@
 import * as http from 'node:http';
-import { URL } from 'node:url';
 
 import { getLogger } from '../logger.js';
 import type { TunnelRegistry, TunnelRegistryEntry } from '../types.js';
@@ -7,6 +6,7 @@ import {
   type RouteRecord,
   TUNNEL_REGISTRY_API_BASE_PATH,
   createRouteDispatcher,
+  getRequestPathname,
 } from './tunnel-registry-routes.js';
 
 // Constants
@@ -145,14 +145,13 @@ export class TunnelRegistryServer {
     req: http.IncomingMessage,
     res: http.ServerResponse,
   ): Promise<void> {
-    const url = new URL(req.url || '', `http://localhost:${this.port}`);
     const method = req.method || 'GET';
-    const pathname = url.pathname;
+    const pathname = getRequestPathname(req);
 
     log.debug(`${method} ${pathname}`);
 
     try {
-      const handled = await this.dispatchRoute(req, res, pathname, method);
+      const handled = await this.dispatchRoute(req, res);
       if (!handled) {
         sendJSON(res, 404, { error: 'Not found' });
       }
