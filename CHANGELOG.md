@@ -1,3 +1,9 @@
+## [0.39.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.38.0...v0.39.0) (2026-03-23)
+
+### Features
+
+* Add a lockdown helper to fetch the product version ([#177](https://github.com/appium/appium-ios-remotexpc/issues/177)) ([a967a30](https://github.com/appium/appium-ios-remotexpc/commit/a967a30c1e9f50dbd3b5b1bcf58f6b205412479f))
+
 ## [0.38.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.37.3...v0.38.0) (2026-03-23)
 
 ### Features
