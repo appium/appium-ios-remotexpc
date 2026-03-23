@@ -1,3 +1,9 @@
+## [0.38.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.37.3...v0.38.0) (2026-03-23)
+
+### Features
+
+* Add lockdown helpers for fetching the device datetime ([#176](https://github.com/appium/appium-ios-remotexpc/issues/176)) ([aa35625](https://github.com/appium/appium-ios-remotexpc/commit/aa35625f76b375f7b6b9e512d3fcad7d4a691a97))
+
 ## [0.37.3](https://github.com/appium/appium-ios-remotexpc/compare/v0.37.2...v0.37.3) (2026-03-23)
 
 ### Bug Fixes
