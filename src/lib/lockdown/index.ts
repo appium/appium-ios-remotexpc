@@ -363,6 +363,24 @@ export class LockdownService extends BasePlistService {
   }
 
   /**
+   * Reads iOS platform version from lockdownd (`ProductVersion`).
+   * Example value: `26.3.1`.
+   */
+  public async getProductVersion(timeout = DEFAULT_TIMEOUT): Promise<string> {
+    const value = await this.getValue<PlistValue>(
+      'ProductVersion',
+      undefined,
+      timeout,
+    );
+    if (typeof value === 'string') {
+      return value;
+    }
+    throw new LockdownError(
+      `Unexpected ProductVersion value type: ${typeof value}`,
+    );
+  }
+
+  /**
    * Closes the service and associated resources
    */
   public close(): void {
