@@ -1,3 +1,9 @@
+## [0.37.3](https://github.com/appium/appium-ios-remotexpc/compare/v0.37.2...v0.37.3) (2026-03-23)
+
+### Bug Fixes
+
+* Tunnel server routing ([#175](https://github.com/appium/appium-ios-remotexpc/issues/175)) ([f6e838d](https://github.com/appium/appium-ios-remotexpc/commit/f6e838d84662c9432815bfadb57baafe765929a6))
+
 ## [0.37.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.37.1...v0.37.2) (2026-03-22)
 
 ### Miscellaneous Chores
