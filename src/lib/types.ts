@@ -92,53 +92,101 @@ export interface PlistDictionary {
  * Known fields are optional because availability differs across devices and iOS versions.
  */
 export interface LockdownDeviceInfo {
+  /** Activation status, for example `Activated`. */
   ActivationState?: string;
+  /** Baseband status string, for example `NoTelephonyCapabilty`. */
   BasebandStatus?: string;
+  /** Bluetooth MAC address, for example `20:1a:94:ca:c7:f7`. */
   BluetoothAddress?: string;
+  /** Numeric board identifier, for example `24`. */
   BoardId?: number;
+  /** Boot session UUID, for example `A60280C7-...`. */
   BootSessionID?: string;
+  /** Whether the device is considered bricked. */
   BrickState?: boolean;
+  /** iOS build version, for example `23D8133`. */
   BuildVersion?: string;
+  /** CPU architecture, for example `arm64e`. */
   CPUArchitecture?: string;
+  /** Numeric SoC/chip identifier. */
   ChipID?: number;
+  /** Device class, for example `iPad` or `iPhone`. */
   DeviceClass?: string;
+  /** Device color code/string. */
   DeviceColor?: string;
+  /** User-visible device name, for example `iPad von Galyna`. */
   DeviceName?: string;
+  /** Numeric die identifier. */
   DieID?: number;
+  /** Ethernet MAC address when present. */
   EthernetAddress?: string;
+  /** Bootloader/firmware version, for example `iBoot-...`. */
   FirmwareVersion?: string;
+  /** Hardware model identifier, for example `J181AP`. */
   HardwareModel?: string;
+  /** Hardware platform identifier, for example `t8030`. */
   HardwarePlatform?: string;
+  /** Whether SiDP is present/enabled. */
   HasSiDP?: boolean;
+  /** Whether a host is currently attached. */
   HostAttached?: boolean;
+  /** Human-readable iOS version string, for example `26.3.1 (a)`. */
   HumanReadableProductVersionString?: string;
+  /** Main logic board serial number. */
   MLBSerialNumber?: string;
+  /** Marketing model number. */
   ModelNumber?: string;
+  /** Non-volatile RAM dictionary; keys and value shapes may vary by device. */
   NonVolatileRAM?: PlistDictionary;
+  /** Pair record protection class value. */
   PairRecordProtectionClass?: number;
+  /** Partitioning type, for example `GUID_partition_scheme`. */
   PartitionType?: string;
+  /** Whether device is passcode/password protected. */
   PasswordProtected?: boolean;
+  /** Product family name, usually `iPhone OS`. */
   ProductName?: string;
+  /** Product type identifier, for example `iPad12,1`. */
   ProductType?: string;
+  /** Platform version string, for example `26.3.1`. */
   ProductVersion?: string;
+  /** Whether this is a production SoC. */
   ProductionSOC?: boolean;
+  /** Lockdown protocol version, usually `2`. */
   ProtocolVersion?: string;
+  /** Region info code, for example `FD/A`. */
   RegionInfo?: string;
+  /** Device serial number. */
   SerialNumber?: string;
+  /** Opaque software behavior blob/dictionary. */
   SoftwareBehavior?: PlistValue;
+  /** Software bundle version string. */
   SoftwareBundleVersion?: string;
+  /** Supported family IDs, for example `[1, 2]`. */
   SupportedDeviceFamilies?: number[];
+  /** Whether telephony is supported. */
   TelephonyCapability?: boolean;
+  /** Unix timestamp in seconds (float), for example `1774293982.973307`. */
   TimeIntervalSince1970?: number;
+  /** IANA timezone identifier, for example `Europe/Berlin`. */
   TimeZone?: string;
+  /** Timezone offset from UTC in seconds, for example `3600`. */
   TimeZoneOffsetFromUTC?: number;
+  /** Whether a trusted host is currently attached. */
   TrustedHostAttached?: boolean;
+  /** Device unique chip identifier. */
   UniqueChipID?: number;
+  /** Device UDID, for example `0000XXXX-...`. */
   UniqueDeviceID?: string;
+  /** Whether Raptor cert chain is used. */
   UseRaptorCerts?: boolean;
+  /** Whether 24-hour clock format is enabled. */
   Uses24HourClock?: boolean;
+  /** Wi-Fi MAC address. */
   WiFiAddress?: string;
+  /** Wireless board serial number. */
   WirelessBoardSerialNumber?: string;
+  /** Additional lockdownd fields that vary by device/iOS version. */
   [key: string]: PlistValue | undefined;
 }
 
