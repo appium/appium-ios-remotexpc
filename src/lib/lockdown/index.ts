@@ -309,49 +309,6 @@ export class LockdownService extends BasePlistService {
   }
 
   /**
-   * Reads a value from lockdownd using the GetValue request.
-   *
-   * @param key - Optional value key, e.g. TimeIntervalSince1970
-   * @param domain - Optional value domain
-   * @param timeout - Request timeout in milliseconds
-   */
-  public async getValue<T = PlistValue>(
-    key?: string,
-    domain?: string,
-    timeout = DEFAULT_TIMEOUT,
-  ): Promise<T> {
-    const request: Record<string, PlistValue> = {
-      Label: LABEL,
-      Request: 'GetValue',
-    };
-
-    if (domain) {
-      request.Domain = domain;
-    }
-    if (key) {
-      request.Key = key;
-    }
-
-    const response = (await this.sendAndReceive(
-      request,
-      timeout,
-    )) as GetValueResponse;
-
-    if (response.Error) {
-      throw new LockdownError(
-        `Lockdown GetValue failed for key "${key ?? '<all>'}": ${String(response.Error)}`,
-      );
-    }
-    if (!Object.prototype.hasOwnProperty.call(response, 'Value')) {
-      throw new LockdownError(
-        `Lockdown GetValue missing Value for key "${key ?? '<all>'}"`,
-      );
-    }
-
-    return response.Value as T;
-  }
-
-  /**
    * Reads the device wall clock unix timestamp (seconds) from lockdownd.
    */
   public async getTimeIntervalSince1970(
@@ -445,6 +402,57 @@ export class LockdownService extends BasePlistService {
         }
       })();
     }
+  }
+
+  /**
+   * Reads a value from lockdownd using the GetValue request.
+   *
+   * @param key - Optional value key, e.g. TimeIntervalSince1970
+   * @param domain - Optional value domain
+   * @param timeout - Request timeout in milliseconds
+   */
+  private async getValue<T = PlistValue>(
+    key?: string,
+    domain?: string,
+    timeout = DEFAULT_TIMEOUT,
+  ): Promise<T> {
+    const request: Record<string, PlistValue> = {
+      Label: LABEL,
+      Request: 'GetValue',
+    };
+
+    if (domain) {
+      request.Domain = domain;
+    }
+    if (key) {
+      request.Key = key;
+    }
+
+    const response = (await this.sendAndReceive(
+      request,
+      timeout,
+    )) as GetValueResponse;
+
+    if (response.Error) {
+      throw new LockdownError(
+        `Lockdown GetValue failed for key "${key ?? '<all>'}": ${String(response.Error)}`,
+      );
+    }
+    if (!Object.prototype.hasOwnProperty.call(response, 'Value')) {
+      throw new LockdownError(
+        `Lockdown GetValue missing Value for key "${key ?? '<all>'}"`,
+      );
+    }
+
+    const value = response.Value as unknown;
+    if (
+      value &&
+      typeof value === 'object' &&
+      'data' in (value as Record<string, unknown>)
+    ) {
+      return (value as { data: unknown }).data as T;
+    }
+    return value as T;
   }
 
   private validatePairRecord(record: PairRecord): boolean {
