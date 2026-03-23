@@ -88,6 +88,61 @@ export interface PlistDictionary {
 }
 
 /**
+ * Device information payload returned by lockdownd `GetValue` without a key/domain.
+ * Known fields are optional because availability differs across devices and iOS versions.
+ */
+export interface LockdownDeviceInfo {
+  ActivationState?: string;
+  BasebandStatus?: string;
+  BluetoothAddress?: string;
+  BoardId?: number;
+  BootSessionID?: string;
+  BrickState?: boolean;
+  BuildVersion?: string;
+  CPUArchitecture?: string;
+  ChipID?: number;
+  DeviceClass?: string;
+  DeviceColor?: string;
+  DeviceName?: string;
+  DieID?: number;
+  EthernetAddress?: string;
+  FirmwareVersion?: string;
+  HardwareModel?: string;
+  HardwarePlatform?: string;
+  HasSiDP?: boolean;
+  HostAttached?: boolean;
+  HumanReadableProductVersionString?: string;
+  MLBSerialNumber?: string;
+  ModelNumber?: string;
+  NonVolatileRAM?: PlistDictionary;
+  PairRecordProtectionClass?: number;
+  PartitionType?: string;
+  PasswordProtected?: boolean;
+  ProductName?: string;
+  ProductType?: string;
+  ProductVersion?: string;
+  ProductionSOC?: boolean;
+  ProtocolVersion?: string;
+  RegionInfo?: string;
+  SerialNumber?: string;
+  SoftwareBehavior?: PlistValue;
+  SoftwareBundleVersion?: string;
+  SupportedDeviceFamilies?: number[];
+  TelephonyCapability?: boolean;
+  TimeIntervalSince1970?: number;
+  TimeZone?: string;
+  TimeZoneOffsetFromUTC?: number;
+  TrustedHostAttached?: boolean;
+  UniqueChipID?: number;
+  UniqueDeviceID?: string;
+  UseRaptorCerts?: boolean;
+  Uses24HourClock?: boolean;
+  WiFiAddress?: string;
+  WirelessBoardSerialNumber?: string;
+  [key: string]: PlistValue | undefined;
+}
+
+/**
  * Represents a message that can be sent or received via plist
  */
 export type PlistMessage = PlistDictionary;
