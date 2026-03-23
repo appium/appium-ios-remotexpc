@@ -339,11 +339,27 @@ export class LockdownService extends BasePlistService {
   }
 
   /**
-   * Reads device wall clock and converts it to a Date object.
+   * Reads device wall clock and converts it to a Date object in UTC.
+   * The value is derived from Unix epoch seconds (`TimeIntervalSince1970`).
    */
   public async getDeviceDate(timeout = DEFAULT_TIMEOUT): Promise<Date> {
     const unixSeconds = await this.getTimeIntervalSince1970(timeout);
     return new Date(unixSeconds * 1000);
+  }
+
+  /**
+   * Reads the device timezone identifier (for example: "Europe/Berlin").
+   */
+  public async getTimeZone(timeout = DEFAULT_TIMEOUT): Promise<string> {
+    const value = await this.getValue<PlistValue>(
+      'TimeZone',
+      undefined,
+      timeout,
+    );
+    if (typeof value === 'string') {
+      return value;
+    }
+    throw new LockdownError(`Unexpected TimeZone value type: ${typeof value}`);
   }
 
   /**
