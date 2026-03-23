@@ -1,61 +1,22 @@
 import * as http from 'node:http';
-import { URL } from 'node:url';
 
 import { getLogger } from '../logger.js';
 import type { TunnelRegistry, TunnelRegistryEntry } from '../types.js';
+import {
+  type RouteRecord,
+  TUNNEL_REGISTRY_API_BASE_PATH,
+  createRouteDispatcher,
+  getRequestPathname,
+} from './tunnel-registry-routes.js';
 
 // Constants
 export const DEFAULT_TUNNEL_REGISTRY_PORT = 42314;
-const API_BASE_PATH = '/remotexpc/tunnels';
+
+/** Path segments that must not bind to `:udid` (reserved static routes). */
+const RESERVED_TUNNEL_UDID_SEGMENTS = new Set(['metadata']);
 
 // Logger instance
 const log = getLogger('TunnelRegistryServer');
-
-// Helper functions
-/**
- * Parse JSON body from HTTP request
- */
-async function parseJSONBody<T = unknown>(
-  req: http.IncomingMessage,
-): Promise<T> {
-  return new Promise((resolve, reject) => {
-    let body = '';
-    req.on('data', (chunk) => {
-      body += chunk.toString();
-    });
-    req.on('end', () => {
-      try {
-        resolve(body ? JSON.parse(body) : {});
-      } catch (error) {
-        reject(error);
-      }
-    });
-    req.on('error', reject);
-  });
-}
-
-/**
- * Send JSON response
- */
-function sendJSON(
-  res: http.ServerResponse,
-  statusCode: number,
-  data: unknown,
-): void {
-  const statusText = http.STATUS_CODES[statusCode] || '';
-  let responseBody;
-  if (data && typeof data === 'object' && data !== null) {
-    if ('error' in data) {
-      responseBody = { status: statusText, ...data };
-    } else {
-      responseBody = { status: statusText, ...data };
-    }
-  } else {
-    responseBody = { status: statusText, data };
-  }
-  res.writeHead(statusCode, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify(responseBody));
-}
 
 /**
  * Tunnel Registry Server - provides API endpoints for tunnel registry operations
@@ -78,6 +39,10 @@ export class TunnelRegistryServer {
    * @param tunnelsInfo - Registry data object
    * @param port - Port to listen on
    */
+  private readonly dispatchRoute = createRouteDispatcher(
+    this.tunnelRegistryRouteTable(),
+  );
+
   constructor(tunnelsInfo: TunnelRegistry | undefined, port: number) {
     this.port = port;
     this.tunnelsInfo = tunnelsInfo;
@@ -130,7 +95,7 @@ export class TunnelRegistryServer {
         this.server?.listen(this.port, () => {
           log.info(`Tunnel Registry Server started on port ${this.port}`);
           log.info(
-            `API available at http://localhost:${this.port}${API_BASE_PATH}`,
+            `API available at http://localhost:${this.port}${TUNNEL_REGISTRY_API_BASE_PATH}`,
           );
           resolve();
         });
@@ -180,55 +145,16 @@ export class TunnelRegistryServer {
     req: http.IncomingMessage,
     res: http.ServerResponse,
   ): Promise<void> {
-    const url = new URL(req.url || '', `http://localhost:${this.port}`);
     const method = req.method || 'GET';
-    const pathname = url.pathname;
+    const pathname = getRequestPathname(req);
 
-    // Log the request
     log.debug(`${method} ${pathname}`);
 
-    // Match routes
-    const basePath = API_BASE_PATH;
-
     try {
-      // GET /remotexpc/tunnels - Get all tunnels
-      if (method === 'GET' && pathname === basePath) {
-        await this.getAllTunnels(res);
-        return;
+      const handled = await this.dispatchRoute(req, res);
+      if (!handled) {
+        sendJSON(res, 404, { error: 'Not found' });
       }
-
-      // GET /remotexpc/tunnels/device/:deviceId - Get tunnel by device ID
-      const deviceMatch = pathname.match(
-        new RegExp(`^${basePath}/device/(.+)$`),
-      );
-      if (method === 'GET' && deviceMatch) {
-        const deviceIdStr = deviceMatch[1];
-        const deviceId = parseInt(deviceIdStr, 10);
-        await this.getTunnelByDeviceId(res, deviceId);
-        return;
-      }
-
-      // GET /remotexpc/tunnels/:udid - Get tunnel by UDID
-      const udidMatch = pathname.match(new RegExp(`^${basePath}/([^/]+)$`));
-      if (
-        method === 'GET' &&
-        udidMatch &&
-        !udidMatch[1].startsWith('device/')
-      ) {
-        const udid = udidMatch[1];
-        await this.getTunnelByUdid(res, udid);
-        return;
-      }
-
-      // PUT /remotexpc/tunnels/:udid - Update tunnel
-      if (method === 'PUT' && udidMatch) {
-        const udid = udidMatch[1];
-        await this.updateTunnel(req, res, udid);
-        return;
-      }
-
-      // No route matched
-      sendJSON(res, 404, { error: 'Not found' });
     } catch (error) {
       log.error(`Request handling error: ${error}`);
       sendJSON(res, 500, {
@@ -248,6 +174,21 @@ export class TunnelRegistryServer {
       log.error(`Error getting all tunnels: ${error}`);
       sendJSON(res, 500, {
         error: 'Failed to get tunnels',
+      });
+    }
+  }
+
+  /**
+   * Handler for GET /remotexpc/tunnels/metadata
+   */
+  private async getRegistryMetadata(res: http.ServerResponse): Promise<void> {
+    try {
+      await this.loadRegistry();
+      sendJSON(res, 200, this.metadata);
+    } catch (error) {
+      log.error(`Error getting registry metadata: ${error}`);
+      sendJSON(res, 500, {
+        error: 'Failed to get registry metadata',
       });
     }
   }
@@ -392,6 +333,50 @@ export class TunnelRegistryServer {
       };
     }
   }
+
+  /**
+   * HTTP route table for the tunnel registry API (path-to-regexp patterns).
+   */
+  private tunnelRegistryRouteTable(): RouteRecord[] {
+    const base = TUNNEL_REGISTRY_API_BASE_PATH;
+    return [
+      {
+        method: 'GET',
+        path: base,
+        name: 'list',
+        handler: async (_req, res) => this.getAllTunnels(res),
+      },
+      {
+        method: 'GET',
+        path: `${base}/metadata`,
+        name: 'metadata',
+        handler: async (_req, res) => this.getRegistryMetadata(res),
+      },
+      {
+        method: 'GET',
+        path: `${base}/device/:deviceId`,
+        name: 'get-by-device',
+        handler: async (_req, res, params) =>
+          this.getTunnelByDeviceId(res, parseInt(params.deviceId, 10)),
+      },
+      {
+        method: 'GET',
+        path: `${base}/:udid`,
+        name: 'get-by-udid',
+        guard: (params) => !RESERVED_TUNNEL_UDID_SEGMENTS.has(params.udid),
+        handler: async (_req, res, params) =>
+          this.getTunnelByUdid(res, params.udid),
+      },
+      {
+        method: 'PUT',
+        path: `${base}/:udid`,
+        name: 'put-by-udid',
+        guard: (params) => !RESERVED_TUNNEL_UDID_SEGMENTS.has(params.udid),
+        handler: async (req, res, params) =>
+          this.updateTunnel(req, res, params.udid),
+      },
+    ];
+  }
 }
 
 /**
@@ -407,4 +392,46 @@ export async function startTunnelRegistryServer(
   const server = new TunnelRegistryServer(tunnelInfos, port);
   await server.start();
   return server;
+}
+
+/**
+ * Parse JSON body from HTTP request
+ */
+async function parseJSONBody<T = unknown>(
+  req: http.IncomingMessage,
+): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    req.on('data', (chunk: Buffer | string) => {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    });
+    req.on('end', () => {
+      try {
+        const body =
+          chunks.length === 0 ? Buffer.alloc(0) : Buffer.concat(chunks);
+        const text = body.length > 0 ? body.toString('utf8') : '';
+        resolve(text ? (JSON.parse(text) as T) : ({} as T));
+      } catch (error) {
+        reject(error);
+      }
+    });
+    req.on('error', reject);
+  });
+}
+
+/**
+ * Send JSON response
+ */
+function sendJSON(
+  res: http.ServerResponse,
+  statusCode: number,
+  data: unknown,
+): void {
+  const statusText = http.STATUS_CODES[statusCode] || '';
+  const responseBody =
+    data && typeof data === 'object' && data !== null
+      ? { status: statusText, ...data }
+      : { status: statusText, data };
+  res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(responseBody));
 }
