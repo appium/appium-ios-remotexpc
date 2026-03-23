@@ -52,6 +52,13 @@ interface StartSessionResponse {
   [key: string]: PlistValue | undefined;
 }
 
+interface GetValueResponse {
+  Request?: string;
+  Error?: PlistValue;
+  Value?: PlistValue;
+  [key: string]: PlistValue | undefined;
+}
+
 interface TLSConfig {
   cert: string;
   key: string;
@@ -299,6 +306,87 @@ export class LockdownService extends BasePlistService {
     const service =
       this.isTLS && this.tlsService ? this.tlsService : this._plistService;
     return service.sendPlistAndReceive(msg, timeout);
+  }
+
+  /**
+   * Reads a value from lockdownd using the GetValue request.
+   *
+   * @param key - Optional value key, e.g. TimeIntervalSince1970
+   * @param domain - Optional value domain
+   * @param timeout - Request timeout in milliseconds
+   */
+  public async getValue<T = PlistValue>(
+    key?: string,
+    domain?: string,
+    timeout = DEFAULT_TIMEOUT,
+  ): Promise<T> {
+    const request: Record<string, PlistValue> = {
+      Label: LABEL,
+      Request: 'GetValue',
+    };
+
+    if (domain) {
+      request.Domain = domain;
+    }
+    if (key) {
+      request.Key = key;
+    }
+
+    const response = (await this.sendAndReceive(
+      request,
+      timeout,
+    )) as GetValueResponse;
+
+    if (response.Error) {
+      throw new LockdownError(
+        `Lockdown GetValue failed for key "${key ?? '<all>'}": ${String(response.Error)}`,
+      );
+    }
+    if (!Object.prototype.hasOwnProperty.call(response, 'Value')) {
+      throw new LockdownError(
+        `Lockdown GetValue missing Value for key "${key ?? '<all>'}"`,
+      );
+    }
+
+    return response.Value as T;
+  }
+
+  /**
+   * Reads the device wall clock unix timestamp (seconds) from lockdownd.
+   */
+  public async getTimeIntervalSince1970(
+    timeout = DEFAULT_TIMEOUT,
+  ): Promise<number> {
+    const value = await this.getValue<PlistValue>(
+      'TimeIntervalSince1970',
+      undefined,
+      timeout,
+    );
+
+    if (typeof value === 'number') {
+      return value;
+    }
+    if (typeof value === 'bigint') {
+      return Number(value);
+    }
+    if (typeof value === 'string') {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+
+    throw new LockdownError(
+      `Unexpected TimeIntervalSince1970 value type: ${typeof value}`,
+    );
+  }
+
+  /**
+   * Reads device wall clock and converts it to a Date object.
+   */
+  public async getDeviceDate(timeout = DEFAULT_TIMEOUT): Promise<Date> {
+    const unixSeconds = await this.getTimeIntervalSince1970(timeout);
+    return new Date(unixSeconds * 1000);
   }
 
   /**
