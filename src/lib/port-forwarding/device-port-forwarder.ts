@@ -2,45 +2,13 @@ import { EventEmitter } from 'node:events';
 import { Server, Socket, createServer } from 'node:net';
 
 import { getLogger } from '../logger.js';
-import { createUsbmux } from '../usbmux/index.js';
+import type {
+  DevicePortForwarderEvents,
+  DevicePortForwarderOptions,
+  UpstreamSocketConnector,
+} from './types.js';
 
 const log = getLogger('PortForwarding');
-
-/**
- * Function signature for opening an upstream device socket.
- */
-export type UpstreamSocketConnector = () => Promise<Socket>;
-
-/**
- * Options for {@link DevicePortForwarder}.
- */
-export interface DevicePortForwarderOptions {
-  /** Host to bind the local forwarding server to. */
-  host?: string;
-  /** Connection timeout (milliseconds) when opening the upstream socket. */
-  connectTimeoutMs?: number;
-  /**
-   * Primary strategy used to open upstream sockets.
-   * Defaults to a usbmux-based connector for the configured udid/device port.
-   */
-  primaryConnector?: UpstreamSocketConnector;
-  /**
-   * Optional fallback strategy if primary connection fails.
-   * Useful for trying multiple transport strategies.
-   */
-  fallbackConnector?: UpstreamSocketConnector;
-}
-
-export interface DevicePortForwarderEvents {
-  started: () => void;
-  stopped: () => void;
-  clientConnected: (socket: Socket) => void;
-  clientDisconnected: (socket: Socket) => void;
-  upstreamConnected: (socket: Socket) => void;
-  upstreamDisconnected: (socket: Socket) => void;
-  upstreamConnectError: (error: unknown) => void;
-  error: (error: unknown) => void;
-}
 
 /**
  * A lifecycle-managed local forwarder that proxies local TCP clients to a device port.
@@ -50,25 +18,20 @@ export class DevicePortForwarder extends EventEmitter {
   private server?: Server;
   private readonly localPort: number;
   private readonly devicePort: number;
-  private readonly udid: string;
   private readonly host: string;
-  private readonly connectTimeoutMs: number;
-  private readonly primaryConnector?: UpstreamSocketConnector;
+  private readonly primaryConnector: UpstreamSocketConnector;
   private readonly fallbackConnector?: UpstreamSocketConnector;
   private readonly activeSockets = new Set<Socket>();
 
   constructor(
-    udid: string,
     localPort: number,
     devicePort: number,
-    options: DevicePortForwarderOptions = {},
+    options: DevicePortForwarderOptions,
   ) {
     super();
-    this.udid = udid;
     this.localPort = localPort;
     this.devicePort = devicePort;
     this.host = options.host ?? '127.0.0.1';
-    this.connectTimeoutMs = options.connectTimeoutMs ?? 5000;
     this.primaryConnector = options.primaryConnector;
     this.fallbackConnector = options.fallbackConnector;
   }
@@ -157,7 +120,7 @@ export class DevicePortForwarder extends EventEmitter {
       upstreamSocket = await this.openUpstreamSocket();
     } catch (err) {
       log.debug(
-        `Failed to open upstream socket for ${this.udid}:${this.devicePort}: ${err}`,
+        `Failed to open upstream socket for device port ${this.devicePort}: ${err}`,
       );
       this.emit('upstreamConnectError', err);
       this.emit('error', err);
@@ -193,38 +156,13 @@ export class DevicePortForwarder extends EventEmitter {
   }
 
   private async openUpstreamSocket(): Promise<Socket> {
-    if (this.primaryConnector) {
-      try {
-        return await this.primaryConnector();
-      } catch (primaryError) {
-        if (!this.fallbackConnector) {
-          throw primaryError;
-        }
-      }
-      return await this.fallbackConnector();
-    }
-    return await this.connectViaUsbmux();
-  }
-
-  private async connectViaUsbmux(): Promise<Socket> {
-    const usbmux = await createUsbmux();
-    let remoteSocket: Socket | undefined;
     try {
-      const device = await usbmux.findDevice(this.udid, this.connectTimeoutMs);
-      if (!device) {
-        throw new Error(`Device with UDID ${this.udid} not found`);
+      return await this.primaryConnector();
+    } catch (primaryError) {
+      if (!this.fallbackConnector) {
+        throw primaryError;
       }
-      remoteSocket = await usbmux.connect(
-        device.DeviceID,
-        this.devicePort,
-        this.connectTimeoutMs,
-      );
-      return remoteSocket;
-    } catch (err) {
-      if (!remoteSocket) {
-        await usbmux.close().catch(() => {});
-      }
-      throw err;
     }
+    return await this.fallbackConnector();
   }
 }

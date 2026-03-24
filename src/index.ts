@@ -3,7 +3,7 @@ import {
   TUNNEL_CONTAINER_NAME,
 } from './constants.js';
 import { createLockdownServiceByUDID } from './lib/lockdown/index.js';
-import { DevicePortForwarder } from './lib/port-forwarding/device-port-forwarder.js';
+import { DevicePortForwarder } from './lib/port-forwarding/index.js';
 import {
   PacketStreamClient,
   PacketStreamServer,
@@ -19,9 +19,10 @@ import { startCoreDeviceProxy } from './services/ios/tunnel-service/index.js';
 
 export type { Device as UsbmuxDevice } from './lib/usbmux/index.js';
 export type {
+  DevicePortForwarderEvents,
   DevicePortForwarderOptions,
   UpstreamSocketConnector,
-} from './lib/port-forwarding/device-port-forwarder.js';
+} from './lib/port-forwarding/index.js';
 export type { RemoteXpcConnection } from './lib/remote-xpc/remote-xpc-connection.js';
 export type { AfcService } from './services/ios/afc/index.js';
 export type { InstallationProxyService } from './services/ios/installation-proxy/index.js';
@@ -119,6 +120,11 @@ export {
 } from './lib/apple-tv/pairing/index.js';
 export { AppleTVTunnelService } from './lib/apple-tv/tunnel/index.js';
 export type { AppleTVPairingResult } from './lib/apple-tv/types.js';
+
+export {
+  connectViaTunnel,
+  connectViaUsbmux,
+} from './lib/port-forwarding/index.js';
 
 export {
   STRONGBOX_CONTAINER_NAME,
