@@ -5,7 +5,7 @@ import { BasePlistService } from '../../base-plist-service.js';
 import { getLogger } from '../logger.js';
 import { type PairRecord } from '../pair-record/index.js';
 import { PlistService } from '../plist/plist-service.js';
-import type { PlistMessage, PlistValue } from '../types.js';
+import type { LockdownDeviceInfo, PlistMessage, PlistValue } from '../types.js';
 import { RelayService, createUsbmux } from '../usbmux/index.js';
 
 const log = getLogger('Lockdown');
@@ -377,6 +377,26 @@ export class LockdownService extends BasePlistService {
     }
     throw new LockdownError(
       `Unexpected ProductVersion value type: ${typeof value}`,
+    );
+  }
+
+  /**
+   * Reads all default lockdownd values (same behavior as GetValue with no key/domain).
+   * Useful for retrieving broad device information payloads.
+   */
+  public async getDeviceInfo(
+    timeout = DEFAULT_TIMEOUT,
+  ): Promise<LockdownDeviceInfo> {
+    const value = await this.getValue<PlistValue>(
+      undefined,
+      undefined,
+      timeout,
+    );
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      return value as LockdownDeviceInfo;
+    }
+    throw new LockdownError(
+      `Unexpected device info payload type: ${Array.isArray(value) ? 'array' : typeof value}`,
     );
   }
 
