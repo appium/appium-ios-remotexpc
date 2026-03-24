@@ -1,3 +1,9 @@
+## [0.40.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.39.0...v0.40.0) (2026-03-24)
+
+### Features
+
+* Add API for retrieving the device info ([#178](https://github.com/appium/appium-ios-remotexpc/issues/178)) ([5fb11ef](https://github.com/appium/appium-ios-remotexpc/commit/5fb11ef00d695aa8c2c73c1a8ec776b91396cb5f))
+
 ## [0.39.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.38.0...v0.39.0) (2026-03-23)
 
 ### Features
