@@ -1829,6 +1829,9 @@ export interface TestmanagerdService extends BaseService {
    */
   sendReply(channel: number, payload?: Buffer | null): Promise<void>;
 
+  /** Whether the last received message on this channel expects a reply. */
+  lastMessageExpectsReply(channel: number): boolean;
+
   /**
    * Close the testmanagerd service connection
    */
