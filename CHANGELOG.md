@@ -1,3 +1,9 @@
+## [0.41.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.40.0...v0.41.0) (2026-03-25)
+
+### Features
+
+* Add port forwarding service ([#179](https://github.com/appium/appium-ios-remotexpc/issues/179)) ([7e9f16a](https://github.com/appium/appium-ios-remotexpc/commit/7e9f16a1231c3e8d6206ad6082410d240bfaa7b9))
+
 ## [0.40.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.39.0...v0.40.0) (2026-03-24)
 
 ### Features
