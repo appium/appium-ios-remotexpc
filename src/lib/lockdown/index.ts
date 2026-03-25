@@ -21,7 +21,6 @@ const DEFAULT_LOCKDOWN_PORT = 62078;
 const DEFAULT_RELAY_PORT = 2222;
 /** RSD service name for lockdownd over a RemoteXPC tunnel (e.g. Apple TV Wi‑Fi). */
 const LOCKDOWN_REMOTE_UNTRUSTED = 'com.apple.mobile.lockdown.remote.untrusted';
-const TUNNEL_LOCKDOWN_CONNECT_TIMEOUT_MS = 30_000;
 
 // Types and Interfaces
 interface DeviceProperties {
@@ -209,7 +208,6 @@ class DeviceManager {
  */
 async function rsdHandshakeLockdownPlistService(
   conn: ServiceConnection,
-  plistTimeoutMs: number,
 ): Promise<void> {
   const checkin: Record<string, PlistValue> = {
     Label: LABEL,
@@ -217,14 +215,14 @@ async function rsdHandshakeLockdownPlistService(
     Request: 'RSDCheckin',
   };
 
-  const first = await conn.sendPlistRequest(checkin, plistTimeoutMs);
+  const first = await conn.sendPlistRequest(checkin, DEFAULT_TIMEOUT);
   if (first.Request !== 'RSDCheckin') {
     throw new LockdownError(
       `Invalid RSDCheckin response: ${JSON.stringify(first)}`,
     );
   }
 
-  const second = await conn.receive(plistTimeoutMs);
+  const second = await conn.receive(DEFAULT_TIMEOUT);
   if (!second || second.Request !== 'StartService') {
     throw new LockdownError(
       `Expected StartService after RSDCheckin, got: ${JSON.stringify(second)}`,
@@ -653,10 +651,8 @@ export async function createLockdownServiceByTunnel(
     );
   }
 
-  const conn = await ServiceConnection.createUsingTCP(host, lockdownPort, {
-    createConnectionTimeout: TUNNEL_LOCKDOWN_CONNECT_TIMEOUT_MS,
-  });
-  await rsdHandshakeLockdownPlistService(conn, DEFAULT_TIMEOUT);
+  const conn = await ServiceConnection.createUsingTCP(host, lockdownPort);
+  await rsdHandshakeLockdownPlistService(conn);
   return new LockdownService(conn.getSocket(), udid, false);
 }
 
