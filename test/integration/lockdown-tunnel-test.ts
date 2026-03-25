@@ -1,6 +1,7 @@
 import { expect } from 'chai';
 
 import { Services, createLockdownServiceByTunnel } from '../../src/index.js';
+import type { LockdownService } from '../../src/lib/lockdown/index.js';
 import type { RemoteXpcConnection } from '../../src/lib/remote-xpc/remote-xpc-connection.js';
 import type { LockdownDeviceInfo } from '../../src/lib/types.js';
 
@@ -19,6 +20,7 @@ describe('Lockdown over tunnel (getDeviceInfo)', function () {
   const udid = process.env.UDID?.trim() ?? '';
 
   let remoteXPC: RemoteXpcConnection | undefined;
+  let lockdown: LockdownService | undefined;
 
   before(async function () {
     if (!udid) {
@@ -30,7 +32,9 @@ describe('Lockdown over tunnel (getDeviceInfo)', function () {
 
   after(async function () {
     try {
-      await remoteXPC?.close();
+      if (lockdown) {
+        lockdown.close();
+      }
     } catch {
       // ignore
     }
@@ -42,13 +46,9 @@ describe('Lockdown over tunnel (getDeviceInfo)', function () {
     }
 
     const lockdown = await createLockdownServiceByTunnel(remoteXPC, udid);
-    try {
-      const info: LockdownDeviceInfo = await lockdown.getDeviceInfo();
-      expect(info).to.be.an('object');
-      expect(info.UniqueDeviceID).to.be.a('string').and.not.empty;
-      expect(info.ProductVersion).to.be.a('string').and.not.empty;
-    } finally {
-      lockdown.close();
-    }
+    const info: LockdownDeviceInfo = await lockdown.getDeviceInfo();
+    expect(info).to.be.an('object');
+    expect(info.UniqueDeviceID).to.be.a('string').and.not.empty;
+    expect(info.ProductVersion).to.be.a('string').and.not.empty;
   });
 });

@@ -19,8 +19,7 @@ const LABEL = 'appium-internal';
 const DEFAULT_TIMEOUT = 5000;
 const DEFAULT_LOCKDOWN_PORT = 62078;
 const DEFAULT_RELAY_PORT = 2222;
-/** RSD service names for lockdownd over a RemoteXPC tunnel (e.g. Apple TV Wi‑Fi). */
-const LOCKDOWN_REMOTE_TRUSTED = 'com.apple.mobile.lockdown.remote.trusted';
+/** RSD service name for lockdownd over a RemoteXPC tunnel (e.g. Apple TV Wi‑Fi). */
 const LOCKDOWN_REMOTE_UNTRUSTED = 'com.apple.mobile.lockdown.remote.untrusted';
 const TUNNEL_LOCKDOWN_CONNECT_TIMEOUT_MS = 30_000;
 
@@ -205,24 +204,27 @@ class DeviceManager {
   }
 }
 
+/**
+ * RSD handshake on the remote lockdown TCP socket: RSDCheckin, RSDCheckin echo, StartService.
+ */
 async function rsdHandshakeLockdownPlistService(
   conn: ServiceConnection,
-  timeoutMs: number,
+  plistTimeoutMs: number,
 ): Promise<void> {
-  const first = await conn.sendPlistRequest(
-    {
-      Label: LABEL,
-      ProtocolVersion: '2',
-      Request: 'RSDCheckin',
-    },
-    timeoutMs,
-  );
+  const checkin: Record<string, PlistValue> = {
+    Label: LABEL,
+    ProtocolVersion: '2',
+    Request: 'RSDCheckin',
+  };
+
+  const first = await conn.sendPlistRequest(checkin, plistTimeoutMs);
   if (first.Request !== 'RSDCheckin') {
     throw new LockdownError(
       `Invalid RSDCheckin response: ${JSON.stringify(first)}`,
     );
   }
-  const second = await conn.receive(timeoutMs);
+
+  const second = await conn.receive(plistTimeoutMs);
   if (!second || second.Request !== 'StartService') {
     throw new LockdownError(
       `Expected StartService after RSDCheckin, got: ${JSON.stringify(second)}`,
@@ -627,58 +629,37 @@ export class LockdownServiceFactory {
 }
 
 /**
- * Lockdown over an RSD tunnel: connect to the remote lockdown service
- * (`com.apple.mobile.lockdown.remote.trusted` or `.untrusted`) on the tunnel host after RSD
- * check-in. **Traffic does not go through usbmux** to the device; `remoteXpc` is only used to
- * discover that service’s port.
+ * Lockdown over an RSD tunnel: TCP to `com.apple.mobile.lockdown.remote.untrusted`, then RSD
+ * handshake (`RSDCheckin` → echo → `StartService`), then lockdownd plist on a plaintext socket
+ * (no usbmux relay TLS). `remoteXpc` is only used to discover the service port.
  *
- * **No lockdownd TLS:** Unlike the usbmux relay path (`createLockdownServiceByUDID`), this path
- * keeps plist lockdown on a **plaintext** TCP socket — no `StartSession` / host-certificate TLS
- * upgrade (aligned with remote lockdown clients that skip pairing-based SSL on that service).
- * Tunnel confidentiality is whatever the tunnel provides
- *
- * `udid` is stored on {@link LockdownService} for identification and API consistency; it is not
- * used to load a pair record on this path.
- *
- * `remoteXpc` must already be connected (`await remoteXpc.connect()`). It is not closed here.
+ * `remoteXpc` must already be connected. It is not closed here.
  */
 export async function createLockdownServiceByTunnel(
   remoteXpc: RemoteXpcConnection,
   udid: string,
-  options: {
-    connectTimeoutMs?: number;
-  } = {},
 ): Promise<LockdownService> {
-  const connectTimeoutMs =
-    options.connectTimeoutMs ?? TUNNEL_LOCKDOWN_CONNECT_TIMEOUT_MS;
-
   const [host] = remoteXpc.address;
 
-  let lockdownPort: string;
+  let lockdownPort: string | undefined;
   try {
-    lockdownPort = remoteXpc.findService(LOCKDOWN_REMOTE_TRUSTED).port;
+    lockdownPort = remoteXpc.findService(LOCKDOWN_REMOTE_UNTRUSTED).port;
   } catch {
-    try {
-      lockdownPort = remoteXpc.findService(LOCKDOWN_REMOTE_UNTRUSTED).port;
-    } catch {
-      throw new LockdownError(
-        `RSD has no remote lockdown service (${LOCKDOWN_REMOTE_TRUSTED} / ${LOCKDOWN_REMOTE_UNTRUSTED}) for ${udid}`,
-      );
-    }
+    lockdownPort = undefined;
   }
   if (!lockdownPort) {
     throw new LockdownError(
-      'Remote lockdown service is listed in RSD but has no port',
+      `RSD has no remote lockdown service (${LOCKDOWN_REMOTE_UNTRUSTED}) for ${udid}`,
     );
   }
 
   const conn = await ServiceConnection.createUsingTCP(host, lockdownPort, {
-    createConnectionTimeout: connectTimeoutMs,
+    createConnectionTimeout: TUNNEL_LOCKDOWN_CONNECT_TIMEOUT_MS,
   });
 
   let lockdown: LockdownService | undefined;
   try {
-    await rsdHandshakeLockdownPlistService(conn, connectTimeoutMs);
+    await rsdHandshakeLockdownPlistService(conn, DEFAULT_TIMEOUT);
     lockdown = new LockdownService(conn.getSocket(), udid, false);
     return lockdown;
   } catch (err) {
