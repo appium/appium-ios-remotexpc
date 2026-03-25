@@ -656,20 +656,8 @@ export async function createLockdownServiceByTunnel(
   const conn = await ServiceConnection.createUsingTCP(host, lockdownPort, {
     createConnectionTimeout: TUNNEL_LOCKDOWN_CONNECT_TIMEOUT_MS,
   });
-
-  let lockdown: LockdownService | undefined;
-  try {
-    await rsdHandshakeLockdownPlistService(conn, DEFAULT_TIMEOUT);
-    lockdown = new LockdownService(conn.getSocket(), udid, false);
-    return lockdown;
-  } catch (err) {
-    if (lockdown) {
-      lockdown.close();
-    } else {
-      conn.close();
-    }
-    throw err;
-  }
+  await rsdHandshakeLockdownPlistService(conn, DEFAULT_TIMEOUT);
+  return new LockdownService(conn.getSocket(), udid, false);
 }
 
 // Export factory function for backward compatibility
