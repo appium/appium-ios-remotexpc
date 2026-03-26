@@ -1,3 +1,9 @@
+## [0.42.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.41.0...v0.42.0) (2026-03-26)
+
+### Features
+
+* Add factory method to create lockdown service over a running tunnel ([#180](https://github.com/appium/appium-ios-remotexpc/issues/180)) ([0d54710](https://github.com/appium/appium-ios-remotexpc/commit/0d547103976fc6d1678bf5356b8dc2c50519460f))
+
 ## [0.41.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.40.0...v0.41.0) (2026-03-25)
 
 ### Features
