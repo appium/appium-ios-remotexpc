@@ -163,8 +163,6 @@ export class DvtTestmanagedProxyService extends BaseService {
     this.socket = this.connection.getSocket();
     stripSSL(this.socket);
 
-    this.socket.setKeepAlive(true, 10000);
-
     // Persistent handlers capture socket death between readExact() calls.
     this.socket.on('error', (err: Error) => {
       if (!this._socketError) {
