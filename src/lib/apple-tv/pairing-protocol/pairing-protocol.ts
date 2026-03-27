@@ -1,7 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { hostname } from 'node:os';
 
-import type { AppleTVDevice } from '../../bonjour/bonjour-discovery.js';
 import { getLogger } from '../../logger.js';
 import {
   DEFAULT_PAIRING_CONFIG,
@@ -26,7 +25,7 @@ import {
   decodeTLV8ToDict,
   encodeTLV8,
 } from '../tlv/index.js';
-import type { TLV8Item } from '../types.js';
+import type { AppleTVDevice, TLV8Item } from '../types.js';
 import { generateHostId } from '../utils/uuid-generator.js';
 import { INFO_TYPE, PAIRING_MESSAGES, PAIRING_STATES } from './constants.js';
 import type {

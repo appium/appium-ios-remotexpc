@@ -1,3 +1,53 @@
+## [0.42.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.41.0...v0.42.0) (2026-03-26)
+
+### Features
+
+* Add factory method to create lockdown service over a running tunnel ([#180](https://github.com/appium/appium-ios-remotexpc/issues/180)) ([0d54710](https://github.com/appium/appium-ios-remotexpc/commit/0d547103976fc6d1678bf5356b8dc2c50519460f))
+
+## [0.41.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.40.0...v0.41.0) (2026-03-25)
+
+### Features
+
+* Add port forwarding service ([#179](https://github.com/appium/appium-ios-remotexpc/issues/179)) ([7e9f16a](https://github.com/appium/appium-ios-remotexpc/commit/7e9f16a1231c3e8d6206ad6082410d240bfaa7b9))
+
+## [0.40.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.39.0...v0.40.0) (2026-03-24)
+
+### Features
+
+* Add API for retrieving the device info ([#178](https://github.com/appium/appium-ios-remotexpc/issues/178)) ([5fb11ef](https://github.com/appium/appium-ios-remotexpc/commit/5fb11ef00d695aa8c2c73c1a8ec776b91396cb5f))
+
+## [0.39.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.38.0...v0.39.0) (2026-03-23)
+
+### Features
+
+* Add a lockdown helper to fetch the product version ([#177](https://github.com/appium/appium-ios-remotexpc/issues/177)) ([a967a30](https://github.com/appium/appium-ios-remotexpc/commit/a967a30c1e9f50dbd3b5b1bcf58f6b205412479f))
+
+## [0.38.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.37.3...v0.38.0) (2026-03-23)
+
+### Features
+
+* Add lockdown helpers for fetching the device datetime ([#176](https://github.com/appium/appium-ios-remotexpc/issues/176)) ([aa35625](https://github.com/appium/appium-ios-remotexpc/commit/aa35625f76b375f7b6b9e512d3fcad7d4a691a97))
+
+## [0.37.3](https://github.com/appium/appium-ios-remotexpc/compare/v0.37.2...v0.37.3) (2026-03-23)
+
+### Bug Fixes
+
+* Tunnel server routing ([#175](https://github.com/appium/appium-ios-remotexpc/issues/175)) ([f6e838d](https://github.com/appium/appium-ios-remotexpc/commit/f6e838d84662c9432815bfadb57baafe765929a6))
+
+## [0.37.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.37.1...v0.37.2) (2026-03-22)
+
+### Miscellaneous Chores
+
+* Migrate scripts to ESM/.mjs ([#173](https://github.com/appium/appium-ios-remotexpc/issues/173)) ([8d6053b](https://github.com/appium/appium-ios-remotexpc/commit/8d6053b6bfde353296905daf345b8e15d4307873))
+
+## [0.37.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.37.0...v0.37.1) (2026-03-21)
+
+## [0.37.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.36.0...v0.37.0) (2026-03-21)
+
+### Features
+
+* Refactor device discovery ([#171](https://github.com/appium/appium-ios-remotexpc/issues/171)) ([8962683](https://github.com/appium/appium-ios-remotexpc/commit/89626833fac7acb1c72439df5a356cf82c58e833))
+
 ## [0.36.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.35.3...v0.36.0) (2026-03-19)
 
 ### Features

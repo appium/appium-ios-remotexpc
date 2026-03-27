@@ -2,10 +2,12 @@ import { Socket } from 'node:net';
 import tls, { type ConnectionOptions, TLSSocket } from 'node:tls';
 
 import { BasePlistService } from '../../base-plist-service.js';
+import { ServiceConnection } from '../../service-connection.js';
 import { getLogger } from '../logger.js';
 import { type PairRecord } from '../pair-record/index.js';
 import { PlistService } from '../plist/plist-service.js';
-import type { PlistMessage, PlistValue } from '../types.js';
+import { RemoteXpcConnection } from '../remote-xpc/remote-xpc-connection.js';
+import type { LockdownDeviceInfo, PlistMessage, PlistValue } from '../types.js';
 import { RelayService, createUsbmux } from '../usbmux/index.js';
 
 const log = getLogger('Lockdown');
@@ -17,6 +19,8 @@ const LABEL = 'appium-internal';
 const DEFAULT_TIMEOUT = 5000;
 const DEFAULT_LOCKDOWN_PORT = 62078;
 const DEFAULT_RELAY_PORT = 2222;
+/** RSD service name for lockdownd over a RemoteXPC tunnel (e.g. Apple TV Wi‑Fi). */
+const LOCKDOWN_REMOTE_UNTRUSTED = 'com.apple.mobile.lockdown.remote.untrusted';
 
 // Types and Interfaces
 interface DeviceProperties {
@@ -49,6 +53,13 @@ interface StartSessionResponse {
   Request?: string;
   SessionID?: PlistValue;
   EnableSessionSSL?: boolean;
+  [key: string]: PlistValue | undefined;
+}
+
+interface GetValueResponse {
+  Request?: string;
+  Error?: PlistValue;
+  Value?: PlistValue;
   [key: string]: PlistValue | undefined;
 }
 
@@ -192,6 +203,39 @@ class DeviceManager {
   }
 }
 
+/**
+ * RSD handshake on the remote lockdown TCP socket: RSDCheckin, RSDCheckin echo, StartService.
+ */
+async function rsdHandshakeLockdownPlistService(
+  conn: ServiceConnection,
+): Promise<void> {
+  const checkin: Record<string, PlistValue> = {
+    Label: LABEL,
+    ProtocolVersion: '2',
+    Request: 'RSDCheckin',
+  };
+
+  const first = await conn.sendPlistRequest(checkin, DEFAULT_TIMEOUT);
+  if (first.Request !== 'RSDCheckin') {
+    throw new LockdownError(
+      `Invalid RSDCheckin response: ${JSON.stringify(first)}`,
+    );
+  }
+
+  const second = await conn.receive(DEFAULT_TIMEOUT);
+  if (!second || second.Request !== 'StartService') {
+    throw new LockdownError(
+      `Expected StartService after RSDCheckin, got: ${JSON.stringify(second)}`,
+    );
+  }
+  if (second.Error) {
+    const desc = second.ErrorDescription ?? 'Unknown error';
+    throw new LockdownError(
+      `RSD remote lockdown service failed: ${String(second.Error)} — ${desc}`,
+    );
+  }
+}
+
 // Main LockdownService class
 export class LockdownService extends BasePlistService {
   private readonly udid: string;
@@ -302,6 +346,98 @@ export class LockdownService extends BasePlistService {
   }
 
   /**
+   * Reads the device wall clock unix timestamp (seconds) from lockdownd.
+   */
+  public async getTimeIntervalSince1970(
+    timeout = DEFAULT_TIMEOUT,
+  ): Promise<number> {
+    const value = await this.getValue<PlistValue>(
+      'TimeIntervalSince1970',
+      undefined,
+      timeout,
+    );
+
+    if (typeof value === 'number') {
+      return value;
+    }
+    if (typeof value === 'bigint') {
+      return Number(value);
+    }
+    if (typeof value === 'string') {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+
+    throw new LockdownError(
+      `Unexpected TimeIntervalSince1970 value type: ${typeof value}`,
+    );
+  }
+
+  /**
+   * Reads device wall clock and converts it to a Date object in UTC.
+   * The value is derived from Unix epoch seconds (`TimeIntervalSince1970`).
+   */
+  public async getDeviceDate(timeout = DEFAULT_TIMEOUT): Promise<Date> {
+    const unixSeconds = await this.getTimeIntervalSince1970(timeout);
+    return new Date(unixSeconds * 1000);
+  }
+
+  /**
+   * Reads the device timezone identifier (for example: "Europe/Berlin").
+   */
+  public async getTimeZone(timeout = DEFAULT_TIMEOUT): Promise<string> {
+    const value = await this.getValue<PlistValue>(
+      'TimeZone',
+      undefined,
+      timeout,
+    );
+    if (typeof value === 'string') {
+      return value;
+    }
+    throw new LockdownError(`Unexpected TimeZone value type: ${typeof value}`);
+  }
+
+  /**
+   * Reads iOS platform version from lockdownd (`ProductVersion`).
+   * Example value: `26.3.1`.
+   */
+  public async getProductVersion(timeout = DEFAULT_TIMEOUT): Promise<string> {
+    const value = await this.getValue<PlistValue>(
+      'ProductVersion',
+      undefined,
+      timeout,
+    );
+    if (typeof value === 'string') {
+      return value;
+    }
+    throw new LockdownError(
+      `Unexpected ProductVersion value type: ${typeof value}`,
+    );
+  }
+
+  /**
+   * Reads all default lockdownd values (same behavior as GetValue with no key/domain).
+   * Useful for retrieving broad device information payloads.
+   */
+  public async getDeviceInfo(
+    timeout = DEFAULT_TIMEOUT,
+  ): Promise<LockdownDeviceInfo> {
+    const value = await this.getValue<PlistValue>(
+      undefined,
+      undefined,
+      timeout,
+    );
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      return value as LockdownDeviceInfo;
+    }
+    throw new LockdownError(
+      `Unexpected device info payload type: ${Array.isArray(value) ? 'array' : typeof value}`,
+    );
+  }
+
+  /**
    * Closes the service and associated resources
    */
   public close(): void {
@@ -357,6 +493,57 @@ export class LockdownService extends BasePlistService {
         }
       })();
     }
+  }
+
+  /**
+   * Reads a value from lockdownd using the GetValue request.
+   *
+   * @param key - Optional value key, e.g. TimeIntervalSince1970
+   * @param domain - Optional value domain
+   * @param timeout - Request timeout in milliseconds
+   */
+  private async getValue<T = PlistValue>(
+    key?: string,
+    domain?: string,
+    timeout = DEFAULT_TIMEOUT,
+  ): Promise<T> {
+    const request: Record<string, PlistValue> = {
+      Label: LABEL,
+      Request: 'GetValue',
+    };
+
+    if (domain) {
+      request.Domain = domain;
+    }
+    if (key) {
+      request.Key = key;
+    }
+
+    const response = (await this.sendAndReceive(
+      request,
+      timeout,
+    )) as GetValueResponse;
+
+    if (response.Error) {
+      throw new LockdownError(
+        `Lockdown GetValue failed for key "${key ?? '<all>'}": ${String(response.Error)}`,
+      );
+    }
+    if (!Object.prototype.hasOwnProperty.call(response, 'Value')) {
+      throw new LockdownError(
+        `Lockdown GetValue missing Value for key "${key ?? '<all>'}"`,
+      );
+    }
+
+    const value = response.Value as unknown;
+    if (
+      value &&
+      typeof value === 'object' &&
+      'data' in (value as Record<string, unknown>)
+    ) {
+      return (value as { data: unknown }).data as T;
+    }
+    return value as T;
   }
 
   private validatePairRecord(record: PairRecord): boolean {
@@ -437,6 +624,36 @@ export class LockdownServiceFactory {
       throw err;
     }
   }
+}
+
+/**
+ * Lockdown over an RSD tunnel: TCP to `com.apple.mobile.lockdown.remote.untrusted`, then RSD
+ * handshake (`RSDCheckin` → echo → `StartService`), then lockdownd plist on a plaintext socket
+ * (no usbmux relay TLS). `remoteXpc` is only used to discover the service port.
+ *
+ * `remoteXpc` must already be connected. It is not closed here.
+ */
+export async function createLockdownServiceByTunnel(
+  remoteXpc: RemoteXpcConnection,
+  udid: string,
+): Promise<LockdownService> {
+  const [host] = remoteXpc.address;
+
+  let lockdownPort: string | undefined;
+  try {
+    lockdownPort = remoteXpc.findService(LOCKDOWN_REMOTE_UNTRUSTED).port;
+  } catch {
+    lockdownPort = undefined;
+  }
+  if (!lockdownPort) {
+    throw new LockdownError(
+      `RSD has no remote lockdown service (${LOCKDOWN_REMOTE_UNTRUSTED}) for ${udid}`,
+    );
+  }
+
+  const conn = await ServiceConnection.createUsingTCP(host, lockdownPort);
+  await rsdHandshakeLockdownPlistService(conn);
+  return new LockdownService(conn.getSocket(), udid, false);
 }
 
 // Export factory function for backward compatibility

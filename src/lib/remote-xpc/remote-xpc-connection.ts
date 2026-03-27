@@ -45,6 +45,14 @@ class RemoteXpcConnection {
   }
 
   /**
+   * Tunnel endpoint `[host, port]` (RSD) this connection targets.
+   * Use the host when opening follow-on TCP services on the same tunnel interface.
+   */
+  get address(): [string, number] {
+    return this._address;
+  }
+
+  /**
    * Connect to the remote device and perform handshake
    * @returns Promise that resolves with the list of available services
    */
