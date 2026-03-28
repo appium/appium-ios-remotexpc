@@ -1,3 +1,9 @@
+## [0.42.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.42.0...v0.42.1) (2026-03-28)
+
+### Bug Fixes
+
+* **testmanagerd:** prevent DTX stream desync and connection timeouts ([#181](https://github.com/appium/appium-ios-remotexpc/issues/181)) ([f26d516](https://github.com/appium/appium-ios-remotexpc/commit/f26d51613fa3f32e08c84919868422d3a7bbc063))
+
 ## [0.42.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.41.0...v0.42.0) (2026-03-26)
 
 ### Features
