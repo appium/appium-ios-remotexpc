@@ -32,6 +32,8 @@ class RemoteXpcConnection {
   private _handshake: Handshake | undefined;
   private _isConnected: boolean;
   private _services: Service[] | undefined;
+  /** Timer set during connect() to detect missing services after handshake */
+  private _serviceExtractionTimer: NodeJS.Timeout | undefined;
 
   constructor(address: [string, number]) {
     this._address = address;
@@ -39,6 +41,7 @@ class RemoteXpcConnection {
     this._handshake = undefined;
     this._isConnected = false;
     this._services = undefined;
+    this._serviceExtractionTimer = undefined;
   }
 
   /**
@@ -177,8 +180,9 @@ class RemoteXpcConnection {
               // peer-info and get ports for lockdown in RSD
               await this._handshake.perform();
 
-              // Set a timeout for service extraction
-              setTimeout(async () => {
+              // Set a timeout for service extraction (cleared on close())
+              this._serviceExtractionTimer = setTimeout(async () => {
+                this._serviceExtractionTimer = undefined;
                 if (this._services === undefined) {
                   log.warn(
                     'No services received after handshake, closing connection',
@@ -211,6 +215,11 @@ class RemoteXpcConnection {
    * Close the connection
    */
   async close(): Promise<void> {
+    if (this._serviceExtractionTimer) {
+      clearTimeout(this._serviceExtractionTimer);
+      this._serviceExtractionTimer = undefined;
+    }
+
     if (!this._socket) {
       return Promise.resolve();
     }
@@ -326,27 +335,9 @@ class RemoteXpcConnection {
   private cleanupSocket(): void {
     if (this._socket) {
       try {
-        // Store references to the listeners we want to keep
-        const closeListeners = this._socket.listeners('close') as Array<
-          (...args: any[]) => void
-        >;
-        const errorListeners = this._socket.listeners('error') as Array<
-          (...args: any[]) => void
-        >;
-
-        // Remove all listeners
+        // close() registers its own handlers before calling this.
         this._socket.removeAllListeners();
-
-        // Re-add only the close and error listeners we need for cleanup
-        for (const listener of closeListeners) {
-          this._socket.once('close', listener);
-        }
-
-        for (const listener of errorListeners) {
-          this._socket.once('error', listener);
-        }
-
-        log.debug('Successfully removed socket data listeners');
+        log.debug('Successfully removed socket listeners');
       } catch (error) {
         log.error(
           `Error removing socket listeners: ${error instanceof Error ? error.message : String(error)}`,
@@ -359,6 +350,10 @@ class RemoteXpcConnection {
    * Clean up all resources
    */
   private cleanupResources(): void {
+    if (this._serviceExtractionTimer) {
+      clearTimeout(this._serviceExtractionTimer);
+      this._serviceExtractionTimer = undefined;
+    }
     this._socket = undefined;
     this._isConnected = false;
     this._handshake = undefined;

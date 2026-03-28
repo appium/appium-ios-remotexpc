@@ -127,10 +127,15 @@ export class DvtTestmanagedProxyService extends BaseService {
   private lastReceivedMessageId: number = 0;
   private readonly lastReceivedMessageIdByChannel: Map<number, number> =
     new Map();
+  private readonly lastReceivedExpectsReplyByChannel: Map<number, boolean> =
+    new Map();
   private readonly channelCache: Map<string, Channel> = new Map();
   private readonly channelMessages: Map<number, ChannelFragmenter> = new Map();
   private isHandshakeComplete: boolean = false;
   private readBuffer: Buffer = Buffer.alloc(0);
+
+  /** Captures socket death between reads so readExact() can fail immediately. */
+  private _socketError: Error | null = null;
 
   constructor(address: [string, number]) {
     super(address);
@@ -157,6 +162,20 @@ export class DvtTestmanagedProxyService extends BaseService {
     this.connection = await this.startLockdownWithoutCheckin(service);
     this.socket = this.connection.getSocket();
     stripSSL(this.socket);
+
+    // Persistent handlers capture socket death between readExact() calls.
+    this.socket.on('error', (err: Error) => {
+      if (!this._socketError) {
+        log.debug(`Socket error (persistent handler): ${err.message}`);
+        this._socketError = err;
+      }
+    });
+    this.socket.on('close', () => {
+      if (!this._socketError) {
+        log.debug('Socket closed (persistent handler)');
+        this._socketError = new Error('Socket closed unexpectedly');
+      }
+    });
 
     await this.performHandshake();
   }
@@ -268,6 +287,13 @@ export class DvtTestmanagedProxyService extends BaseService {
         }
       });
     });
+  }
+
+  /** Whether the last received message on this channel expects a reply. */
+  lastMessageExpectsReply(channel: number): boolean {
+    return (
+      this.lastReceivedExpectsReplyByChannel.get(Math.abs(channel)) ?? false
+    );
   }
 
   /**
@@ -474,6 +500,7 @@ export class DvtTestmanagedProxyService extends BaseService {
     this.channelCache.clear();
     this.channelMessages.clear();
     this.lastReceivedMessageIdByChannel.clear();
+    this.lastReceivedExpectsReplyByChannel.clear();
     this.channelMessages.set(
       DvtTestmanagedProxyService.BROADCAST_CHANNEL,
       new ChannelFragmenter(),
@@ -603,14 +630,38 @@ export class DvtTestmanagedProxyService extends BaseService {
         header.identifier,
       );
 
+      // Only fragmentId 0 carries the expectsReply flag reliably.
+      if (header.fragmentId === 0) {
+        this.lastReceivedExpectsReplyByChannel.set(
+          receivedChannel,
+          header.expectsReply !== 0,
+        );
+      }
+
       if (header.fragmentCount > 1 && header.fragmentId === 0) {
         continue;
       }
 
-      const messageData = await this.readExact(header.length, signal);
+      // No abort signal — payload must be read atomically to keep DTX framing aligned.
+      const messageData = await this.readExact(header.length);
 
       const targetFragmenter = this.channelMessages.get(receivedChannel)!;
       targetFragmenter.addFragment(header, messageData);
+
+      // Auto-reply to non-target channel messages to prevent testmanagerd timeouts.
+      if (
+        receivedChannel !== channel &&
+        !header.conversationIndex &&
+        this.lastReceivedExpectsReplyByChannel.get(receivedChannel)
+      ) {
+        try {
+          await this.sendReply(receivedChannel);
+        } catch (err: any) {
+          log.debug(
+            `Auto-reply failed on channel ${receivedChannel}: ${err.message}`,
+          );
+        }
+      }
     }
   }
 
@@ -625,6 +676,13 @@ export class DvtTestmanagedProxyService extends BaseService {
     }
 
     while (this.readBuffer.length < length) {
+      if (this._socketError) {
+        throw this._socketError;
+      }
+      if (this.socket.destroyed) {
+        throw new Error('Socket is destroyed');
+      }
+
       signal?.throwIfAborted();
 
       const chunk = await new Promise<Buffer>((resolve, reject) => {

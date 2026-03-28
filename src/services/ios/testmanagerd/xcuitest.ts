@@ -164,7 +164,11 @@ export class XCUITestService extends EventEmitter<XCUITestServiceEvents> {
     this.listenerAbortController = new AbortController();
     const { signal } = this.listenerAbortController;
 
+    const MAX_CONSECUTIVE_EMPTY_POLLS = 60; // ~60s of silence = dead connection
+
     const listenerPromise: Promise<void> = (async () => {
+      let consecutiveEmptyPolls = 0;
+
       while (!signal.aborted) {
         try {
           const result = await this.execConnection.recvPlistWithTimeout(
@@ -173,11 +177,30 @@ export class XCUITestService extends EventEmitter<XCUITestServiceEvents> {
           );
 
           if (!result) {
+            consecutiveEmptyPolls++;
+            if (consecutiveEmptyPolls >= MAX_CONSECUTIVE_EMPTY_POLLS) {
+              log.warn(
+                `No callbacks received for ${MAX_CONSECUTIVE_EMPTY_POLLS} consecutive polls (~${MAX_CONSECUTIVE_EMPTY_POLLS}s). ` +
+                  'The exec connection may be dead.',
+              );
+              this._lastListenerError = new Error(
+                `Exec connection silent for ${MAX_CONSECUTIVE_EMPTY_POLLS}s — likely dead`,
+              );
+              this._running = false;
+              this.finishedDeferred?.resolve('failed');
+              break;
+            }
             continue; // Timeout — poll again
           }
 
+          consecutiveEmptyPolls = 0;
+
           const [selector, auxiliaries] = result;
           this.handleCallback(selector, auxiliaries);
+
+          const needsReply = this.execConnection.lastMessageExpectsReply(
+            this.execChannelCode,
+          );
 
           if (selector === SELECTOR.testRunnerReady && this.configPayload) {
             log.info(
@@ -189,6 +212,9 @@ export class XCUITestService extends EventEmitter<XCUITestServiceEvents> {
             );
             log.info('XCTestConfiguration response sent');
             this.configReplyDeferred?.resolve();
+          } else if (needsReply) {
+            // Acknowledge to prevent testmanagerd connection timeout.
+            await this.execConnection.sendReply(this.execChannelCode);
           }
 
           if (selector === SELECTOR.testPlanFinished) {
