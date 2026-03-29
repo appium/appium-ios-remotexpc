@@ -5,7 +5,7 @@
  * all Remote Pairing Apple TVs and opens one tunnel per device (skips failures).
  */
 
-import { logger } from '@appium/support';
+import { logger, util } from '@appium/support';
 import { Command } from 'commander';
 import {
   AppleTVTunnelService,
@@ -317,7 +317,9 @@ async function main() {
     await startTunnelRegistryServer(registry, registryPort);
     attachAppleTvTunnelRegistryLifecycleWatch(registry, successfulResults);
 
-    log.info('\n=== TUNNEL(S) ESTABLISHED ===');
+    log.info(
+      `\n=== ${util.pluralize('tunnel', successfulResults.length, true).toUpperCase()} ESTABLISHED ===`,
+    );
     for (const r of successfulResults) {
       log.info(
         `${r.device.identifier}: ${r.tunnel.Address}:${r.tunnel.RsdPort ?? 0} (packet stream ${r.packetStreamPort || 'off'})`,

@@ -77,7 +77,7 @@ const registryWatcherRef = { stop: null };
  * and tear down packet streams / TunnelManager state.
  *
  * @param {object} registry
- * @param {Array<{ device: { Properties: { SerialNumber: string } }; tunnel: { Address: string; RsdPort?: number }; socket?: import('tls').TLSSocket }>} successful
+ * @param {TunnelCreationSuccessResult[]} successful
  */
 function attachTunnelRegistryLifecycleWatch(registry, successful) {
   const watches = successful
@@ -424,3 +424,12 @@ async function main() {
 }
 
 await main();
+
+/**
+ * Successful tunnel row (USB lockdown + CoreDeviceProxy) used for the registry and lifecycle watch.
+ *
+ * @typedef {object} TunnelCreationSuccessResult
+ * @property {{ Properties: { SerialNumber: string } }} device
+ * @property {{ Address: string, RsdPort?: number }} tunnel
+ * @property {import('tls').TLSSocket} [socket]
+ */
