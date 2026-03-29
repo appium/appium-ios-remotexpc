@@ -11,6 +11,7 @@ import {
   PacketStreamClient,
   PacketStreamServer,
   TunnelManager,
+  watchTunnelRegistrySockets,
 } from './lib/tunnel/index.js';
 import {
   TunnelRegistryServer,
@@ -144,4 +145,5 @@ export {
   startCoreDeviceProxy,
   TunnelRegistryServer,
   startTunnelRegistryServer,
+  watchTunnelRegistrySockets,
 };

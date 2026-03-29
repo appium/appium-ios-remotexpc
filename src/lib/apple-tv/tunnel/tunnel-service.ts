@@ -204,6 +204,27 @@ export class AppleTVTunnelService {
     this.networkClient.disconnect();
   }
 
+  /**
+   * Discovers Apple TV devices advertising Remote Pairing on the local network.
+   */
+  async discoverDevices(): Promise<AppleTVDevice[]> {
+    const backend = createDiscoveryBackend(process.platform, {
+      serviceType: REMOTE_PAIRING_DISCOVERY_SERVICE_TYPE,
+      domain: REMOTE_PAIRING_DISCOVERY_DOMAIN,
+    });
+    const discoveredDevices = await backend.discoverDevices(
+      DEFAULT_PAIRING_CONFIG.discoveryTimeout,
+    );
+    const enrichedDevices =
+      await enrichDiscoveredDevicesWithDevicectl(discoveredDevices);
+    const devices = toAppleTVDevices(enrichedDevices);
+    if (devices.length === 0) {
+      throw new Error('No devices found via discovery backend');
+    }
+
+    return devices;
+  }
+
   async startTunnel(
     deviceId?: string,
     specificDeviceIdentifier?: string,
@@ -414,24 +435,6 @@ export class AppleTVTunnelService {
       appleTVLog.error(`  - ${identifier}: ${error}`);
     });
     appleTVLog.error('=======================================\n');
-  }
-
-  private async discoverDevices(): Promise<AppleTVDevice[]> {
-    const backend = createDiscoveryBackend(process.platform, {
-      serviceType: REMOTE_PAIRING_DISCOVERY_SERVICE_TYPE,
-      domain: REMOTE_PAIRING_DISCOVERY_DOMAIN,
-    });
-    const discoveredDevices = await backend.discoverDevices(
-      DEFAULT_PAIRING_CONFIG.discoveryTimeout,
-    );
-    const enrichedDevices =
-      await enrichDiscoveredDevicesWithDevicectl(discoveredDevices);
-    const devices = toAppleTVDevices(enrichedDevices);
-    if (devices.length === 0) {
-      throw new Error('No devices found via discovery backend');
-    }
-
-    return devices;
   }
 
   private async performHandshake(): Promise<void> {

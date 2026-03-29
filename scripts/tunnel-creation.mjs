@@ -13,6 +13,7 @@ import {
   createUsbmux,
   startCoreDeviceProxy,
   startTunnelRegistryServer,
+  watchTunnelRegistrySockets,
 } from 'appium-ios-remotexpc';
 import { DEFAULT_TUNNEL_REGISTRY_PORT } from '../build/src/lib/tunnel/tunnel-registry-server.js';
 
@@ -68,10 +69,67 @@ async function updateTunnelRegistry(results) {
 }
 
 const packetStreamServers = new Map();
+/** @type {{ stop: (() => void) | null }} */
+const registryWatcherRef = { stop: null };
+
+/**
+ * When CoreDeviceProxy sockets or RSD go away, drop the UDID from the HTTP registry
+ * and tear down packet streams / TunnelManager state.
+ *
+ * @param {object} registry
+ * @param {Array<{ device: { Properties: { SerialNumber: string } }; tunnel: { Address: string; RsdPort?: number }; socket?: import('tls').TLSSocket }>} successful
+ */
+function attachTunnelRegistryLifecycleWatch(registry, successful) {
+  const watches = successful
+    .filter((r) => r.socket)
+    .map((r) => ({
+      udid: r.device.Properties.SerialNumber,
+      socket: r.socket,
+      rsdProbe: {
+        host: r.tunnel.Address,
+        port: r.tunnel.RsdPort ?? 0,
+      },
+    }));
+
+  if (watches.length === 0) {
+    return;
+  }
+
+  const { stop } = watchTunnelRegistrySockets({
+    registry,
+    watches,
+    onRemove: async (udid) => {
+      const server = packetStreamServers.get(udid);
+      if (server) {
+        try {
+          await server.stop();
+          log.info(`Stopped packet stream server after tunnel loss: ${udid}`);
+        } catch (err) {
+          log.warn(
+            `Failed to stop packet stream server for ${udid}: ${err}`,
+          );
+        }
+        packetStreamServers.delete(udid);
+      }
+    },
+    onTunnelDead: async ({ address }) => {
+      await TunnelManager.closeTunnelByAddress(address).catch(() => {});
+    },
+  });
+  registryWatcherRef.stop = stop;
+  log.info(
+    'Tunnel registry will update automatically if a tunnel or RSD endpoint goes away.',
+  );
+}
 
 function setupCleanupHandlers() {
   const cleanup = async (signal) => {
     log.warn(`\nCleaning up (${signal})...`);
+
+    if (typeof registryWatcherRef.stop === 'function') {
+      registryWatcherRef.stop();
+      registryWatcherRef.stop = null;
+    }
 
     if (packetStreamServers.size > 0) {
       log.info(
@@ -335,6 +393,7 @@ async function main() {
       log.info('\n✅ Successful tunnels:');
       const registry = await updateTunnelRegistry(results);
       await startTunnelRegistryServer(registry, registryPort);
+      attachTunnelRegistryLifecycleWatch(registry, successful);
 
       log.info('\n📁 Tunnel registry API:');
       log.info('   The tunnel registry is now available through the API at:');
