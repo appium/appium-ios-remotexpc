@@ -236,8 +236,8 @@ export interface TunnelRegistryEntry {
   address: string;
   /** Remote Service Discovery (RSD) port number */
   rsdPort: number;
-  /** Packet stream port number */
-  packetStreamPort: number;
+  /** Packet stream port number (omitted when no packet stream server) */
+  packetStreamPort?: number;
   /** Type of connection (e.g., 'USB', 'Network') */
   connectionType: string;
   /** Product identifier of the device */

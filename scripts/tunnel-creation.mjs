@@ -45,17 +45,27 @@ async function updateTunnelRegistry(results) {
   for (const result of results) {
     if (result.success) {
       const udid = result.device.Properties.SerialNumber;
-      registry.tunnels[udid] = {
+      const rsdPort = result.tunnel.RsdPort;
+      if (typeof rsdPort !== 'number' || rsdPort <= 0) {
+        throw new Error(
+          `Tunnel for ${udid} has no RSD port; cannot publish registry entry`,
+        );
+      }
+      const entry = {
         udid,
         deviceId: result.device.DeviceID,
         address: result.tunnel.Address,
-        rsdPort: result.tunnel.RsdPort ?? 0,
-        packetStreamPort: result.packetStreamPort ?? 0,
+        rsdPort,
         connectionType: result.device.Properties.ConnectionType,
         productId: result.device.Properties.ProductID,
         createdAt: registry.tunnels[udid]?.createdAt ?? now,
         lastUpdated: now,
       };
+      const packetStreamPort = result.packetStreamPort;
+      if (typeof packetStreamPort === 'number' && packetStreamPort > 0) {
+        entry.packetStreamPort = packetStreamPort;
+      }
+      registry.tunnels[udid] = entry;
     }
   }
 
@@ -82,14 +92,17 @@ const registryWatcherRef = { stop: null };
 function attachTunnelRegistryLifecycleWatch(registry, successful) {
   const watches = successful
     .filter((r) => r.socket)
-    .map((r) => ({
-      udid: r.device.Properties.SerialNumber,
-      socket: r.socket,
-      rsdProbe: {
-        host: r.tunnel.Address,
-        port: r.tunnel.RsdPort ?? 0,
-      },
-    }));
+    .map((r) => {
+      const watch = {
+        udid: r.device.Properties.SerialNumber,
+        socket: r.socket,
+      };
+      const { Address, RsdPort } = r.tunnel;
+      if (Address && typeof RsdPort === 'number' && RsdPort > 0) {
+        watch.rsdProbe = { host: Address, port: RsdPort };
+      }
+      return watch;
+    });
 
   if (watches.length === 0) {
     return;

@@ -21,7 +21,7 @@ const log = logger.getLogger('WiFiTunnel');
 const packetStreamServers = new Map();
 /** @type {{ stop: (() => void) | null }} */
 const registryWatcherRef = { stop: null };
-/** @type {Array<{ tunnel: object; tlsSocket: import('tls').TLSSocket; device: { identifier: string; name?: string } }>} */
+/** @type {AppleTvEstablishedTunnel[]} */
 const establishedTunnels = [];
 let tunnelService = null;
 
@@ -42,14 +42,17 @@ function parsePort(value) {
 function attachAppleTvTunnelRegistryLifecycleWatch(registry, successfulResults) {
   const watches = successfulResults
     .filter((r) => r.tlsSocket)
-    .map((r) => ({
-      udid: r.device.identifier,
-      socket: r.tlsSocket,
-      rsdProbe: {
-        host: r.tunnel.Address,
-        port: r.tunnel.RsdPort ?? 0,
-      },
-    }));
+    .map((r) => {
+      const watch = {
+        udid: r.device.identifier,
+        socket: r.tlsSocket,
+      };
+      const { Address, RsdPort } = r.tunnel;
+      if (Address && typeof RsdPort === 'number' && RsdPort > 0) {
+        watch.rsdProbe = { host: Address, port: RsdPort };
+      }
+      return watch;
+    });
 
   if (watches.length === 0) {
     return;
@@ -188,12 +191,15 @@ async function establishOneTunnel(startResult, packetStreamBaseRef) {
 
   establishedTunnels.push({ tunnel, tlsSocket, device });
 
-  return {
+  const out = {
     device,
     tunnel,
     tlsSocket,
-    packetStreamPort,
   };
+  if (packetStreamPort > 0) {
+    out.packetStreamPort = packetStreamPort;
+  }
+  return out;
 }
 
 async function main() {
@@ -295,17 +301,27 @@ async function main() {
     };
 
     for (const r of successfulResults) {
-      registry.tunnels[r.device.identifier] = {
+      const rsdPort = r.tunnel.RsdPort;
+      if (typeof rsdPort !== 'number' || rsdPort <= 0) {
+        throw new Error(
+          `Tunnel for ${r.device.identifier} has no RSD port; cannot publish registry entry`,
+        );
+      }
+      const entry = {
         udid: r.device.identifier,
         deviceId: 0,
         address: r.tunnel.Address,
-        rsdPort: r.tunnel.RsdPort ?? 0,
-        packetStreamPort: r.packetStreamPort,
+        rsdPort,
         connectionType: 'WiFi',
         productId: 0,
         createdAt: now,
         lastUpdated: now,
       };
+      const { packetStreamPort } = r;
+      if (typeof packetStreamPort === 'number' && packetStreamPort > 0) {
+        entry.packetStreamPort = packetStreamPort;
+      }
+      registry.tunnels[r.device.identifier] = entry;
     }
 
     registry.metadata = {
@@ -322,7 +338,7 @@ async function main() {
     );
     for (const r of successfulResults) {
       log.info(
-        `${r.device.identifier}: ${r.tunnel.Address}:${r.tunnel.RsdPort ?? 0} (packet stream ${r.packetStreamPort || 'off'})`,
+        `${r.device.identifier}: ${r.tunnel.Address}:${r.tunnel.RsdPort} (packet stream ${r.packetStreamPort && r.packetStreamPort > 0 ? r.packetStreamPort : 'off'})`,
       );
     }
     log.info('=============================');
@@ -357,5 +373,5 @@ await main();
  * @property {{ identifier: string, name?: string }} device
  * @property {{ Address: string, RsdPort?: number }} tunnel
  * @property {import('tls').TLSSocket} tlsSocket
- * @property {number} packetStreamPort
+ * @property {number} [packetStreamPort]
  */

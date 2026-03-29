@@ -164,7 +164,7 @@ export class TunnelApiClient {
     host: string;
     port: number;
     udid: string;
-    packetStreamPort: number;
+    packetStreamPort: number | undefined;
   } | null> {
     const tunnel = await this.getTunnelByUdid(udid);
     if (!tunnel) {

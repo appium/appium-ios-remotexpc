@@ -14,7 +14,6 @@ function makeRegistry(udid: string): TunnelRegistry {
         deviceId: 1,
         address: '10.0.0.1',
         rsdPort: 1,
-        packetStreamPort: 0,
         connectionType: 'USB',
         productId: 0,
         createdAt: now,
