@@ -300,12 +300,14 @@ async function main() {
       },
     };
 
+    const registryPublished = [];
     for (const r of successfulResults) {
       const rsdPort = r.tunnel.RsdPort;
       if (typeof rsdPort !== 'number' || rsdPort <= 0) {
-        throw new Error(
-          `Tunnel for ${r.device.identifier} has no RSD port; cannot publish registry entry`,
+        log.warn(
+          `Skipping registry entry for ${r.device.identifier}: no valid RSD port (got ${String(rsdPort)})`,
         );
+        continue;
       }
       const entry = {
         udid: r.device.identifier,
@@ -322,6 +324,7 @@ async function main() {
         entry.packetStreamPort = packetStreamPort;
       }
       registry.tunnels[r.device.identifier] = entry;
+      registryPublished.push(r);
     }
 
     registry.metadata = {
@@ -334,9 +337,9 @@ async function main() {
     attachAppleTvTunnelRegistryLifecycleWatch(registry, successfulResults);
 
     log.info(
-      `\n=== ${util.pluralize('tunnel', successfulResults.length, true).toUpperCase()} ESTABLISHED ===`,
+      `\n=== ${util.pluralize('tunnel', registryPublished.length, true).toUpperCase()} IN REGISTRY ===`,
     );
-    for (const r of successfulResults) {
+    for (const r of registryPublished) {
       log.info(
         `${r.device.identifier}: ${r.tunnel.Address}:${r.tunnel.RsdPort} (packet stream ${r.packetStreamPort && r.packetStreamPort > 0 ? r.packetStreamPort : 'off'})`,
       );
@@ -348,7 +351,7 @@ async function main() {
       `   http://localhost:${registryPort}/remotexpc/tunnels`,
     );
     log.info('   - GET /remotexpc/tunnels - List all tunnels');
-    for (const r of successfulResults) {
+    for (const r of registryPublished) {
       log.info(
         `   - GET /remotexpc/tunnels/${r.device.identifier}`,
       );

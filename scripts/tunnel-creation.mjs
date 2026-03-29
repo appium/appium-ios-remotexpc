@@ -47,9 +47,10 @@ async function updateTunnelRegistry(results) {
       const udid = result.device.Properties.SerialNumber;
       const rsdPort = result.tunnel.RsdPort;
       if (typeof rsdPort !== 'number' || rsdPort <= 0) {
-        throw new Error(
-          `Tunnel for ${udid} has no RSD port; cannot publish registry entry`,
+        log.warn(
+          `Skipping registry entry for ${udid}: no valid RSD port (got ${String(rsdPort)})`,
         );
+        continue;
       }
       const entry = {
         udid,
