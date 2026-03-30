@@ -34,6 +34,8 @@ class RemoteXpcConnection {
   private _services: Service[] | undefined;
   /** Timer set during connect() to detect missing services after handshake */
   private _serviceExtractionTimer: NodeJS.Timeout | undefined;
+  /** True while close() is intentionally tearing down the socket. */
+  private _isClosing: boolean;
 
   constructor(address: [string, number]) {
     this._address = address;
@@ -42,6 +44,7 @@ class RemoteXpcConnection {
     this._isConnected = false;
     this._services = undefined;
     this._serviceExtractionTimer = undefined;
+    this._isClosing = false;
   }
 
   /**
@@ -98,7 +101,9 @@ class RemoteXpcConnection {
         let accumulatedData = Buffer.alloc(0);
 
         this._socket.once('error', (error: Error) => {
-          log.error(`Connection error: ${error}`);
+          if (!this._isClosing) {
+            log.error(`Connection error: ${error}`);
+          }
           this._isConnected = false;
           clearTimeouts();
           reject(error);
@@ -152,8 +157,10 @@ class RemoteXpcConnection {
           }
         });
 
-        this._socket.on('close', () => {
-          log.info('Socket closed');
+        this._socket.once('close', () => {
+          if (!this._isClosing) {
+            log.info('Socket closed');
+          }
           this._isConnected = false;
           clearTimeouts();
 
@@ -215,6 +222,8 @@ class RemoteXpcConnection {
    * Close the connection
    */
   async close(): Promise<void> {
+    this._isClosing = true;
+
     if (this._serviceExtractionTimer) {
       clearTimeout(this._serviceExtractionTimer);
       this._serviceExtractionTimer = undefined;
@@ -244,14 +253,9 @@ class RemoteXpcConnection {
           resolve();
         });
 
-        // Add an error handler specifically for the close operation
-        this._socket.once('error', (err) => {
-          log.error(`Socket error during close: ${err.message}`);
-          // Don't wait for timeout, force cleanup immediately
-          clearTimeout(closeTimeout);
-          this.forceCleanup();
-          resolve();
-        });
+        // Swallow one teardown transport error (e.g., ECONNRESET) to avoid
+        // uncaught socket errors during intentional shutdown.
+        this._socket.once('error', () => {});
       }
 
       try {
@@ -330,17 +334,21 @@ class RemoteXpcConnection {
   }
 
   /**
-   * Remove all listeners from the socket to prevent memory leaks
+   * Remove data listeners used by the service-discovery phase.
+   *
+   * We intentionally keep close/error listeners registered by close() so that
+   * transport teardown events (for example ECONNRESET) are handled gracefully.
    */
   private cleanupSocket(): void {
     if (this._socket) {
       try {
-        // close() registers its own handlers before calling this.
-        this._socket.removeAllListeners();
-        log.debug('Successfully removed socket listeners');
+        // Stop the service-discovery parser from processing additional frames
+        // while shutdown is in progress.
+        this._socket.removeAllListeners('data');
+        log.debug('Successfully removed socket data listeners');
       } catch (error) {
         log.error(
-          `Error removing socket listeners: ${error instanceof Error ? error.message : String(error)}`,
+          `Error removing socket data listeners: ${error instanceof Error ? error.message : String(error)}`,
         );
       }
     }
@@ -356,6 +364,7 @@ class RemoteXpcConnection {
     }
     this._socket = undefined;
     this._isConnected = false;
+    this._isClosing = false;
     this._handshake = undefined;
     this._services = undefined;
   }
