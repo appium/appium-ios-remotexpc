@@ -19,8 +19,10 @@ import { DEFAULT_TUNNEL_REGISTRY_PORT } from '../build/src/lib/tunnel/tunnel-reg
 const log = logger.getLogger('WiFiTunnel');
 
 const packetStreamServers = new Map();
-/** @type {{ stop: (() => void) | null }} */
-const registryWatcherRef = { stop: null };
+/** @type {(() => void)[]} */
+const registryWatcherStops = [];
+/** @type {Map<string, Promise<void>>} */
+const reconnectingByUdid = new Map();
 /** @type {AppleTvEstablishedTunnel[]} */
 const establishedTunnels = [];
 let tunnelService = null;
@@ -35,11 +37,21 @@ function parsePort(value) {
   return port;
 }
 
+function parseNonNegativeInteger(value) {
+  const count = Number.parseInt(value, 10);
+  if (!Number.isFinite(count) || count < 0) {
+    throw new Error(
+      `Invalid retry count: ${value}. Expected a non-negative integer (0 = unlimited).`,
+    );
+  }
+  return count;
+}
+
 /**
  * @param {object} registry
  * @param {AppleTvEstablishedTunnel[]} successfulResults
  */
-function attachAppleTvTunnelRegistryLifecycleWatch(registry, successfulResults) {
+function attachAppleTvTunnelRegistryLifecycleWatch(registry, successfulResults, callbacks = {}) {
   const watches = successfulResults
     .filter((r) => r.tlsSocket)
     .map((r) => {
@@ -75,11 +87,14 @@ function attachAppleTvTunnelRegistryLifecycleWatch(registry, successfulResults) 
         packetStreamServers.delete(udid);
       }
     },
-    onTunnelDead: async ({ address }) => {
+    onTunnelDead: async ({ udid, address }) => {
       await TunnelManager.closeTunnelByAddress(address).catch(() => {});
+      if (callbacks.onTunnelDead) {
+        await callbacks.onTunnelDead({ udid, address });
+      }
     },
   });
-  registryWatcherRef.stop = stop;
+  registryWatcherStops.push(stop);
   log.info(
     'Tunnel registry will update automatically if a tunnel or RSD endpoint goes away.',
   );
@@ -90,9 +105,11 @@ function setupCleanupHandlers() {
     log.warn(`\nCleaning up (${signal})...`);
 
     try {
-      if (typeof registryWatcherRef.stop === 'function') {
-        registryWatcherRef.stop();
-        registryWatcherRef.stop = null;
+      while (registryWatcherStops.length > 0) {
+        const stop = registryWatcherStops.pop();
+        try {
+          stop?.();
+        } catch {}
       }
 
       if (packetStreamServers.size > 0) {
@@ -202,6 +219,114 @@ async function establishOneTunnel(startResult, packetStreamBaseRef) {
   return out;
 }
 
+
+function upsertRegistryEntry(registry, result) {
+  const rsdPort = result.tunnel.RsdPort;
+  if (typeof rsdPort !== 'number' || rsdPort <= 0) {
+    log.warn(
+      `Skipping registry entry for ${result.device.identifier}: no valid RSD port (got ${String(rsdPort)})`,
+    );
+    return false;
+  }
+  const now = Date.now();
+  const existing = registry.tunnels[result.device.identifier];
+  const entry = {
+    udid: result.device.identifier,
+    deviceId: 0,
+    address: result.tunnel.Address,
+    rsdPort,
+    connectionType: 'WiFi',
+    productId: 0,
+    createdAt: existing?.createdAt ?? now,
+    lastUpdated: now,
+  };
+  const { packetStreamPort } = result;
+  if (typeof packetStreamPort === 'number' && packetStreamPort > 0) {
+    entry.packetStreamPort = packetStreamPort;
+  }
+  registry.tunnels[result.device.identifier] = entry;
+  registry.metadata = {
+    lastUpdated: new Date().toISOString(),
+    totalTunnels: Object.keys(registry.tunnels).length,
+    activeTunnels: Object.keys(registry.tunnels).length,
+  };
+  return true;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function runAppleTvReconnectAttempts({
+  udid,
+  maxRetries,
+  tunnelService,
+  packetStreamBaseRef,
+  registry,
+  reconnectTunnelByUdid,
+}) {
+  let attempt = 0;
+  while (maxRetries === 0 || attempt < maxRetries) {
+    attempt += 1;
+    log.warn(
+      `Reconnecting dropped tunnel for ${udid} (attempt ${attempt}${maxRetries === 0 ? ', unlimited mode' : `/${maxRetries}`})...`,
+    );
+    try {
+      const result = await tunnelService.startTunnel(undefined, udid);
+      if (!result.socket) {
+        throw new Error('TLS-PSK socket not established');
+      }
+      const reconnected = await establishOneTunnel(result, packetStreamBaseRef);
+      const ok = upsertRegistryEntry(registry, reconnected);
+      if (ok) {
+        attachAppleTvTunnelRegistryLifecycleWatch(registry, [reconnected], {
+          onTunnelDead: async ({ udid: droppedUdid }) => {
+            await reconnectTunnelByUdid(droppedUdid);
+          },
+        });
+        log.info(`Reconnected tunnel for ${udid}`);
+      }
+      return;
+    } catch (err) {
+      log.warn(`Reconnect attempt failed for ${udid}: ${err}`);
+    }
+    await sleep(1000);
+  }
+  log.error(`Reconnect retries exhausted for ${udid}`);
+}
+
+function createAppleTvReconnectTunnelByUdid({
+  reconnectRetries,
+  tunnelService,
+  packetStreamBaseRef,
+  registry,
+}) {
+  return async function reconnectTunnelByUdid(udid) {
+    if (typeof reconnectRetries !== 'number') {
+      return;
+    }
+    if (reconnectingByUdid.has(udid)) {
+      return reconnectingByUdid.get(udid);
+    }
+
+    const run = runAppleTvReconnectAttempts({
+      udid,
+      maxRetries: reconnectRetries,
+      tunnelService,
+      packetStreamBaseRef,
+      registry,
+      reconnectTunnelByUdid,
+    });
+
+    reconnectingByUdid.set(udid, run);
+    try {
+      await run;
+    } finally {
+      reconnectingByUdid.delete(udid);
+    }
+  };
+}
+
 async function main() {
   setupCleanupHandlers();
 
@@ -225,6 +350,11 @@ async function main() {
       '--packet-stream-base-port <port>',
       'Base port for packet stream servers (incremented per device; default: 50100)',
       parsePort,
+    )
+    .option(
+      '--reconnect-retries <count>',
+      'Reconnect retries after unexpected tunnel drop (0 = unlimited)',
+      parseNonNegativeInteger,
     );
 
   program.parse(process.argv);
@@ -279,7 +409,7 @@ async function main() {
           log.warn(`Skipping ${d.identifier}: ${err}`);
         }
         if (i < devices.length - 1) {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+          await sleep(1000);
         }
       }
     }
@@ -288,7 +418,6 @@ async function main() {
       throw new Error('No tunnel could be established');
     }
 
-    const now = Date.now();
     const nowISOString = new Date().toISOString();
 
     const registry = {
@@ -302,29 +431,10 @@ async function main() {
 
     const registryPublished = [];
     for (const r of successfulResults) {
-      const rsdPort = r.tunnel.RsdPort;
-      if (typeof rsdPort !== 'number' || rsdPort <= 0) {
-        log.warn(
-          `Skipping registry entry for ${r.device.identifier}: no valid RSD port (got ${String(rsdPort)})`,
-        );
-        continue;
+      const ok = upsertRegistryEntry(registry, r);
+      if (ok) {
+        registryPublished.push(r);
       }
-      const entry = {
-        udid: r.device.identifier,
-        deviceId: 0,
-        address: r.tunnel.Address,
-        rsdPort,
-        connectionType: 'WiFi',
-        productId: 0,
-        createdAt: now,
-        lastUpdated: now,
-      };
-      const { packetStreamPort } = r;
-      if (typeof packetStreamPort === 'number' && packetStreamPort > 0) {
-        entry.packetStreamPort = packetStreamPort;
-      }
-      registry.tunnels[r.device.identifier] = entry;
-      registryPublished.push(r);
     }
 
     registry.metadata = {
@@ -334,7 +444,19 @@ async function main() {
     };
 
     await startTunnelRegistryServer(registry, registryPort);
-    attachAppleTvTunnelRegistryLifecycleWatch(registry, successfulResults);
+
+    const reconnectTunnelByUdid = createAppleTvReconnectTunnelByUdid({
+      reconnectRetries: options.reconnectRetries,
+      tunnelService,
+      packetStreamBaseRef,
+      registry,
+    });
+
+    attachAppleTvTunnelRegistryLifecycleWatch(registry, successfulResults, {
+      onTunnelDead: async ({ udid }) => {
+        await reconnectTunnelByUdid(udid);
+      },
+    });
 
     log.info(
       `\n=== ${util.pluralize('tunnel', registryPublished.length, true).toUpperCase()} IN REGISTRY ===`,
