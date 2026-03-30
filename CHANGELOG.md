@@ -1,3 +1,9 @@
+## [0.42.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.42.1...v0.42.2) (2026-03-30)
+
+### Bug Fixes
+
+* Avoid socket errors on intentional close ([#184](https://github.com/appium/appium-ios-remotexpc/issues/184)) ([0008837](https://github.com/appium/appium-ios-remotexpc/commit/00088379c049a7ddea8257653f47677f72fdc9c9))
+
 ## [0.42.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.42.0...v0.42.1) (2026-03-28)
 
 ### Bug Fixes
