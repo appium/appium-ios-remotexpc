@@ -253,9 +253,9 @@ class RemoteXpcConnection {
           resolve();
         });
 
-        // Swallow one teardown transport error (e.g., ECONNRESET) to avoid
+        // Swallow socket errors (e.g., ECONNRESET) to avoid
         // uncaught socket errors during intentional shutdown.
-        this._socket.once('error', () => {});
+        this._socket.on('error', () => {});
       }
 
       try {
@@ -327,7 +327,7 @@ class RemoteXpcConnection {
       (service) => service.serviceName === serviceName,
     );
     if (!service) {
-      throw new Error(`Service ${serviceName} not found, 
+      throw new Error(`Service ${serviceName} not found,
         Check if the device is locked.`);
     }
     return service;
