@@ -1,3 +1,9 @@
+## [0.43.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.42.2...v0.43.0) (2026-03-31)
+
+### Features
+
+* Add tunnel registry watcher ([#182](https://github.com/appium/appium-ios-remotexpc/issues/182)) ([cf482c2](https://github.com/appium/appium-ios-remotexpc/commit/cf482c2839c4a0b349c68b2347aab4dd2ba15ec3))
+
 ## [0.42.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.42.1...v0.42.2) (2026-03-30)
 
 ### Bug Fixes
