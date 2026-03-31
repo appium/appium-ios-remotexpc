@@ -37,18 +37,20 @@ export class Channel {
 
   /**
    * Receive a plist response from the channel
+   * @param signal Optional AbortSignal for cancellation
    */
-  async receivePlist(): Promise<any> {
-    const [data] = await this.service.recvPlist(this.channelCode);
+  async receivePlist(signal?: AbortSignal): Promise<any> {
+    const [data] = await this.service.recvPlist(this.channelCode, signal);
     return data;
   }
 
   /**
    * Receive a plist response from the channel with auxiliaries
+   * @param signal Optional AbortSignal for cancellation
    * @returns Tuple of [selector, auxiliaries]
    */
-  async receivePlistWithAux(): Promise<[string, any[]]> {
-    return await this.service.recvPlist(this.channelCode);
+  async receivePlistWithAux(signal?: AbortSignal): Promise<[string, any[]]> {
+    return await this.service.recvPlist(this.channelCode, signal);
   }
 
   /**

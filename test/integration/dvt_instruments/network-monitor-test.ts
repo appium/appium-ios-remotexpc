@@ -64,6 +64,51 @@ describe('NetworkMonitor', function () {
   // When running the tests, perform some network activity on the device like opening Safari and navigating to a website.
   // Some event types may take time to be received, increase maxAttempts and timeoutMs accordingly.
   describe('Network Monitoring', function () {
+    it('should stop an active iterator without waiting for new events', async function () {
+      const networkMonitor = dvtServiceConnection!.networkMonitor;
+      const iterator = networkMonitor.events();
+
+      // Start stream consumption so the iterator blocks in receivePlist().
+      const nextPromise = iterator.next();
+      await new Promise((resolve) => setTimeout(resolve, 250));
+      await networkMonitor.stop();
+
+      const result = await Promise.race([
+        nextPromise,
+        new Promise<IteratorResult<NetworkEvent>>((_, reject) =>
+          setTimeout(
+            () =>
+              reject(
+                new Error(
+                  'Network monitor iterator did not stop after stopMonitoring',
+                ),
+              ),
+            5000,
+          ),
+        ),
+      ]);
+
+      if (!result.done) {
+        const terminalResult = await Promise.race([
+          iterator.next(),
+          new Promise<IteratorResult<NetworkEvent>>((_, reject) =>
+            setTimeout(
+              () =>
+                reject(
+                  new Error(
+                    'Network monitor iterator did not terminate after stopMonitoring',
+                  ),
+                ),
+              5000,
+            ),
+          ),
+        ]);
+        expect(terminalResult.done).to.equal(true);
+      } else {
+        expect(result.done).to.equal(true);
+      }
+    });
+
     it('should receive network events through async iterator', async function () {
       const networkMonitor = dvtServiceConnection!.networkMonitor;
       const events: NetworkEvent[] = [];

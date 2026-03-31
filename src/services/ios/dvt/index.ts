@@ -2,7 +2,6 @@ import type net from 'node:net';
 
 import { getLogger } from '../../../lib/logger.js';
 import {
-  PlistUID,
   createBinaryPlist,
   parseBinaryPlist,
 } from '../../../lib/plist/index.js';
@@ -192,8 +191,9 @@ export class DVTSecureSocketProxyService extends BaseService {
    */
   async recvPlist(
     channel: number = DVTSecureSocketProxyService.BROADCAST_CHANNEL,
+    signal?: AbortSignal,
   ): Promise<[any, any[]]> {
-    const [data, aux] = await this.recvMessage(channel);
+    const [data, aux] = await this.recvMessage(channel, signal);
 
     let decodedData = null;
     if (data?.length) {
@@ -216,8 +216,9 @@ export class DVTSecureSocketProxyService extends BaseService {
    */
   async recvMessage(
     channel: number = DVTSecureSocketProxyService.BROADCAST_CHANNEL,
+    signal?: AbortSignal,
   ): Promise<[Buffer | null, any[]]> {
-    const packetData = await this.recvPacketFragments(channel);
+    const packetData = await this.recvPacketFragments(channel, signal);
 
     const payloadHeader = DTXMessage.parsePayloadHeader(packetData);
 
@@ -393,7 +394,10 @@ export class DVTSecureSocketProxyService extends BaseService {
   /**
    * Receive packet fragments until a complete message is available for the specified channel
    */
-  private async recvPacketFragments(channel: number): Promise<Buffer> {
+  private async recvPacketFragments(
+    channel: number,
+    signal?: AbortSignal,
+  ): Promise<Buffer> {
     while (true) {
       const fragmenter = this.channelMessages.get(channel);
       if (!fragmenter) {
@@ -409,6 +413,7 @@ export class DVTSecureSocketProxyService extends BaseService {
       // Read next message header
       const headerData = await this.readExact(
         DTX_CONSTANTS.MESSAGE_HEADER_SIZE,
+        signal,
       );
       const header = DTXMessage.parseMessageHeader(headerData);
 
@@ -440,7 +445,10 @@ export class DVTSecureSocketProxyService extends BaseService {
   /**
    * Read exact number of bytes from socket with buffering
    */
-  private async readExact(length: number): Promise<Buffer> {
+  private async readExact(
+    length: number,
+    signal?: AbortSignal,
+  ): Promise<Buffer> {
     if (!this.socket) {
       throw new Error(
         `${this.constructor.name} is not initialized. Call connect() before sending messages.`,
@@ -449,21 +457,47 @@ export class DVTSecureSocketProxyService extends BaseService {
 
     // Keep reading until we have enough data
     while (this.readBuffer.length < length) {
+      // Fast-fail on closed/aborted reads so callers can terminate blocked
+      // iterators instead of hanging until another socket event arrives.
+      if (this.socket.destroyed) {
+        throw new Error('Socket is destroyed');
+      }
+      signal?.throwIfAborted();
+
       const chunk = await new Promise<Buffer>((resolve, reject) => {
+        const cleanup = () => {
+          this.socket?.off('data', onData);
+          this.socket?.off('error', onError);
+          this.socket?.off('close', onClose);
+          signal?.removeEventListener('abort', onAbort);
+        };
+
         const onData = (data: Buffer) => {
-          this.socket!.off('data', onData);
-          this.socket!.off('error', onError);
+          cleanup();
           resolve(data);
         };
 
         const onError = (err: Error) => {
-          this.socket!.off('data', onData);
-          this.socket!.off('error', onError);
+          cleanup();
           reject(err);
+        };
+
+        const onClose = () => {
+          cleanup();
+          reject(new Error('Socket closed during read'));
+        };
+
+        const onAbort = () => {
+          cleanup();
+          reject(
+            signal?.reason ?? new DOMException('Read aborted', 'AbortError'),
+          );
         };
 
         this.socket!.once('data', onData);
         this.socket!.once('error', onError);
+        this.socket!.once('close', onClose);
+        signal?.addEventListener('abort', onAbort, { once: true });
       });
 
       this.readBuffer = Buffer.concat([this.readBuffer, chunk]);
