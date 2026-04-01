@@ -67,7 +67,7 @@ class TunnelManagerService {
       ]);
 
       // Connect to RemoteXPC with delay between retries
-      let retries = 6;
+      let retries = 10;
       let lastError;
 
       while (retries > 0) {
