@@ -1,3 +1,9 @@
+## [0.43.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.43.1...v0.43.2) (2026-04-01)
+
+### Miscellaneous Chores
+
+* reduce the timeout amount ([#186](https://github.com/appium/appium-ios-remotexpc/issues/186)) ([beb4e16](https://github.com/appium/appium-ios-remotexpc/commit/beb4e160c48ac8a6fe742c088cf6daeacc08b124))
+
 ## [0.43.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.43.0...v0.43.1) (2026-04-01)
 
 ### Bug Fixes
