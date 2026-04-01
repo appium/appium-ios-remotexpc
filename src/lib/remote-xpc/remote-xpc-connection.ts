@@ -6,7 +6,7 @@ import Handshake from './handshake.js';
 const log = getLogger('RemoteXpcConnection');
 
 // Timeout constants
-const CONNECTION_TIMEOUT_MS = 10000; // 10 seconds
+const CONNECTION_TIMEOUT_MS = 5000; // 5 seconds
 const SERVICE_EXTRACTION_TIMEOUT_MS = 5000; // 5 seconds
 const HANDSHAKE_DELAY_MS = 100; // 100 milliseconds
 const SERVICE_AFTER_HANDSHAKE_TIMEOUT_MS = 10000; // 10 seconds
