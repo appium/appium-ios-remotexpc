@@ -5,7 +5,10 @@ import {
 import type { TLSSocket } from 'node:tls';
 
 import { getLogger } from '../logger.js';
-import { RemoteXpcConnection } from '../remote-xpc/remote-xpc-connection.js';
+import {
+  CONNECTION_MAX_RETRIES,
+  RemoteXpcConnection,
+} from '../remote-xpc/remote-xpc-connection.js';
 
 const log = getLogger('TunnelManager');
 
@@ -67,7 +70,7 @@ class TunnelManagerService {
       ]);
 
       // Connect to RemoteXPC with delay between retries
-      let retries = 3;
+      let retries = CONNECTION_MAX_RETRIES;
       let lastError;
 
       while (retries > 0) {
