@@ -812,6 +812,12 @@ export type NetworkEvent =
  */
 export interface NetworkMonitorService {
   /**
+   * Stops the current network monitoring stream.
+   * If no stream is active this call is a no-op.
+   */
+  stop(): Promise<void>;
+
+  /**
    * Async iterator for network events.
    * Yields interface detection, connection detection, and connection update events.
    *

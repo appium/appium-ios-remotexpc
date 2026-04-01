@@ -57,13 +57,22 @@ export const NetworkMessageType = {
 export class NetworkMonitor extends BaseInstrument {
   static readonly IDENTIFIER =
     'com.apple.instruments.server.services.networking';
+  private receiveAbortController: AbortController | null = null;
+  private stopRequested = false;
 
   async start(): Promise<void> {
+    this.stopRequested = false;
     await this.initialize();
-    await this.channel!.call('startMonitoring')(undefined, false);
+    const channel = this.channel;
+    if (!channel) {
+      throw new Error('Network monitor channel is not initialized');
+    }
+    await channel.call('startMonitoring')(undefined, false);
   }
 
   async stop(): Promise<void> {
+    this.stopRequested = true;
+    this.receiveAbortController?.abort();
     if (this.channel) {
       await this.channel.call('stopMonitoring')();
     }
@@ -82,8 +91,27 @@ export class NetworkMonitor extends BaseInstrument {
     log.debug('network monitoring started');
 
     try {
-      while (true) {
-        const message = await this.channel!.receivePlist();
+      while (!this.stopRequested) {
+        const channel = this.channel;
+        if (!channel) {
+          break;
+        }
+        const receiveAbortController = new AbortController();
+        this.receiveAbortController = receiveAbortController;
+        let message: unknown;
+
+        try {
+          message = await channel.receivePlist(receiveAbortController.signal);
+        } catch (err) {
+          if (this.stopRequested && this.isAbortError(err)) {
+            break;
+          }
+          throw err;
+        } finally {
+          if (this.receiveAbortController === receiveAbortController) {
+            this.receiveAbortController = null;
+          }
+        }
 
         if (message === null) {
           continue;
@@ -98,6 +126,13 @@ export class NetworkMonitor extends BaseInstrument {
       log.debug('network monitoring stopped');
       await this.stop();
     }
+  }
+
+  private isAbortError(err: unknown): boolean {
+    return (
+      err instanceof DOMException ||
+      (err instanceof Error && err.name === 'AbortError')
+    );
   }
 
   /**
