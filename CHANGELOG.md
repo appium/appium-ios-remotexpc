@@ -1,3 +1,9 @@
+## [0.43.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.43.0...v0.43.1) (2026-04-01)
+
+### Bug Fixes
+
+* Properly close the network monitor generator ([#185](https://github.com/appium/appium-ios-remotexpc/issues/185)) ([c9606c3](https://github.com/appium/appium-ios-remotexpc/commit/c9606c3064cc68f508c128a26973df72efcda721))
+
 ## [0.43.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.42.2...v0.43.0) (2026-03-31)
 
 ### Features
