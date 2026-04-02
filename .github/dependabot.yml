@@ -32,6 +32,9 @@ updates:
     schedule:
       interval: "monthly"
     target-branch: "main"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
     # Labels for pull requests
     labels:
       - "dependencies"
