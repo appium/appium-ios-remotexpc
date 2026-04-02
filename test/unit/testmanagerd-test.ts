@@ -89,6 +89,27 @@ describe('TestmanagerdEncoder', function () {
     expect(classObj.$classes).to.deep.equal(['NSUUID', 'NSObject']);
   });
 
+  it('should encode NSArray of NSUUID for _IDE_deleteAttachmentsWithUUIDs payload', function () {
+    const uuids = [
+      '11111111-1111-1111-1111-111111111111',
+      '22222222-2222-2222-2222-222222222222',
+    ];
+    const result = encoder.encode(
+      uuids.map((u) => ({ __type: 'NSUUID' as const, uuid: u })),
+    );
+    const objects = result.$objects as any[];
+    const arrObj = objects.find(
+      (o: any) =>
+        o &&
+        typeof o === 'object' &&
+        !('NS.keys' in o) &&
+        Array.isArray(o['NS.objects']) &&
+        o['NS.objects'].length === 2,
+    );
+    expect(arrObj, 'NSArray root').to.not.be.undefined;
+    expect(arrObj!['NS.objects']).to.have.length(2);
+  });
+
   it('should encode XCTCapabilities with referenced dictionary', function () {
     const result = encoder.encode({
       __type: 'XCTCapabilities',

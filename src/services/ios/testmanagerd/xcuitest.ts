@@ -22,7 +22,6 @@ import {
   XCTestEventType,
   XCTestRunError,
   type XCTestRunResult,
-  type XCTestRunStage,
   type XCTestRunnerEvents,
   type XCTestRunnerOptions,
   type XCTestSummary,

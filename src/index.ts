@@ -100,6 +100,7 @@ export {
   createXCTestRunner,
   runXCTest,
 } from './services/ios/testmanagerd/xcuitest.js';
+export { XCTestAttachment } from './services/ios/testmanagerd/xctest-attachment.js';
 export {
   XCTestRunError,
   XCTestEventType,
