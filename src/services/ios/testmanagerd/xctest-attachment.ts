@@ -8,11 +8,13 @@ import {
   extractNSKeyedArchiverObjects,
   hasNSErrorIndicators,
 } from '../dvt/utils.js';
+import { canonicalizeUuidString } from './uuid.js';
 import {
   DEFAULT_EXEC_CAPABILITIES,
   SELECTOR,
   TESTMANAGERD_CHANNEL,
 } from './xctest-common.js';
+import { createNSUUID } from './xctestconfiguration.js';
 
 const log = getLogger('XCTestAttachment');
 
@@ -55,7 +57,7 @@ export class XCTestAttachment {
 
       const sessionId = crypto.randomUUID();
       const initArgs = new MessageAux();
-      initArgs.appendObj({ __type: 'NSUUID', uuid: sessionId });
+      initArgs.appendObj(createNSUUID(sessionId));
       initArgs.appendObj({
         __type: 'XCTCapabilities',
         capabilities: DEFAULT_EXEC_CAPABILITIES,
@@ -124,13 +126,12 @@ async function deleteAttachmentsOnChannel(
     throw new Error('deleteAttachmentsOnChannel requires at least one UUID');
   }
 
+  const normalized = uuids.map((u) => canonicalizeUuidString(u));
+  const unique = [...new Set(normalized)];
+
   const args = new MessageAux();
-  args.appendObj(
-    uuids.map((u) => ({
-      __type: 'NSUUID' as const,
-      uuid: u,
-    })),
-  );
+  // NSSet<NSUUID> — matches `_IDE_deleteAttachmentsWithUUIDs:` on the IDE side.
+  args.appendObj(new Set(unique.map((u) => createNSUUID(u))));
 
   await connection.sendMessage(
     channelCode,

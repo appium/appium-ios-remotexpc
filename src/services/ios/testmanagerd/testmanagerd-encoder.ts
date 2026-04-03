@@ -7,6 +7,9 @@ import { NSKeyedArchiverEncoder } from '../dvt/nskeyedarchiver-encoder.js';
  *
  * Marker objects use a `__type` discriminator field so the encoder can
  * distinguish them from plain dictionaries.
+ *
+ * Callers must pass **canonical** UUID strings for `NSUUID` markers; this
+ * encoder does not validate or normalize (see {@link archiveNSUUID}).
  */
 export class TestmanagerdEncoder extends NSKeyedArchiverEncoder {
   protected override archiveObject(value: any): number {
@@ -26,6 +29,12 @@ export class TestmanagerdEncoder extends NSKeyedArchiverEncoder {
     return super.archiveObject(value);
   }
 
+  /**
+   * @param uuidString Canonical RFC-4122 string with dashes (32 hex digits when
+   * dashes are stripped). Callers should use `crypto.randomUUID()` or
+   * `canonicalizeUuidString` from `./uuid.js` before encoding; this method does
+   * not validate.
+   */
   private archiveNSUUID(uuidString: string): number {
     const index = this.objects.length;
     this.objects.push(null); // Placeholder

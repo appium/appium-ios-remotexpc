@@ -24,7 +24,11 @@ log.level = 'debug';
 const XCODE_VERSION = 36;
 
 const UDID = process.env.UDID || '';
-/** Set to a real attachment UUID to run the optional delete smoke test. */
+/**
+ * Set to a real attachment UUID to run the optional delete smoke test.
+ * Must be a full RFC-4122 string (32 hex digits, with or without dashes), e.g.
+ * `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`.
+ */
 const XCTEST_DELETE_ATTACHMENT_TEST_UUID =
   process.env.XCTEST_DELETE_ATTACHMENT_TEST_UUID || '';
 const TEST_RUNNER_BUNDLE_ID = process.env.TEST_RUNNER_BUNDLE_ID;
