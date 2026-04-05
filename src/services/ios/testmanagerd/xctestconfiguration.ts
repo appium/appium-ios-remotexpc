@@ -197,6 +197,7 @@ export interface XCTestConfigurationParams {
 
 export interface NSUUIDMarker {
   __type: 'NSUUID';
+  /** Canonical RFC-4122 string with dashes (e.g. `crypto.randomUUID()`). */
   uuid: string;
 }
 
@@ -207,7 +208,9 @@ export interface NSURLMarker {
 }
 
 /**
- * Helper to create an NSUUID marker object
+ * Helper to create an NSUUID marker object.
+ * `uuid` must already be canonical (e.g. from `crypto.randomUUID()` or
+ * `canonicalizeUuidString` from `./uuid.js`).
  */
 export function createNSUUID(uuid: string): NSUUIDMarker {
   return { __type: 'NSUUID', uuid };

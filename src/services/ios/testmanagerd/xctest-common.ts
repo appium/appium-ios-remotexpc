@@ -33,6 +33,9 @@ export const SELECTOR = {
   initiateControlSession: '_IDE_initiateControlSessionWithCapabilities:',
   authorizeTestSession: '_IDE_authorizeTestSessionWithProcessID:',
 
+  /** IDE → daemon: remove attachments by UUID (XCTMessagingRole_AttachmentsDeleting). */
+  deleteAttachmentsWithUUIDs: '_IDE_deleteAttachmentsWithUUIDs:',
+
   // Device → IDE (exec callbacks)
   logDebugMessage: '_XCT_logDebugMessage:',
   testRunnerReady: '_XCT_testRunnerReadyWithCapabilities:',

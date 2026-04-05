@@ -6,7 +6,11 @@ import type {
   HouseArrestServiceWithConnection,
   TestmanagerdServiceWithConnection,
 } from '../../src/index.js';
-import { XCTestConfigurationEncoder, runXCTest } from '../../src/index.js';
+import {
+  XCTestAttachment,
+  XCTestConfigurationEncoder,
+  runXCTest,
+} from '../../src/index.js';
 import {
   createBinaryPlist,
   parseBinaryPlist,
@@ -20,6 +24,13 @@ log.level = 'debug';
 const XCODE_VERSION = 36;
 
 const UDID = process.env.UDID || '';
+/**
+ * Set to a real attachment UUID to run the optional delete smoke test.
+ * Must be a full RFC-4122 string (32 hex digits, with or without dashes), e.g.
+ * `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`.
+ */
+const XCTEST_DELETE_ATTACHMENT_TEST_UUID =
+  process.env.XCTEST_DELETE_ATTACHMENT_TEST_UUID || '';
 const TEST_RUNNER_BUNDLE_ID = process.env.TEST_RUNNER_BUNDLE_ID;
 const APP_UNDER_TEST_BUNDLE_ID = process.env.APP_UNDER_TEST_BUNDLE_ID;
 const XCTEST_BUNDLE_ID = process.env.XCTEST_BUNDLE_ID;
@@ -301,6 +312,20 @@ describe('Testmanagerd Service', function () {
       expect(result.sessionIdentifier).to.be.a('string');
       expect(result.testRunnerPid).to.be.greaterThan(0);
       expect(result.durationMs).to.be.greaterThan(0);
+    });
+  });
+
+  describe('IDE delete attachments (optional)', function () {
+    before(function () {
+      if (!XCTEST_DELETE_ATTACHMENT_TEST_UUID) {
+        this.skip();
+      }
+    });
+
+    it('should delete attachments via XCTestAttachment', async function () {
+      const attachments = new XCTestAttachment(UDID);
+      expect(attachments.deviceId).to.equal(UDID);
+      await attachments.delete([XCTEST_DELETE_ATTACHMENT_TEST_UUID]);
     });
   });
 });

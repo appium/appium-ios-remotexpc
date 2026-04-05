@@ -11,6 +11,8 @@ import {
   readPrimitiveDictEntry,
 } from '../../src/services/ios/testmanagerd/index.js';
 import { TestmanagerdEncoder } from '../../src/services/ios/testmanagerd/testmanagerd-encoder.js';
+import { canonicalizeUuidString } from '../../src/services/ios/testmanagerd/uuid.js';
+import { createNSUUID } from '../../src/services/ios/testmanagerd/xctestconfiguration.js';
 
 /**
  * Testable subclass that exposes private methods for unit testing.
@@ -60,6 +62,29 @@ function buildPrimitiveDictEntry(type: number, value: Buffer): Buffer {
 
 // #endregion
 
+describe('canonicalizeUuidString', function () {
+  it('should normalize dashed, brace, and undashed forms', function () {
+    const expected = 'aabbccdd-1122-3344-5566-778899aabbcc';
+    expect(
+      canonicalizeUuidString('AABBCCDD-1122-3344-5566-778899AABBCC'),
+    ).to.equal(expected);
+    expect(
+      canonicalizeUuidString('{aabbccdd-1122-3344-5566-778899aabbcc}'),
+    ).to.equal(expected);
+    expect(canonicalizeUuidString('aabbccdd112233445566778899aabbcc')).to.equal(
+      expected,
+    );
+  });
+
+  it('should reject invalid input', function () {
+    expect(() => canonicalizeUuidString('')).to.throw();
+    expect(() => canonicalizeUuidString('not-a-uuid')).to.throw();
+    expect(() =>
+      canonicalizeUuidString('11111111-1111-1111-1111-111'),
+    ).to.throw();
+  });
+});
+
 describe('TestmanagerdEncoder', function () {
   let encoder: TestmanagerdEncoder;
 
@@ -69,7 +94,7 @@ describe('TestmanagerdEncoder', function () {
 
   it('should encode NSUUID with correct bytes and class', function () {
     const uuid = 'AABBCCDD-1122-3344-5566-778899AABBCC';
-    const result = encoder.encode({ __type: 'NSUUID', uuid });
+    const result = encoder.encode(createNSUUID(uuid));
     const objects = result.$objects;
 
     const nsUuidObj = objects.find(
@@ -87,6 +112,36 @@ describe('TestmanagerdEncoder', function () {
       (o: any) => o && typeof o === 'object' && o.$classname === 'NSUUID',
     );
     expect(classObj.$classes).to.deep.equal(['NSUUID', 'NSObject']);
+  });
+
+  it('should encode NSSet of NSUUID for _IDE_deleteAttachmentsWithUUIDs payload', function () {
+    const uuids = [
+      '11111111-1111-1111-1111-111111111111',
+      '22222222-2222-2222-2222-222222222222',
+    ];
+    const result = encoder.encode(new Set(uuids.map((u) => createNSUUID(u))));
+    const objects = result.$objects as any[];
+    const rootIdx = result.$top.root.value;
+    const setObj = objects[rootIdx];
+    expect(setObj['NS.objects']).to.have.length(2);
+    const classDef = objects[setObj.$class.value];
+    expect(classDef).to.have.property('$classname', 'NSSet');
+    expect(classDef.$classes).to.deep.equal(['NSSet', 'NSObject']);
+
+    const hexSorted = (buf: Buffer) => buf.toString('hex');
+    const expectedHex = uuids
+      .map((u) => hexSorted(Buffer.from(u.replace(/-/g, ''), 'hex')))
+      .sort();
+    const gotHex = setObj['NS.objects']
+      .map((uid: PlistUID) =>
+        hexSorted(objects[uid.value]['NS.uuidbytes'] as Buffer),
+      )
+      .sort();
+    expect(gotHex).to.deep.equal(expectedHex);
+    for (const uid of setObj['NS.objects'] as PlistUID[]) {
+      const uuidClass = objects[objects[uid.value].$class.value];
+      expect(uuidClass.$classname).to.equal('NSUUID');
+    }
   });
 
   it('should encode XCTCapabilities with referenced dictionary', function () {

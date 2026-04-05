@@ -59,6 +59,8 @@ export class NSKeyedArchiverEncoder {
 
     if (Buffer.isBuffer(value)) {
       index = this.archiveBuffer(value);
+    } else if (value instanceof Set) {
+      index = this.archiveSet(value);
     } else if (Array.isArray(value)) {
       index = this.archiveArray(value);
     } else if (typeof value === 'object') {
@@ -89,6 +91,26 @@ export class NSKeyedArchiverEncoder {
     const classUid = this.getClassUid('NSArray', 'NSObject');
 
     // Create array structure
+    this.objects[index] = {
+      'NS.objects': itemUids,
+      $class: new PlistUID(classUid),
+    };
+
+    return index;
+  }
+
+  /** NSSet — same `NS.objects` layout as NSArray; matches NSKeyedArchiver on Apple platforms. */
+  protected archiveSet(set: Set<any>): number {
+    const index = this.objects.length;
+    this.objects.push(null); // Placeholder
+    this.objectCache.set(set, index);
+
+    const items = Array.from(set);
+    const itemUids = items.map(
+      (item) => new PlistUID(this.archiveObject(item)),
+    );
+    const classUid = this.getClassUid('NSSet', 'NSObject');
+
     this.objects[index] = {
       'NS.objects': itemUids,
       $class: new PlistUID(classUid),
