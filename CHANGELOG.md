@@ -1,3 +1,9 @@
+## [0.44.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.43.2...v0.44.0) (2026-04-05)
+
+### Features
+
+* Add XCTestAttachment wrapper ([#188](https://github.com/appium/appium-ios-remotexpc/issues/188)) ([2742330](https://github.com/appium/appium-ios-remotexpc/commit/274233054de3cf7371d0ed906bbe02a1a482bb4a))
+
 ## [0.43.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.43.1...v0.43.2) (2026-04-01)
 
 ### Miscellaneous Chores
