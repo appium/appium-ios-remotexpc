@@ -1,3 +1,9 @@
+## [0.44.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.44.0...v0.44.1) (2026-04-10)
+
+### Miscellaneous Chores
+
+* **deps-dev:** bump typescript in the dev-dependencies group ([#183](https://github.com/appium/appium-ios-remotexpc/issues/183)) ([90067fb](https://github.com/appium/appium-ios-remotexpc/commit/90067fb94e16fd1acbf511d3d9d204a78b988698))
+
 ## [0.44.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.43.2...v0.44.0) (2026-04-05)
 
 ### Features
