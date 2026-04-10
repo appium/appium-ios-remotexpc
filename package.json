@@ -94,7 +94,7 @@
     "sinon": "^21.0.0",
     "ts-node": "^10.9.2",
     "tsx": "^4.7.0",
-    "typescript": "^5.2.2"
+    "typescript": "^6.0.2"
   },
   "dependencies": {
     "@appium/strongbox": "^1.0.0-rc.1",
