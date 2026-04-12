@@ -8,6 +8,31 @@ import { UDID, fixtures, getServerWithFixtures } from '../fixtures/index.js';
 
 use(chaiAsPromised);
 
+const DUP_UDID = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+
+function mockUsbmuxDevice(
+  deviceId: number,
+  serialNumber: string,
+  connectionType: 'USB' | 'Network',
+  opts?: { connectionSpeed?: number; productId?: number },
+): Device {
+  const connectionSpeed = opts?.connectionSpeed ?? 480000000;
+  const productId = opts?.productId ?? 4776;
+  return {
+    DeviceID: deviceId,
+    MessageType: 'Attached',
+    Properties: {
+      ConnectionSpeed: connectionSpeed,
+      ConnectionType: connectionType,
+      DeviceID: deviceId,
+      LocationID: 0,
+      ProductID: productId,
+      SerialNumber: serialNumber,
+      USBSerialNumber: serialNumber,
+    },
+  };
+}
+
 describe('usbmux', function () {
   let usbmux: Usbmux | null;
   let server: Server | null;
@@ -62,113 +87,46 @@ describe('usbmux', function () {
   });
 
   it('should order duplicate UDIDs with USB before Network', function () {
-    const udid = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
-    const net: Device = {
-      DeviceID: 2,
-      MessageType: 'Attached',
-      Properties: {
-        ConnectionSpeed: 480000000,
-        ConnectionType: 'Network',
-        DeviceID: 2,
-        LocationID: 0,
-        ProductID: 4776,
-        SerialNumber: udid,
-        USBSerialNumber: udid,
-      },
-    };
-    const usb: Device = {
-      DeviceID: 1,
-      MessageType: 'Attached',
-      Properties: {
-        ConnectionSpeed: 480000000,
-        ConnectionType: 'USB',
-        DeviceID: 1,
-        LocationID: 0,
-        ProductID: 4776,
-        SerialNumber: udid,
-        USBSerialNumber: udid,
-      },
-    };
+    const net = mockUsbmuxDevice(2, DUP_UDID, 'Network');
+    const usb = mockUsbmuxDevice(1, DUP_UDID, 'USB');
     const sorted = prioritizeUsbOverNetworkForDuplicateUdids([net, usb]);
     expect(sorted.map((d) => d.DeviceID)).to.deep.equal([1, 2]);
   });
 
   it('should not pull duplicate UDIDs into a block when another device is between', function () {
-    const udid = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
-    const net: Device = {
-      DeviceID: 2,
-      MessageType: 'Attached',
-      Properties: {
-        ConnectionSpeed: 480000000,
-        ConnectionType: 'Network',
-        DeviceID: 2,
-        LocationID: 0,
-        ProductID: 4776,
-        SerialNumber: udid,
-        USBSerialNumber: udid,
-      },
-    };
-    const usb: Device = {
-      DeviceID: 1,
-      MessageType: 'Attached',
-      Properties: {
-        ConnectionSpeed: 480000000,
-        ConnectionType: 'USB',
-        DeviceID: 1,
-        LocationID: 0,
-        ProductID: 4776,
-        SerialNumber: udid,
-        USBSerialNumber: udid,
-      },
-    };
-    const other: Device = {
-      DeviceID: 99,
-      MessageType: 'Attached',
-      Properties: {
-        ConnectionSpeed: 0,
-        ConnectionType: 'USB',
-        DeviceID: 99,
-        LocationID: 0,
-        ProductID: 0,
-        SerialNumber: 'other-udid',
-        USBSerialNumber: 'other-udid',
-      },
-    };
+    const net = mockUsbmuxDevice(2, DUP_UDID, 'Network');
+    const usb = mockUsbmuxDevice(1, DUP_UDID, 'USB');
+    const other = mockUsbmuxDevice(99, 'other-udid', 'USB', {
+      connectionSpeed: 0,
+      productId: 0,
+    });
     const sorted = prioritizeUsbOverNetworkForDuplicateUdids([net, other, usb]);
     expect(sorted.map((d) => d.DeviceID)).to.deep.equal([1, 99, 2]);
   });
 
-  it('should preserve order for unique UDIDs', function () {
-    const a: Device = {
-      DeviceID: 1,
-      MessageType: 'Attached',
-      Properties: {
-        ConnectionSpeed: 0,
-        ConnectionType: 'USB',
-        DeviceID: 1,
-        LocationID: 0,
-        ProductID: 0,
-        SerialNumber: 'udid-a',
-        USBSerialNumber: 'udid-a',
-      },
-    };
-    const b: Device = {
-      DeviceID: 2,
-      MessageType: 'Attached',
-      Properties: {
-        ConnectionSpeed: 0,
-        ConnectionType: 'Network',
-        DeviceID: 2,
-        LocationID: 0,
-        ProductID: 0,
-        SerialNumber: 'udid-b',
-        USBSerialNumber: 'udid-b',
-      },
-    };
-    const sorted = prioritizeUsbOverNetworkForDuplicateUdids([a, b]);
+  it('should reorder mixed duplicate and unique UDIDs without breaking interleaving', function () {
+    const aNet = mockUsbmuxDevice(2, 'dup-a', 'Network');
+    const bUsb = mockUsbmuxDevice(10, 'only-b', 'USB', {
+      connectionSpeed: 0,
+      productId: 0,
+    });
+    const aUsb = mockUsbmuxDevice(1, 'dup-a', 'USB');
+    const cNet = mockUsbmuxDevice(20, 'only-c', 'Network', {
+      connectionSpeed: 0,
+      productId: 0,
+    });
+    const sorted = prioritizeUsbOverNetworkForDuplicateUdids([
+      aNet,
+      bUsb,
+      aUsb,
+      cNet,
+    ]);
+    expect(sorted.map((d) => d.DeviceID)).to.deep.equal([1, 10, 2, 20]);
     expect(sorted.map((d) => d.Properties.SerialNumber)).to.deep.equal([
-      'udid-a',
-      'udid-b',
+      'dup-a',
+      'only-b',
+      'dup-a',
+      'only-c',
     ]);
   });
 });
