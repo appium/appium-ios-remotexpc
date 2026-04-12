@@ -1,20 +1,12 @@
-import type { expect as expectType } from 'chai';
+import { expect, use } from 'chai';
+import chaiAsPromised from 'chai-as-promised';
 import { Server, Socket } from 'node:net';
 
-import { Usbmux } from '../../../src/lib/usbmux/index.js';
+import { type Device, Usbmux } from '../../../src/lib/usbmux/index.js';
+import { prioritizeUsbOverNetworkForDuplicateUdids } from '../../../src/lib/usbmux/utils.js';
 import { UDID, fixtures, getServerWithFixtures } from '../fixtures/index.js';
 
-let chai;
-let chaiAsPromised;
-let expect: typeof expectType;
-
-before(async function () {
-  chai = await import('chai');
-  chaiAsPromised = await import('chai-as-promised');
-  chai.use(chaiAsPromised.default);
-  chai.should();
-  expect = chai.expect;
-});
+use(chaiAsPromised);
 
 describe('usbmux', function () {
   let usbmux: Usbmux | null;
@@ -67,5 +59,71 @@ describe('usbmux', function () {
     if (device) {
       expect(device.Properties.SerialNumber).to.equal(UDID);
     }
+  });
+
+  it('should order duplicate UDIDs with USB before Network', function () {
+    const udid = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const net: Device = {
+      DeviceID: 2,
+      MessageType: 'Attached',
+      Properties: {
+        ConnectionSpeed: 480000000,
+        ConnectionType: 'Network',
+        DeviceID: 2,
+        LocationID: 0,
+        ProductID: 4776,
+        SerialNumber: udid,
+        USBSerialNumber: udid,
+      },
+    };
+    const usb: Device = {
+      DeviceID: 1,
+      MessageType: 'Attached',
+      Properties: {
+        ConnectionSpeed: 480000000,
+        ConnectionType: 'USB',
+        DeviceID: 1,
+        LocationID: 0,
+        ProductID: 4776,
+        SerialNumber: udid,
+        USBSerialNumber: udid,
+      },
+    };
+    const sorted = prioritizeUsbOverNetworkForDuplicateUdids([net, usb]);
+    expect(sorted.map((d) => d.DeviceID)).to.deep.equal([1, 2]);
+  });
+
+  it('should preserve order for unique UDIDs', function () {
+    const a: Device = {
+      DeviceID: 1,
+      MessageType: 'Attached',
+      Properties: {
+        ConnectionSpeed: 0,
+        ConnectionType: 'USB',
+        DeviceID: 1,
+        LocationID: 0,
+        ProductID: 0,
+        SerialNumber: 'udid-a',
+        USBSerialNumber: 'udid-a',
+      },
+    };
+    const b: Device = {
+      DeviceID: 2,
+      MessageType: 'Attached',
+      Properties: {
+        ConnectionSpeed: 0,
+        ConnectionType: 'Network',
+        DeviceID: 2,
+        LocationID: 0,
+        ProductID: 0,
+        SerialNumber: 'udid-b',
+        USBSerialNumber: 'udid-b',
+      },
+    };
+    const sorted = prioritizeUsbOverNetworkForDuplicateUdids([a, b]);
+    expect(sorted.map((d) => d.Properties.SerialNumber)).to.deep.equal([
+      'udid-a',
+      'udid-b',
+    ]);
   });
 });
