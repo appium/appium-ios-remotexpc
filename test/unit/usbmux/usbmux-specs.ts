@@ -93,6 +93,51 @@ describe('usbmux', function () {
     expect(sorted.map((d) => d.DeviceID)).to.deep.equal([1, 2]);
   });
 
+  it('should not pull duplicate UDIDs into a block when another device is between', function () {
+    const udid = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const net: Device = {
+      DeviceID: 2,
+      MessageType: 'Attached',
+      Properties: {
+        ConnectionSpeed: 480000000,
+        ConnectionType: 'Network',
+        DeviceID: 2,
+        LocationID: 0,
+        ProductID: 4776,
+        SerialNumber: udid,
+        USBSerialNumber: udid,
+      },
+    };
+    const usb: Device = {
+      DeviceID: 1,
+      MessageType: 'Attached',
+      Properties: {
+        ConnectionSpeed: 480000000,
+        ConnectionType: 'USB',
+        DeviceID: 1,
+        LocationID: 0,
+        ProductID: 4776,
+        SerialNumber: udid,
+        USBSerialNumber: udid,
+      },
+    };
+    const other: Device = {
+      DeviceID: 99,
+      MessageType: 'Attached',
+      Properties: {
+        ConnectionSpeed: 0,
+        ConnectionType: 'USB',
+        DeviceID: 99,
+        LocationID: 0,
+        ProductID: 0,
+        SerialNumber: 'other-udid',
+        USBSerialNumber: 'other-udid',
+      },
+    };
+    const sorted = prioritizeUsbOverNetworkForDuplicateUdids([net, other, usb]);
+    expect(sorted.map((d) => d.DeviceID)).to.deep.equal([1, 99, 2]);
+  });
+
   it('should preserve order for unique UDIDs', function () {
     const a: Device = {
       DeviceID: 1,

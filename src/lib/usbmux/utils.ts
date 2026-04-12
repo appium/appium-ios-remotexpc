@@ -1,47 +1,54 @@
 /**
  * For duplicate UDIDs (USB + Wi‑Fi), order wired/USB before `Network` entries.
- * Preserves relative order of distinct UDIDs and the position of each group.
+ * Reorders **in place across the original indices** for each UDID (no pulling one
+ * UDID into a contiguous block). Among equal rank, input order is kept (stable).
  */
 export function prioritizeUsbOverNetworkForDuplicateUdids<
   T extends {
     Properties: { SerialNumber: string; ConnectionType: string };
   },
 >(devices: T[]): T[] {
-  const byUdid = new Map<string, T[]>();
-  for (const d of devices) {
-    const udid = d.Properties.SerialNumber;
-    let g = byUdid.get(udid);
-    if (!g) {
-      g = [];
-      byUdid.set(udid, g);
+  const result = [...devices];
+  const indicesByUdid = new Map<string, number[]>();
+
+  for (let i = 0; i < result.length; i++) {
+    const udid = result[i].Properties.SerialNumber;
+    let list = indicesByUdid.get(udid);
+    if (!list) {
+      list = [];
+      indicesByUdid.set(udid, list);
     }
-    g.push(d);
+    list.push(i);
   }
 
-  const consumed = new Set<T>();
-  const out: T[] = [];
-
-  for (const d of devices) {
-    if (consumed.has(d)) {
+  for (const indices of indicesByUdid.values()) {
+    if (indices.length < 2) {
       continue;
     }
-    const group = byUdid.get(d.Properties.SerialNumber);
-    if (!group) {
-      continue;
-    }
-    if (group.length === 1) {
-      out.push(d);
-      consumed.add(d);
-      continue;
-    }
-    const sorted = [...group].sort((a, b) => wirelessRank(a) - wirelessRank(b));
-    for (const x of sorted) {
-      consumed.add(x);
-      out.push(x);
+    const slice = indices.map((i) => result[i]);
+    const sorted = stableSortByWirelessRank(slice);
+    for (let k = 0; k < indices.length; k++) {
+      result[indices[k]] = sorted[k];
     }
   }
 
-  return out;
+  return result;
+}
+
+/** Stable sort by `wirelessRank` only (ties keep relative order). */
+function stableSortByWirelessRank<
+  T extends { Properties: { ConnectionType: string } },
+>(items: T[]): T[] {
+  return items
+    .map((item, indexInSlice) => ({ item, indexInSlice }))
+    .sort((a, b) => {
+      const r = wirelessRank(a.item) - wirelessRank(b.item);
+      if (r !== 0) {
+        return r;
+      }
+      return a.indexInSlice - b.indexInSlice;
+    })
+    .map(({ item }) => item);
 }
 
 /** Wireless usbmux rows (same UDID as USB) use ConnectionType `Network`. */
