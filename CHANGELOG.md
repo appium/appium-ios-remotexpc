@@ -1,3 +1,9 @@
+## [0.44.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.44.1...v0.44.2) (2026-04-13)
+
+### Bug Fixes
+
+* Make sure wired devices are listed before wireless ones ([#189](https://github.com/appium/appium-ios-remotexpc/issues/189)) ([852655e](https://github.com/appium/appium-ios-remotexpc/commit/852655ed692e36472106e2e1e0e05d4cba609028))
+
 ## [0.44.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.44.0...v0.44.1) (2026-04-10)
 
 ### Miscellaneous Chores
