@@ -1,7 +1,6 @@
 /**
  * For duplicate UDIDs (USB + Wi‑Fi), order wired/USB before `Network` entries.
- * Reorders **in place across the original indices** for each UDID (no pulling one
- * UDID into a contiguous block). Among equal rank, input order is kept (stable).
+ * Among equal rank, input order is kept (stable). Does not mutate the original array.
  */
 export function prioritizeUsbOverNetworkForDuplicateUdids<
   T extends {
