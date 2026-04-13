@@ -9,6 +9,7 @@ import { LengthBasedSplitter, parsePlist } from '../plist/index.js';
 import type { PlistDictionary } from '../types.js';
 import { type DecodedUsbmux, UsbmuxDecoder } from '../usbmux/usbmux-decoder.js';
 import { UsbmuxEncoder } from '../usbmux/usbmux-encoder.js';
+import { prioritizeUsbOverNetworkForDuplicateUdids } from './utils.js';
 
 /**
  * Interface for device properties
@@ -297,7 +298,8 @@ export class Usbmux extends BaseSocketService {
       },
     });
 
-    return await receivePromise;
+    const devices = await receivePromise;
+    return prioritizeUsbOverNetworkForDuplicateUdids(devices);
   }
 
   /**
