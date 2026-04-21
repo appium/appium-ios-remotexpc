@@ -1230,6 +1230,12 @@ export interface WebInspectorService extends BaseService {
 
   /**
    * Stop listening to messages
+   * @deprecated Use stopListeningAsync() instead for connecting with multiple connections
+   */
+  stopListening(): void;
+
+  /**
+   * Stop listening to messages
    */
   stopListeningAsync(): Promise<void>;
 
