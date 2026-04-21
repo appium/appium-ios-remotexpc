@@ -11,7 +11,7 @@
         {"type": "style", "release": "patch"},
         {"type": "docs", "release": "patch"},
         {"type": "chore", "release": "patch"},
-        {"breaking": true, "release": "minor"}
+        {"breaking": true, "release": "major"}
       ]
     }],
     ["@semantic-release/release-notes-generator", {
@@ -41,8 +41,5 @@
       "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
     }],
     "@semantic-release/github"
-  ],
-  "versionFilter": {
-    "maxVersion": "0.99.999"
-  }
+  ]
 }
