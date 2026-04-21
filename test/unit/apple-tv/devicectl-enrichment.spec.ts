@@ -48,9 +48,6 @@ describe('devicectl-enrichment', function () {
           model: '',
           version: '',
           deviceType: '',
-          minVersion: '17',
-          authTag: 'base-auth-tag',
-          serviceType: '_remotepairing._tcp',
         },
       },
     ];
@@ -72,9 +69,6 @@ describe('devicectl-enrichment', function () {
     expect(enriched[0].metadata.model).to.equal('AppleTV6,2');
     expect(enriched[0].metadata.version).to.equal('17.4');
     expect(enriched[0].metadata.deviceType).to.equal('tv');
-    expect(enriched[0].metadata.minVersion).to.equal('17');
-    expect(enriched[0].metadata.authTag).to.equal('base-auth-tag');
-    expect(enriched[0].metadata.serviceType).to.equal('_remotepairing._tcp');
   });
 
   it('keeps device unchanged when hostnames do not match', async function () {

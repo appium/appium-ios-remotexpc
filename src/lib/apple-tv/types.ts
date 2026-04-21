@@ -35,12 +35,6 @@ export interface AppleTVDevice {
   port: number;
   model: string;
   version: string;
-  /** @deprecated Retained for backward compatibility; not actively used. */
-  minVersion: string;
-  /** @deprecated Retained for backward compatibility; not actively used. */
-  authTag?: string;
-  /** @deprecated Retained for backward compatibility; not actively used. */
-  interfaceIndex?: number;
 }
 
 // Configuration options for the pairing process
