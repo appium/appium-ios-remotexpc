@@ -1,3 +1,9 @@
+## [0.45.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.45.0...v0.45.1) (2026-04-21)
+
+### Bug Fixes
+
+* Revert "refactor!: remove deprecated discovery and WebInspector APIs ([#190](https://github.com/appium/appium-ios-remotexpc/issues/190))" ([#191](https://github.com/appium/appium-ios-remotexpc/issues/191)) ([daf4e78](https://github.com/appium/appium-ios-remotexpc/commit/daf4e78915d1881a170ce43199585281cb601519))
+
 ## [0.45.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.44.2...v0.45.0) (2026-04-21)
 
 ### ⚠ BREAKING CHANGES
