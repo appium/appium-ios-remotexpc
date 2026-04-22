@@ -1,3 +1,9 @@
+## [1.0.1](https://github.com/appium/appium-ios-remotexpc/compare/v1.0.0...v1.0.1) (2026-04-22)
+
+### Miscellaneous Chores
+
+* cleanup .gitignore ([9c5e173](https://github.com/appium/appium-ios-remotexpc/commit/9c5e173fc96a9e6547eeb7c91b3e159aa7d84c31))
+
 ## [1.0.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.45.2...v1.0.0) (2026-04-22)
 
 ### ⚠ BREAKING CHANGES
