@@ -32,6 +32,9 @@ function mergeMetadata(
     model: extra.model || base.model,
     version: extra.version || base.version,
     deviceType: extra.deviceType || base.deviceType,
+    minVersion: base.minVersion,
+    authTag: base.authTag,
+    serviceType: base.serviceType,
   };
 }
 
