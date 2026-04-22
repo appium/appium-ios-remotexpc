@@ -1,3 +1,9 @@
+## [0.45.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.45.1...v0.45.2) (2026-04-22)
+
+### Bug Fixes
+
+* Allow to bump major release version on breaking changes ([#192](https://github.com/appium/appium-ios-remotexpc/issues/192)) ([ab43e97](https://github.com/appium/appium-ios-remotexpc/commit/ab43e97f025517621da3d4841692f34bfbf3a4de))
+
 ## [0.45.1](https://github.com/appium/appium-ios-remotexpc/compare/v0.45.0...v0.45.1) (2026-04-21)
 
 ### Bug Fixes
