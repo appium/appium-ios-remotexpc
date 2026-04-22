@@ -1,3 +1,15 @@
+## [1.0.0](https://github.com/appium/appium-ios-remotexpc/compare/v0.45.2...v1.0.0) (2026-04-22)
+
+### ⚠ BREAKING CHANGES
+
+* DiscoveredDeviceMetadata no longer includes minVersion, authTag, or serviceType.
+* AppleTVDevice no longer includes minVersion, authTag, or interfaceIndex.
+* WebInspectorService.stopListening() removed; use stopListeningAsync() instead.
+
+### Code Refactoring
+
+* remove deprecated discovery and WebInspector APIs ([82f515f](https://github.com/appium/appium-ios-remotexpc/commit/82f515f65aaf74020f45352637f371162e4f2e82))
+
 ## [0.45.2](https://github.com/appium/appium-ios-remotexpc/compare/v0.45.1...v0.45.2) (2026-04-22)
 
 ### Bug Fixes
