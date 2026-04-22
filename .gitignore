@@ -1,8 +1,6 @@
 .idea/
 node_modules/
 build/
-tuntap-bridge/build
-tuntap-bridge/node_modules
 .records
 .DS_Store
 tunnel-registry.json
