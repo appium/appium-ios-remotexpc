@@ -56,7 +56,7 @@ export class DnssdDiscoveryBackend implements IDeviceDiscoveryBackend {
         return;
       }
       const key = `${service.name ?? hostname}:${hostname}:${service.port}`;
-      devices.set(key, resolveDiscoveredDevice(service, hostname, serviceType));
+      devices.set(key, resolveDiscoveredDevice(service, hostname));
     });
 
     browser.on('error', (err: Error) => {
@@ -91,7 +91,6 @@ export class DnssdDiscoveryBackend implements IDeviceDiscoveryBackend {
 async function resolveDiscoveredDevice(
   service: Service,
   hostname: string,
-  serviceType: string,
 ): Promise<DiscoveredDevice | null> {
   try {
     if (!service.port) {
@@ -104,9 +103,6 @@ async function resolveDiscoveredDevice(
       identifier,
       model: txt.model ?? '',
       version: txt.ver ?? '',
-      minVersion: txt.minVer ?? '17',
-      authTag: txt.authTag,
-      serviceType,
     };
     return {
       id: identifier,

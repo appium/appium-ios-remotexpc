@@ -146,15 +146,6 @@ export class WebInspectorService extends BaseService {
 
   /**
    * Stop listening to messages
-   * @deprecated Use stopListeningAsync() instead for connecting with multiple connections
-   */
-  stopListening(): void {
-    this.isReceiving = false;
-    this.messageEmitter.emit('stop');
-  }
-
-  /**
-   * Stop listening to messages
    */
   async stopListeningAsync(): Promise<void> {
     this.isReceiving = false;

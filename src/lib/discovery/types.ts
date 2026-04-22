@@ -2,13 +2,7 @@ export interface DiscoveredDeviceMetadata {
   identifier?: string;
   model?: string;
   version?: string;
-  /** @deprecated Retained for backward compatibility; not actively used. */
-  minVersion?: string;
   deviceType?: string;
-  /** @deprecated Retained for backward compatibility; not actively used. */
-  authTag?: string;
-  /** @deprecated Retained for backward compatibility; not actively used. */
-  serviceType?: string;
 }
 
 export interface DiscoveredDevice {
