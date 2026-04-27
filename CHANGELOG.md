@@ -1,3 +1,9 @@
+## [1.0.2](https://github.com/appium/appium-ios-remotexpc/compare/v1.0.1...v1.0.2) (2026-04-27)
+
+### Bug Fixes
+
+* imports ([#194](https://github.com/appium/appium-ios-remotexpc/issues/194)) ([b163f5d](https://github.com/appium/appium-ios-remotexpc/commit/b163f5db66eac042bc39530afee2c420388c1c3f))
+
 ## [1.0.1](https://github.com/appium/appium-ios-remotexpc/compare/v1.0.0...v1.0.1) (2026-04-22)
 
 ### Miscellaneous Chores
