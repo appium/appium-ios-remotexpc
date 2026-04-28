@@ -52,6 +52,16 @@ import { WebInspectorService } from './services/ios/webinspector/index.js';
 
 const TUNNEL_REGISTRY_PORT = 'tunnelRegistryPort';
 
+export class TunnelAvailabilityError extends Error {
+  readonly code = 'ERR_TUNNEL_AVAILABILITY';
+
+  constructor(message: string) {
+    super(message);
+    this.name = new.target.name;
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+}
+
 export async function startDiagnosticsService(
   udid: string,
 ): Promise<DiagnosticsServiceWithConnection> {
@@ -484,7 +494,7 @@ async function getTunnelRegistryClient(
     tunnelRegistryPort === undefined ||
     String(tunnelRegistryPort).trim() === ''
   ) {
-    throw new Error(
+    throw new TunnelAvailabilityError(
       'Tunnel registry port not found. Please run the tunnel creation script first',
     );
   }
@@ -498,13 +508,13 @@ async function getTunnelInformation(udid: string) {
   const tunnelApiClient = await getTunnelRegistryClient();
   const tunnelExists = await tunnelApiClient.hasTunnel(udid);
   if (!tunnelExists) {
-    throw new Error(
+    throw new TunnelAvailabilityError(
       `No tunnel found for device ${udid}. Please run the tunnel creation script first`,
     );
   }
   const tunnelConnection = await tunnelApiClient.getTunnelConnection(udid);
   if (!tunnelConnection) {
-    throw new Error(
+    throw new TunnelAvailabilityError(
       `Failed to get tunnel connection details for device ${udid}`,
     );
   }

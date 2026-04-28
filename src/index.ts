@@ -91,6 +91,7 @@ export type {
 } from './lib/types.js';
 export { PowerAssertionType } from './lib/types.js';
 export { NetworkMessageType } from './services/ios/dvt/instruments/network-monitor.js';
+export { TunnelAvailabilityError } from './services.js';
 export { XCTestConfigurationEncoder } from './services/ios/testmanagerd/xctestconfiguration.js';
 export type { XCTestConfigurationParams } from './services/ios/testmanagerd/xctestconfiguration.js';
 export { ProcessControl } from './services/ios/dvt/instruments/process-control.js';
