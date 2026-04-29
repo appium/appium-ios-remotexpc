@@ -1,3 +1,9 @@
+## [1.1.0](https://github.com/appium/appium-ios-remotexpc/compare/v1.0.2...v1.1.0) (2026-04-29)
+
+### Features
+
+* Introduce a dedicated class for tunnel availability errors ([#195](https://github.com/appium/appium-ios-remotexpc/issues/195)) ([7911c8d](https://github.com/appium/appium-ios-remotexpc/commit/7911c8d46b384d7223e9feff551f9f02371f2731))
+
 ## [1.0.2](https://github.com/appium/appium-ios-remotexpc/compare/v1.0.1...v1.0.2) (2026-04-27)
 
 ### Bug Fixes
