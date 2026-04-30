@@ -1,3 +1,9 @@
+## [1.1.1](https://github.com/appium/appium-ios-remotexpc/compare/v1.1.0...v1.1.1) (2026-04-30)
+
+### Bug Fixes
+
+* Linter warnings ([#196](https://github.com/appium/appium-ios-remotexpc/issues/196)) ([9440833](https://github.com/appium/appium-ios-remotexpc/commit/94408334f8d339a844c4ed2a06ae48b43d612dbb))
+
 ## [1.1.0](https://github.com/appium/appium-ios-remotexpc/compare/v1.0.2...v1.1.0) (2026-04-29)
 
 ### Features
