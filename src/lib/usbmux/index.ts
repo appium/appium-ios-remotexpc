@@ -423,11 +423,14 @@ export class Usbmux extends BaseSocketService {
     responseCallback: (data: DecodedUsbmux) => T,
   ): { tag: number; receivePromise: Promise<T> } {
     const tag = this._tag++;
-    let timeoutId: NodeJS.Timeout;
+    let timeoutId: NodeJS.Timeout | undefined;
     const receivePromise = (async (): Promise<T> => {
       try {
         return await new Promise<T>((resolve, reject) => {
           this._responseCallbacks[tag] = (data) => {
+            if (timeoutId) {
+              clearTimeout(timeoutId);
+            }
             try {
               // Process the response
               resolve(responseCallback(data));
