@@ -252,9 +252,14 @@ export class LockdownService extends BasePlistService {
     log.info(`LockdownService initialized for UDID: ${udid}`);
 
     if (autoSecure) {
-      this.tlsUpgradePromise = this.tryUpgradeToTLS().catch((err) =>
-        log.warn(`Auto TLS upgrade failed: ${err.message}`),
-      );
+      this.tlsUpgradePromise = (async () => {
+        try {
+          await this.tryUpgradeToTLS();
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          log.warn(`Auto TLS upgrade failed: ${message}`);
+        }
+      })();
     }
   }
 

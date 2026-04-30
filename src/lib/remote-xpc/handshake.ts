@@ -31,9 +31,14 @@ class Handshake {
         return reject(new Error('Socket is not writable'));
       }
 
-      this._socket.write(frame, (error: Error | null | undefined) =>
-        error ? reject(error) : resolve(),
-      );
+      const onError = (error?: Error) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve();
+        }
+      };
+      this._socket.write(frame, onError);
     });
   }
 

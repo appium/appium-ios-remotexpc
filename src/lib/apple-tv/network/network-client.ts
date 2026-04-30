@@ -77,14 +77,15 @@ export class NetworkClient implements NetworkClientInterface {
         return;
       }
 
-      this.socket.write(packet, (error) => {
+      const onError = (error: Error | undefined) => {
         if (error) {
           log.error('Send packet error:', error);
           reject(new NetworkError('Failed to send packet'));
         } else {
           resolve();
         }
-      });
+      };
+      this.socket.write(packet, onError);
     });
   }
 

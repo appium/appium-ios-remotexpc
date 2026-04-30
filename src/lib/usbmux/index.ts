@@ -372,8 +372,7 @@ export class Usbmux extends BaseSocketService {
     return new Promise((resolve, reject) => {
       // If the socket is still open, end it gracefully.
       if (!this._socketClient.destroyed) {
-        // End the connection and then destroy it once closed.
-        this._socketClient.end((err?: Error) => {
+        const onError = (err?: Error) => {
           if (err) {
             log.error(`Error closing usbmux socket: ${err}`);
             this._socketClient.destroy();
@@ -382,7 +381,9 @@ export class Usbmux extends BaseSocketService {
             this._socketClient.destroy();
             resolve();
           }
-        });
+        };
+        // End the connection and then destroy it once closed.
+        this._socketClient.end(onError);
       } else {
         resolve();
       }
@@ -395,9 +396,9 @@ export class Usbmux extends BaseSocketService {
    * @private
    */
   private _handleData(data: DecodedUsbmux): void {
-    const cb = this._responseCallbacks[data.header.tag];
-    if (cb) {
-      cb(data);
+    const handler = this._responseCallbacks[data.header.tag];
+    if (handler) {
+      handler(data);
     }
   }
 
@@ -588,7 +589,7 @@ export class RelayService {
   async stop(): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       if (this.server) {
-        this.server.close((err?: Error) => {
+        const onError = (err?: Error) => {
           if (err) {
             log.error(`Error stopping relay server: ${err}`);
             reject(err);
@@ -596,7 +597,8 @@ export class RelayService {
             log.info('Relay server stopped');
             resolve();
           }
-        });
+        };
+        this.server.close(onError);
       } else {
         resolve();
       }

@@ -190,10 +190,14 @@ class SyslogService extends EventEmitter implements SyslogServiceInterface {
       this.packetStreamPromise = this.processPacketStream(packetSource);
 
       // Handle any errors from the stream processing
-      this.packetStreamPromise.catch((error) => {
-        log.error(`Packet stream processing failed: ${error}`);
-        this.emit('error', error);
-      });
+      void (async () => {
+        try {
+          await this.packetStreamPromise;
+        } catch (error) {
+          log.error(`Packet stream processing failed: ${error}`);
+          this.emit('error', error);
+        }
+      })();
     }
   }
 

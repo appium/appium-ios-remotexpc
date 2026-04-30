@@ -328,7 +328,11 @@ export class AfcService {
     }
     const handle = await this.fopen(resolved, 'r');
     const stream = this.createReadStream(handle, st.st_size);
-    stream.once('close', () => this.fclose(handle).catch(() => {}));
+    stream.once('close', async () => {
+      try {
+        await this.fclose(handle);
+      } catch {}
+    });
     return stream;
   }
 
@@ -372,7 +376,7 @@ export class AfcService {
       recursive = false,
       match,
       overwrite = true,
-      callback,
+      callback: onPullProgress,
     } = options ?? {};
 
     if (!(await this.exists(remoteSrc))) {
@@ -391,8 +395,8 @@ export class AfcService {
 
       await this._pullFile(remoteFilePath, localFilePath);
 
-      if (callback) {
-        await callback(remoteFilePath, localFilePath, false);
+      if (onPullProgress) {
+        await onPullProgress(remoteFilePath, localFilePath, false);
       }
     };
 
@@ -425,7 +429,7 @@ export class AfcService {
     await this._pullRecursiveInternal(remoteSrc, localDst, {
       match,
       overwrite,
-      callback,
+      callback: onPullProgress,
     });
   }
 
@@ -606,7 +610,7 @@ export class AfcService {
     options?: Omit<PullOptions, 'recursive'>,
     relativePath = '',
   ): Promise<void> {
-    const { match, overwrite = true, callback } = options ?? {};
+    const { match, overwrite = true, callback: onPullProgress } = options ?? {};
 
     let localDirPath: string;
     if (!relativePath) {
@@ -642,16 +646,16 @@ export class AfcService {
       if (!dirCreated) {
         await fsp.mkdir(localDirPath, { recursive: true });
         dirCreated = true;
-        if (callback) {
-          await callback(remoteSrcDir, localDirPath, true);
+        if (onPullProgress) {
+          await onPullProgress(remoteSrcDir, localDirPath, true);
         }
       }
     };
     // For root directory (empty relativePath), always create it
     if (!relativePath) {
       await fsp.mkdir(localDirPath, { recursive: true });
-      if (callback) {
-        await callback(remoteSrcDir, localDirPath, true);
+      if (onPullProgress) {
+        await onPullProgress(remoteSrcDir, localDirPath, true);
       }
     }
 
@@ -682,8 +686,8 @@ export class AfcService {
 
         await this._pullFile(entryPath, targetPath);
 
-        if (callback) {
-          await callback(entryPath, targetPath, false);
+        if (onPullProgress) {
+          await onPullProgress(entryPath, targetPath, false);
         }
       }
     }

@@ -150,7 +150,13 @@ export class XCUITestService extends EventEmitter<XCUITestServiceEvents> {
         'Exec callback listener already running. Restarting with fresh configuration.',
       );
       this.listenerAbortController?.abort();
-      this.callbackListenerPromise.catch(() => {});
+      void (async () => {
+        try {
+          await this.callbackListenerPromise;
+        } catch {
+          // Ignore stale listener failure during restart.
+        }
+      })();
       this.callbackListenerPromise = null;
       this.listenerAbortController = null;
     }
@@ -167,98 +173,99 @@ export class XCUITestService extends EventEmitter<XCUITestServiceEvents> {
 
     const listenerPromise: Promise<void> = (async () => {
       let consecutiveEmptyPolls = 0;
+      try {
+        while (!signal.aborted) {
+          try {
+            const result = await this.execConnection.recvPlistWithTimeout(
+              this.execChannelCode,
+              1000,
+            );
 
-      while (!signal.aborted) {
-        try {
-          const result = await this.execConnection.recvPlistWithTimeout(
-            this.execChannelCode,
-            1000,
-          );
+            if (!result) {
+              consecutiveEmptyPolls++;
+              if (consecutiveEmptyPolls >= MAX_CONSECUTIVE_EMPTY_POLLS) {
+                log.warn(
+                  `No callbacks received for ${MAX_CONSECUTIVE_EMPTY_POLLS} consecutive polls (~${MAX_CONSECUTIVE_EMPTY_POLLS}s). ` +
+                    'The exec connection may be dead.',
+                );
+                this._lastListenerError = new Error(
+                  `Exec connection silent for ${MAX_CONSECUTIVE_EMPTY_POLLS}s — likely dead`,
+                );
+                this._running = false;
+                this.finishedDeferred?.resolve('failed');
+                break;
+              }
+              continue; // Timeout — poll again
+            }
 
-          if (!result) {
-            consecutiveEmptyPolls++;
-            if (consecutiveEmptyPolls >= MAX_CONSECUTIVE_EMPTY_POLLS) {
-              log.warn(
-                `No callbacks received for ${MAX_CONSECUTIVE_EMPTY_POLLS} consecutive polls (~${MAX_CONSECUTIVE_EMPTY_POLLS}s). ` +
-                  'The exec connection may be dead.',
+            consecutiveEmptyPolls = 0;
+
+            const [selector, auxiliaries] = result;
+            this.handleCallback(selector, auxiliaries);
+
+            const needsReply = this.execConnection.lastMessageExpectsReply(
+              this.execChannelCode,
+            );
+
+            if (selector === SELECTOR.testRunnerReady && this.configPayload) {
+              log.info(
+                'Test runner ready. Sending XCTestConfiguration response...',
               );
-              this._lastListenerError = new Error(
-                `Exec connection silent for ${MAX_CONSECUTIVE_EMPTY_POLLS}s — likely dead`,
+              await this.execConnection.sendReply(
+                this.execChannelCode,
+                this.configPayload,
               );
+              log.info('XCTestConfiguration response sent');
+              this.configReplyDeferred?.resolve();
+            } else if (needsReply) {
+              // Acknowledge to prevent testmanagerd connection timeout.
+              await this.execConnection.sendReply(this.execChannelCode);
+            }
+
+            if (selector === SELECTOR.testPlanFinished) {
               this._running = false;
-              this.finishedDeferred?.resolve('failed');
+              const status =
+                this._lastTestSummary && this._lastTestSummary.failureCount > 0
+                  ? 'failed'
+                  : 'passed';
+              this.finishedDeferred?.resolve(status);
               break;
             }
-            continue; // Timeout — poll again
-          }
-
-          consecutiveEmptyPolls = 0;
-
-          const [selector, auxiliaries] = result;
-          this.handleCallback(selector, auxiliaries);
-
-          const needsReply = this.execConnection.lastMessageExpectsReply(
-            this.execChannelCode,
-          );
-
-          if (selector === SELECTOR.testRunnerReady && this.configPayload) {
-            log.info(
-              'Test runner ready. Sending XCTestConfiguration response...',
-            );
-            await this.execConnection.sendReply(
-              this.execChannelCode,
-              this.configPayload,
-            );
-            log.info('XCTestConfiguration response sent');
-            this.configReplyDeferred?.resolve();
-          } else if (needsReply) {
-            // Acknowledge to prevent testmanagerd connection timeout.
-            await this.execConnection.sendReply(this.execChannelCode);
-          }
-
-          if (selector === SELECTOR.testPlanFinished) {
+          } catch (err: any) {
+            if (signal.aborted) {
+              break;
+            }
+            this._lastListenerError =
+              err instanceof Error ? err : new Error(String(err));
             this._running = false;
-            const status =
-              this._lastTestSummary && this._lastTestSummary.failureCount > 0
-                ? 'failed'
-                : 'passed';
-            this.finishedDeferred?.resolve(status);
+
+            // Unblock startExecutingTestPlan if it's waiting for config reply
+            this.configReplyDeferred?.resolve();
+            this.configReplyDeferred = null;
+
+            if (isTransportError(err)) {
+              log.debug(
+                `Exec listener transport error: ${this._lastListenerError.message}`,
+              );
+            } else {
+              log.debug(
+                `Exec listener protocol error: ${this._lastListenerError.message}`,
+              );
+            }
+
+            this.finishedDeferred?.resolve('failed');
             break;
           }
-        } catch (err: any) {
-          if (signal.aborted) {
-            break;
-          }
-          this._lastListenerError =
-            err instanceof Error ? err : new Error(String(err));
-          this._running = false;
-
-          // Unblock startExecutingTestPlan if it's waiting for config reply
-          this.configReplyDeferred?.resolve();
-          this.configReplyDeferred = null;
-
-          if (isTransportError(err)) {
-            log.debug(
-              `Exec listener transport error: ${this._lastListenerError.message}`,
-            );
-          } else {
-            log.debug(
-              `Exec listener protocol error: ${this._lastListenerError.message}`,
-            );
-          }
-
-          this.finishedDeferred?.resolve('failed');
-          break;
+        }
+      } finally {
+        if (this.callbackListenerPromise === listenerPromise) {
+          this.callbackListenerPromise = null;
+        }
+        if (this.listenerAbortController?.signal === signal) {
+          this.listenerAbortController = null;
         }
       }
-    })().finally(() => {
-      if (this.callbackListenerPromise === listenerPromise) {
-        this.callbackListenerPromise = null;
-      }
-      if (this.listenerAbortController?.signal === signal) {
-        this.listenerAbortController = null;
-      }
-    });
+    })();
     this.callbackListenerPromise = listenerPromise;
   }
 

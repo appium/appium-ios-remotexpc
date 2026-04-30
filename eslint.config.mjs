@@ -3,6 +3,20 @@ import appiumConfig from '@appium/eslint-config-appium-ts';
 export default [
   ...appiumConfig,
   {
+    files: [
+      'src/lib/plist/length-based-splitter.ts',
+      'src/lib/plist/plist-decoder.ts',
+      'src/lib/plist/plist-encoder.ts',
+      'src/lib/usbmux/usbmux-decoder.ts',
+      'src/lib/usbmux/usbmux-encoder.ts',
+      'src/services/ios/afc/stream-utils.ts',
+    ],
+    rules: {
+      // These files implement Node stream APIs that require callback signatures.
+      'promise/prefer-await-to-callbacks': 'off',
+    },
+  },
+  {
     files: ['**/*.ts'],
     settings: {
       // Ensure import resolution checks TS sources in this repo's src tree.
