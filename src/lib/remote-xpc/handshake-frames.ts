@@ -165,7 +165,7 @@ export class Frame {
   }
 
   serialize(): Buffer {
-    if (this.type === null) {
+    if (this.type == null) {
       throw new InvalidDataError(
         `${this.constructor.name} is missing frame type`,
       );

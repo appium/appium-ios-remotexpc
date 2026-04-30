@@ -37,7 +37,7 @@ export class PacketStreamServer extends EventEmitter {
 
     await new Promise<void>((resolve, reject) => {
       server.once('error', reject);
-      server.listen(this.port, () => resolve);
+      server.listen(this.port, resolve);
     });
     log.info(`Packet stream server listening on port ${this.port}`);
   }

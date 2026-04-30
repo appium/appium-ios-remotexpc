@@ -1,3 +1,4 @@
+import { access } from 'node:fs/promises';
 import { Server, Socket, createConnection, createServer } from 'node:net';
 import { release } from 'node:os';
 
@@ -77,8 +78,7 @@ export interface SocketOptions {
  */
 async function fileExists(path: string): Promise<boolean> {
   try {
-    const fs = await import('node:fs');
-    await fs.promises.access(path);
+    await access(path);
     return true;
   } catch {
     return false;
@@ -424,49 +424,38 @@ export class Usbmux extends BaseSocketService {
   ): { tag: number; receivePromise: Promise<T> } {
     const tag = this._tag++;
     let timeoutId: NodeJS.Timeout;
-    const receivePromise = new Promise<T>((resolve, reject) => {
-      this._responseCallbacks[tag] = (data) => {
-        try {
-          // Clear the timeout to prevent it from triggering
-          if (timeoutId) {
-            clearTimeout(timeoutId);
-          }
-
-          // Process the response
-          resolve(responseCallback(data));
-        } catch (e) {
-          reject(e);
-        } finally {
-          delete this._responseCallbacks[tag];
-        }
-      };
-
-      // Set the timeout handler
-      timeoutId = setTimeout(() => {
-        if (this._responseCallbacks[tag]) {
-          delete this._responseCallbacks[tag];
-          log.warn(
-            `Timeout waiting for response with tag ${tag} after ${timeout}ms`,
-          );
-          reject(
-            new Error(
-              `Failed to receive any data within the timeout: ${timeout}ms - The device might be busy or unresponsive`,
-            ),
-          );
-        }
-      }, timeout);
-    });
-
-    // Add cleanup handler when promise is settled
-    void (async () => {
+    const receivePromise = (async (): Promise<T> => {
       try {
-        await receivePromise;
-      } catch {
-        // Ignore here; caller handles receivePromise rejection.
+        return await new Promise<T>((resolve, reject) => {
+          this._responseCallbacks[tag] = (data) => {
+            try {
+              // Process the response
+              resolve(responseCallback(data));
+            } catch (e) {
+              reject(e);
+            }
+          };
+
+          // Set the timeout handler
+          timeoutId = setTimeout(() => {
+            log.warn(
+              `Timeout waiting for response with tag ${tag} after ${timeout}ms`,
+            );
+            reject(
+              new Error(
+                `Failed to receive any data within the timeout: ${timeout}ms - The device might be busy or unresponsive`,
+              ),
+            );
+          }, timeout);
+        });
+      } catch (error) {
+        log.debug(`Receive failed for tag ${tag}: ${error}`);
+        return undefined as T;
       } finally {
-        if (this._responseCallbacks[tag]) {
-          delete this._responseCallbacks[tag];
+        if (timeoutId) {
+          clearTimeout(timeoutId);
         }
+        delete this._responseCallbacks[tag];
       }
     })();
 
