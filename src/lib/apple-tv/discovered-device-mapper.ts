@@ -1,6 +1,9 @@
 import type { DiscoveredDevice } from '../discovery/types.js';
 import type { AppleTVDevice } from './types.js';
 
+/**
+ * Convert a discovered device to an AppleTV-specific model when applicable.
+ */
 export function toAppleTVDevice(
   device: DiscoveredDevice,
 ): AppleTVDevice | null {
@@ -29,16 +32,25 @@ export function toAppleTVDevice(
   };
 }
 
+/**
+ * Convert and filter discovered devices into Apple TV device list.
+ */
 export function toAppleTVDevices(devices: DiscoveredDevice[]): AppleTVDevice[] {
   return devices
     .map((device) => toAppleTVDevice(device))
     .filter((device): device is AppleTVDevice => Boolean(device));
 }
 
+/**
+ * Convert unknown metadata field to string or empty string.
+ */
 function toStringValue(value: unknown): string {
   return typeof value === 'string' ? value : '';
 }
 
+/**
+ * Check whether discovered device metadata indicates Apple TV hardware.
+ */
 function isLikelyAppleTV(device: DiscoveredDevice): boolean {
   const deviceType = toStringValue(device.metadata.deviceType).toLowerCase();
   // include all devices if device type is not available

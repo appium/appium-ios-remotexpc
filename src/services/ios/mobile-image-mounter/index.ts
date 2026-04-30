@@ -16,20 +16,20 @@ import { BaseService } from '../base-service.js';
 const log = getLogger('MobileImageMounterService');
 
 /**
+ * Interface for image-related responses
+ */
+export interface ImageResponse extends BaseResponse {
+  ImagePresent?: boolean;
+  ImageSignature?: Buffer[] | Buffer;
+}
+
+/**
  * Base interface for service responses
  */
 interface BaseResponse {
   Status?: string;
   Error?: string;
   DetailedError?: string;
-}
-
-/**
- * Interface for image-related responses
- */
-export interface ImageResponse extends BaseResponse {
-  ImagePresent?: boolean;
-  ImageSignature?: Buffer[] | Buffer;
 }
 
 /**

@@ -12,6 +12,9 @@ type AfcWriteDispatcher = (
   thisLenOverride?: number,
 ) => Promise<void>;
 
+/**
+ * Create a readable stream that pulls file chunks over AFC READ requests.
+ */
 export function createAfcReadStream(
   handle: bigint,
   size: bigint,
@@ -52,6 +55,9 @@ export function createAfcReadStream(
   });
 }
 
+/**
+ * Create a writable stream that pushes data over AFC WRITE requests.
+ */
 export function createAfcWriteStream(
   handle: bigint,
   dispatch: AfcWriteDispatcher,

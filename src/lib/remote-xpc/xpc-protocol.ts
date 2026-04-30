@@ -20,9 +20,12 @@ export const XPC_TYPES: { [key: string]: number } = {
   fileTransfer: 0x0001a000,
 };
 
-// Helper: calculates padding bytes needed to align a length to a multiple of 4.
-function calcPadding(len: number): number {
-  return (4 - (len % 4)) % 4;
+// Interface for an XPC message.
+export interface XPCMessage {
+  flags: number;
+  id?: bigint | number;
+  body?: XPCDictionary | null;
+  size?: number;
 }
 
 // A simple binary writer that collects Buffer chunks.
@@ -125,14 +128,6 @@ class Reader {
   }
 }
 
-// Interface for an XPC message.
-export interface XPCMessage {
-  flags: number;
-  id?: bigint | number;
-  body?: XPCDictionary | null;
-  size?: number;
-}
-
 /**
  * Encodes a message object into an XPC Buffer.
  * A message is an object like:
@@ -214,6 +209,13 @@ export function decodeMessage(buffer: Buffer): XPCMessage {
   }
 
   return { flags, id: msgId, body: decodedValue as XPCDictionary };
+}
+
+/**
+ * Helper: calculates padding bytes needed to align a length to a multiple of 4.
+ */
+function calcPadding(len: number): number {
+  return (4 - (len % 4)) % 4;
 }
 
 /**

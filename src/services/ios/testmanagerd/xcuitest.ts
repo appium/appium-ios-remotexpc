@@ -39,7 +39,10 @@ import {
 
 const log = getLogger('XCUITestService');
 
-// #region XCUITestService
+type InstalledAppInfo = {
+  Path?: string;
+  CFBundleExecutable?: string;
+};
 
 /**
  * XCUITestService orchestrates the full XCTest launch lifecycle
@@ -519,15 +522,6 @@ export class XCUITestService extends EventEmitter<XCUITestServiceEvents> {
   }
 }
 
-// #endregion
-
-// #region XCTestRunner
-
-type InstalledAppInfo = {
-  Path?: string;
-  CFBundleExecutable?: string;
-};
-
 /**
  * High-level XCTest runner that manages service setup, launch, execution, and cleanup.
  */
@@ -799,8 +793,6 @@ export class XCTestRunner extends EventEmitter<XCTestRunnerEvents> {
     }
   }
 }
-
-// #endregion
 
 /** High-level XCTest runner instance. */
 export function createXCTestRunner(options: XCTestRunnerOptions): XCTestRunner {

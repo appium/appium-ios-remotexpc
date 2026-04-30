@@ -1,13 +1,22 @@
 import type { PlistDictionary } from '../../../lib/types.js';
 
+/**
+ * Check whether a value is a non-null plain object.
+ */
 export function isPlainObject(value: any): value is Record<string, any> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
+/**
+ * Check whether an object contains all requested property keys.
+ */
 export function hasProperties(obj: any, ...props: string[]): boolean {
   return isPlainObject(obj) ? props.every((prop) => prop in obj) : false;
 }
 
+/**
+ * Check whether data appears to be NSKeyedArchiver payload format.
+ */
 export function isNSKeyedArchiverFormat(data: any): boolean {
   return (
     hasProperties(data, '$objects') &&
@@ -16,10 +25,16 @@ export function isNSKeyedArchiverFormat(data: any): boolean {
   );
 }
 
+/**
+ * Check whether an object matches NSDictionary-style archive keys.
+ */
 export function isNSDictionaryFormat(obj: any): boolean {
   return hasProperties(obj, 'NS.keys', 'NS.objects');
 }
 
+/**
+ * Check whether an object carries NSError-like marker properties.
+ */
 export function hasNSErrorIndicators(obj: any): boolean {
   if (!isPlainObject(obj)) {
     return false;

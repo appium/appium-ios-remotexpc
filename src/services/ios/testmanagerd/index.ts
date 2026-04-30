@@ -40,74 +40,6 @@ const EXPECTED_CLOSE_MESSAGES = [
 ];
 
 /**
- * Determine whether an error is an expected socket-close error
- * that can be safely ignored during teardown.
- */
-export function isExpectedCloseError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') {
-    return false;
-  }
-  const err = error as Partial<Error> & { code?: string };
-  if (err.code && EXPECTED_CLOSE_CODES.includes(err.code)) {
-    return true;
-  }
-  const message = (err.message ?? '').toLowerCase();
-  return EXPECTED_CLOSE_MESSAGES.some((msg) => message.includes(msg));
-}
-
-/**
- * Read a single PrimitiveDictionary entry from a buffer.
- */
-export function readPrimitiveDictEntry(
-  buffer: Buffer,
-  offset: number,
-): { data: any; newOffset: number } {
-  const type = buffer.readUInt32LE(offset);
-  offset += 4;
-
-  switch (type) {
-    case DTX_CONSTANTS.PRIMITIVE_TYPE_NULL:
-      return { data: null, newOffset: offset };
-
-    case DTX_CONSTANTS.PRIMITIVE_TYPE_UINT32:
-      return {
-        data: buffer.readUInt32LE(offset),
-        newOffset: offset + 4,
-      };
-
-    case DTX_CONSTANTS.PRIMITIVE_TYPE_INT64:
-      return {
-        data: Number(buffer.readBigUInt64LE(offset)),
-        newOffset: offset + 8,
-      };
-
-    case DTX_CONSTANTS.PRIMITIVE_TYPE_STRING:
-    case DTX_CONSTANTS.PRIMITIVE_TYPE_BYTEARRAY: {
-      const length = buffer.readUInt32LE(offset);
-      offset += 4;
-      const data = buffer.subarray(offset, offset + length);
-
-      if (type === DTX_CONSTANTS.PRIMITIVE_TYPE_STRING) {
-        return { data: data.toString('utf8'), newOffset: offset + length };
-      }
-
-      // For bytearrays, try to decode as NSKeyedArchiver plist
-      let parsed: any = data;
-      try {
-        const plistData = parseBinaryPlist(data);
-        parsed = decodeNSKeyedArchiver(plistData);
-      } catch {
-        // Not a plist, return raw buffer
-      }
-      return { data: parsed, newOffset: offset + length };
-    }
-
-    default:
-      throw new Error(`Unknown PrimitiveDict type: 0x${type.toString(16)}`);
-  }
-}
-
-/**
  * DvtTestmanagedProxyService provides access to Apple's testmanagerd functionality
  * over the DTX binary protocol. This service enables XCTest session management
  * for running tests without xcodebuild.
@@ -989,5 +921,73 @@ export class DvtTestmanagedProxyService extends BaseService {
       default:
         throw new Error(`Unknown auxiliary type: ${type}`);
     }
+  }
+}
+
+/**
+ * Determine whether an error is an expected socket-close error
+ * that can be safely ignored during teardown.
+ */
+export function isExpectedCloseError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  const err = error as Partial<Error> & { code?: string };
+  if (err.code && EXPECTED_CLOSE_CODES.includes(err.code)) {
+    return true;
+  }
+  const message = (err.message ?? '').toLowerCase();
+  return EXPECTED_CLOSE_MESSAGES.some((msg) => message.includes(msg));
+}
+
+/**
+ * Read a single PrimitiveDictionary entry from a buffer.
+ */
+export function readPrimitiveDictEntry(
+  buffer: Buffer,
+  offset: number,
+): { data: any; newOffset: number } {
+  const type = buffer.readUInt32LE(offset);
+  offset += 4;
+
+  switch (type) {
+    case DTX_CONSTANTS.PRIMITIVE_TYPE_NULL:
+      return { data: null, newOffset: offset };
+
+    case DTX_CONSTANTS.PRIMITIVE_TYPE_UINT32:
+      return {
+        data: buffer.readUInt32LE(offset),
+        newOffset: offset + 4,
+      };
+
+    case DTX_CONSTANTS.PRIMITIVE_TYPE_INT64:
+      return {
+        data: Number(buffer.readBigUInt64LE(offset)),
+        newOffset: offset + 8,
+      };
+
+    case DTX_CONSTANTS.PRIMITIVE_TYPE_STRING:
+    case DTX_CONSTANTS.PRIMITIVE_TYPE_BYTEARRAY: {
+      const length = buffer.readUInt32LE(offset);
+      offset += 4;
+      const data = buffer.subarray(offset, offset + length);
+
+      if (type === DTX_CONSTANTS.PRIMITIVE_TYPE_STRING) {
+        return { data: data.toString('utf8'), newOffset: offset + length };
+      }
+
+      // For bytearrays, try to decode as NSKeyedArchiver plist
+      let parsed: any = data;
+      try {
+        const plistData = parseBinaryPlist(data);
+        parsed = decodeNSKeyedArchiver(plistData);
+      } catch {
+        // Not a plist, return raw buffer
+      }
+      return { data: parsed, newOffset: offset + length };
+    }
+
+    default:
+      throw new Error(`Unknown PrimitiveDict type: 0x${type.toString(16)}`);
   }
 }

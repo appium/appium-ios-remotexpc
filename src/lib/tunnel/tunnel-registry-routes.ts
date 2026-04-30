@@ -26,6 +26,11 @@ export interface RouteRecord {
   readonly guard?: (params: Record<string, string>) => boolean;
 }
 
+type CompiledRoute = {
+  route: RouteRecord;
+  matcher: ReturnType<typeof match>;
+};
+
 /**
  * Pathname from {@link IncomingMessage.url} (path + query on the request line).
  */
@@ -67,11 +72,9 @@ export function createRouteDispatcher(
   };
 }
 
-type CompiledRoute = {
-  route: RouteRecord;
-  matcher: ReturnType<typeof match>;
-};
-
+/**
+ * Precompile route patterns into efficient matchers.
+ */
 function compileRoutes(routes: readonly RouteRecord[]): CompiledRoute[] {
   return routes.map((route) => ({
     route,
@@ -79,6 +82,9 @@ function compileRoutes(routes: readonly RouteRecord[]): CompiledRoute[] {
   }));
 }
 
+/**
+ * Normalize path-to-regexp params into a flat string map.
+ */
 function normalizeMatchParams(
   params: Partial<Record<string, string | string[]>>,
 ): Record<string, string> {

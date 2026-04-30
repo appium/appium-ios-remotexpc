@@ -92,6 +92,9 @@ export class XCTestAttachment {
   }
 }
 
+/**
+ * Throw when a testmanagerd callback payload contains NSError-like data.
+ */
 function throwIfNSErrorReply(result: unknown, context: string): void {
   if (result == null || typeof result !== 'object') {
     return;

@@ -54,14 +54,6 @@ const PROG_NAME = 'appium-internal';
 const CLIENT_VERSION_STRING = 'appium-internal-1.0.0';
 
 /**
- * Function to swap bytes for a 16-bit value
- * Used for usbmuxd port numbers
- */
-export function byteSwap16(value: number): number {
-  return ((value & 0xff) << 8) | ((value >> 8) & 0xff);
-}
-
-/**
  * Socket options for connecting to usbmuxd
  */
 export interface SocketOptions {
@@ -69,99 +61,6 @@ export interface SocketOptions {
   socketPort?: number;
   socketHost?: string;
   timeout?: number;
-}
-
-/**
- * Helper function to check if a file exists
- * @param path - Path to check
- * @returns Boolean indicating if the file exists
- */
-async function fileExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Connects a socket to usbmuxd service
- * @param opts - Connection options
- * @returns Promise that resolves with a socket connected to usbmuxd
- */
-export async function getDefaultSocket(
-  opts: Partial<SocketOptions> = {},
-): Promise<Socket> {
-  const defaults = {
-    socketPath: DEFAULT_USBMUXD_SOCKET,
-    socketPort: USBMUXD_PORT,
-    socketHost: DEFAULT_USBMUXD_HOST,
-    timeout: 5000,
-  };
-
-  if (
-    process.env.USBMUXD_SOCKET_ADDRESS &&
-    !opts.socketPath &&
-    !opts.socketPort &&
-    !opts.socketHost
-  ) {
-    log.debug(
-      `Using USBMUXD_SOCKET_ADDRESS environment variable as default socket: ${process.env.USBMUXD_SOCKET_ADDRESS}`,
-    );
-    // "unix:" or "UNIX:" prefix is optional for unix socket paths.
-    const usbmuxdSocketAddress = process.env.USBMUXD_SOCKET_ADDRESS.replace(
-      /^(unix):/i,
-      '',
-    );
-    const [ip, port] = usbmuxdSocketAddress.split(':');
-    if (ip && port) {
-      defaults.socketHost = ip;
-      defaults.socketPort = parseInt(port, 10);
-    } else {
-      defaults.socketPath = usbmuxdSocketAddress;
-    }
-  }
-
-  const { socketPath, socketPort, socketHost, timeout } = {
-    ...defaults,
-    ...opts,
-  };
-
-  let socket: Socket;
-  if (await fileExists(socketPath ?? '')) {
-    socket = createConnection(socketPath ?? '');
-  } else if (
-    process.platform === 'win32' ||
-    (process.platform === 'linux' && /microsoft/i.test(release()))
-  ) {
-    // Connect to usbmuxd when running on WSL1
-    socket = createConnection({
-      port: socketPort as number,
-      host: socketHost as string,
-    });
-  } else {
-    throw new Error(
-      `The usbmuxd socket at '${socketPath}' does not exist or is not accessible`,
-    );
-  }
-
-  return await new Promise<Socket>((resolve, reject) => {
-    const timeoutId = setTimeout(() => {
-      socket.removeAllListeners();
-      reject(new Error(`Connection timed out after ${timeout}ms`));
-    }, timeout ?? 5000);
-
-    socket.once('error', (err) => {
-      clearTimeout(timeoutId);
-      reject(err);
-    });
-
-    socket.once('connect', () => {
-      clearTimeout(timeoutId);
-      resolve(socket);
-    });
-  });
 }
 
 /**
@@ -467,18 +366,6 @@ export class Usbmux extends BaseSocketService {
 }
 
 /**
- * Creates a new usbmux instance
- * @param opts - Socket options
- * @returns Promise that resolves with a usbmux instance
- */
-export async function createUsbmux(
-  opts: Partial<SocketOptions> = {},
-): Promise<Usbmux> {
-  const socket = await getDefaultSocket(opts);
-  return new Usbmux(socket);
-}
-
-/**
  * RelayService class for tunneling connections through a local TCP server
  */
 export class RelayService {
@@ -599,6 +486,105 @@ export class RelayService {
 }
 
 /**
+ * Function to swap bytes for a 16-bit value
+ * Used for usbmuxd port numbers
+ */
+export function byteSwap16(value: number): number {
+  return ((value & 0xff) << 8) | ((value >> 8) & 0xff);
+}
+
+/**
+ * Connects a socket to usbmuxd service
+ * @param opts - Connection options
+ * @returns Promise that resolves with a socket connected to usbmuxd
+ */
+export async function getDefaultSocket(
+  opts: Partial<SocketOptions> = {},
+): Promise<Socket> {
+  const defaults = {
+    socketPath: DEFAULT_USBMUXD_SOCKET,
+    socketPort: USBMUXD_PORT,
+    socketHost: DEFAULT_USBMUXD_HOST,
+    timeout: 5000,
+  };
+
+  if (
+    process.env.USBMUXD_SOCKET_ADDRESS &&
+    !opts.socketPath &&
+    !opts.socketPort &&
+    !opts.socketHost
+  ) {
+    log.debug(
+      `Using USBMUXD_SOCKET_ADDRESS environment variable as default socket: ${process.env.USBMUXD_SOCKET_ADDRESS}`,
+    );
+    // "unix:" or "UNIX:" prefix is optional for unix socket paths.
+    const usbmuxdSocketAddress = process.env.USBMUXD_SOCKET_ADDRESS.replace(
+      /^(unix):/i,
+      '',
+    );
+    const [ip, port] = usbmuxdSocketAddress.split(':');
+    if (ip && port) {
+      defaults.socketHost = ip;
+      defaults.socketPort = parseInt(port, 10);
+    } else {
+      defaults.socketPath = usbmuxdSocketAddress;
+    }
+  }
+
+  const { socketPath, socketPort, socketHost, timeout } = {
+    ...defaults,
+    ...opts,
+  };
+
+  let socket: Socket;
+  if (await fileExists(socketPath ?? '')) {
+    socket = createConnection(socketPath ?? '');
+  } else if (
+    process.platform === 'win32' ||
+    (process.platform === 'linux' && /microsoft/i.test(release()))
+  ) {
+    // Connect to usbmuxd when running on WSL1
+    socket = createConnection({
+      port: socketPort as number,
+      host: socketHost as string,
+    });
+  } else {
+    throw new Error(
+      `The usbmuxd socket at '${socketPath}' does not exist or is not accessible`,
+    );
+  }
+
+  return await new Promise<Socket>((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      socket.removeAllListeners();
+      reject(new Error(`Connection timed out after ${timeout}ms`));
+    }, timeout ?? 5000);
+
+    socket.once('error', (err) => {
+      clearTimeout(timeoutId);
+      reject(err);
+    });
+
+    socket.once('connect', () => {
+      clearTimeout(timeoutId);
+      resolve(socket);
+    });
+  });
+}
+
+/**
+ * Creates a new usbmux instance
+ * @param opts - Socket options
+ * @returns Promise that resolves with a usbmux instance
+ */
+export async function createUsbmux(
+  opts: Partial<SocketOptions> = {},
+): Promise<Usbmux> {
+  const socket = await getDefaultSocket(opts);
+  return new Usbmux(socket);
+}
+
+/**
  * Connects to a device and sets up a relay service in one operation
  * @param deviceID - The device ID to connect to
  * @param port - The port on the device to connect to
@@ -629,5 +615,19 @@ export async function connectAndRelay(
         log.error(`Error stopping relay: ${err}`);
       }
     }
+  }
+}
+
+/**
+ * Helper function to check if a file exists
+ * @param path - Path to check
+ * @returns Boolean indicating if the file exists
+ */
+async function fileExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
   }
 }

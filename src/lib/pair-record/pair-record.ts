@@ -113,6 +113,9 @@ export async function getPairRecord(udid: string): Promise<PairRecord | null> {
 // #region Private helpers
 let box: ReturnType<typeof strongbox> | undefined;
 
+/**
+ * Lazily initialize and return the strongbox container for pair records.
+ */
 function getBox(): ReturnType<typeof strongbox> {
   if (box === undefined) {
     box = strongbox(STRONGBOX_CONTAINER_NAME);
@@ -120,6 +123,9 @@ function getBox(): ReturnType<typeof strongbox> {
   return box;
 }
 
+/**
+ * Build the strongbox item key for a device pair record.
+ */
 function getItemName(udid: string): string {
   return `${PAIR_RECORD_ITEM_PREFIX}${udid}`;
 }

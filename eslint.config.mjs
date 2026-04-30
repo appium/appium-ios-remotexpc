@@ -18,6 +18,12 @@ export default [
   },
   {
     files: ['**/*.ts'],
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
     settings: {
       // Ensure import resolution checks TS sources in this repo's src tree.
       'import-x/resolver': {

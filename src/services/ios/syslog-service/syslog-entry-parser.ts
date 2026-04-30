@@ -106,14 +106,6 @@ const OFFSET_CATEGORY_SIZE = 121;
 const OFFSET_VARIABLE_FIELDS = 129;
 
 /**
- * Decode a buffer slice to a UTF-8 string.
- * Invalid byte sequences are replaced with U+FFFD (replacement character).
- */
-function decodeUtf8(data: Buffer): string {
-  return data.toString('utf8');
-}
-
-/**
  * Get the human-readable name for a syslog log level.
  */
 export function getLogLevelName(level: number): string {
@@ -199,6 +191,14 @@ export function parseSyslogEntry(data: Buffer): SyslogEntry {
 }
 
 /**
+ * Decode a buffer slice to a UTF-8 string.
+ * Invalid byte sequences are replaced with U+FFFD (replacement character).
+ */
+function decodeUtf8(data: Buffer): string {
+  return data.toString('utf8');
+}
+
+/**
  * Cached date formatter for timestamp formatting.
  * Using Intl.DateTimeFormat provides better performance for high-frequency calls.
  */
@@ -253,66 +253,6 @@ const LOG_LEVEL_COLORS: Record<number, string> = {
   [SyslogLogLevel.Error]: RED,
   [SyslogLogLevel.Fault]: RED,
 };
-
-/**
- * Format a syslog entry as a plain (uncolored) string.
- *
- * Format: `TIMESTAMP PROCESS{IMAGE_NAME}[PID] <LEVEL>: MESSAGE [SUBSYSTEM][CATEGORY]`
- *
- * Matches the standard os_trace_relay output format.
- */
-export function formatSyslogEntry(entry: SyslogEntry): string {
-  const ts = formatTimestamp(
-    entry.timestampSeconds,
-    entry.timestampMicroseconds,
-  );
-  const processName = path.basename(entry.filename);
-  const imageName = path.basename(entry.imageName);
-
-  let line = `${ts} ${processName}{${imageName}}[${entry.pid}] <${entry.levelName}>: ${entry.message}`;
-
-  if (entry.label) {
-    line += ` [${entry.label.subsystem}][${entry.label.category}]`;
-  }
-
-  return line;
-}
-
-/**
- * Format a syslog entry as a colored string for terminal display.
- *
- * Color scheme:
- *   Timestamp    → green
- *   Process name → magenta
- *   Image name   → magenta
- *   PID          → cyan
- *   Level        → varies (green=DEBUG, white=INFO/NOTICE, red=ERROR/FAULT)
- *   Message      → same color as level
- *   Label        → cyan
- */
-export function formatSyslogEntryColored(entry: SyslogEntry): string {
-  const ts = formatTimestamp(
-    entry.timestampSeconds,
-    entry.timestampMicroseconds,
-  );
-  const processName = path.basename(entry.filename);
-  const imageName = path.basename(entry.imageName);
-  const levelColor = LOG_LEVEL_COLORS[entry.level] ?? WHITE;
-
-  let line =
-    `${GREEN}${ts}${RESET} ` +
-    `${MAGENTA}${processName}${RESET}` +
-    `{${MAGENTA}${imageName}${RESET}}` +
-    `[${CYAN}${entry.pid}${RESET}] ` +
-    `<${levelColor}${entry.levelName}${RESET}>: ` +
-    `${levelColor}${entry.message}${RESET}`;
-
-  if (entry.label) {
-    line += ` ${CYAN}[${entry.label.subsystem}][${entry.label.category}]${RESET}`;
-  }
-
-  return line;
-}
 
 /**
  * Streaming parser for the os_trace_relay binary syslog protocol.
@@ -411,4 +351,64 @@ export class SyslogProtocolParser {
       }
     }
   }
+}
+
+/**
+ * Format a syslog entry as a plain (uncolored) string.
+ *
+ * Format: `TIMESTAMP PROCESS{IMAGE_NAME}[PID] <LEVEL>: MESSAGE [SUBSYSTEM][CATEGORY]`
+ *
+ * Matches the standard os_trace_relay output format.
+ */
+export function formatSyslogEntry(entry: SyslogEntry): string {
+  const ts = formatTimestamp(
+    entry.timestampSeconds,
+    entry.timestampMicroseconds,
+  );
+  const processName = path.basename(entry.filename);
+  const imageName = path.basename(entry.imageName);
+
+  let line = `${ts} ${processName}{${imageName}}[${entry.pid}] <${entry.levelName}>: ${entry.message}`;
+
+  if (entry.label) {
+    line += ` [${entry.label.subsystem}][${entry.label.category}]`;
+  }
+
+  return line;
+}
+
+/**
+ * Format a syslog entry as a colored string for terminal display.
+ *
+ * Color scheme:
+ *   Timestamp    → green
+ *   Process name → magenta
+ *   Image name   → magenta
+ *   PID          → cyan
+ *   Level        → varies (green=DEBUG, white=INFO/NOTICE, red=ERROR/FAULT)
+ *   Message      → same color as level
+ *   Label        → cyan
+ */
+export function formatSyslogEntryColored(entry: SyslogEntry): string {
+  const ts = formatTimestamp(
+    entry.timestampSeconds,
+    entry.timestampMicroseconds,
+  );
+  const processName = path.basename(entry.filename);
+  const imageName = path.basename(entry.imageName);
+  const levelColor = LOG_LEVEL_COLORS[entry.level] ?? WHITE;
+
+  let line =
+    `${GREEN}${ts}${RESET} ` +
+    `${MAGENTA}${processName}${RESET}` +
+    `{${MAGENTA}${imageName}${RESET}}` +
+    `[${CYAN}${entry.pid}${RESET}] ` +
+    `<${levelColor}${entry.levelName}${RESET}>: ` +
+    `${levelColor}${entry.message}${RESET}`;
+
+  if (entry.label) {
+    line += ` ${CYAN}[${entry.label.subsystem}][${entry.label.category}]${RESET}`;
+  }
+
+  return line;
 }

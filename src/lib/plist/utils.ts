@@ -159,6 +159,54 @@ export function isXmlPlistContent(data: string | Buffer): boolean {
 }
 
 /**
+ * Finds XML tags around a specific position
+ *
+ * @param xmlString - The XML string to search
+ * @param position - The position to search around
+ * @returns An object with the nearest tags before and after the position
+ */
+export function findTagsAroundPosition(
+  xmlString: string,
+  position: number,
+): TagsAroundPosition {
+  return {
+    beforeTag: findTagBefore(xmlString, position),
+    afterTag: findTagAfter(xmlString, position),
+  };
+}
+
+/**
+ * Intelligently cleans XML with Unicode replacement characters
+ *
+ * @param xmlString - The XML string to clean
+ * @param badCharPos - The position of the replacement character
+ * @returns The cleaned XML string
+ */
+export function cleanXmlWithReplacementChar(
+  xmlString: string,
+  badCharPos: number,
+): string {
+  const { beforeTag, afterTag } = findTagsAroundPosition(xmlString, badCharPos);
+
+  if (!beforeTag || !afterTag) {
+    return fallbackCleaning(xmlString);
+  }
+
+  if (beforeTag.end <= badCharPos && badCharPos < afterTag.start) {
+    return cleanBetweenTags(xmlString, beforeTag, afterTag);
+  }
+
+  if (beforeTag.start <= badCharPos && badCharPos < beforeTag.end) {
+    const cleaned = cleanInsideTag(xmlString, beforeTag, afterTag);
+    if (cleaned) {
+      return cleaned;
+    }
+  }
+
+  return removeContentBetween(xmlString, beforeTag.start, afterTag.start);
+}
+
+/**
  * Parses a tag content to extract tag name and determine if it's an opening tag
  *
  * @param tagContent - The content between < and > in an XML tag
@@ -250,23 +298,6 @@ function findTagAfter(xmlString: string, position: number): TagPosition | null {
 }
 
 /**
- * Finds XML tags around a specific position
- *
- * @param xmlString - The XML string to search
- * @param position - The position to search around
- * @returns An object with the nearest tags before and after the position
- */
-export function findTagsAroundPosition(
-  xmlString: string,
-  position: number,
-): TagsAroundPosition {
-  return {
-    beforeTag: findTagBefore(xmlString, position),
-    afterTag: findTagAfter(xmlString, position),
-  };
-}
-
-/**
  * Removes content between two positions in an XML string
  *
  * @param xmlString - The XML string to modify
@@ -342,35 +373,4 @@ function fallbackCleaning(xmlString: string): string {
   }
 
   return xmlString;
-}
-
-/**
- * Intelligently cleans XML with Unicode replacement characters
- *
- * @param xmlString - The XML string to clean
- * @param badCharPos - The position of the replacement character
- * @returns The cleaned XML string
- */
-export function cleanXmlWithReplacementChar(
-  xmlString: string,
-  badCharPos: number,
-): string {
-  const { beforeTag, afterTag } = findTagsAroundPosition(xmlString, badCharPos);
-
-  if (!beforeTag || !afterTag) {
-    return fallbackCleaning(xmlString);
-  }
-
-  if (beforeTag.end <= badCharPos && badCharPos < afterTag.start) {
-    return cleanBetweenTags(xmlString, beforeTag, afterTag);
-  }
-
-  if (beforeTag.start <= badCharPos && badCharPos < beforeTag.end) {
-    const cleaned = cleanInsideTag(xmlString, beforeTag, afterTag);
-    if (cleaned) {
-      return cleaned;
-    }
-  }
-
-  return removeContentBetween(xmlString, beforeTag.start, afterTag.start);
 }

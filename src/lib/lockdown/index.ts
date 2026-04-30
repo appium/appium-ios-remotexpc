@@ -203,39 +203,6 @@ class DeviceManager {
   }
 }
 
-/**
- * RSD handshake on the remote lockdown TCP socket: RSDCheckin, RSDCheckin echo, StartService.
- */
-async function rsdHandshakeLockdownPlistService(
-  conn: ServiceConnection,
-): Promise<void> {
-  const checkin: Record<string, PlistValue> = {
-    Label: LABEL,
-    ProtocolVersion: '2',
-    Request: 'RSDCheckin',
-  };
-
-  const first = await conn.sendPlistRequest(checkin, DEFAULT_TIMEOUT);
-  if (first.Request !== 'RSDCheckin') {
-    throw new LockdownError(
-      `Invalid RSDCheckin response: ${JSON.stringify(first)}`,
-    );
-  }
-
-  const second = await conn.receive(DEFAULT_TIMEOUT);
-  if (!second || second.Request !== 'StartService') {
-    throw new LockdownError(
-      `Expected StartService after RSDCheckin, got: ${JSON.stringify(second)}`,
-    );
-  }
-  if (second.Error) {
-    const desc = second.ErrorDescription ?? 'Unknown error';
-    throw new LockdownError(
-      `RSD remote lockdown service failed: ${String(second.Error)} — ${desc}`,
-    );
-  }
-}
-
 // Main LockdownService class
 export class LockdownService extends BasePlistService {
   private readonly udid: string;
@@ -491,7 +458,7 @@ export class LockdownService extends BasePlistService {
     const relay = this.relayService;
     if (relay) {
       log.info(message);
-      (async () => {
+      void (async () => {
         try {
           await relay.stop();
           log.info('Relay server stopped successfully');
@@ -668,7 +635,9 @@ export async function createLockdownServiceByTunnel(
   return new LockdownService(conn.getSocket(), udid, false);
 }
 
-// Export factory function for backward compatibility
+/**
+ * Create a LockdownService by UDID via usbmux relay (backward-compatible helper).
+ */
 export async function createLockdownServiceByUDID(
   udid: string,
   port = DEFAULT_LOCKDOWN_PORT,
@@ -678,11 +647,46 @@ export async function createLockdownServiceByUDID(
   return factory.createByUDID(udid, port, autoSecure);
 }
 
-// Export the TLS upgrade function for external use
+/**
+ * Upgrade an existing socket connection to TLS using Lockdown-compatible options.
+ */
 export function upgradeSocketToTLS(
   socket: Socket,
   tlsOptions: Partial<ConnectionOptions> = {},
 ): Promise<TLSSocket> {
   const tlsManager = new TLSManager();
   return tlsManager.upgradeSocketToTLS(socket, tlsOptions);
+}
+
+/**
+ * RSD handshake on the remote lockdown TCP socket: RSDCheckin, RSDCheckin echo, StartService.
+ */
+async function rsdHandshakeLockdownPlistService(
+  conn: ServiceConnection,
+): Promise<void> {
+  const checkin: Record<string, PlistValue> = {
+    Label: LABEL,
+    ProtocolVersion: '2',
+    Request: 'RSDCheckin',
+  };
+
+  const first = await conn.sendPlistRequest(checkin, DEFAULT_TIMEOUT);
+  if (first.Request !== 'RSDCheckin') {
+    throw new LockdownError(
+      `Invalid RSDCheckin response: ${JSON.stringify(first)}`,
+    );
+  }
+
+  const second = await conn.receive(DEFAULT_TIMEOUT);
+  if (!second || second.Request !== 'StartService') {
+    throw new LockdownError(
+      `Expected StartService after RSDCheckin, got: ${JSON.stringify(second)}`,
+    );
+  }
+  if (second.Error) {
+    const desc = second.ErrorDescription ?? 'Unknown error';
+    throw new LockdownError(
+      `RSD remote lockdown service failed: ${String(second.Error)} — ${desc}`,
+    );
+  }
 }
