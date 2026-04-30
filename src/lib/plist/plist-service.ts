@@ -15,16 +15,16 @@ const config = {
 };
 
 /**
- * Message type for plist communications
- */
-type PlistMessage = PlistDictionary;
-
-/**
  * Options for PlistService
  */
 export interface PlistServiceOptions {
   maxFrameLength?: number;
 }
+
+/**
+ * Message type for plist communications
+ */
+type PlistMessage = PlistDictionary;
 
 /**
  * Service for communication using plist protocol

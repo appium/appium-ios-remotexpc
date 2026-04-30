@@ -14,20 +14,6 @@ const TSS_SUCCESS_MESSAGE = 'SUCCESS';
 const TSS_REQUEST_TIMEOUT = 10000; // 10 seconds
 const TSS_RULE_IGNORE_VALUE = 255;
 
-export class TSSError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'TSSError';
-  }
-}
-
-export class BuildIdentityNotFoundError extends TSSError {
-  constructor(message: string) {
-    super(message);
-    this.name = 'BuildIdentityNotFoundError';
-  }
-}
-
 export interface TSSResponse {
   [key: string]: any;
   ApImg4Ticket?: Buffer;
@@ -62,6 +48,20 @@ export interface BuildManifest {
   LoadableTrustCache?: ManifestEntry;
   PersonalizedDMG?: ManifestEntry;
   [key: string]: ManifestEntry | undefined;
+}
+
+export class TSSError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'TSSError';
+  }
+}
+
+export class BuildIdentityNotFoundError extends TSSError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'BuildIdentityNotFoundError';
+  }
 }
 
 export class TSSRequest {

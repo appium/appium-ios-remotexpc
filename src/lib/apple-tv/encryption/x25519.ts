@@ -20,6 +20,9 @@ export interface X25519KeyPair {
   privateKey: KeyObject;
 }
 
+/**
+ * Generate an X25519 key pair and return raw 32-byte public key bytes.
+ */
 export function generateX25519KeyPair(): X25519KeyPair {
   try {
     const { publicKey, privateKey } = generateKeyPairSync('x25519');
@@ -43,6 +46,9 @@ export function generateX25519KeyPair(): X25519KeyPair {
   }
 }
 
+/**
+ * Compute the shared secret using local private key and remote public key.
+ */
 export function performX25519DiffieHellman(
   privateKey: KeyObject,
   devicePublicKey: Buffer,

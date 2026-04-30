@@ -16,20 +16,20 @@ import { BaseService } from '../base-service.js';
 const log = getLogger('MobileImageMounterService');
 
 /**
+ * Interface for image-related responses
+ */
+export interface ImageResponse extends BaseResponse {
+  ImagePresent?: boolean;
+  ImageSignature?: Buffer[] | Buffer;
+}
+
+/**
  * Base interface for service responses
  */
 interface BaseResponse {
   Status?: string;
   Error?: string;
   DetailedError?: string;
-}
-
-/**
- * Interface for image-related responses
- */
-export interface ImageResponse extends BaseResponse {
-  ImagePresent?: boolean;
-  ImageSignature?: Buffer[] | Buffer;
 }
 
 /**
@@ -456,7 +456,7 @@ class MobileImageMounterService
 
   private isConnectionDestroyed(): boolean {
     try {
-      const socket = this.connection!.getSocket();
+      const socket = this.connection?.getSocket();
       return !socket || socket.destroyed;
     } catch {
       return true;

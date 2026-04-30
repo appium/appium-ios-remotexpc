@@ -14,22 +14,6 @@ import {
 import { PlistUID } from './plist-uid.js';
 
 /**
- * Checks if a value is a plain object (not null, not an array, not a Date, not a Buffer)
- * @param value - The value to check
- * @returns True if the value is a plain object
- */
-function isPlainObject(value: unknown): boolean {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    !Array.isArray(value) &&
-    !(value instanceof Date) &&
-    !(value instanceof Buffer) &&
-    Object.getPrototypeOf(value) === Object.prototype
-  );
-}
-
-/**
  * Class for creating binary property lists
  */
 class BinaryPlistCreator {
@@ -613,4 +597,20 @@ class BinaryPlistCreator {
 export function createBinaryPlist(obj: PlistValue): Buffer {
   const creator = new BinaryPlistCreator(obj);
   return creator.create();
+}
+
+/**
+ * Checks if a value is a plain object (not null, not an array, not a Date, not a Buffer)
+ * @param value - The value to check
+ * @returns True if the value is a plain object
+ */
+function isPlainObject(value: unknown): boolean {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    !(value instanceof Date) &&
+    !(value instanceof Buffer) &&
+    Object.getPrototypeOf(value) === Object.prototype
+  );
 }

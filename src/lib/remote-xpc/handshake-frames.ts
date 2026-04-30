@@ -117,18 +117,6 @@ class Flags {
   }
 }
 
-// Utility function
-function rawDataRepr(data: Buffer | null | undefined): string {
-  if (!data || data.length === 0) {
-    return 'None';
-  }
-  let r = data.toString('hex');
-  if (r.length > 20) {
-    r = r.slice(0, 20) + '\u2026';
-  }
-  return '<hex:' + r + '>';
-}
-
 // Base frame class
 export class Frame {
   protected definedFlags: Flag[] = [];
@@ -165,6 +153,12 @@ export class Frame {
   }
 
   serialize(): Buffer {
+    if (this.type == null) {
+      throw new InvalidDataError(
+        `${this.constructor.name} is missing frame type`,
+      );
+    }
+
     const body = this.serializeBody();
     this.bodyLen = body.length;
 
@@ -178,7 +172,7 @@ export class Frame {
     const header = STRUCT_HBBBL.pack(
       (this.bodyLen >> 8) & 0xffff,
       this.bodyLen & 0xff,
-      this.type!,
+      this.type,
       flagsVal,
       this.streamId & 0x7fffffff,
     );
@@ -194,8 +188,6 @@ export class Frame {
     return rawDataRepr(this.serializeBody());
   }
 }
-
-// Specific frame implementations
 
 export class SettingsFrame extends Frame {
   static MAX_CONCURRENT_STREAMS = 0x03;
@@ -241,6 +233,8 @@ export class SettingsFrame extends Frame {
     return Buffer.concat(buffers);
   }
 }
+
+// Specific frame implementations
 
 export class DataFrame extends Frame {
   data: Buffer;
@@ -371,6 +365,21 @@ export class WindowUpdateFrame extends Frame {
   serializeBody(): Buffer {
     return STRUCT_L.pack(this.windowIncrement & 0x7fffffff);
   }
+}
+
+// Utility function
+/**
+ * Create a short hexadecimal preview for frame payload logging.
+ */
+function rawDataRepr(data: Buffer | null | undefined): string {
+  if (!data || data.length === 0) {
+    return 'None';
+  }
+  let r = data.toString('hex');
+  if (r.length > 20) {
+    r = r.slice(0, 20) + '\u2026';
+  }
+  return '<hex:' + r + '>';
 }
 
 // Exported constants and types

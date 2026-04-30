@@ -16,9 +16,10 @@ export class Screenshot extends BaseInstrument {
    */
   async getScreenshot(): Promise<Buffer> {
     await this.initialize();
+    const channel = this.requireChannel();
 
-    await this.channel!.call('takeScreenshot')();
-    const result = await this.channel!.receivePlist();
+    await channel.call('takeScreenshot')();
+    const result = await channel.receivePlist();
 
     if (!result) {
       throw new Error('Failed to capture screenshot: received null response');

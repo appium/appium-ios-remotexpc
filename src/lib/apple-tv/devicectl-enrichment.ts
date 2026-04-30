@@ -2,39 +2,9 @@ import { listDevicectlDeviceRecords } from '../discovery/devicectl-device-record
 import type { DevicectlDeviceRecord } from '../discovery/devicectl-device-records.js';
 import type { DiscoveredDevice } from '../discovery/types.js';
 
-function normalizeHost(host?: string): string | undefined {
-  if (!host) {
-    return undefined;
-  }
-  return host.replace(/\.$/, '').toLowerCase();
-}
-
-function hostMatchingKeys(host?: string): string[] {
-  const normalized = normalizeHost(host);
-  if (!normalized) {
-    return [];
-  }
-  const keys = new Set<string>([normalized]);
-  const short = normalized.split('.')[0];
-  if (short) {
-    keys.add(short);
-  }
-  return Array.from(keys);
-}
-
-function mergeMetadata(
-  base: DiscoveredDevice['metadata'],
-  extra: DevicectlDeviceRecord,
-): DiscoveredDevice['metadata'] {
-  return {
-    ...base,
-    identifier: extra.identifier || base.identifier,
-    model: extra.model || base.model,
-    version: extra.version || base.version,
-    deviceType: extra.deviceType || base.deviceType,
-  };
-}
-
+/**
+ * Enrich discovered devices with metadata retrieved from `devicectl`.
+ */
 export async function enrichDiscoveredDevicesWithDevicectl(
   devices: DiscoveredDevice[],
 ): Promise<DiscoveredDevice[]> {
@@ -73,4 +43,46 @@ export async function enrichDiscoveredDevicesWithDevicectl(
       metadata: mergeMetadata(device.metadata, match),
     };
   });
+}
+
+/**
+ * Normalize hostname for case-insensitive comparison and keying.
+ */
+function normalizeHost(host?: string): string | undefined {
+  if (!host) {
+    return undefined;
+  }
+  return host.replace(/\.$/, '').toLowerCase();
+}
+
+/**
+ * Generate candidate lookup keys for matching hostnames.
+ */
+function hostMatchingKeys(host?: string): string[] {
+  const normalized = normalizeHost(host);
+  if (!normalized) {
+    return [];
+  }
+  const keys = new Set<string>([normalized]);
+  const short = normalized.split('.')[0];
+  if (short) {
+    keys.add(short);
+  }
+  return Array.from(keys);
+}
+
+/**
+ * Merge `devicectl` metadata into existing discovered device metadata.
+ */
+function mergeMetadata(
+  base: DiscoveredDevice['metadata'],
+  extra: DevicectlDeviceRecord,
+): DiscoveredDevice['metadata'] {
+  return {
+    ...base,
+    identifier: extra.identifier || base.identifier,
+    model: extra.model || base.model,
+    version: extra.version || base.version,
+    deviceType: extra.deviceType || base.deviceType,
+  };
 }

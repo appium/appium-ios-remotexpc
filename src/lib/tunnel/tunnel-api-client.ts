@@ -13,6 +13,13 @@ const EMPTY_REGISTRY: TunnelRegistry = {
 };
 const DEFAULT_TIMEOUT_MS = 10_000;
 
+export interface TunnelApiClientOptions {
+  /** When true, methods throw on fetch/API errors instead of returning fallback values. Default false. */
+  strict?: boolean;
+  /** Request timeout in milliseconds. Default 10000 (10 seconds). */
+  timeoutMs?: number;
+}
+
 /**
  * API client for tunnel registry operations
  * This client handles communication with the API server for tunnel data
@@ -288,11 +295,4 @@ export class TunnelApiClient {
       clearTimeout(timeoutId);
     }
   }
-}
-
-export interface TunnelApiClientOptions {
-  /** When true, methods throw on fetch/API errors instead of returning fallback values. Default false. */
-  strict?: boolean;
-  /** Request timeout in milliseconds. Default 10000 (10 seconds). */
-  timeoutMs?: number;
 }

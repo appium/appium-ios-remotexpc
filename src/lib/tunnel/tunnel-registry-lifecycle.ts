@@ -33,36 +33,6 @@ export interface WatchTunnelRegistryOptions {
   rsdProbeConnectTimeoutMs?: number;
 }
 
-function probeRsd(
-  host: string,
-  port: number,
-  timeoutMs: number,
-): Promise<boolean> {
-  if (!host || port <= 0) {
-    return Promise.resolve(false);
-  }
-
-  return new Promise((resolve) => {
-    const socket = createConnection({ host, port });
-
-    const finish = (ok: boolean): void => {
-      socket.destroy();
-      resolve(ok);
-    };
-
-    const timer = setTimeout(() => finish(false), timeoutMs);
-
-    socket.once('connect', () => {
-      clearTimeout(timer);
-      finish(true);
-    });
-    socket.once('error', () => {
-      clearTimeout(timer);
-      finish(false);
-    });
-  });
-}
-
 /**
  * Removes a tunnel from the registry when its upstream socket dies, and optionally
  * polls RSD so half-open cases can still be detected.
@@ -173,4 +143,37 @@ export function watchTunnelRegistrySockets(
   }
 
   return { stop };
+}
+
+/**
+ * Probe an RSD socket endpoint and resolve true when reachable.
+ */
+function probeRsd(
+  host: string,
+  port: number,
+  timeoutMs: number,
+): Promise<boolean> {
+  if (!host || port <= 0) {
+    return Promise.resolve(false);
+  }
+
+  return new Promise((resolve) => {
+    const socket = createConnection({ host, port });
+
+    const finish = (ok: boolean): void => {
+      socket.destroy();
+      resolve(ok);
+    };
+
+    const timer = setTimeout(() => finish(false), timeoutMs);
+
+    socket.once('connect', () => {
+      clearTimeout(timer);
+      finish(true);
+    });
+    socket.once('error', () => {
+      clearTimeout(timer);
+      finish(false);
+    });
+  });
 }

@@ -193,12 +193,13 @@ export class DeviceInfo extends BaseInstrument {
     arg?: any,
   ): Promise<any> {
     await this.initialize();
+    const channel = this.requireChannel();
 
-    const call = this.channel!.call(selectorName);
+    const call = channel.call(selectorName);
     const args =
       arg !== undefined ? new MessageAux().appendObj(arg) : undefined;
 
     await call(args);
-    return this.channel!.receivePlist();
+    return channel.receivePlist();
   }
 }

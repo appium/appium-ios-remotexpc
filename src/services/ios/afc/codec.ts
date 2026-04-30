@@ -20,21 +20,50 @@ export interface AfcResponse {
   rawHeader: AfcHeader;
 }
 
+/**
+ * Internal per-socket buffered reader to avoid re-emitting data and race conditions.
+ */
+type SocketWaiter = {
+  n: number;
+  resolve: (buf: Buffer) => void;
+  reject: (err: Error) => void;
+  timer?: NodeJS.Timeout;
+};
+
+type SocketState = {
+  buffer: Buffer;
+  waiters: SocketWaiter[];
+  onData: (chunk: Buffer) => void;
+  onError: (err: Error) => void;
+  onClose: () => void;
+};
+
+/**
+ * Encode a 64-bit unsigned integer as little-endian bytes.
+ */
 export function writeUInt64LE(value: bigint | number): Buffer {
   const buf = Buffer.alloc(8);
   buf.writeBigUInt64LE(BigInt(value), 0);
   return buf;
 }
 
+/**
+ * Read a 64-bit unsigned little-endian integer from a buffer.
+ */
 export function readUInt64LE(buf: Buffer, offset = 0): bigint {
   return buf.readBigUInt64LE(offset);
 }
 
+/**
+ * Convert a UTF-8 string to a null-terminated AFC C-string buffer.
+ */
 export function cstr(str: string): Buffer {
   const s = Buffer.from(str, 'utf8');
   return Buffer.concat([s, NULL_BYTE]);
 }
-
+/**
+ * Build an AFC packet header for the provided operation and payload length.
+ */
 export function encodeHeader(
   op: AfcOpcode,
   packetNum: bigint,
@@ -59,93 +88,11 @@ export function encodeHeader(
   return header;
 }
 
-/**
- * Internal per-socket buffered reader to avoid re-emitting data and race conditions.
- */
-type SocketWaiter = {
-  n: number;
-  resolve: (buf: Buffer) => void;
-  reject: (err: Error) => void;
-  timer?: NodeJS.Timeout;
-};
-type SocketState = {
-  buffer: Buffer;
-  waiters: SocketWaiter[];
-  onData: (chunk: Buffer) => void;
-  onError: (err: Error) => void;
-  onClose: () => void;
-};
-
 const SOCKET_STATES = new WeakMap<net.Socket, SocketState>();
 
-function cleanupSocketState(socket: net.Socket, error?: Error): void {
-  const state = SOCKET_STATES.get(socket);
-  if (!state) {
-    return;
-  }
-
-  // Remove all event listeners to prevent memory leaks
-  socket.removeListener('data', state.onData);
-  socket.removeListener('error', state.onError);
-  socket.removeListener('close', state.onClose);
-  socket.removeListener('end', state.onClose);
-
-  // Reject any pending waiters
-  const err = error || new Error('Socket closed');
-  while (state.waiters.length) {
-    const w = state.waiters.shift()!;
-    if (w.timer) {
-      clearTimeout(w.timer);
-    }
-    w.reject(err);
-  }
-
-  // Remove from WeakMap
-  SOCKET_STATES.delete(socket);
-}
-
-function ensureSocketState(socket: net.Socket): SocketState {
-  let state = SOCKET_STATES.get(socket);
-  if (state) {
-    return state;
-  }
-
-  state = {
-    buffer: Buffer.alloc(0),
-    waiters: [],
-    onData: (chunk: Buffer) => {
-      const st = SOCKET_STATES.get(socket);
-      if (!st) {
-        return;
-      }
-      st.buffer = Buffer.concat([st.buffer, chunk]);
-
-      while (st.waiters.length && st.buffer.length >= st.waiters[0].n) {
-        const w = st.waiters.shift()!;
-        const out = st.buffer.subarray(0, w.n);
-        st.buffer = st.buffer.subarray(w.n);
-        if (w.timer) {
-          clearTimeout(w.timer);
-        }
-        w.resolve(out);
-      }
-    },
-    onError: (err: Error) => {
-      cleanupSocketState(socket, err);
-    },
-    onClose: () => {
-      cleanupSocketState(socket);
-    },
-  };
-
-  socket.on('data', state.onData);
-  socket.once('error', state.onError);
-  socket.once('close', state.onClose);
-  socket.once('end', state.onClose);
-  SOCKET_STATES.set(socket, state);
-  return state;
-}
-
+/**
+ * Read exactly `n` bytes from a socket, waiting up to timeoutMs.
+ */
 export async function readExact(
   socket: net.Socket,
   n: number,
@@ -172,6 +119,9 @@ export async function readExact(
   });
 }
 
+/**
+ * Read and decode an AFC response header from the socket.
+ */
 export async function readAfcHeader(socket: net.Socket): Promise<AfcHeader> {
   const buf = await readExact(socket, AFC_HEADER_SIZE);
   const magic = buf.subarray(0, 8);
@@ -191,6 +141,9 @@ export async function readAfcHeader(socket: net.Socket): Promise<AfcHeader> {
   };
 }
 
+/**
+ * Read and decode a full AFC response (header plus payload).
+ */
 export async function readAfcResponse(
   socket: net.Socket,
 ): Promise<AfcResponse> {
@@ -213,6 +166,9 @@ export async function readAfcResponse(
   };
 }
 
+/**
+ * Send an AFC packet (header and optional payload) to the socket.
+ */
 export async function sendAfcPacket(
   socket: net.Socket,
   op: AfcOpcode,
@@ -240,6 +196,9 @@ export async function sendAfcPacket(
   });
 }
 
+/**
+ * Split a null-terminated UTF-8 buffer into string entries.
+ */
 export function parseCStringArray(buf: Buffer): string[] {
   const parts: string[] = [];
   let start = 0;
@@ -259,6 +218,9 @@ export function parseCStringArray(buf: Buffer): string[] {
   return parts;
 }
 
+/**
+ * Parse alternating key/value C-string entries into an object map.
+ */
 export function parseKeyValueNullList(buf: Buffer): Record<string, string> {
   const arr = parseCStringArray(buf);
   if (arr.length % 2 !== 0) {
@@ -272,10 +234,16 @@ export function parseKeyValueNullList(buf: Buffer): Record<string, string> {
   );
 }
 
+/**
+ * Build AFC payload for FOPEN operation.
+ */
 export function buildFopenPayload(mode: AfcFopenMode, path: string): Buffer {
   return Buffer.concat([writeUInt64LE(mode), cstr(path)]);
 }
 
+/**
+ * Build AFC payload for READ operation.
+ */
 export function buildReadPayload(
   handle: bigint | number,
   size: bigint | number,
@@ -283,26 +251,44 @@ export function buildReadPayload(
   return Buffer.concat([writeUInt64LE(handle), writeUInt64LE(BigInt(size))]);
 }
 
+/**
+ * Build AFC payload for CLOSE operation.
+ */
 export function buildClosePayload(handle: bigint | number): Buffer {
   return writeUInt64LE(handle);
 }
 
+/**
+ * Build AFC payload for REMOVE_PATH operation.
+ */
 export function buildRemovePayload(path: string): Buffer {
   return cstr(path);
 }
 
+/**
+ * Build AFC payload for MAKE_DIR operation.
+ */
 export function buildMkdirPayload(path: string): Buffer {
   return cstr(path);
 }
 
+/**
+ * Build AFC payload for STAT operation.
+ */
 export function buildStatPayload(path: string): Buffer {
   return cstr(path);
 }
 
+/**
+ * Build AFC payload for RENAME_PATH operation.
+ */
 export function buildRenamePayload(src: string, dst: string): Buffer {
   return Buffer.concat([cstr(src), cstr(dst)]);
 }
 
+/**
+ * Build AFC payload for LINK_PATH operation.
+ */
 export function buildLinkPayload(
   type: number,
   target: string,
@@ -321,6 +307,9 @@ export async function recvOnePlist(socket: net.Socket): Promise<any> {
   return parsePlist(respBody);
 }
 
+/**
+ * Perform RSD check-in handshake for raw service sockets.
+ */
 export async function rsdHandshakeForRawService(
   socket: net.Socket,
 ): Promise<void> {
@@ -384,6 +373,9 @@ export async function createRawServiceSocket(
   return socket;
 }
 
+/**
+ * Compute next AFC read chunk size from bytes remaining.
+ */
 export function nextReadChunkSize(left: bigint | number): number {
   const leftNum = typeof left === 'bigint' ? Number(left) : left;
   return leftNum;
@@ -396,4 +388,84 @@ export function nextReadChunkSize(left: bigint | number): number {
  */
 export function nanosecondsToMilliseconds(nanoseconds: string): number {
   return Number(BigInt(nanoseconds) / 1000000n);
+}
+
+/**
+ * Remove socket listeners and reject pending read waiters.
+ */
+function cleanupSocketState(socket: net.Socket, error?: Error): void {
+  const state = SOCKET_STATES.get(socket);
+  if (!state) {
+    return;
+  }
+
+  // Remove all event listeners to prevent memory leaks
+  socket.removeListener('data', state.onData);
+  socket.removeListener('error', state.onError);
+  socket.removeListener('close', state.onClose);
+  socket.removeListener('end', state.onClose);
+
+  // Reject any pending waiters
+  const err = error || new Error('Socket closed');
+  while (state.waiters.length) {
+    const w = state.waiters.shift();
+    if (!w) {
+      continue;
+    }
+    if (w.timer) {
+      clearTimeout(w.timer);
+    }
+    w.reject(err);
+  }
+
+  // Remove from WeakMap
+  SOCKET_STATES.delete(socket);
+}
+
+/**
+ * Ensure per-socket buffered reader state and listeners are initialized.
+ */
+function ensureSocketState(socket: net.Socket): SocketState {
+  let state = SOCKET_STATES.get(socket);
+  if (state) {
+    return state;
+  }
+
+  state = {
+    buffer: Buffer.alloc(0),
+    waiters: [],
+    onData: (chunk: Buffer) => {
+      const st = SOCKET_STATES.get(socket);
+      if (!st) {
+        return;
+      }
+      st.buffer = Buffer.concat([st.buffer, chunk]);
+
+      while (st.waiters.length && st.buffer.length >= st.waiters[0].n) {
+        const w = st.waiters.shift();
+        if (!w) {
+          continue;
+        }
+        const out = st.buffer.subarray(0, w.n);
+        st.buffer = st.buffer.subarray(w.n);
+        if (w.timer) {
+          clearTimeout(w.timer);
+        }
+        w.resolve(out);
+      }
+    },
+    onError: (err: Error) => {
+      cleanupSocketState(socket, err);
+    },
+    onClose: () => {
+      cleanupSocketState(socket);
+    },
+  };
+
+  socket.on('data', state.onData);
+  socket.once('error', state.onError);
+  socket.once('close', state.onClose);
+  socket.once('end', state.onClose);
+  SOCKET_STATES.set(socket, state);
+  return state;
 }

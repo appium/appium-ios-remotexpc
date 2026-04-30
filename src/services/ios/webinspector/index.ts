@@ -119,7 +119,10 @@ export class WebInspectorService extends BaseService {
     try {
       while (!stopped) {
         if (queue.length > 0) {
-          yield queue.shift()!;
+          const next = queue.shift();
+          if (next !== undefined) {
+            yield next;
+          }
         } else {
           const message = await new Promise<PlistMessage | null>((resolve) => {
             if (stopped) {

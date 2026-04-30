@@ -1,9 +1,7 @@
-import { TLSSocket } from 'node:tls';
+import type { ConnectionOptions, TLSSocket } from 'node:tls';
 
-import {
-  LockdownService,
-  upgradeSocketToTLS,
-} from '../../../lib/lockdown/index.js';
+import { upgradeSocketToTLS } from '../../../lib/lockdown/index.js';
+import type { LockdownService } from '../../../lib/lockdown/index.js';
 import { getLogger } from '../../../lib/logger.js';
 import { PlistService } from '../../../lib/plist/plist-service.js';
 import { createUsbmux } from '../../../lib/usbmux/index.js';
@@ -24,7 +22,7 @@ export async function startCoreDeviceProxy(
   lockdownClient: LockdownService,
   deviceID: number | string,
   udid: string,
-  tlsOptions: Partial<import('tls').ConnectionOptions> = {},
+  tlsOptions: Partial<ConnectionOptions> = {},
 ): Promise<{ socket: TLSSocket; plistService: PlistService }> {
   // Wait for TLS upgrade to complete if in progress
   await lockdownClient.waitForTLSUpgrade();

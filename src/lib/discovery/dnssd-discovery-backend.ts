@@ -88,6 +88,9 @@ export class DnssdDiscoveryBackend implements IDeviceDiscoveryBackend {
   }
 }
 
+/**
+ * Convert a discovered dnssd service entry into a normalized device model.
+ */
 async function resolveDiscoveredDevice(
   service: Service,
   hostname: string,
@@ -118,6 +121,9 @@ async function resolveDiscoveredDevice(
   }
 }
 
+/**
+ * Ensure hostnames are returned in fqdn form with trailing dot.
+ */
 function normalizeHostname(host?: string): string | undefined {
   if (!host) {
     return undefined;
@@ -125,6 +131,9 @@ function normalizeHostname(host?: string): string | undefined {
   return host.endsWith('.') ? host : `${host}.`;
 }
 
+/**
+ * Resolve a preferred IPv4 address from service data or DNS lookup.
+ */
 async function resolveIpAddress(
   host?: string,
   addresses?: string[],
@@ -146,6 +155,9 @@ async function resolveIpAddress(
   }
 }
 
+/**
+ * Format a user-facing dnssd browser error with root privilege hint.
+ */
 function formatDnssdBrowserErrorMessage(err: Error): string {
   const baseMessage = `Device discovery error: ${err.message || String(err)}`;
   if (typeof process.getuid === 'function' && process.getuid() !== 0) {

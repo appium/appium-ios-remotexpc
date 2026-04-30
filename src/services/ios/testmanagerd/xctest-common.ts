@@ -95,9 +95,9 @@ export function createDeferred<T>(): DeferredPromise<T> {
   // Node 20 fallback
   let resolve!: (value: T | PromiseLike<T>) => void;
   let reject!: (reason?: unknown) => void;
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
+  const promise = new Promise<T>((_resolve, _reject) => {
+    resolve = _resolve;
+    reject = _reject;
   });
   return { promise, resolve, reject };
 }
@@ -162,6 +162,9 @@ export function resolveTestIdentifier(value: any): string {
   return JSON.stringify(value);
 }
 
+/**
+ * Determine whether an error represents a transport-level socket failure.
+ */
 export function isTransportError(err: unknown): boolean {
   if (!(err instanceof Error) || !('code' in err)) {
     return false;
@@ -226,6 +229,127 @@ export type XCTestEvent =
     }
   | { type: 'testPlanFinished' }
   | { type: 'unknown'; selector: string };
+
+/** Stages of the XCTest run lifecycle, used for error context. */
+export type XCTestRunStage =
+  | 'start_services'
+  | 'lookup_apps'
+  | 'init_exec'
+  | 'launch_runner'
+  | 'authorize'
+  | 'start_plan'
+  | 'wait_finish';
+
+// #endregion
+
+// #region Error Types
+
+/** Event map for XCUITestService — used for typed EventEmitter. */
+export interface XCUITestServiceEvents {
+  xctest: [event: XCTestEvent];
+}
+
+/** Event map for XCTestRunner — used for typed EventEmitter. */
+export interface XCTestRunnerEvents {
+  xctest: [event: XCTestEvent];
+  step: [stage: XCTestRunStage];
+}
+
+// #endregion
+
+/**
+ * Options for configuring an XCUITest session
+ */
+export interface XCUITestOptions {
+  /** Device UDID */
+  udid: string;
+  /** Bundle ID of the XCTest runner app */
+  xctestBundleId: string;
+  /** Bundle ID of the app under test */
+  targetBundleId?: string;
+  /** Environment variables to pass to the test process */
+  env?: Record<string, string>;
+  /** Arguments to pass to the test process */
+  args?: string[];
+  /** Xcode protocol version (default: 36) */
+  xcodeVersion?: number;
+  /** Full path to app under test on device */
+  targetAppPath?: string;
+  /** Product module name for XCTestConfiguration */
+  productModuleName?: string;
+  /** Whether to initialize for UI testing (default: true) */
+  initializeForUITesting?: boolean;
+}
+
+/** High-level XCTest runner options */
+export interface XCTestRunnerOptions {
+  /** Device UDID */
+  udid: string;
+  /** Bundle ID of test runner app (.xctrunner) */
+  testRunnerBundleId: string;
+  /** Bundle ID of app under test */
+  appUnderTestBundleId: string;
+  /** Bundle ID of xctest bundle (without .xctrunner) */
+  xctestBundleId: string;
+  /** Max wait for plan completion in ms (default: 180000) */
+  timeoutMs?: number;
+  /** Xcode protocol version */
+  xcodeVersion?: number;
+  /** Extra launch environment variables */
+  launchEnvironment?: Record<string, string>;
+  /** Launch arguments */
+  launchArguments?: string[];
+  /** Kill existing runner process before launch (default: true) */
+  killExisting?: boolean;
+  /** Test type: 'ui' initializes for UI testing, 'app' does not (default: 'ui') */
+  testType?: 'ui' | 'app';
+}
+
+// #region Option & Result Types
+
+/** Test summary counts parsed from test suite finished callback. */
+export interface XCTestSummary {
+  runCount: number;
+  skipCount: number;
+  failureCount: number;
+  expectedFailureCount: number;
+  uncaughtExceptionCount: number;
+  testDuration: number;
+  totalDuration: number;
+}
+
+/** Result returned by high-level XCTest run */
+export interface XCTestRunResult {
+  status: 'passed' | 'failed' | 'timed_out';
+  sessionIdentifier: string;
+  testRunnerPid: number;
+  durationMs: number;
+  error?: string;
+  testSummary?: XCTestSummary;
+}
+
+/** Structured error with stage context for XCTest run failures. */
+export class XCTestRunError extends Error {
+  readonly stage: XCTestRunStage;
+  readonly selector?: string;
+  readonly recoverable: boolean;
+
+  constructor(
+    message: string,
+    options: {
+      stage: XCTestRunStage;
+      selector?: string;
+      recoverable?: boolean;
+      cause?: unknown;
+    },
+  ) {
+    super(message, { cause: options.cause });
+    this.name = 'XCTestRunError';
+    this.stage = options.stage;
+    this.selector = options.selector;
+    this.recoverable = options.recoverable ?? false;
+  }
+}
 
 /** Parse a raw callback selector + auxiliaries into a typed event. */
 export function parseCallback(
@@ -308,127 +432,6 @@ export function parseCallback(
     default:
       return { type: 'unknown', selector };
   }
-}
-
-// #endregion
-
-// #region Error Types
-
-/** Stages of the XCTest run lifecycle, used for error context. */
-export type XCTestRunStage =
-  | 'start_services'
-  | 'lookup_apps'
-  | 'init_exec'
-  | 'launch_runner'
-  | 'authorize'
-  | 'start_plan'
-  | 'wait_finish';
-
-/** Structured error with stage context for XCTest run failures. */
-export class XCTestRunError extends Error {
-  readonly stage: XCTestRunStage;
-  readonly selector?: string;
-  readonly recoverable: boolean;
-
-  constructor(
-    message: string,
-    options: {
-      stage: XCTestRunStage;
-      selector?: string;
-      recoverable?: boolean;
-      cause?: unknown;
-    },
-  ) {
-    super(message, { cause: options.cause });
-    this.name = 'XCTestRunError';
-    this.stage = options.stage;
-    this.selector = options.selector;
-    this.recoverable = options.recoverable ?? false;
-  }
-}
-
-// #endregion
-
-/** Event map for XCUITestService — used for typed EventEmitter. */
-export interface XCUITestServiceEvents {
-  xctest: [event: XCTestEvent];
-}
-
-/** Event map for XCTestRunner — used for typed EventEmitter. */
-export interface XCTestRunnerEvents {
-  xctest: [event: XCTestEvent];
-  step: [stage: XCTestRunStage];
-}
-
-// #region Option & Result Types
-
-/**
- * Options for configuring an XCUITest session
- */
-export interface XCUITestOptions {
-  /** Device UDID */
-  udid: string;
-  /** Bundle ID of the XCTest runner app */
-  xctestBundleId: string;
-  /** Bundle ID of the app under test */
-  targetBundleId?: string;
-  /** Environment variables to pass to the test process */
-  env?: Record<string, string>;
-  /** Arguments to pass to the test process */
-  args?: string[];
-  /** Xcode protocol version (default: 36) */
-  xcodeVersion?: number;
-  /** Full path to app under test on device */
-  targetAppPath?: string;
-  /** Product module name for XCTestConfiguration */
-  productModuleName?: string;
-  /** Whether to initialize for UI testing (default: true) */
-  initializeForUITesting?: boolean;
-}
-
-/** High-level XCTest runner options */
-export interface XCTestRunnerOptions {
-  /** Device UDID */
-  udid: string;
-  /** Bundle ID of test runner app (.xctrunner) */
-  testRunnerBundleId: string;
-  /** Bundle ID of app under test */
-  appUnderTestBundleId: string;
-  /** Bundle ID of xctest bundle (without .xctrunner) */
-  xctestBundleId: string;
-  /** Max wait for plan completion in ms (default: 180000) */
-  timeoutMs?: number;
-  /** Xcode protocol version */
-  xcodeVersion?: number;
-  /** Extra launch environment variables */
-  launchEnvironment?: Record<string, string>;
-  /** Launch arguments */
-  launchArguments?: string[];
-  /** Kill existing runner process before launch (default: true) */
-  killExisting?: boolean;
-  /** Test type: 'ui' initializes for UI testing, 'app' does not (default: 'ui') */
-  testType?: 'ui' | 'app';
-}
-
-/** Test summary counts parsed from test suite finished callback. */
-export interface XCTestSummary {
-  runCount: number;
-  skipCount: number;
-  failureCount: number;
-  expectedFailureCount: number;
-  uncaughtExceptionCount: number;
-  testDuration: number;
-  totalDuration: number;
-}
-
-/** Result returned by high-level XCTest run */
-export interface XCTestRunResult {
-  status: 'passed' | 'failed' | 'timed_out';
-  sessionIdentifier: string;
-  testRunnerPid: number;
-  durationMs: number;
-  error?: string;
-  testSummary?: XCTestSummary;
 }
 
 // #endregion

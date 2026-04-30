@@ -19,9 +19,10 @@ export class ConditionInducer extends BaseInstrument {
    */
   async list(): Promise<ConditionGroup[]> {
     await this.initialize();
+    const channel = this.requireChannel();
 
-    await this.channel!.call('availableConditionInducers')();
-    const result = await this.channel!.receivePlist();
+    await channel.call('availableConditionInducers')();
+    const result = await channel.receivePlist();
 
     // Handle different response formats
     if (!result) {
@@ -49,6 +50,7 @@ export class ConditionInducer extends BaseInstrument {
    */
   async set(profileIdentifier: string): Promise<void> {
     await this.initialize();
+    const channel = this.requireChannel();
 
     const groups = await this.list();
 
@@ -68,12 +70,12 @@ export class ConditionInducer extends BaseInstrument {
           .appendObj(group.identifier)
           .appendObj(profile.identifier);
 
-        await this.channel!.call(
-          'enableConditionWithIdentifier_profileIdentifier_',
-        )(args);
+        await channel.call('enableConditionWithIdentifier_profileIdentifier_')(
+          args,
+        );
 
         // Wait for response which may be a raised NSError
-        await this.channel!.receivePlist();
+        await channel.receivePlist();
 
         log.info(
           `Successfully enabled condition profile: ${profileIdentifier}`,
@@ -99,9 +101,10 @@ export class ConditionInducer extends BaseInstrument {
    */
   async disable(): Promise<void> {
     await this.initialize();
+    const channel = this.requireChannel();
 
-    await this.channel!.call('disableActiveCondition')();
-    const response = await this.channel!.receivePlist();
+    await channel.call('disableActiveCondition')();
+    const response = await channel.receivePlist();
 
     // Response can be:
     // - true (successfully disabled condition)

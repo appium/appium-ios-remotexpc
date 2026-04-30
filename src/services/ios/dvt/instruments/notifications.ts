@@ -92,15 +92,17 @@ export class Notifications extends BaseInstrument {
 
   async start(): Promise<void> {
     await this.initialize();
+    const channel = this.requireChannel();
     const args = new MessageAux().appendObj(true);
-    await this.channel!.call('setApplicationStateNotificationsEnabled_')(args);
-    await this.channel!.call('setMemoryNotificationsEnabled_')(args);
+    await channel.call('setApplicationStateNotificationsEnabled_')(args);
+    await channel.call('setMemoryNotificationsEnabled_')(args);
   }
 
   async stop(): Promise<void> {
+    const channel = this.requireChannel();
     const args = new MessageAux().appendObj(false);
-    await this.channel!.call('setApplicationStateNotificationsEnabled_')(args);
-    await this.channel!.call('setMemoryNotificationsEnabled_')(args);
+    await channel.call('setApplicationStateNotificationsEnabled_')(args);
+    await channel.call('setMemoryNotificationsEnabled_')(args);
   }
 
   /**
@@ -111,9 +113,9 @@ export class Notifications extends BaseInstrument {
     await this.start();
 
     try {
+      const channel = this.requireChannel();
       while (true) {
-        const [selector, auxiliaries] =
-          await this.channel!.receivePlistWithAux();
+        const [selector, auxiliaries] = await channel.receivePlistWithAux();
 
         // Decode NSKeyedArchiver format in auxiliaries first index
         const decodedData = auxiliaries[0];

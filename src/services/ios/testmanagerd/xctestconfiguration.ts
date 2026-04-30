@@ -4,6 +4,56 @@ import { PlistUID } from '../../../lib/plist/index.js';
 import { TestmanagerdEncoder } from './testmanagerd-encoder.js';
 
 /**
+ * Parameters for creating an XCTestConfiguration
+ */
+export interface XCTestConfigurationParams {
+  /** URL to the test bundle (e.g., file:///path/to/Runner.xctest) */
+  testBundleURL: string;
+  /** Session identifier UUID string. Auto-generated if not provided. */
+  sessionIdentifier?: string;
+  /** Target application bundle ID */
+  targetApplicationBundleID?: string;
+  /** Target application path */
+  targetApplicationPath?: string;
+  /** Whether to treat missing baselines as failures */
+  treatMissingBaselinesAsFailures?: boolean;
+  /** Whether to report results to IDE */
+  reportResultsToIDE?: boolean;
+  /** Path to automation framework */
+  automationFrameworkPath?: string;
+  /** Whether tests must run on main thread */
+  testsMustRunOnMainThread?: boolean;
+  /** Whether to initialize for UI testing */
+  initializeForUITesting?: boolean;
+  /** Whether to report activities */
+  reportActivities?: boolean;
+  /** Set of tests to skip */
+  testsToSkip?: string[] | null;
+  /** Set of tests to run */
+  testsToRun?: string[] | null;
+  /** Product module name */
+  productModuleName?: string | null;
+  /** Relative path to test bundle */
+  testBundleRelativePath?: string | null;
+  /** Arguments to pass to the target application */
+  targetApplicationArguments?: string[];
+  /** Environment variables for the target application */
+  targetApplicationEnvironment?: Record<string, string> | null;
+}
+
+export interface NSUUIDMarker {
+  __type: 'NSUUID';
+  /** Canonical RFC-4122 string with dashes (e.g. `crypto.randomUUID()`). */
+  uuid: string;
+}
+
+export interface NSURLMarker {
+  __type: 'NSURL';
+  base: string | null;
+  relative: string;
+}
+
+/**
  * Extended encoder that supports XCTestConfiguration-specific types:
  * NSURL and XCTestConfiguration itself.
  *
@@ -155,56 +205,6 @@ export class XCTestConfigurationEncoder extends TestmanagerdEncoder {
       },
     };
   }
-}
-
-/**
- * Parameters for creating an XCTestConfiguration
- */
-export interface XCTestConfigurationParams {
-  /** URL to the test bundle (e.g., file:///path/to/Runner.xctest) */
-  testBundleURL: string;
-  /** Session identifier UUID string. Auto-generated if not provided. */
-  sessionIdentifier?: string;
-  /** Target application bundle ID */
-  targetApplicationBundleID?: string;
-  /** Target application path */
-  targetApplicationPath?: string;
-  /** Whether to treat missing baselines as failures */
-  treatMissingBaselinesAsFailures?: boolean;
-  /** Whether to report results to IDE */
-  reportResultsToIDE?: boolean;
-  /** Path to automation framework */
-  automationFrameworkPath?: string;
-  /** Whether tests must run on main thread */
-  testsMustRunOnMainThread?: boolean;
-  /** Whether to initialize for UI testing */
-  initializeForUITesting?: boolean;
-  /** Whether to report activities */
-  reportActivities?: boolean;
-  /** Set of tests to skip */
-  testsToSkip?: string[] | null;
-  /** Set of tests to run */
-  testsToRun?: string[] | null;
-  /** Product module name */
-  productModuleName?: string | null;
-  /** Relative path to test bundle */
-  testBundleRelativePath?: string | null;
-  /** Arguments to pass to the target application */
-  targetApplicationArguments?: string[];
-  /** Environment variables for the target application */
-  targetApplicationEnvironment?: Record<string, string> | null;
-}
-
-export interface NSUUIDMarker {
-  __type: 'NSUUID';
-  /** Canonical RFC-4122 string with dashes (e.g. `crypto.randomUUID()`). */
-  uuid: string;
-}
-
-export interface NSURLMarker {
-  __type: 'NSURL';
-  base: string | null;
-  relative: string;
 }
 
 /**

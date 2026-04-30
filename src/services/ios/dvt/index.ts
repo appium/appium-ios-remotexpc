@@ -92,8 +92,9 @@ export class DVTSecureSocketProxyService extends BaseService {
       throw new Error('Handshake not complete. Call connect() first.');
     }
 
-    if (this.channelCache.has(identifier)) {
-      return this.channelCache.get(identifier)!;
+    const cachedChannel = this.channelCache.get(identifier);
+    if (cachedChannel) {
+      return cachedChannel;
     }
 
     this.lastChannelCode++;
@@ -172,9 +173,13 @@ export class DVTSecureSocketProxyService extends BaseService {
       auxBuffer,
       selectorBuffer,
     ]);
+    const socket = this.socket;
+    if (!socket) {
+      throw new Error('Socket is not initialized');
+    }
 
     await new Promise<void>((resolve, reject) => {
-      this.socket!.write(message, (err) => {
+      socket.write(message, (err) => {
         if (err) {
           reject(err);
         } else {
@@ -437,7 +442,10 @@ export class DVTSecureSocketProxyService extends BaseService {
       const messageData = await this.readExact(header.length);
 
       // Add fragment to appropriate channel
-      const targetFragmenter = this.channelMessages.get(receivedChannel)!;
+      const targetFragmenter = this.channelMessages.get(receivedChannel);
+      if (!targetFragmenter) {
+        continue;
+      }
       targetFragmenter.addFragment(header, messageData);
     }
   }
@@ -465,10 +473,15 @@ export class DVTSecureSocketProxyService extends BaseService {
       signal?.throwIfAborted();
 
       const chunk = await new Promise<Buffer>((resolve, reject) => {
+        const socket = this.socket;
+        if (!socket) {
+          reject(new Error('Socket is not available'));
+          return;
+        }
         const cleanup = () => {
-          this.socket?.off('data', onData);
-          this.socket?.off('error', onError);
-          this.socket?.off('close', onClose);
+          socket.off('data', onData);
+          socket.off('error', onError);
+          socket.off('close', onClose);
           signal?.removeEventListener('abort', onAbort);
         };
 
@@ -494,9 +507,9 @@ export class DVTSecureSocketProxyService extends BaseService {
           );
         };
 
-        this.socket!.once('data', onData);
-        this.socket!.once('error', onError);
-        this.socket!.once('close', onClose);
+        socket.once('data', onData);
+        socket.once('error', onError);
+        socket.once('close', onClose);
         signal?.addEventListener('abort', onAbort, { once: true });
       });
 

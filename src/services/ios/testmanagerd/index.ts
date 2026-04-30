@@ -40,74 +40,6 @@ const EXPECTED_CLOSE_MESSAGES = [
 ];
 
 /**
- * Determine whether an error is an expected socket-close error
- * that can be safely ignored during teardown.
- */
-export function isExpectedCloseError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') {
-    return false;
-  }
-  const err = error as Partial<Error> & { code?: string };
-  if (err.code && EXPECTED_CLOSE_CODES.includes(err.code)) {
-    return true;
-  }
-  const message = (err.message ?? '').toLowerCase();
-  return EXPECTED_CLOSE_MESSAGES.some((msg) => message.includes(msg));
-}
-
-/**
- * Read a single PrimitiveDictionary entry from a buffer.
- */
-export function readPrimitiveDictEntry(
-  buffer: Buffer,
-  offset: number,
-): { data: any; newOffset: number } {
-  const type = buffer.readUInt32LE(offset);
-  offset += 4;
-
-  switch (type) {
-    case DTX_CONSTANTS.PRIMITIVE_TYPE_NULL:
-      return { data: null, newOffset: offset };
-
-    case DTX_CONSTANTS.PRIMITIVE_TYPE_UINT32:
-      return {
-        data: buffer.readUInt32LE(offset),
-        newOffset: offset + 4,
-      };
-
-    case DTX_CONSTANTS.PRIMITIVE_TYPE_INT64:
-      return {
-        data: Number(buffer.readBigUInt64LE(offset)),
-        newOffset: offset + 8,
-      };
-
-    case DTX_CONSTANTS.PRIMITIVE_TYPE_STRING:
-    case DTX_CONSTANTS.PRIMITIVE_TYPE_BYTEARRAY: {
-      const length = buffer.readUInt32LE(offset);
-      offset += 4;
-      const data = buffer.subarray(offset, offset + length);
-
-      if (type === DTX_CONSTANTS.PRIMITIVE_TYPE_STRING) {
-        return { data: data.toString('utf8'), newOffset: offset + length };
-      }
-
-      // For bytearrays, try to decode as NSKeyedArchiver plist
-      let parsed: any = data;
-      try {
-        const plistData = parseBinaryPlist(data);
-        parsed = decodeNSKeyedArchiver(plistData);
-      } catch {
-        // Not a plist, return raw buffer
-      }
-      return { data: parsed, newOffset: offset + length };
-    }
-
-    default:
-      throw new Error(`Unknown PrimitiveDict type: 0x${type.toString(16)}`);
-  }
-}
-
-/**
  * DvtTestmanagedProxyService provides access to Apple's testmanagerd functionality
  * over the DTX binary protocol. This service enables XCTest session management
  * for running tests without xcodebuild.
@@ -197,8 +129,9 @@ export class DvtTestmanagedProxyService extends BaseService {
       throw new Error('Handshake not complete. Call connect() first.');
     }
 
-    if (this.channelCache.has(identifier)) {
-      return this.channelCache.get(identifier)!;
+    const cachedChannel = this.channelCache.get(identifier);
+    if (cachedChannel) {
+      return cachedChannel;
     }
 
     this.lastChannelCode++;
@@ -277,9 +210,13 @@ export class DvtTestmanagedProxyService extends BaseService {
       auxBuffer,
       selectorBuffer,
     ]);
+    const socket = this.socket;
+    if (!socket) {
+      throw new Error('Not connected to testmanagerd service');
+    }
 
     await new Promise<void>((resolve, reject) => {
-      this.socket!.write(message, (err) => {
+      socket.write(message, (err) => {
         if (err) {
           reject(err);
         } else {
@@ -346,9 +283,13 @@ export class DvtTestmanagedProxyService extends BaseService {
       payloadHeader,
       payloadBuffer,
     ]);
+    const socket = this.socket;
+    if (!socket) {
+      throw new Error('Not connected to testmanagerd service');
+    }
 
     await new Promise<void>((resolve, reject) => {
-      this.socket!.write(message, (err) => {
+      socket.write(message, (err) => {
         if (err) {
           reject(err);
         } else {
@@ -645,7 +586,10 @@ export class DvtTestmanagedProxyService extends BaseService {
       // No abort signal — payload must be read atomically to keep DTX framing aligned.
       const messageData = await this.readExact(header.length);
 
-      const targetFragmenter = this.channelMessages.get(receivedChannel)!;
+      const targetFragmenter = this.channelMessages.get(receivedChannel);
+      if (!targetFragmenter) {
+        continue;
+      }
       targetFragmenter.addFragment(header, messageData);
 
       // Auto-reply to non-target channel messages to prevent testmanagerd timeouts.
@@ -686,10 +630,15 @@ export class DvtTestmanagedProxyService extends BaseService {
       signal?.throwIfAborted();
 
       const chunk = await new Promise<Buffer>((resolve, reject) => {
+        const socket = this.socket;
+        if (!socket) {
+          reject(new Error('Socket is not available'));
+          return;
+        }
         const cleanup = () => {
-          this.socket?.off('data', onData);
-          this.socket?.off('error', onError);
-          this.socket?.off('close', onClose);
+          socket.off('data', onData);
+          socket.off('error', onError);
+          socket.off('close', onClose);
           signal?.removeEventListener('abort', onAbort);
         };
 
@@ -716,9 +665,9 @@ export class DvtTestmanagedProxyService extends BaseService {
         };
 
         // Register all listeners before any async gap to prevent data race
-        this.socket!.once('data', onData);
-        this.socket!.once('error', onError);
-        this.socket!.once('close', onClose);
+        socket.once('data', onData);
+        socket.once('error', onError);
+        socket.once('close', onClose);
         signal?.addEventListener('abort', onAbort, { once: true });
       });
 
@@ -972,5 +921,73 @@ export class DvtTestmanagedProxyService extends BaseService {
       default:
         throw new Error(`Unknown auxiliary type: ${type}`);
     }
+  }
+}
+
+/**
+ * Determine whether an error is an expected socket-close error
+ * that can be safely ignored during teardown.
+ */
+export function isExpectedCloseError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  const err = error as Partial<Error> & { code?: string };
+  if (err.code && EXPECTED_CLOSE_CODES.includes(err.code)) {
+    return true;
+  }
+  const message = (err.message ?? '').toLowerCase();
+  return EXPECTED_CLOSE_MESSAGES.some((msg) => message.includes(msg));
+}
+
+/**
+ * Read a single PrimitiveDictionary entry from a buffer.
+ */
+export function readPrimitiveDictEntry(
+  buffer: Buffer,
+  offset: number,
+): { data: any; newOffset: number } {
+  const type = buffer.readUInt32LE(offset);
+  offset += 4;
+
+  switch (type) {
+    case DTX_CONSTANTS.PRIMITIVE_TYPE_NULL:
+      return { data: null, newOffset: offset };
+
+    case DTX_CONSTANTS.PRIMITIVE_TYPE_UINT32:
+      return {
+        data: buffer.readUInt32LE(offset),
+        newOffset: offset + 4,
+      };
+
+    case DTX_CONSTANTS.PRIMITIVE_TYPE_INT64:
+      return {
+        data: Number(buffer.readBigUInt64LE(offset)),
+        newOffset: offset + 8,
+      };
+
+    case DTX_CONSTANTS.PRIMITIVE_TYPE_STRING:
+    case DTX_CONSTANTS.PRIMITIVE_TYPE_BYTEARRAY: {
+      const length = buffer.readUInt32LE(offset);
+      offset += 4;
+      const data = buffer.subarray(offset, offset + length);
+
+      if (type === DTX_CONSTANTS.PRIMITIVE_TYPE_STRING) {
+        return { data: data.toString('utf8'), newOffset: offset + length };
+      }
+
+      // For bytearrays, try to decode as NSKeyedArchiver plist
+      let parsed: any = data;
+      try {
+        const plistData = parseBinaryPlist(data);
+        parsed = decodeNSKeyedArchiver(plistData);
+      } catch {
+        // Not a plist, return raw buffer
+      }
+      return { data: parsed, newOffset: offset + length };
+    }
+
+    default:
+      throw new Error(`Unknown PrimitiveDict type: 0x${type.toString(16)}`);
   }
 }

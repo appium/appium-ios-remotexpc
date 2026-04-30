@@ -31,17 +31,15 @@ export class PacketStreamServer extends EventEmitter {
     this.server = createServer((client) => {
       this.handleClientConnection(client);
     });
+    const server = this.server;
 
     this.packetConsumer = this.createPacketConsumer();
 
-    return new Promise((resolve, reject) => {
-      this.server!.listen(this.port, () => {
-        log.info(`Packet stream server listening on port ${this.port}`);
-        resolve();
-      });
-
-      this.server!.on('error', reject);
+    await new Promise<void>((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(this.port, resolve);
     });
+    log.info(`Packet stream server listening on port ${this.port}`);
   }
 
   async stop(): Promise<void> {
@@ -51,12 +49,12 @@ export class PacketStreamServer extends EventEmitter {
     this.clients.clear();
 
     if (this.server) {
-      return new Promise((resolve) => {
-        this.server?.close(() => {
-          this.server = null;
-          resolve();
-        });
+      const server = this.server;
+      await new Promise<void>((resolve, reject) => {
+        server.once('error', reject);
+        server.close(() => resolve);
       });
+      this.server = null;
     }
   }
 
@@ -102,13 +100,12 @@ export class PacketStreamServer extends EventEmitter {
       const message = this.createMessage(serialized);
 
       for (const client of this.clients) {
+        const onError = (err: Error) => {
+          log.error(`Failed to write to client: ${err}`);
+          this.clients.delete(client);
+        };
         if (!client.destroyed) {
-          client.write(message, (err) => {
-            if (err) {
-              log.error(`Failed to write to client: ${err}`);
-              this.clients.delete(client);
-            }
-          });
+          client.write(message, onError);
         }
       }
     } catch (err) {

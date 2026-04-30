@@ -15,6 +15,9 @@ export interface DevicectlDeviceRecord {
   deviceType?: string;
 }
 
+/**
+ * List device records reported by `devicectl` for enrichment.
+ */
 export async function listDevicectlDeviceRecords(): Promise<
   DevicectlDeviceRecord[]
 > {
@@ -27,6 +30,9 @@ export async function listDevicectlDeviceRecords(): Promise<
   return records;
 }
 
+/**
+ * Collect and normalize hostname variants from a devicectl device entry.
+ */
 function getHostnames(device: DevicectlDeviceInfo): string[] {
   const hosts = [
     ...(device.connectionProperties.localHostnames ?? []),
@@ -38,6 +44,9 @@ function getHostnames(device: DevicectlDeviceInfo): string[] {
   return Array.from(new Set(normalized));
 }
 
+/**
+ * Convert a devicectl device entry to the internal record shape.
+ */
 function toDevicectlRecord(device: DevicectlDeviceInfo): DevicectlDeviceRecord {
   return {
     hostnames: getHostnames(device),

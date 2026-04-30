@@ -72,6 +72,9 @@ export function parsePlist(xmlData: string | Buffer): PlistDictionary {
 
   return parseDict(rootDict);
 
+  /**
+   * Parse a plist XML node into its corresponding JavaScript value.
+   */
   function parseNode(node: Element): PlistValue {
     if (!node) {
       return null;
@@ -108,6 +111,9 @@ export function parsePlist(xmlData: string | Buffer): PlistDictionary {
     }
   }
 
+  /**
+   * Parse a plist `<dict>` element into a JavaScript object.
+   */
   function parseDict(dictNode: Element): PlistDictionary {
     const obj: PlistDictionary = {};
     const keys = dictNode.getElementsByTagName('key');
@@ -128,6 +134,9 @@ export function parsePlist(xmlData: string | Buffer): PlistDictionary {
     return obj;
   }
 
+  /**
+   * Parse a plist `<array>` element into a JavaScript array.
+   */
   function parseArray(arrayNode: Element): PlistArray {
     const result: PlistArray = [];
     let childNode = arrayNode.firstChild;

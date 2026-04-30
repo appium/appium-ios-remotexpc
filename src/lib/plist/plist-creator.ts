@@ -6,7 +6,13 @@
 import type { PlistDictionary, PlistValue } from '../types.js';
 import { escapeXml } from './utils.js';
 
+/**
+ * Convert a JavaScript dictionary into an XML plist string.
+ */
 export function createPlist(obj: PlistDictionary): string {
+  /**
+   * Convert a plist-compatible value into its XML representation.
+   */
   function convert(value: PlistValue): string {
     if (typeof value === 'number') {
       return `<integer>${value}</integer>`;

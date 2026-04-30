@@ -62,6 +62,9 @@ export class TunnelAvailabilityError extends Error {
   }
 }
 
+/**
+ * Start the diagnostics service for the given device UDID.
+ */
 export async function startDiagnosticsService(
   udid: string,
 ): Promise<DiagnosticsServiceWithConnection> {
@@ -78,6 +81,9 @@ export async function startDiagnosticsService(
   };
 }
 
+/**
+ * Start the notification proxy service for the given device UDID.
+ */
 export async function startNotificationProxyService(
   udid: string,
 ): Promise<NotificationProxyServiceWithConnection> {
@@ -94,6 +100,9 @@ export async function startNotificationProxyService(
   };
 }
 
+/**
+ * Start the mobile configuration service for the given device UDID.
+ */
 export async function startMobileConfigService(
   udid: string,
 ): Promise<MobileConfigServiceWithConnection> {
@@ -110,6 +119,9 @@ export async function startMobileConfigService(
   };
 }
 
+/**
+ * Start the mobile image mounter service for the given device UDID.
+ */
 export async function startMobileImageMounterService(
   udid: string,
 ): Promise<MobileImageMounterServiceWithConnection> {
@@ -126,6 +138,9 @@ export async function startMobileImageMounterService(
   };
 }
 
+/**
+ * Start the SpringBoard service for the given device UDID.
+ */
 export async function startSpringboardService(
   udid: string,
 ): Promise<SpringboardServiceWithConnection> {
@@ -142,6 +157,9 @@ export async function startSpringboardService(
   };
 }
 
+/**
+ * Start the misagent service for the given device UDID.
+ */
 export async function startMisagentService(
   udid: string,
 ): Promise<MisagentServiceWithConnection> {
@@ -158,6 +176,9 @@ export async function startMisagentService(
   };
 }
 
+/**
+ * Start the power assertion service for the given device UDID.
+ */
 export async function startPowerAssertionService(
   udid: string,
 ): Promise<PowerAssertionServiceWithConnection> {
@@ -174,6 +195,9 @@ export async function startPowerAssertionService(
   };
 }
 
+/**
+ * Start the syslog service for the given device UDID.
+ */
 export async function startSyslogService(
   udid: string,
 ): Promise<SyslogServiceType> {
@@ -183,6 +207,12 @@ export async function startSyslogService(
 
 const RSD_SYSLOG_BINARY_SERVICE_NAME = 'com.apple.os_trace_relay.shim.remote';
 const RSD_SYSLOG_TEXT_SERVICE_NAME = 'com.apple.syslog_relay.shim.remote';
+
+/** Options for {@link startXCTestServices}. */
+export interface StartXCTestServicesOptions {
+  /** Also resolve and return an InstallationProxyService for app lookup. */
+  includeInstallationProxy?: boolean;
+}
 
 /**
  * Resolve the syslog binary service (os_trace_relay RemoteXPC shim).
@@ -204,20 +234,6 @@ export async function startSyslogTextService(
   udid: string,
 ): Promise<{ syslogService: SyslogServiceType; serviceDescriptor: Service }> {
   return startSyslogWithServiceName(udid, RSD_SYSLOG_TEXT_SERVICE_NAME);
-}
-
-async function startSyslogWithServiceName(
-  udid: string,
-  serviceName: string,
-): Promise<{ syslogService: SyslogServiceType; serviceDescriptor: Service }> {
-  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
-  return {
-    syslogService: new SyslogService([
-      tunnelConnection.host,
-      tunnelConnection.port,
-    ]),
-    serviceDescriptor: remoteXPC.findService(serviceName),
-  };
 }
 
 /**
@@ -258,6 +274,9 @@ export async function startCrashReportsService(
   };
 }
 
+/**
+ * Start the house arrest service for the given device UDID.
+ */
 export async function startHouseArrestService(
   udid: string,
 ): Promise<HouseArrestServiceWithConnection> {
@@ -274,6 +293,9 @@ export async function startHouseArrestService(
   };
 }
 
+/**
+ * Start the installation proxy service for the given device UDID.
+ */
 export async function startInstallationProxyService(
   udid: string,
 ): Promise<InstallationProxyServiceWithConnection> {
@@ -290,6 +312,9 @@ export async function startInstallationProxyService(
   };
 }
 
+/**
+ * Start the web inspector service for the given device UDID.
+ */
 export async function startWebInspectorService(
   udid: string,
 ): Promise<WebInspectorServiceWithConnection> {
@@ -306,6 +331,9 @@ export async function startWebInspectorService(
   };
 }
 
+/**
+ * Start the DVT secure socket proxy service and instrument clients.
+ */
 export async function startDVTService(
   udid: string,
 ): Promise<DVTServiceWithConnection> {
@@ -349,6 +377,9 @@ export async function startDVTService(
   };
 }
 
+/**
+ * Start the testmanagerd service for the given device UDID.
+ */
 export async function startTestmanagerdService(
   udid: string,
 ): Promise<TestmanagerdServiceWithConnection> {
@@ -368,12 +399,6 @@ export async function startTestmanagerdService(
     remoteXPC: remoteXPC as RemoteXpcConnection,
     testmanagerdService,
   };
-}
-
-/** Options for {@link startXCTestServices}. */
-export interface StartXCTestServicesOptions {
-  /** Also resolve and return an InstallationProxyService for app lookup. */
-  includeInstallationProxy?: boolean;
 }
 
 /**
@@ -458,6 +483,9 @@ export async function startXCTestServices(
   };
 }
 
+/**
+ * Create a RemoteXPC connection by resolving tunnel information from UDID.
+ */
 export async function createRemoteXPCConnection(udid: string) {
   const tunnelConnection = await getTunnelInformation(udid);
   const remoteXPC = await startService(
@@ -482,8 +510,28 @@ export async function getAvailableDevices(): Promise<string[]> {
   return await client.getAvailableDevices();
 }
 
+/**
+ * Resolve syslog service descriptor by RemoteXPC service name.
+ */
+async function startSyslogWithServiceName(
+  udid: string,
+  serviceName: string,
+): Promise<{ syslogService: SyslogServiceType; serviceDescriptor: Service }> {
+  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
+  return {
+    syslogService: new SyslogService([
+      tunnelConnection.host,
+      tunnelConnection.port,
+    ]),
+    serviceDescriptor: remoteXPC.findService(serviceName),
+  };
+}
+
 // #region Private Functions
 
+/**
+ * Build a tunnel registry API client from the stored registry port.
+ */
 async function getTunnelRegistryClient(
   options: TunnelApiClientOptions = {},
 ): Promise<TunnelApiClient> {
@@ -504,6 +552,9 @@ async function getTunnelRegistryClient(
   );
 }
 
+/**
+ * Fetch tunnel host/port information for the provided UDID.
+ */
 async function getTunnelInformation(udid: string) {
   const tunnelApiClient = await getTunnelRegistryClient();
   const tunnelExists = await tunnelApiClient.hasTunnel(udid);
@@ -521,6 +572,9 @@ async function getTunnelInformation(udid: string) {
   return tunnelConnection;
 }
 
+/**
+ * Create a low-level RemoteXPC connection to host and port.
+ */
 async function startService(
   host: string,
   port: number,
