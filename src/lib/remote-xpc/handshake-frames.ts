@@ -165,6 +165,12 @@ export class Frame {
   }
 
   serialize(): Buffer {
+    if (this.type === null) {
+      throw new InvalidDataError(
+        `${this.constructor.name} is missing frame type`,
+      );
+    }
+
     const body = this.serializeBody();
     this.bodyLen = body.length;
 
@@ -178,7 +184,7 @@ export class Frame {
     const header = STRUCT_HBBBL.pack(
       (this.bodyLen >> 8) & 0xffff,
       this.bodyLen & 0xff,
-      this.type!,
+      this.type,
       flagsVal,
       this.streamId & 0x7fffffff,
     );

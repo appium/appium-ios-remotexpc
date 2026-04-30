@@ -4,6 +4,18 @@ export default [
   ...appiumConfig,
   {
     files: ['**/*.ts'],
+    settings: {
+      // Ensure import resolution checks TS sources in this repo's src tree.
+      'import-x/resolver': {
+        typescript: {
+          project: './tsconfig.json',
+        },
+        node: {
+          extensions: ['.js', '.ts', '.d.ts'],
+          moduleDirectory: ['node_modules', 'src'],
+        },
+      },
+    },
     linterOptions: {
       reportUnusedDisableDirectives: 'off',
     },

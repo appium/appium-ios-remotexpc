@@ -53,10 +53,8 @@ export function decodeTLV8ToDict(
   const result: Partial<Record<PairingDataComponentTypeValue, Buffer[]>> = {};
 
   for (const { type, data } of items) {
-    if (!result[type]) {
-      result[type] = [];
-    }
-    result[type]!.push(data);
+    const bucket = (result[type] ??= []);
+    bucket.push(data);
   }
 
   return Object.fromEntries(

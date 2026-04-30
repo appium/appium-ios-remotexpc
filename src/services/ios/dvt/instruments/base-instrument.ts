@@ -24,4 +24,13 @@ export abstract class BaseInstrument {
       this.channel = await this.dvt.makeChannel(this.identifier);
     }
   }
+
+  protected requireChannel(): Channel {
+    if (!this.channel) {
+      throw new Error(
+        `${this.constructor.name} channel is not initialized. Call initialize() first.`,
+      );
+    }
+    return this.channel;
+  }
 }

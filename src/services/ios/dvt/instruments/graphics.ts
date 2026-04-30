@@ -10,14 +10,16 @@ export class Graphics extends BaseInstrument {
 
   async start(): Promise<void> {
     await this.initialize();
+    const channel = this.requireChannel();
 
     const args = new MessageAux().appendObj(0.0);
-    await this.channel!.call('startSamplingAtTimeInterval_')(args);
-    await this.channel!.receivePlist();
+    await channel.call('startSamplingAtTimeInterval_')(args);
+    await channel.receivePlist();
   }
 
   async stop(): Promise<void> {
-    await this.channel!.call('stopSampling')();
+    const channel = this.requireChannel();
+    await channel.call('stopSampling')();
   }
 
   async *messages(): AsyncGenerator<unknown, void, unknown> {
@@ -25,8 +27,9 @@ export class Graphics extends BaseInstrument {
     await this.start();
 
     try {
+      const channel = this.requireChannel();
       while (true) {
-        yield await this.channel!.receivePlist();
+        yield await channel.receivePlist();
       }
     } finally {
       log.debug('logging stopped');

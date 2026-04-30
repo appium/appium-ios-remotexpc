@@ -25,13 +25,14 @@ export class LocationSimulation extends BaseInstrument {
    */
   async set(coordinates: LocationCoordinates): Promise<void> {
     await this.initialize();
+    const channel = this.requireChannel();
 
     const args = new MessageAux()
       .appendObj(coordinates.latitude)
       .appendObj(coordinates.longitude);
 
-    await this.channel!.call('simulateLocationWithLatitude_longitude_')(args);
-    await this.channel!.receivePlist();
+    await channel.call('simulateLocationWithLatitude_longitude_')(args);
+    await channel.receivePlist();
 
     log.info(
       `Location set to: ${coordinates.latitude}, ${coordinates.longitude}`,
@@ -54,7 +55,8 @@ export class LocationSimulation extends BaseInstrument {
    */
   async clear(): Promise<void> {
     await this.initialize();
-    await this.channel!.call('stopLocationSimulation')();
+    const channel = this.requireChannel();
+    await channel.call('stopLocationSimulation')();
     log.info('Location simulation stopped');
   }
 

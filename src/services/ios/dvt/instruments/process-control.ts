@@ -24,13 +24,14 @@ export class ProcessControl extends BaseInstrument {
    */
   async signal(pid: number, sig: number): Promise<any> {
     await this.initialize();
+    const channel = this.requireChannel();
 
     // Note: Arguments are swapped in the selector compared to typical kill(pid, sig)
     // selector: signal:toPid:
     const args = new MessageAux().appendInt(sig).appendInt(pid);
 
-    await this.channel!.call('sendSignal_toPid_')(args);
-    const result = await this.channel!.receivePlist();
+    await channel.call('sendSignal_toPid_')(args);
+    const result = await channel.receivePlist();
 
     log.debug(`Sent signal ${sig} to PID ${pid}`);
     return result;
@@ -42,11 +43,12 @@ export class ProcessControl extends BaseInstrument {
    */
   async kill(pid: number): Promise<void> {
     await this.initialize();
+    const channel = this.requireChannel();
 
     const args = new MessageAux().appendObj(pid);
 
     // killPid: does not expect a reply (fire-and-forget)
-    await this.channel!.call('killPid_')(args, false);
+    await channel.call('killPid_')(args, false);
 
     log.info(`Killed PID ${pid}`);
   }
@@ -66,11 +68,12 @@ export class ProcessControl extends BaseInstrument {
    */
   async disableMemoryLimitForPid(pid: number): Promise<void> {
     await this.initialize();
+    const channel = this.requireChannel();
 
     const args = new MessageAux().appendInt(pid);
 
-    await this.channel!.call('requestDisableMemoryLimitsForPid_')(args);
-    const result = await this.channel!.receivePlist();
+    await channel.call('requestDisableMemoryLimitsForPid_')(args);
+    const result = await channel.receivePlist();
 
     if (!result) {
       throw new Error(`Failed to disable memory limit for PID ${pid}`);
@@ -91,11 +94,12 @@ export class ProcessControl extends BaseInstrument {
    */
   async getPidForBundleIdentifier(bundleId: string): Promise<number> {
     await this.initialize();
+    const channel = this.requireChannel();
 
     const args = new MessageAux().appendObj(bundleId);
 
-    await this.channel!.call('processIdentifierForBundleIdentifier_')(args);
-    const result = await this.channel!.receivePlist();
+    await channel.call('processIdentifierForBundleIdentifier_')(args);
+    const result = await channel.receivePlist();
 
     if (typeof result !== 'number') {
       throw new Error(
@@ -121,6 +125,7 @@ export class ProcessControl extends BaseInstrument {
    */
   async launch(options: ProcessLaunchOptions): Promise<number> {
     await this.initialize();
+    const channel = this.requireChannel();
 
     const launchOptions: Record<string, any> = {
       StartSuspendedKey: options.startSuspended ?? false,
@@ -135,11 +140,11 @@ export class ProcessControl extends BaseInstrument {
       .appendObj(options.arguments ?? [])
       .appendObj(launchOptions);
 
-    await this.channel!.call(
+    await channel.call(
       'launchSuspendedProcessWithDevicePath_bundleIdentifier_environment_arguments_options_',
     )(args);
 
-    const result = await this.channel!.receivePlist();
+    const result = await channel.receivePlist();
 
     if (typeof result !== 'number') {
       throw new Error(`Failed to launch process: ${JSON.stringify(result)}`);
@@ -157,12 +162,12 @@ export class ProcessControl extends BaseInstrument {
    */
   async *outputEvents(): AsyncGenerator<OutputReceivedEvent, void, unknown> {
     await this.initialize();
+    const channel = this.requireChannel();
 
     // Listen for output events (loop exits on channel error/close)
     while (true) {
       try {
-        const [selector, auxiliaries] =
-          await this.channel!.receivePlistWithAux();
+        const [selector, auxiliaries] = await channel.receivePlistWithAux();
 
         if (selector === 'outputReceived:fromProcess:atTime:') {
           // Auxiliaries format: [message (string), pid (int), timestamp (obj/long)]

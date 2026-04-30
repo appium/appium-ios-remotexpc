@@ -55,14 +55,15 @@ export class ApplicationListing extends BaseInstrument {
    */
   async list(): Promise<iOSApplication[]> {
     await this.initialize();
+    const channel = this.requireChannel();
 
     const args = new MessageAux().appendObj(null).appendObj(null);
 
-    await this.channel!.call(
-      'installedApplicationsMatching_registerUpdateToken_',
-    )(args);
+    await channel.call('installedApplicationsMatching_registerUpdateToken_')(
+      args,
+    );
 
-    const result = await this.channel!.receivePlist();
+    const result = await channel.receivePlist();
 
     if (!result) {
       log.warn(

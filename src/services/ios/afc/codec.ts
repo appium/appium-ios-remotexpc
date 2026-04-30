@@ -93,7 +93,10 @@ function cleanupSocketState(socket: net.Socket, error?: Error): void {
   // Reject any pending waiters
   const err = error || new Error('Socket closed');
   while (state.waiters.length) {
-    const w = state.waiters.shift()!;
+    const w = state.waiters.shift();
+    if (!w) {
+      continue;
+    }
     if (w.timer) {
       clearTimeout(w.timer);
     }
@@ -121,7 +124,10 @@ function ensureSocketState(socket: net.Socket): SocketState {
       st.buffer = Buffer.concat([st.buffer, chunk]);
 
       while (st.waiters.length && st.buffer.length >= st.waiters[0].n) {
-        const w = st.waiters.shift()!;
+        const w = st.waiters.shift();
+        if (!w) {
+          continue;
+        }
         const out = st.buffer.subarray(0, w.n);
         st.buffer = st.buffer.subarray(w.n);
         if (w.timer) {
