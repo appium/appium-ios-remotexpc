@@ -51,8 +51,9 @@ export class NSKeyedArchiverEncoder {
     }
 
     // Complex types: check cache for circular references and deduplication
-    if (this.objectCache.has(value)) {
-      return this.objectCache.get(value)!;
+    const cachedObject = this.objectCache.get(value);
+    if (cachedObject !== undefined) {
+      return cachedObject;
     }
 
     let index: number;
@@ -155,8 +156,9 @@ export class NSKeyedArchiverEncoder {
   }
 
   protected getClassUid(classname: string, ...superclasses: string[]): number {
-    if (this.classes.has(classname)) {
-      return this.classes.get(classname)!;
+    const cachedClass = this.classes.get(classname);
+    if (cachedClass !== undefined) {
+      return cachedClass;
     }
 
     const index = this.objects.length;

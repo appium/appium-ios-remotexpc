@@ -456,7 +456,7 @@ class MobileImageMounterService
 
   private isConnectionDestroyed(): boolean {
     try {
-      const socket = this.connection!.getSocket();
+      const socket = this.connection?.getSocket();
       return !socket || socket.destroyed;
     } catch {
       return true;

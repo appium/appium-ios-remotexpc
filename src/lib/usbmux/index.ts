@@ -77,7 +77,8 @@ export interface SocketOptions {
  */
 async function fileExists(path: string): Promise<boolean> {
   try {
-    await import('node:fs').then((fs) => fs.promises.access(path));
+    const fs = await import('node:fs');
+    await fs.promises.access(path);
     return true;
   } catch {
     return false;
@@ -456,13 +457,17 @@ export class Usbmux extends BaseSocketService {
     });
 
     // Add cleanup handler when promise is settled
-    receivePromise
-      .catch(() => {})
-      .finally(() => {
+    void (async () => {
+      try {
+        await receivePromise;
+      } catch {
+        // Ignore here; caller handles receivePromise rejection.
+      } finally {
         if (this._responseCallbacks[tag]) {
           delete this._responseCallbacks[tag];
         }
-      });
+      }
+    })();
 
     return { tag, receivePromise };
   }
@@ -624,9 +629,11 @@ export async function connectAndRelay(
     return socket;
   } finally {
     if (!socket) {
-      await relay
-        .stop()
-        .catch((err) => log.error(`Error stopping relay: ${err}`));
+      try {
+        await relay.stop();
+      } catch (err) {
+        log.error(`Error stopping relay: ${err}`);
+      }
     }
   }
 }

@@ -306,11 +306,13 @@ export class LockdownService extends BasePlistService {
         log.warn('Invalid pair record for TLS upgrade');
         return;
       }
+      const { HostID, SystemBUID } = pairRecord;
+      if (!HostID || !SystemBUID) {
+        log.warn('Pair record is missing HostID or SystemBUID');
+        return;
+      }
 
-      const sessionInfo = await this.startSession(
-        pairRecord.HostID!,
-        pairRecord.SystemBUID!,
-      );
+      const sessionInfo = await this.startSession(HostID, SystemBUID);
 
       if (!sessionInfo.enableSessionSSL) {
         log.info('Device did not request TLS upgrade. Continuing unencrypted.');
@@ -556,9 +558,14 @@ export class LockdownService extends BasePlistService {
   }
 
   private async performTLSUpgrade(pairRecord: PairRecord): Promise<void> {
+    const { HostCertificate, HostPrivateKey } = pairRecord;
+    if (!HostCertificate || !HostPrivateKey) {
+      throw new LockdownError('Pair record missing TLS certificate or key');
+    }
+
     const tlsConfig: TLSConfig = {
-      cert: pairRecord.HostCertificate!,
-      key: pairRecord.HostPrivateKey!,
+      cert: HostCertificate,
+      key: HostPrivateKey,
     };
 
     const tlsSocket = await this.tlsManager.upgradeSocketToTLS(

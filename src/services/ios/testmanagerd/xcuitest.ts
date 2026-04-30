@@ -669,20 +669,26 @@ export class XCTestRunner extends EventEmitter<XCTestRunnerEvents> {
     timer: InstanceType<typeof timing.Timer>,
   ): Promise<XCTestRunResult> {
     const timeoutMs = this.options.timeoutMs ?? 180000;
-    const sessionId = this.xcuitest!.sessionIdentifier;
+    const xcuitest = this.xcuitest;
+    if (!xcuitest) {
+      throw new XCTestRunError('XCUITest runner is not initialized', {
+        stage: 'wait_finish',
+      });
+    }
+    const sessionId = xcuitest.sessionIdentifier;
 
     this.emit('step', 'wait_finish');
     const timeout = new Promise<'timed_out'>((resolve) =>
       setTimeout(() => resolve('timed_out'), timeoutMs),
     );
     const raceResult = await Promise.race([
-      this.xcuitest!.waitForCompletion(),
+      xcuitest.waitForCompletion(),
       timeout,
     ]);
 
     const durationMs = Math.round(timer.getDuration().asMilliSeconds);
-    const testSummary = this.xcuitest!.lastTestSummary ?? undefined;
-    const listenerError = this.xcuitest!.lastListenerError;
+    const testSummary = xcuitest.lastTestSummary ?? undefined;
+    const listenerError = xcuitest.lastListenerError;
 
     if (raceResult === 'timed_out') {
       return {

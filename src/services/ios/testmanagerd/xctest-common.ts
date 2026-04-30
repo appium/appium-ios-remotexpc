@@ -95,9 +95,9 @@ export function createDeferred<T>(): DeferredPromise<T> {
   // Node 20 fallback
   let resolve!: (value: T | PromiseLike<T>) => void;
   let reject!: (reason?: unknown) => void;
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
+  const promise = new Promise<T>((_resolve, _reject) => {
+    resolve = _resolve;
+    reject = _reject;
   });
   return { promise, resolve, reject };
 }
