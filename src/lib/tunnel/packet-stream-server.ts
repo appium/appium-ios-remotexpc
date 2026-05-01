@@ -100,12 +100,13 @@ export class PacketStreamServer extends EventEmitter {
       const message = this.createMessage(serialized);
 
       for (const client of this.clients) {
-        const onError = (err: Error) => {
-          log.error(`Failed to write to client: ${err}`);
-          this.clients.delete(client);
-        };
         if (!client.destroyed) {
-          client.write(message, onError);
+          client.write(message, (err) => {
+            if (err) {
+              log.error(`Failed to write to client: ${err}`);
+              this.clients.delete(client);
+            }
+          });
         }
       }
     } catch (err) {

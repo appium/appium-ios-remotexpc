@@ -4,6 +4,7 @@
  */
 
 import { logger } from '@appium/support';
+import { BaseItem, strongbox } from '@appium/strongbox';
 import { Command } from 'commander';
 
 import {
@@ -159,6 +160,7 @@ function attachTunnelRegistryLifecycleWatch(registry, successful, callbacks = {}
   const { stop } = watchTunnelRegistrySockets({
     registry,
     watches,
+    rsdProbeIntervalMs: 0,
     onRemove: async (udid) => {
       const server = packetStreamServers.get(udid);
       if (server) {
@@ -549,6 +551,8 @@ async function main() {
       log.info('\n✅ Successful tunnels:');
       const registry = await updateTunnelRegistry(results);
       await startTunnelRegistryServer(registry, registryPort);
+      const box = strongbox('appium-xcuitest-driver');
+      await new BaseItem('tunnelRegistryPort', box).write(String(registryPort));
 
       const reconnectRetries = options.reconnectRetries;
       const devicesByUdid = new Map(

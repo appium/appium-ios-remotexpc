@@ -48,7 +48,7 @@ export function watchTunnelRegistrySockets(
     onRemove,
     onTunnelDead,
     rsdProbeIntervalMs = 5_000,
-    rsdProbeConnectTimeoutMs = 1_000,
+    rsdProbeConnectTimeoutMs = 5_000,
   } = options;
 
   const stopped = { value: false };
@@ -165,14 +165,19 @@ function probeRsd(
       resolve(ok);
     };
 
-    const timer = setTimeout(() => finish(false), timeoutMs);
+    const timer = setTimeout(() => {
+      log.warn(`RSD probe ${host}:${port} timed out after ${timeoutMs}ms`);
+      finish(false);
+    }, timeoutMs);
 
     socket.once('connect', () => {
       clearTimeout(timer);
+      log.debug(`RSD probe ${host}:${port} connected`);
       finish(true);
     });
-    socket.once('error', () => {
+    socket.once('error', (err) => {
       clearTimeout(timer);
+      log.warn(`RSD probe ${host}:${port} error: ${err.message}`);
       finish(false);
     });
   });
