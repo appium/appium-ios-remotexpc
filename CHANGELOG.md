@@ -1,3 +1,9 @@
+## [1.1.2](https://github.com/appium/appium-ios-remotexpc/compare/v1.1.1...v1.1.2) (2026-05-03)
+
+### Bug Fixes
+
+* **socket:** remove redundant error logging in receive function ([#198](https://github.com/appium/appium-ios-remotexpc/issues/198)) ([c1fbeca](https://github.com/appium/appium-ios-remotexpc/commit/c1fbeca1650f76a2dcec132a4ce278a78daf55a6))
+
 ## [1.1.1](https://github.com/appium/appium-ios-remotexpc/compare/v1.1.0...v1.1.1) (2026-04-30)
 
 ### Bug Fixes
