@@ -350,9 +350,6 @@ export class Usbmux extends BaseSocketService {
             );
           }, timeout);
         });
-      } catch (error) {
-        log.debug(`Receive failed for tag ${tag}: ${error}`);
-        return undefined as T;
       } finally {
         if (timeoutId) {
           clearTimeout(timeoutId);
