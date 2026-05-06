@@ -52,7 +52,7 @@ export class PacketStreamServer extends EventEmitter {
       const server = this.server;
       await new Promise<void>((resolve, reject) => {
         server.once('error', reject);
-        server.close(() => resolve);
+        server.close(() => resolve());
       });
       this.server = null;
     }
