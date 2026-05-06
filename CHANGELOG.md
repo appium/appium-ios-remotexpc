@@ -1,3 +1,9 @@
+## [1.1.5](https://github.com/appium/appium-ios-remotexpc/compare/v1.1.4...v1.1.5) (2026-05-06)
+
+### Bug Fixes
+
+* **tunnel:** resolve PacketStreamServer.stop() hang on Ctrl+C ([#201](https://github.com/appium/appium-ios-remotexpc/issues/201)) ([17a1afa](https://github.com/appium/appium-ios-remotexpc/commit/17a1afaa81ec087d825e3d070e9509bd1d8ce33f))
+
 ## [1.1.4](https://github.com/appium/appium-ios-remotexpc/compare/v1.1.3...v1.1.4) (2026-05-06)
 
 ### Bug Fixes
