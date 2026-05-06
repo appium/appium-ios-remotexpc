@@ -37,9 +37,10 @@ export interface DevicePortForwarderEvents {
   started: () => void;
   stopped: () => void;
   clientConnected: (socket: Socket) => void;
-  clientDisconnected: (socket: Socket) => void;
+  clientDisconnected: (socket: Socket, error?: Error) => void;
   upstreamConnected: (socket: Socket) => void;
-  upstreamDisconnected: (socket: Socket) => void;
+  upstreamDisconnected: (socket: Socket, error?: Error) => void;
   upstreamConnectError: (error: unknown) => void;
+  /** @deprecated Not used, will be removed in the next major version. */
   error: (error: unknown) => void;
 }
