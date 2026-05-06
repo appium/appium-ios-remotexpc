@@ -101,7 +101,8 @@ export class PacketStreamServer extends EventEmitter {
 
       await Promise.all(
         Array.from(this.clients).map(async (client) => {
-          if (client.destroyed) {
+          if (!client.writable) {
+            this.clients.delete(client);
             return;
           }
           try {
