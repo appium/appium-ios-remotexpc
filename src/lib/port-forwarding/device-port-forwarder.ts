@@ -115,6 +115,7 @@ export class DevicePortForwarder extends EventEmitter {
     try {
       upstreamSocket = await this.openUpstreamSocket();
     } catch (err) {
+      this.activeSockets.delete(localSocket);
       log.debug(
         `Failed to open upstream socket for device port ${this.devicePort}: ${err}`,
       );
