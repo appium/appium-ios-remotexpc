@@ -1,3 +1,9 @@
+## [1.1.4](https://github.com/appium/appium-ios-remotexpc/compare/v1.1.3...v1.1.4) (2026-05-06)
+
+### Bug Fixes
+
+* **socket:** improve byte-stream ownership management in socket handling ([#200](https://github.com/appium/appium-ios-remotexpc/issues/200)) ([d7a44cd](https://github.com/appium/appium-ios-remotexpc/commit/d7a44cd2a453f78708a757b560d7f5e474b2dc9c))
+
 ## [1.1.3](https://github.com/appium/appium-ios-remotexpc/compare/v1.1.2...v1.1.3) (2026-05-06)
 
 ### Bug Fixes
