@@ -233,9 +233,20 @@ export class Usbmux extends BaseSocketService {
         }
 
         if (data.payload.Number === USBMUX_RESULT.OK) {
-          this._splitter.shutdown();
+          // Detach constructor-owned consumers from the raw socket so the caller
+          // gets full byte-stream ownership. Leaving the splitter/decoder attached
+          // lets their unread buffers grow, eventually applying backpressure that
+          // stalls long-lived forwards.
+          //
+          // Order matters: unpipe() must happen before removeAllListeners() /
+          // shutdown(). Removing listeners first breaks Node's pipe cleanup, leaving
+          // orphaned source listeners that continue pushing bytes into detached
+          // streams and eventually stall the socket.
           this._socketClient.unpipe(this._splitter);
-          this._splitter.unpipe(this._decoder);
+          this._socketClient.unpipe(this._decoder);
+          this._encoder.unpipe(this._socketClient);
+          this._splitter.shutdown();
+          this._decoder.removeAllListeners('data');
           return this._socketClient;
         } else if (data.payload.Number === USBMUX_RESULT.CONNREFUSED) {
           throw new Error(`Connection was refused to port ${port}`);
