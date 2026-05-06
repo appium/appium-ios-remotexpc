@@ -1,3 +1,9 @@
+## [1.1.6](https://github.com/appium/appium-ios-remotexpc/compare/v1.1.5...v1.1.6) (2026-05-06)
+
+### Bug Fixes
+
+* **packet-stream-server:** only evict client on actual broadcast write error ([#202](https://github.com/appium/appium-ios-remotexpc/issues/202)) ([0d9595e](https://github.com/appium/appium-ios-remotexpc/commit/0d9595e8b4ac2e6582b9f84ed6ac8516fb20006e))
+
 ## [1.1.5](https://github.com/appium/appium-ios-remotexpc/compare/v1.1.4...v1.1.5) (2026-05-06)
 
 ### Bug Fixes
