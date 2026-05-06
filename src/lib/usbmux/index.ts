@@ -243,7 +243,7 @@ export class Usbmux extends BaseSocketService {
           // orphaned source listeners that continue pushing bytes into detached
           // streams and eventually stall the socket.
           this._socketClient.unpipe(this._splitter);
-          this._socketClient.unpipe(this._decoder);
+          this._splitter.unpipe(this._decoder);
           this._encoder.unpipe(this._socketClient);
           this._splitter.shutdown();
           this._decoder.removeAllListeners('data');
