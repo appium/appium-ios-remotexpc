@@ -122,9 +122,14 @@ export class PacketStreamServer extends EventEmitter {
    */
   private writeToClient(client: Socket, message: Buffer): Promise<void> {
     return new Promise<void>((resolve, reject) => {
-      client.write(message, (err?: Error | null) =>
-        err ? reject(err) : resolve(),
-      );
+      const onWriteComplete = (err?: Error | null): void => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve();
+      };
+      client.write(message, onWriteComplete);
     });
   }
 
