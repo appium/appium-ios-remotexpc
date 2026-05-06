@@ -45,7 +45,7 @@ export class DevicePortForwarder extends EventEmitter {
     }
 
     this.server = createServer((localSocket: Socket) => {
-      void this.handleLocalConnection(localSocket);
+      void this.handleDownstreamConnection(localSocket);
     });
 
     await new Promise<void>((resolve, reject) => {
@@ -107,23 +107,20 @@ export class DevicePortForwarder extends EventEmitter {
     ) as this;
   }
 
-  private async handleLocalConnection(localSocket: Socket): Promise<void> {
+  private async handleDownstreamConnection(localSocket: Socket): Promise<void> {
     this.activeSockets.add(localSocket);
     this.emit('clientConnected', localSocket);
-    localSocket.once('close', () => {
-      this.activeSockets.delete(localSocket);
-      this.emit('clientDisconnected', localSocket);
-    });
 
     let upstreamSocket: Socket | undefined;
     try {
       upstreamSocket = await this.openUpstreamSocket();
     } catch (err) {
+      this.activeSockets.delete(localSocket);
       log.debug(
         `Failed to open upstream socket for device port ${this.devicePort}: ${err}`,
       );
       this.emit('upstreamConnectError', err);
-      this.emit('error', err);
+      this.emit('clientDisconnected', localSocket, err);
       localSocket.destroy();
       return;
     }
@@ -133,23 +130,38 @@ export class DevicePortForwarder extends EventEmitter {
 
     let cleanedUp = false;
     const teardown = (): void => {
+      this.activeSockets.delete(localSocket);
+      this.activeSockets.delete(upstreamSocket);
+
       if (cleanedUp) {
         return;
       }
       cleanedUp = true;
+
       localSocket.unpipe(upstreamSocket);
       upstreamSocket.unpipe(localSocket);
       localSocket.destroy();
       upstreamSocket.destroy();
-      this.activeSockets.delete(localSocket);
-      this.activeSockets.delete(upstreamSocket);
-      this.emit('upstreamDisconnected', upstreamSocket);
     };
 
-    localSocket.once('close', teardown);
-    localSocket.once('error', teardown);
-    upstreamSocket.once('close', teardown);
-    upstreamSocket.once('error', teardown);
+    let clientError: Error | undefined;
+    localSocket.once('error', (err) => {
+      clientError = err;
+      teardown();
+    });
+    localSocket.once('close', () => {
+      this.emit('clientDisconnected', localSocket, clientError);
+      teardown();
+    });
+    let upstreamError: Error | undefined;
+    upstreamSocket.once('error', (err) => {
+      upstreamError = err;
+      teardown();
+    });
+    upstreamSocket.once('close', () => {
+      this.emit('upstreamDisconnected', upstreamSocket, upstreamError);
+      teardown();
+    });
 
     localSocket.pipe(upstreamSocket);
     upstreamSocket.pipe(localSocket);

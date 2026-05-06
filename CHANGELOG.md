@@ -1,3 +1,9 @@
+## [1.1.3](https://github.com/appium/appium-ios-remotexpc/compare/v1.1.2...v1.1.3) (2026-05-06)
+
+### Bug Fixes
+
+* Tune emitted events on the port forwarder ([#199](https://github.com/appium/appium-ios-remotexpc/issues/199)) ([d528f6e](https://github.com/appium/appium-ios-remotexpc/commit/d528f6e779e34371ba9ac980300f14b1eb779fe5))
+
 ## [1.1.2](https://github.com/appium/appium-ios-remotexpc/compare/v1.1.1...v1.1.2) (2026-05-03)
 
 ### Bug Fixes
