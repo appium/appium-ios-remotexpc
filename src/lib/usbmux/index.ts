@@ -244,6 +244,7 @@ export class Usbmux extends BaseSocketService {
           // streams and eventually stall the socket.
           this._socketClient.unpipe(this._splitter);
           this._splitter.unpipe(this._decoder);
+          this._socketClient.unpipe(this._decoder);
           this._encoder.unpipe(this._socketClient);
           this._splitter.shutdown();
           this._decoder.removeAllListeners('data');
