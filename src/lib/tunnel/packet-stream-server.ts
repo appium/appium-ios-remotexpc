@@ -86,7 +86,7 @@ export class PacketStreamServer extends EventEmitter {
   private createPacketConsumer(): PacketConsumer {
     return {
       onPacket: (packet: PacketData) => {
-        this.broadcastPacket(packet);
+        void this.broadcastPacket(packet);
       },
     };
   }
@@ -94,25 +94,38 @@ export class PacketStreamServer extends EventEmitter {
   /**
    * Broadcast packet to all connected clients
    */
-  private broadcastPacket(packet: PacketData): void {
+  private async broadcastPacket(packet: PacketData): Promise<void> {
     try {
       const serialized = JSON.stringify(packet);
       const message = this.createMessage(serialized);
 
-      for (const client of this.clients) {
-        if (client.destroyed) {
-          continue;
-        }
-        client.write(message, (err?: Error | null) => {
-          if (err) {
+      await Promise.all(
+        Array.from(this.clients).map(async (client) => {
+          if (client.destroyed) {
+            return;
+          }
+          try {
+            await this.writeToClient(client, message);
+          } catch (err) {
             log.error(`Failed to write to client: ${err}`);
             this.clients.delete(client);
           }
-        });
-      }
+        }),
+      );
     } catch (err) {
       log.error(`Failed to broadcast packet: ${err}`);
     }
+  }
+
+  /**
+   * Promisified wrapper around `socket.write` so callers can use async/await.
+   */
+  private writeToClient(client: Socket, message: Buffer): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      client.write(message, (err?: Error | null) =>
+        err ? reject(err) : resolve(),
+      );
+    });
   }
 
   /**
