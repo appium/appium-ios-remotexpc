@@ -3,7 +3,7 @@ import { getLogger } from '../../logger.js';
 import {
   DEFAULT_PAIRING_CONFIG,
   REMOTE_PAIRING_DISCOVERY_DOMAIN,
-  REMOTE_PAIRING_DISCOVERY_SERVICE_TYPE,
+  REMOTE_PAIRING_MANUAL_DISCOVERY_SERVICE_TYPE,
 } from '../constants.js';
 import { enrichDiscoveredDevicesWithDevicectl } from '../devicectl-enrichment.js';
 import { toAppleTVDevices } from '../discovered-device-mapper.js';
@@ -98,7 +98,7 @@ export class AppleTVPairingService {
   private async discoverDevices(): Promise<AppleTVDevice[]> {
     try {
       const backend = createDiscoveryBackend(process.platform, {
-        serviceType: REMOTE_PAIRING_DISCOVERY_SERVICE_TYPE,
+        serviceType: REMOTE_PAIRING_MANUAL_DISCOVERY_SERVICE_TYPE,
         domain: REMOTE_PAIRING_DISCOVERY_DOMAIN,
       });
       log.info(

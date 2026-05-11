@@ -1,13 +1,21 @@
+import { BonjourDiscoveryBackend } from './bonjour-discovery-backend.js';
 import { DnssdDiscoveryBackend } from './dnssd-discovery-backend.js';
 import type { DiscoveryOptions, IDeviceDiscoveryBackend } from './types.js';
 
 /**
  * Create the default device discovery backend for the current platform.
+ *
+ * On macOS we prefer the system `dns-sd` CLI (Bonjour) because Apple's
+ * mDNSResponder advertises non-RFC-6335-compliant service names (e.g.
+ * `_remotepairing-manual-pairing._tcp`) that pure-JS mDNS libraries reject.
+ * Other platforms fall back to the cross-platform `dnssd` library.
  */
 export function createDiscoveryBackend(
   platform: NodeJS.Platform = process.platform,
   options?: DiscoveryOptions,
 ): IDeviceDiscoveryBackend {
-  void platform;
+  if (platform === 'darwin') {
+    return new BonjourDiscoveryBackend(options);
+  }
   return new DnssdDiscoveryBackend(options);
 }

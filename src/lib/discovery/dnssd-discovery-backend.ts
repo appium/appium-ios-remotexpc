@@ -1,51 +1,34 @@
 import * as dnssd from 'dnssd';
 import type { Service } from 'dnssd';
-import { lookup } from 'node:dns/promises';
 import { setTimeout as delay } from 'node:timers/promises';
 
 import { getLogger } from '../logger.js';
-import {
-  DISCOVERY_DEFAULT_DOMAIN,
-  DISCOVERY_DEFAULT_SERVICE_TYPE,
-  DISCOVERY_DEFAULT_TIMEOUT_MS,
-} from './constants.js';
+import { BaseDiscoveryBackend } from './base-discovery-backend.js';
+import { DISCOVERY_DEFAULT_TIMEOUT_MS } from './constants.js';
+import { normalizeHostname, resolveIpAddress } from './discovery-utils.js';
 import type {
   DiscoveredDevice,
   DiscoveredDeviceMetadata,
   DiscoveryOptions,
-  IDeviceDiscoveryBackend,
 } from './types.js';
 
 const log = getLogger('DnssdDiscoveryBackend');
 
-export class DnssdDiscoveryBackend implements IDeviceDiscoveryBackend {
-  private inFlightDiscovery?: Promise<DiscoveredDevice[]>;
-
-  constructor(
-    private readonly options: DiscoveryOptions = {
-      serviceType: DISCOVERY_DEFAULT_SERVICE_TYPE,
-      domain: DISCOVERY_DEFAULT_DOMAIN,
-    },
-  ) {}
-
-  async discoverDevices(timeoutMs: number): Promise<DiscoveredDevice[]> {
-    if (this.inFlightDiscovery) {
-      return await this.inFlightDiscovery;
-    }
-    this.inFlightDiscovery = this.runDiscovery(timeoutMs);
-    try {
-      return await this.inFlightDiscovery;
-    } finally {
-      this.inFlightDiscovery = undefined;
-    }
+/**
+ * Cross-platform discovery backend using the `dnssd` npm library.
+ *
+ * Note: `dnssd` enforces RFC 6335 (max 15-char service names), so it cannot
+ * see Apple's long names like `_remotepairing-manual-pairing._tcp`. Use
+ * `BonjourDiscoveryBackend` on darwin for those.
+ */
+export class DnssdDiscoveryBackend extends BaseDiscoveryBackend {
+  constructor(options?: DiscoveryOptions) {
+    super(options);
   }
 
-  private async runDiscovery(timeoutMs: number): Promise<DiscoveredDevice[]> {
-    const serviceType =
-      this.options.serviceType || DISCOVERY_DEFAULT_SERVICE_TYPE;
-    const domain = this.options.domain || DISCOVERY_DEFAULT_DOMAIN;
-    const browser = new dnssd.Browser(serviceType, {
-      domain,
+  protected async runDiscovery(timeoutMs: number): Promise<DiscoveredDevice[]> {
+    const browser = new dnssd.Browser(this.serviceType, {
+      domain: this.domain,
     });
     const devices = new Map<string, Promise<DiscoveredDevice | null>>();
     let browserError: Error | null = null;
@@ -118,40 +101,6 @@ async function resolveDiscoveredDevice(
   } catch (err) {
     log.warn(`Failed to process dnssd service: ${err}`);
     return null;
-  }
-}
-
-/**
- * Ensure hostnames are returned in fqdn form with trailing dot.
- */
-function normalizeHostname(host?: string): string | undefined {
-  if (!host) {
-    return undefined;
-  }
-  return host.endsWith('.') ? host : `${host}.`;
-}
-
-/**
- * Resolve a preferred IPv4 address from service data or DNS lookup.
- */
-async function resolveIpAddress(
-  host?: string,
-  addresses?: string[],
-): Promise<string | undefined> {
-  if (addresses?.[0]) {
-    return addresses[0];
-  }
-  if (!host) {
-    return undefined;
-  }
-  try {
-    const results = await lookup(host.replace(/\.$/, ''), {
-      family: 4,
-      all: true,
-    });
-    return results[0]?.address;
-  } catch {
-    return undefined;
   }
 }
 
