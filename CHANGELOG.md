@@ -1,3 +1,9 @@
+## [1.1.7](https://github.com/appium/appium-ios-remotexpc/compare/v1.1.6...v1.1.7) (2026-05-11)
+
+### Bug Fixes
+
+* **apple-tv:** correct mDNS service usage for pair-setup and tunnel ([#205](https://github.com/appium/appium-ios-remotexpc/issues/205)) ([f139e63](https://github.com/appium/appium-ios-remotexpc/commit/f139e6307555117848606c0f64e0bf6ac7ea4ff9)), closes [#171](https://github.com/appium/appium-ios-remotexpc/issues/171)
+
 ## [1.1.6](https://github.com/appium/appium-ios-remotexpc/compare/v1.1.5...v1.1.6) (2026-05-06)
 
 ### Bug Fixes
