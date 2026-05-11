@@ -210,7 +210,7 @@ export class AppleTVTunnelService {
     // Safety net: startTunnel() already resumes remoted in its own finally
     // block, this guards against callers that abandon a partially-started
     // tunnel without that path executing.
-    this.remoted.resumeIfRequired();
+    this.remoted.resume();
   }
 
   /**
@@ -258,7 +258,7 @@ export class AppleTVTunnelService {
     // While remoted holds the trusted tunnel for a paired device, the device
     // refuses a second createListener request from another client. Resumed in
     // finally so the daemon never stays suspended after this method returns.
-    await this.remoted.suspendIfRequired();
+    await this.remoted.suspend();
     try {
       for (const device of devicesToProcess) {
         for (const identifier of identifiersToTry) {
@@ -290,7 +290,7 @@ export class AppleTVTunnelService {
         }
       }
     } finally {
-      this.remoted.resumeIfRequired();
+      this.remoted.resume();
     }
 
     this.logFailureSummary(failedAttempts);

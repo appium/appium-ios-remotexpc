@@ -26,7 +26,9 @@ export class DnssdDiscoveryBackend extends BaseDiscoveryBackend {
     super(options);
   }
 
-  protected async runDiscovery(timeoutMs: number): Promise<DiscoveredDevice[]> {
+  protected override async runDiscovery(
+    timeoutMs: number,
+  ): Promise<DiscoveredDevice[]> {
     const browser = new dnssd.Browser(this.serviceType, {
       domain: this.domain,
     });

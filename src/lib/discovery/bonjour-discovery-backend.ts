@@ -1,9 +1,16 @@
+import { fs } from '@appium/support';
 import { type ChildProcess, spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { clearTimeout, setTimeout } from 'node:timers';
 
 import { getLogger } from '../logger.js';
 import { BaseDiscoveryBackend } from './base-discovery-backend.js';
+import {
+  type BrowsedService,
+  parseBrowseLine,
+  parseReachableLine,
+  parseTxtRecord,
+} from './bonjour-output-parsers.js';
 import { DISCOVERY_DEFAULT_TIMEOUT_MS } from './constants.js';
 import { normalizeHostname, resolveIpAddress } from './discovery-utils.js';
 import type {
@@ -16,17 +23,6 @@ const log = getLogger('BonjourDiscoveryBackend');
 
 const DNS_SD_BIN = 'dns-sd';
 const RESOLVE_TIMEOUT_MS = 3000;
-
-const BROWSE_LINE =
-  /^\s*\d{2}:\d{2}:\d{2}\.\d+\s+(Add|Rmv)\s+\d+\s+\d+\s+(\S+)\s+(\S+)\s+(.+)$/;
-const REACHABLE = /can be reached at (\S+):(\d+)/;
-const TXT_PAIR = /(\S+?)=([^\s]+)/g;
-
-interface BrowsedService {
-  name: string;
-  serviceType: string;
-  domain: string;
-}
 
 interface ResolvedService {
   hostname: string;
@@ -53,7 +49,10 @@ export class BonjourDiscoveryBackend extends BaseDiscoveryBackend {
     super(options);
   }
 
-  protected async runDiscovery(timeoutMs: number): Promise<DiscoveredDevice[]> {
+  protected override async runDiscovery(
+    timeoutMs: number,
+  ): Promise<DiscoveredDevice[]> {
+    await assertDnsSdAvailable();
     const browseTimeout = Math.max(timeoutMs, DISCOVERY_DEFAULT_TIMEOUT_MS);
     const services = await browseServices(
       this.serviceType,
@@ -78,20 +77,36 @@ export class BonjourDiscoveryBackend extends BaseDiscoveryBackend {
 }
 
 /**
+ * Verify that the `dns-sd` binary is reachable on PATH and surface a
+ * descriptive error otherwise (e.g. running on a non-darwin host without
+ * Apple's Bonjour CLI installed).
+ */
+async function assertDnsSdAvailable(): Promise<void> {
+  try {
+    await fs.which(DNS_SD_BIN);
+  } catch (err) {
+    const message = `\`${DNS_SD_BIN}\` binary not found in PATH: ${
+      (err as Error).message ?? String(err)
+    }`;
+    log.warn(message);
+    throw new Error(message, { cause: err as Error });
+  }
+}
+
+/**
  * Run `dns-sd -B` for the configured timeout and return all currently-present
  * services (Add not followed by Rmv).
  *
- * Rejects when the `dns-sd` binary cannot be spawned (e.g. missing from PATH)
- * or when it terminates with a non-zero exit code before we time it out, so
- * callers can distinguish a broken discovery transport from "no devices
- * found".
+ * Rejects when `dns-sd` cannot be spawned (e.g. missing from PATH) or when
+ * it terminates with a non-zero exit code before we time it out, so callers
+ * can distinguish a broken discovery transport from "no devices found".
  */
-function browseServices(
+async function browseServices(
   serviceType: string,
   domain: string,
   timeoutMs: number,
 ): Promise<BrowsedService[]> {
-  return new Promise((resolve, reject) => {
+  return await new Promise<BrowsedService[]>((resolve, reject) => {
     const child = spawn(DNS_SD_BIN, ['-B', serviceType, domain]);
     const services = new Map<string, BrowsedService>();
     let stderr = '';
@@ -124,7 +139,7 @@ function browseServices(
       }
       if (parsed.action === 'Add') {
         services.set(parsed.service.name, parsed.service);
-      } else if (parsed.action === 'Rmv') {
+      } else {
         services.delete(parsed.service.name);
       }
     });
@@ -159,8 +174,8 @@ function buildBrowseError(
   const detail = stderr.trim() || spawnError.message;
   const message =
     spawnError.code === 'ENOENT'
-      ? `\`dns-sd\` binary not found in PATH: ${detail}`
-      : `\`dns-sd\` browse failed: ${detail}`;
+      ? `\`${DNS_SD_BIN}\` binary not found in PATH: ${detail}`
+      : `\`${DNS_SD_BIN}\` browse failed: ${detail}`;
   log.warn(message);
   return new Error(message, { cause: spawnError });
 }
@@ -202,11 +217,11 @@ async function resolveServiceToDevice(
  * Run `dns-sd -L` and return as soon as we have a reachable line + TXT line,
  * or after `timeoutMs`.
  */
-function runResolve(
+async function runResolve(
   svc: BrowsedService,
   timeoutMs: number,
 ): Promise<ResolvedService | null> {
-  return new Promise((resolve) => {
+  return await new Promise<ResolvedService | null>((resolve) => {
     const child = spawn(DNS_SD_BIN, [
       '-L',
       svc.name,
@@ -229,9 +244,9 @@ function runResolve(
     const rl = createInterface({ input: child.stdout });
     rl.on('line', (line) => {
       if (!pending) {
-        const m = line.match(REACHABLE);
-        if (m) {
-          pending = { hostname: m[1], port: parseInt(m[2], 10) };
+        const reachable = parseReachableLine(line);
+        if (reachable) {
+          pending = reachable;
         }
         return;
       }
@@ -246,47 +261,6 @@ function runResolve(
       timeoutMs,
     );
   });
-}
-
-/**
- * Parse one `dns-sd -B` output line into an action + service descriptor.
- *
- * Example matched line:
- *   "11:52:30.137  Add        2  17 local.   _remotepairing-manual-pairing._tcp. Bedroom"
- */
-function parseBrowseLine(
-  line: string,
-): { action: 'Add' | 'Rmv'; service: BrowsedService } | null {
-  const m = line.match(BROWSE_LINE);
-  if (!m) {
-    return null;
-  }
-  const [, action, domain, serviceType, name] = m;
-  return {
-    action: action as 'Add' | 'Rmv',
-    service: {
-      name: name.trim(),
-      serviceType: stripTrailingDot(serviceType),
-      domain: stripTrailingDot(domain),
-    },
-  };
-}
-
-/**
- * Parse the space-separated `key=value` pairs that follow a `-L` reachable line.
- */
-function parseTxtRecord(line: string): Record<string, string> {
-  const txt: Record<string, string> = {};
-  let match: RegExpExecArray | null;
-  while ((match = TXT_PAIR.exec(line)) !== null) {
-    txt[match[1]] = match[2];
-  }
-  TXT_PAIR.lastIndex = 0;
-  return txt;
-}
-
-function stripTrailingDot(value: string): string {
-  return value.endsWith('.') ? value.slice(0, -1) : value;
 }
 
 function killSafely(child: ChildProcess): void {

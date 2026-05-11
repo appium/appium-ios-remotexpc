@@ -1,10 +1,15 @@
-import { spawn } from 'node:child_process';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 
 import { getLogger } from '../../logger.js';
+
+const execFileAsync = promisify(execFile);
 
 const log = getLogger('RemotedController');
 
 const REMOTED_PROCESS_NAME = 'remoted';
+const PGREP_BIN = 'pgrep';
+const PGREP_NO_MATCH_EXIT_CODE = 1;
 
 /**
  * Suspends and resumes macOS' `remoted` daemon around tunnel operations.
@@ -20,18 +25,20 @@ export class RemotedController {
   private suspendedPid: number | null = null;
 
   /**
-   * Suspends `remoted` if it is running and not already suspended.
-   * Safe to call multiple times.
+   * Suspends `remoted` if it is currently running and not already suspended
+   * by this controller. No-op on non-darwin platforms. Safe to call multiple
+   * times.
    */
-  async suspendIfRequired(): Promise<void> {
+  async suspend(): Promise<void> {
     if (process.platform !== 'darwin' || this.suspendedPid !== null) {
       return;
     }
-    const pid = await findRemotedPid();
-    if (pid === null) {
+    const pids = await findPidsByName(REMOTED_PROCESS_NAME);
+    if (pids.length === 0) {
       log.debug('remoted is not running; nothing to suspend');
       return;
     }
+    const pid = pids[0];
     try {
       process.kill(pid, 'SIGSTOP');
       this.suspendedPid = pid;
@@ -50,9 +57,9 @@ export class RemotedController {
 
   /**
    * Resumes the `remoted` process previously suspended by this controller.
-   * Safe to call multiple times.
+   * No-op when nothing has been suspended. Safe to call multiple times.
    */
-  resumeIfRequired(): void {
+  resume(): void {
     if (this.suspendedPid === null) {
       return;
     }
@@ -68,22 +75,26 @@ export class RemotedController {
 }
 
 /**
- * Locate the running `remoted` process by exact process name.
+ * Locate all running processes that exactly match `name` and return their PIDs.
  * Uses `pgrep -x` (exact match on process name) which is robust against
  * launchd adding arguments to the daemon's command line.
+ *
+ * Returns an empty list when no processes match (`pgrep` exit code 1) or
+ * when `pgrep` itself cannot be invoked.
  */
-function findRemotedPid(): Promise<number | null> {
-  return new Promise((resolve) => {
-    const child = spawn('pgrep', ['-x', REMOTED_PROCESS_NAME]);
-    let stdout = '';
-    child.stdout.on('data', (chunk: Buffer) => {
-      stdout += chunk.toString();
-    });
-    child.on('error', () => resolve(null));
-    child.on('exit', () => {
-      const first = stdout.trim().split(/\s+/)[0];
-      const pid = parseInt(first, 10);
-      resolve(Number.isFinite(pid) && pid > 0 ? pid : null);
-    });
-  });
+async function findPidsByName(name: string): Promise<number[]> {
+  try {
+    const { stdout } = await execFileAsync(PGREP_BIN, ['-x', name]);
+    return stdout
+      .split('\n')
+      .map((line) => parseInt(line.trim(), 10))
+      .filter((pid) => Number.isFinite(pid) && pid > 0);
+  } catch (err) {
+    const code = (err as { code?: unknown })?.code;
+    if (code === PGREP_NO_MATCH_EXIT_CODE) {
+      return [];
+    }
+    log.debug(`pgrep failed for "${name}": ${err}`);
+    return [];
+  }
 }
