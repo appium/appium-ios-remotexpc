@@ -1,6 +1,13 @@
 import { lookup } from 'node:dns/promises';
 
 /**
+ * Strip a single trailing dot from an FQDN-style value (e.g. `local.` → `local`).
+ */
+export function stripTrailingDot(value: string): string {
+  return value.endsWith('.') ? value.slice(0, -1) : value;
+}
+
+/**
  * Ensure hostnames are returned in fqdn form with trailing dot.
  */
 export function normalizeHostname(host?: string): string | undefined {
@@ -24,7 +31,7 @@ export async function resolveIpAddress(
     return undefined;
   }
   try {
-    const results = await lookup(host.replace(/\.$/, ''), {
+    const results = await lookup(stripTrailingDot(host), {
       family: 4,
       all: true,
     });

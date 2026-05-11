@@ -30,6 +30,31 @@ interface ResolvedService {
   txt: Record<string, string>;
 }
 
+interface DnsSdHandlers<T> {
+  /**
+   * Called for each stdout line. Return `{ result }` to settle the promise
+   * with that value, `{ error }` to reject, or `undefined` to keep reading.
+   */
+  onLine: (line: string) => { result: T } | { error: Error } | undefined;
+  /**
+   * Called when the child fails to spawn or emits `error`. Return either an
+   * `Error` to reject with, or a `{ result }` to settle with.
+   */
+  onSpawnError: (
+    err: NodeJS.ErrnoException,
+    stderr: string,
+  ) => Error | { result: T };
+  /** Called when the child exits before any other settlement. */
+  onExit: (
+    code: number | null,
+    stderr: string,
+  ) => { result: T } | { error: Error };
+  /** Called when the timeout fires before any other settlement. */
+  onTimeout: () => { result: T } | { error: Error };
+  /** Capture stderr into the buffer passed to `onSpawnError`/`onExit`. */
+  captureStderr?: boolean;
+}
+
 /**
  * Discovery backend that wraps macOS' built-in `dns-sd` CLI (Apple's Bonjour
  * implementation).
@@ -85,10 +110,10 @@ async function assertDnsSdAvailable(): Promise<void> {
   try {
     await fs.which(DNS_SD_BIN);
   } catch (err) {
-    const cause = err instanceof Error ? err : new Error(String(err));
-    const message = `\`${DNS_SD_BIN}\` binary not found in PATH: ${cause.message}`;
+    const detail = err instanceof Error ? err.message : String(err);
+    const message = `\`${DNS_SD_BIN}\` binary not found in PATH: ${detail}`;
     log.warn(message);
-    throw new Error(message, { cause });
+    throw new Error(message, { cause: err });
   }
 }
 
@@ -105,62 +130,40 @@ async function browseServices(
   domain: string,
   timeoutMs: number,
 ): Promise<BrowsedService[]> {
-  return await new Promise<BrowsedService[]>((resolve, reject) => {
-    const child = spawn(DNS_SD_BIN, ['-B', serviceType, domain]);
-    const services = new Map<string, BrowsedService>();
-    let stderr = '';
-    let spawnError: NodeJS.ErrnoException | null = null;
-    let settled = false;
-
-    const finish = () => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      clearTimeout(timer);
-      killSafely(child);
-      if (spawnError) {
-        reject(buildBrowseError(spawnError, stderr));
-        return;
-      }
-      resolve(Array.from(services.values()));
-    };
-
-    child.stderr?.on('data', (chunk: Buffer) => {
-      stderr += chunk.toString();
-    });
-
-    const rl = createInterface({ input: child.stdout });
-    rl.on('line', (line) => {
-      const parsed = parseBrowseLine(line);
-      if (!parsed) {
-        return;
-      }
-      if (parsed.action === 'Add') {
-        services.set(parsed.service.name, parsed.service);
-      } else {
-        services.delete(parsed.service.name);
-      }
-    });
-
-    child.on('error', (err) => {
-      spawnError = err as NodeJS.ErrnoException;
-      finish();
-    });
-    child.on('exit', (code) => {
-      // `dns-sd -B` runs forever; we always terminate it via the timer. Only
-      // treat exit as a failure when it dies before we asked it to and with a
-      // non-zero status (e.g. invalid arguments).
-      if (!settled && code !== null && code !== 0) {
-        spawnError = Object.assign(new Error(`exited with code ${code}`), {
-          code: 'NONZERO_EXIT' as const,
-        }) as NodeJS.ErrnoException;
-      }
-      finish();
-    });
-
-    const timer = setTimeout(finish, timeoutMs);
-  });
+  const services = new Map<string, BrowsedService>();
+  return await runDnsSd<BrowsedService[]>(
+    ['-B', serviceType, domain],
+    timeoutMs,
+    {
+      captureStderr: true,
+      onLine: (line) => {
+        const parsed = parseBrowseLine(line);
+        if (!parsed) {
+          return undefined;
+        }
+        if (parsed.action === 'Add') {
+          services.set(parsed.service.name, parsed.service);
+        } else {
+          services.delete(parsed.service.name);
+        }
+        return undefined;
+      },
+      onSpawnError: (err, stderr) => buildBrowseError(err, stderr),
+      onExit: (code, stderr) => {
+        // `dns-sd -B` runs forever; we always terminate it via the timer. Only
+        // treat exit as a failure when it dies before we asked it to and with a
+        // non-zero status (e.g. invalid arguments).
+        if (code !== null && code !== 0) {
+          const err = Object.assign(new Error(`exited with code ${code}`), {
+            code: 'NONZERO_EXIT' as const,
+          }) as NodeJS.ErrnoException;
+          return { error: buildBrowseError(err, stderr) };
+        }
+        return { result: Array.from(services.values()) };
+      },
+      onTimeout: () => ({ result: Array.from(services.values()) }),
+    },
+  );
 }
 
 /**
@@ -220,45 +223,85 @@ async function runResolve(
   svc: BrowsedService,
   timeoutMs: number,
 ): Promise<ResolvedService | null> {
-  return await new Promise<ResolvedService | null>((resolve) => {
-    const child = spawn(DNS_SD_BIN, [
-      '-L',
-      svc.name,
-      svc.serviceType,
-      svc.domain,
-    ]);
-    let pending: Pick<ResolvedService, 'hostname' | 'port'> | null = null;
+  let pending: Pick<ResolvedService, 'hostname' | 'port'> | null = null;
+  const fromPending = (): ResolvedService | null =>
+    pending ? { ...pending, txt: {} } : null;
+
+  return await runDnsSd<ResolvedService | null>(
+    ['-L', svc.name, svc.serviceType, svc.domain],
+    timeoutMs,
+    {
+      onLine: (line) => {
+        if (!pending) {
+          const reachable = parseReachableLine(line);
+          if (reachable) {
+            pending = reachable;
+          }
+          return undefined;
+        }
+        return { result: { ...pending, txt: parseTxtRecord(line) } };
+      },
+      onSpawnError: () => ({ result: null }),
+      onExit: () => ({ result: fromPending() }),
+      onTimeout: () => ({ result: fromPending() }),
+    },
+  );
+}
+
+/**
+ * Spawn `dns-sd` with the given arguments and drive the readline / timeout /
+ * cleanup lifecycle. Behavior is fully delegated to the supplied handlers so
+ * callers can build different state machines (browse aggregation, single-shot
+ * resolve, etc.) on top of the same plumbing.
+ */
+async function runDnsSd<T>(
+  args: string[],
+  timeoutMs: number,
+  handlers: DnsSdHandlers<T>,
+): Promise<T> {
+  return await new Promise<T>((resolve, reject) => {
+    const child = spawn(DNS_SD_BIN, args);
+    let stderr = '';
     let settled = false;
 
-    const finish = (result: ResolvedService | null) => {
+    const settle = (outcome: { result: T } | { error: Error }) => {
       if (settled) {
         return;
       }
       settled = true;
       clearTimeout(timer);
       killSafely(child);
-      resolve(result);
+      if ('error' in outcome) {
+        reject(outcome.error);
+      } else {
+        resolve(outcome.result);
+      }
     };
+
+    if (handlers.captureStderr) {
+      child.stderr?.on('data', (chunk: Buffer) => {
+        stderr += chunk.toString();
+      });
+    }
 
     const rl = createInterface({ input: child.stdout });
     rl.on('line', (line) => {
-      if (!pending) {
-        const reachable = parseReachableLine(line);
-        if (reachable) {
-          pending = reachable;
-        }
-        return;
+      const outcome = handlers.onLine(line);
+      if (outcome) {
+        settle(outcome);
       }
-      finish({ ...pending, txt: parseTxtRecord(line) });
     });
 
-    child.on('error', () => finish(null));
-    child.on('exit', () => finish(pending ? { ...pending, txt: {} } : null));
+    child.on('error', (err) => {
+      const outcome = handlers.onSpawnError(
+        err as NodeJS.ErrnoException,
+        stderr,
+      );
+      settle(outcome instanceof Error ? { error: outcome } : outcome);
+    });
+    child.on('exit', (code) => settle(handlers.onExit(code, stderr)));
 
-    const timer = setTimeout(
-      () => finish(pending ? { ...pending, txt: {} } : null),
-      timeoutMs,
-    );
+    const timer = setTimeout(() => settle(handlers.onTimeout()), timeoutMs);
   });
 }
 

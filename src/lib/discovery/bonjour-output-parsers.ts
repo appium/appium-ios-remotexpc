@@ -4,6 +4,7 @@
  * Kept in a separate module so they can be unit-tested without spawning
  * any child processes.
  */
+import { stripTrailingDot } from './discovery-utils.js';
 
 const BROWSE_TIMESTAMP = /^\d{2}:\d{2}:\d{2}\.\d+$/;
 const BROWSE_FIXED_COLUMNS = 6;
@@ -90,13 +91,11 @@ export function parseReachableLine(line: string): ParsedReachable | null {
  * mutate the shared regex's `lastIndex`.
  */
 export function parseTxtRecord(line: string): Record<string, string> {
-  const txt: Record<string, string> = {};
-  for (const match of line.matchAll(TXT_PAIR)) {
-    txt[match[1]] = match[2];
-  }
-  return txt;
-}
-
-function stripTrailingDot(value: string): string {
-  return value.endsWith('.') ? value.slice(0, -1) : value;
+  return Array.from(line.matchAll(TXT_PAIR)).reduce<Record<string, string>>(
+    (acc, [, key, value]) => {
+      acc[key] = value;
+      return acc;
+    },
+    {},
+  );
 }

@@ -91,10 +91,9 @@ async function findPidsByName(name: string): Promise<number[]> {
       .filter((pid) => Number.isFinite(pid) && pid > 0);
   } catch (err) {
     const code = (err as { code?: unknown })?.code;
-    if (code === PGREP_NO_MATCH_EXIT_CODE) {
-      return [];
+    if (code !== PGREP_NO_MATCH_EXIT_CODE) {
+      log.debug(`pgrep failed for "${name}": ${err}`);
     }
-    log.debug(`pgrep failed for "${name}": ${err}`);
     return [];
   }
 }
