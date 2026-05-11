@@ -85,11 +85,10 @@ async function assertDnsSdAvailable(): Promise<void> {
   try {
     await fs.which(DNS_SD_BIN);
   } catch (err) {
-    const message = `\`${DNS_SD_BIN}\` binary not found in PATH: ${
-      (err as Error).message ?? String(err)
-    }`;
+    const cause = err instanceof Error ? err : new Error(String(err));
+    const message = `\`${DNS_SD_BIN}\` binary not found in PATH: ${cause.message}`;
     log.warn(message);
-    throw new Error(message, { cause: err as Error });
+    throw new Error(message, { cause });
   }
 }
 
