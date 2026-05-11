@@ -6,7 +6,7 @@ import { getLogger } from '../../logger.js';
 import {
   DEFAULT_PAIRING_CONFIG,
   REMOTE_PAIRING_DISCOVERY_DOMAIN,
-  REMOTE_PAIRING_DISCOVERY_SERVICE_TYPE,
+  REMOTE_PAIRING_VERIFIED_DISCOVERY_SERVICE_TYPE,
 } from '../constants.js';
 import { enrichDiscoveredDevicesWithDevicectl } from '../devicectl-enrichment.js';
 import { toAppleTVDevices } from '../discovered-device-mapper.js';
@@ -22,6 +22,7 @@ import type { VerificationKeys } from '../pairing-protocol/pair-verification-pro
 import { PairingStorage } from '../storage/pairing-storage.js';
 import type { PairRecord } from '../storage/types.js';
 import type { AppleTVDevice } from '../types.js';
+import { RemotedController } from './remoted-controller.js';
 import type { TcpListenerInfo, TlsPskConnectionOptions } from './types.js';
 
 const log = getLogger('TunnelService');
@@ -105,7 +106,9 @@ export class TunnelService {
     const createListenerResponse = responseJson?.response?._1?.createListener;
 
     if (!createListenerResponse?.port) {
-      log.error('Invalid createListener response:', responseJson);
+      log.error(
+        `Invalid createListener response: ${JSON.stringify(responseJson, null, 2)}`,
+      );
       throw new PairingError(
         'TCP listener creation failed: missing port in response',
         'LISTENER_PORT_MISSING',
@@ -193,23 +196,34 @@ export class TunnelService {
 export class AppleTVTunnelService {
   private readonly networkClient: NetworkClient;
   private readonly storage: PairingStorage;
+  private readonly remoted: RemotedController;
   private sequenceNumber = 0;
 
   constructor() {
     this.networkClient = new NetworkClient(DEFAULT_PAIRING_CONFIG);
     this.storage = new PairingStorage(DEFAULT_PAIRING_CONFIG);
+    this.remoted = new RemotedController();
   }
 
   disconnect(): void {
     this.networkClient.disconnect();
+    // Safety net: startTunnel() already resumes remoted in its own finally
+    // block, this guards against callers that abandon a partially-started
+    // tunnel without that path executing.
+    this.remoted.resume();
   }
 
   /**
    * Discovers Apple TV devices advertising Remote Pairing on the local network.
    */
   async discoverDevices(): Promise<AppleTVDevice[]> {
+    // The tunnel flow must use the trusted `_remotepairing._tcp` service.
+    // The PIN-setup `_remotepairing-manual-pairing._tcp` service does not
+    // expose a tunnel listener creator and rejects createListener with
+    // `errorExtended: { code: 3, NSLocalizedDescription: 'Unsupported
+    // operation: Tunnel listener creator not set' }`.
     const backend = createDiscoveryBackend(process.platform, {
-      serviceType: REMOTE_PAIRING_DISCOVERY_SERVICE_TYPE,
+      serviceType: REMOTE_PAIRING_VERIFIED_DISCOVERY_SERVICE_TYPE,
       domain: REMOTE_PAIRING_DISCOVERY_DOMAIN,
     });
     const discoveredDevices = await backend.discoverDevices(
@@ -240,34 +254,43 @@ export class AppleTVTunnelService {
 
     const failedAttempts: { identifier: string; error: string }[] = [];
 
-    for (const device of devicesToProcess) {
-      for (const identifier of identifiersToTry) {
-        appleTVLog.debug(
-          `\n--- Attempting connection with pair record: ${identifier} ---`,
-        );
-        appleTVLog.debug(`Device: ${device.ip}:${device.port}`);
+    // Suspend macOS' remoted daemon for the duration of the tunnel handshake.
+    // While remoted holds the trusted tunnel for a paired device, the device
+    // refuses a second createListener request from another client. Resumed in
+    // finally so the daemon never stays suspended after this method returns.
+    await this.remoted.suspend();
+    try {
+      for (const device of devicesToProcess) {
+        for (const identifier of identifiersToTry) {
+          appleTVLog.debug(
+            `\n--- Attempting connection with pair record: ${identifier} ---`,
+          );
+          appleTVLog.debug(`Device: ${device.ip}:${device.port}`);
 
-        const pairRecord = await this.storage.load(identifier);
-        if (!pairRecord) {
-          appleTVLog.debug(`Failed to load pair record for ${identifier}`);
-          failedAttempts.push({
+          const pairRecord = await this.storage.load(identifier);
+          if (!pairRecord) {
+            appleTVLog.debug(`Failed to load pair record for ${identifier}`);
+            failedAttempts.push({
+              identifier,
+              error: 'Failed to load pair record',
+            });
+            continue;
+          }
+
+          const result = await this.attemptDeviceConnection(
+            device,
             identifier,
-            error: 'Failed to load pair record',
-          });
-          continue;
-        }
+            pairRecord,
+            failedAttempts,
+          );
 
-        const result = await this.attemptDeviceConnection(
-          device,
-          identifier,
-          pairRecord,
-          failedAttempts,
-        );
-
-        if (result) {
-          return result;
+          if (result) {
+            return result;
+          }
         }
       }
+    } finally {
+      this.remoted.resume();
     }
 
     this.logFailureSummary(failedAttempts);

@@ -10,7 +10,25 @@ export const DEFAULT_PAIRING_CONFIG = {
   maxRetries: Number(process.env.APPLETV_MAX_RETRIES) || 3,
 } as const;
 
-export const REMOTE_PAIRING_DISCOVERY_SERVICE_TYPE = '_remotepairing._tcp';
+/**
+ * mDNS service type for the PIN-based manual pairing flow. The Apple TV
+ * advertises this only while in pair-mode (Settings → Remotes and Devices →
+ * Remote App and Devices). It is used exclusively for initial pair-setup;
+ * `createListener` is *not* available on this service ("Tunnel listener
+ * creator not set" if attempted).
+ */
+export const REMOTE_PAIRING_MANUAL_DISCOVERY_SERVICE_TYPE =
+  '_remotepairing-manual-pairing._tcp';
+
+/**
+ * mDNS service type for the trusted/verified Remote Pairing service. The
+ * Apple TV starts advertising this once at least one host has paired with it.
+ * Tunnel-listener requests must be issued on this service after re-doing
+ * pair-verify with the stored pair record.
+ */
+export const REMOTE_PAIRING_VERIFIED_DISCOVERY_SERVICE_TYPE =
+  '_remotepairing._tcp';
+
 export const REMOTE_PAIRING_DISCOVERY_DOMAIN = 'local';
 
 // TLV8 component type identifiers used in pairing data exchange
