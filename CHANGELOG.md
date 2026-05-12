@@ -1,3 +1,9 @@
+## [1.1.8](https://github.com/appium/appium-ios-remotexpc/compare/v1.1.7...v1.1.8) (2026-05-12)
+
+### Bug Fixes
+
+* **discovery:** accept single-digit hour in dns-sd timestamps ([#207](https://github.com/appium/appium-ios-remotexpc/issues/207)) ([0c084d9](https://github.com/appium/appium-ios-remotexpc/commit/0c084d974dc8f4dc629691beffd5a1e68a66082e))
+
 ## [1.1.7](https://github.com/appium/appium-ios-remotexpc/compare/v1.1.6...v1.1.7) (2026-05-11)
 
 ### Bug Fixes
