@@ -71,6 +71,16 @@ describe('bonjour-output-parsers', function () {
         'NOPE          Add        2  17 local. _remotepairing._tcp. Bedroom';
       expect(parseBrowseLine(line)).to.be.null;
     });
+
+    it('accepts space-padded single-digit hour timestamps', function () {
+      // dns-sd renders hours 0-9 with a leading space (e.g. " 8:25:13.882"),
+      // which becomes a single digit after trim() + split(/\s+/).
+      const line =
+        ' 8:25:13.882  Add        2  17 local. _remotepairing-manual-pairing._tcp. Bedroom';
+      const parsed = parseBrowseLine(line);
+      expect(parsed?.action).to.equal('Add');
+      expect(parsed?.service.name).to.equal('Bedroom');
+    });
   });
 
   describe('parseReachableLine', function () {

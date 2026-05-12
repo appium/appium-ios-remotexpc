@@ -6,7 +6,7 @@
  */
 import { stripTrailingDot } from './discovery-utils.js';
 
-const BROWSE_TIMESTAMP = /^\d{2}:\d{2}:\d{2}\.\d+$/;
+const BROWSE_TIMESTAMP = /^\d{1,2}:\d{2}:\d{2}\.\d+$/;
 const BROWSE_FIXED_COLUMNS = 6;
 const TXT_PAIR = /(\S+?)=(\S+)/g;
 const REACHABLE = /can be reached at (\S+):(\d+)/;
