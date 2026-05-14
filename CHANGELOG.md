@@ -1,3 +1,9 @@
+## [1.1.10](https://github.com/appium/appium-ios-remotexpc/compare/v1.1.9...v1.1.10) (2026-05-14)
+
+### Bug Fixes
+
+* **services:** close internal RemoteXpcConnection in start*Service helpers ([#209](https://github.com/appium/appium-ios-remotexpc/issues/209)) ([245ad73](https://github.com/appium/appium-ios-remotexpc/commit/245ad73afaac945fdc84f8e0b7c9b83a53108aa5))
+
 ## [1.1.9](https://github.com/appium/appium-ios-remotexpc/compare/v1.1.8...v1.1.9) (2026-05-14)
 
 ### Miscellaneous Chores
