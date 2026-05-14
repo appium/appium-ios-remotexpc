@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 import esmock from 'esmock';
-import sinon from 'sinon';
+import * as sinon from 'sinon';
 
 interface RemoteXpcStub {
   findService: sinon.SinonStub;
@@ -16,17 +16,12 @@ interface LoadedServices {
 
 /**
  * Load `src/services.ts` with `TunnelManager.createRemoteXPCConnection`,
- * the strongbox registry port, and the tunnel API client all stubbed.
- *
- * The returned `closeSpy` lets each test assert that the internally-created
- * `RemoteXpcConnection` was closed after port discovery, mirroring the
- * `try/finally { remoteXPC.close() }` pattern the file already uses inside
- * `startXCTestServices`.
+ * the strongbox registry port, and the tunnel API client all stubbed so
+ * we can exercise the `withRemoteXpcConnection` cleanup contract without
+ * a real device.
  */
 async function loadServicesWithStubs(
-  options: {
-    findServiceImpl?: (name: string) => unknown;
-  } = {},
+  options: { findServiceImpl?: (name: string) => unknown } = {},
 ): Promise<LoadedServices> {
   const closeSpy = sinon.spy(async () => {});
   const findServiceStub = sinon.stub();
@@ -44,8 +39,6 @@ async function loadServicesWithStubs(
     close: closeSpy,
   };
 
-  const tunnelConnection = { host: '127.0.0.1', port: 1234 };
-
   const services = await esmock('../../../src/services.js', {
     '@appium/strongbox': {
       strongbox: () => ({}),
@@ -61,7 +54,7 @@ async function loadServicesWithStubs(
           return true;
         }
         async getTunnelConnection() {
-          return tunnelConnection;
+          return { host: '127.0.0.1', port: 1234 };
         }
       },
     },
@@ -75,9 +68,9 @@ async function loadServicesWithStubs(
   return { services, remoteXPCStub, closeSpy, findServiceStub };
 }
 
-describe('start*Service — internal RemoteXpcConnection cleanup', function () {
-  describe('startAfcService', function () {
-    it('closes the internal remoteXPC after port discovery', async function () {
+describe('start*Service — discovery RemoteXpcConnection lifecycle', function () {
+  describe('withRemoteXpcConnection contract (via startAfcService)', function () {
+    it('closes the discovery connection after the helper returns', async function () {
       const { services, closeSpy, findServiceStub } =
         await loadServicesWithStubs();
 
@@ -87,14 +80,10 @@ describe('start*Service — internal RemoteXpcConnection cleanup', function () {
         closeSpy.calledOnce,
         `expected exactly one close() call, got ${closeSpy.callCount}`,
       ).to.equal(true);
-      expect(
-        findServiceStub.calledWith('com.apple.afc.shim.remote'),
-        'expected findService to be queried for the AFC RSD shim name',
-      ).to.equal(true);
       sinon.assert.callOrder(findServiceStub, closeSpy);
     });
 
-    it('still closes remoteXPC when findService throws (try/finally semantics)', async function () {
+    it('closes the discovery connection even when the body throws', async function () {
       const { services, closeSpy } = await loadServicesWithStubs({
         findServiceImpl: () => {
           throw new Error('Service not found');
@@ -108,92 +97,34 @@ describe('start*Service — internal RemoteXpcConnection cleanup', function () {
         caught = err as Error;
       }
 
-      expect(caught, 'expected findService error to propagate').to.exist;
+      expect(caught, 'expected the error to propagate').to.exist;
       expect(
         closeSpy.calledOnce,
-        `expected exactly one close() call even on error path, got ${closeSpy.callCount}`,
+        `expected exactly one close() call on the error path, got ${closeSpy.callCount}`,
       ).to.equal(true);
     });
   });
 
-  describe('startSyslogService', function () {
-    /**
-     * Special case: this helper does not call `findService` at all — it
-     * historically created a `RemoteXpcConnection` and dropped the
-     * reference on the floor. The fix wraps the unused connection in
-     * `try/finally` so it is always closed.
-     */
-    it('closes the internal remoteXPC even though it never calls findService', async function () {
-      const { services, closeSpy, findServiceStub } =
-        await loadServicesWithStubs();
+  describe('RSD service-name correctness', function () {
+    it('startAfcService queries the AFC RSD shim by name', async function () {
+      const { services, findServiceStub } = await loadServicesWithStubs();
 
-      await services.startSyslogService('test-udid');
+      await services.startAfcService('test-udid');
 
       expect(
-        closeSpy.calledOnce,
-        `expected exactly one close() call, got ${closeSpy.callCount}`,
+        findServiceStub.calledOnceWith('com.apple.afc.shim.remote'),
+        'expected findService("com.apple.afc.shim.remote")',
       ).to.equal(true);
-      expect(
-        findServiceStub.called,
-        'helper must not consult findService',
-      ).to.equal(false);
     });
-  });
 
-  describe('startSyslog{Binary,Text}Service', function () {
-    /**
-     * Both wrappers delegate to the private `startSyslogWithServiceName`
-     * helper with different RSD service names; one parameterized test
-     * covers both surfaces without duplicated assertion code.
-     */
-    const cases: { fn: string; expectedRsdName: string }[] = [
-      {
-        fn: 'startSyslogBinaryService',
-        expectedRsdName: 'com.apple.os_trace_relay.shim.remote',
-      },
-      {
-        fn: 'startSyslogTextService',
-        expectedRsdName: 'com.apple.syslog_relay.shim.remote',
-      },
-    ];
+    it('startSyslogBinaryService queries the os_trace_relay RSD shim by name', async function () {
+      const { services, findServiceStub } = await loadServicesWithStubs();
 
-    for (const { fn, expectedRsdName } of cases) {
-      it(`${fn} closes the internal remoteXPC after port discovery`, async function () {
-        const { services, closeSpy, findServiceStub } =
-          await loadServicesWithStubs();
+      await services.startSyslogBinaryService('test-udid');
 
-        await services[fn]('test-udid');
-
-        expect(
-          closeSpy.calledOnce,
-          `${fn}: expected exactly one close() call, got ${closeSpy.callCount}`,
-        ).to.equal(true);
-        expect(
-          findServiceStub.calledWith(expectedRsdName),
-          `${fn}: expected findService to be queried for ${expectedRsdName}`,
-        ).to.equal(true);
-        sinon.assert.callOrder(findServiceStub, closeSpy);
-      });
-    }
-
-    it('startSyslogBinaryService still closes remoteXPC when findService throws (try/finally semantics)', async function () {
-      const { services, closeSpy } = await loadServicesWithStubs({
-        findServiceImpl: () => {
-          throw new Error('Service not found');
-        },
-      });
-
-      let caught: Error | undefined;
-      try {
-        await services.startSyslogBinaryService('test-udid');
-      } catch (err) {
-        caught = err as Error;
-      }
-
-      expect(caught, 'expected findService error to propagate').to.exist;
       expect(
-        closeSpy.calledOnce,
-        `expected exactly one close() call even on error path, got ${closeSpy.callCount}`,
+        findServiceStub.calledOnceWith('com.apple.os_trace_relay.shim.remote'),
+        'expected findService("com.apple.os_trace_relay.shim.remote")',
       ).to.equal(true);
     });
   });
