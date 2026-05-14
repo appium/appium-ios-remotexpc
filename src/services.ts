@@ -6,6 +6,7 @@ import { TunnelManager } from './lib/tunnel/index.js';
 import {
   TunnelApiClient,
   type TunnelApiClientOptions,
+  type TunnelEndpoint,
 } from './lib/tunnel/tunnel-api-client.js';
 import type {
   CrashReportsServiceWithConnection,
@@ -216,10 +217,6 @@ export interface StartXCTestServicesOptions {
   /** Also resolve and return an InstallationProxyService for app lookup. */
   includeInstallationProxy?: boolean;
 }
-
-type TunnelConnection = Awaited<
-  ReturnType<typeof createRemoteXPCConnection>
->['tunnelConnection'];
 
 /**
  * Resolve the syslog binary service (os_trace_relay RemoteXPC shim).
@@ -529,7 +526,7 @@ async function withRemoteXpcConnection<T>(
   udid: string,
   fn: (
     remoteXPC: RemoteXpcConnection,
-    tunnelConnection: TunnelConnection,
+    tunnelConnection: TunnelEndpoint,
   ) => T | Promise<T>,
 ): Promise<T> {
   const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
