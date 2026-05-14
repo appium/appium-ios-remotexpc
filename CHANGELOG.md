@@ -1,3 +1,9 @@
+## [1.1.9](https://github.com/appium/appium-ios-remotexpc/compare/v1.1.8...v1.1.9) (2026-05-14)
+
+### Miscellaneous Chores
+
+* **test:** pin tsx to 4.21.0 to unblock unit tests ([#210](https://github.com/appium/appium-ios-remotexpc/issues/210)) ([3b5ab3e](https://github.com/appium/appium-ios-remotexpc/commit/3b5ab3e60c9b76d7e31f94dcec0c79982382a17a))
+
 ## [1.1.8](https://github.com/appium/appium-ios-remotexpc/compare/v1.1.7...v1.1.8) (2026-05-12)
 
 ### Bug Fixes
