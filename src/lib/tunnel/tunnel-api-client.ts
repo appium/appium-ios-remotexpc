@@ -21,6 +21,19 @@ export interface TunnelApiClientOptions {
 }
 
 /**
+ * Resolved tunnel endpoint returned by the tunnel registry.
+ * Flat DTO describing where to reach the device's RSD service; intentionally
+ * distinct from the live `TunnelConnection` exported from `appium-ios-tuntap`,
+ * which models the active tunnel session.
+ */
+export interface TunnelEndpoint {
+  host: string;
+  port: number;
+  udid: string;
+  packetStreamPort: number | undefined;
+}
+
+/**
  * API client for tunnel registry operations
  * This client handles communication with the API server for tunnel data
  */
@@ -167,12 +180,7 @@ export class TunnelApiClient {
    * @param udid - Device UDID
    * @returns Connection details or null if tunnel not found
    */
-  async getTunnelConnection(udid: string): Promise<{
-    host: string;
-    port: number;
-    udid: string;
-    packetStreamPort: number | undefined;
-  } | null> {
+  async getTunnelConnection(udid: string): Promise<TunnelEndpoint | null> {
     const tunnel = await this.getTunnelByUdid(udid);
     if (!tunnel) {
       return null;
