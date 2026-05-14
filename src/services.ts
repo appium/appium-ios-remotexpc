@@ -201,8 +201,15 @@ export async function startPowerAssertionService(
 export async function startSyslogService(
   udid: string,
 ): Promise<SyslogServiceType> {
-  const { tunnelConnection } = await createRemoteXPCConnection(udid);
-  return new SyslogService([tunnelConnection.host, tunnelConnection.port]);
+  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
+  try {
+    return new SyslogService([tunnelConnection.host, tunnelConnection.port]);
+  } finally {
+    // Release the discovery RSD eagerly so iOS's `remoted` daemon does not
+    // see this connection overlap with any subsequent RSD probe and reset
+    // it (the source of the ECONNRESET storm during driver startup).
+    await remoteXPC.close();
+  }
 }
 
 const RSD_SYSLOG_BINARY_SERVICE_NAME = 'com.apple.os_trace_relay.shim.remote';
@@ -242,11 +249,19 @@ export async function startSyslogTextService(
  */
 export async function startAfcService(udid: string): Promise<AfcService> {
   const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
-  const afcDescriptor = remoteXPC.findService(AfcService.RSD_SERVICE_NAME);
-  return new AfcService([
-    tunnelConnection.host,
-    parseInt(afcDescriptor.port, 10),
-  ]);
+  try {
+    const afcDescriptor = remoteXPC.findService(AfcService.RSD_SERVICE_NAME);
+    return new AfcService([
+      tunnelConnection.host,
+      parseInt(afcDescriptor.port, 10),
+    ]);
+  } finally {
+    // AfcService talks directly to the discovered service port, so the
+    // RemoteXPC discovery connection is no longer needed. Releasing it
+    // here avoids a duplicate RSD against `remoted` and the resulting
+    // ECONNRESET (mirrors the pattern used by startXCTestServices).
+    await remoteXPC.close();
+  }
 }
 
 /**
@@ -518,13 +533,19 @@ async function startSyslogWithServiceName(
   serviceName: string,
 ): Promise<{ syslogService: SyslogServiceType; serviceDescriptor: Service }> {
   const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
-  return {
-    syslogService: new SyslogService([
-      tunnelConnection.host,
-      tunnelConnection.port,
-    ]),
-    serviceDescriptor: remoteXPC.findService(serviceName),
-  };
+  try {
+    return {
+      syslogService: new SyslogService([
+        tunnelConnection.host,
+        tunnelConnection.port,
+      ]),
+      serviceDescriptor: remoteXPC.findService(serviceName),
+    };
+  } finally {
+    // Discovery RSD is no longer needed once we have the service descriptor;
+    // close it to keep at most one RSD open against `remoted` per call.
+    await remoteXPC.close();
+  }
 }
 
 // #region Private Functions
