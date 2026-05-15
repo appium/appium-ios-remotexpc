@@ -1,5 +1,5 @@
-import { Socket } from 'node:net';
-import tls, { type ConnectionOptions, TLSSocket } from 'node:tls';
+import type { Socket } from 'node:net';
+import tls, { type ConnectionOptions, type TLSSocket } from 'node:tls';
 
 import { BasePlistService } from '../../base-plist-service.js';
 import { ServiceConnection } from '../../service-connection.js';
@@ -7,7 +7,7 @@ import { withRemoteXpcConnection } from '../../services.js';
 import { getLogger } from '../logger.js';
 import { type PairRecord } from '../pair-record/index.js';
 import { PlistService } from '../plist/plist-service.js';
-import { RemoteXpcConnection } from '../remote-xpc/remote-xpc-connection.js';
+import type { RemoteXpcConnection } from '../remote-xpc/remote-xpc-connection.js';
 import type { LockdownDeviceInfo, PlistMessage, PlistValue } from '../types.js';
 import { RelayService, createUsbmux } from '../usbmux/index.js';
 
