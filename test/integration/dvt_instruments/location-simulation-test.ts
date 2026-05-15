@@ -1,7 +1,7 @@
 import { logger } from '@appium/support';
 import { expect } from 'chai';
 
-import type { DVTServiceWithConnection } from '../../../src/index.js';
+import type { DVTInstruments } from '../../../src/index.js';
 import * as Services from '../../../src/services.js';
 import type { LocationCoordinates } from '../../../src/services/ios/dvt/instruments/location-simulation.js';
 
@@ -11,7 +11,7 @@ log.level = 'debug';
 describe('Location Simulation Instrument', function () {
   this.timeout(30000);
 
-  let dvtServiceConnection: DVTServiceWithConnection | null = null;
+  let dvtServiceConnection: DVTInstruments | null = null;
   const udid = process.env.UDID || '';
 
   before(async () => {
@@ -29,10 +29,6 @@ describe('Location Simulation Instrument', function () {
 
       try {
         await dvtServiceConnection.dvtService.close();
-      } catch (error) {}
-
-      try {
-        await dvtServiceConnection.remoteXPC.close();
       } catch (error) {}
     }
   });

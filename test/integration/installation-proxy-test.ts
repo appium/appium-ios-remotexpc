@@ -9,15 +9,13 @@ const log = getLogger('InstallationProxyService.test');
 describe('InstallationProxyService', function () {
   this.timeout(60000);
 
-  let remoteXPC: any;
   let installationProxyService: InstallationProxyService;
   const udid = process.env.UDID || '';
 
   before(async function () {
     try {
-      const result = await Services.startInstallationProxyService(udid);
-      installationProxyService = result.installationProxyService;
-      remoteXPC = result.remoteXPC;
+      installationProxyService =
+        await Services.startInstallationProxyService(udid);
       log.debug('Installation Proxy service initialized successfully');
     } catch (error) {
       log.error('Failed to initialize Installation Proxy service:', error);
@@ -26,16 +24,10 @@ describe('InstallationProxyService', function () {
   });
 
   after(async function () {
-    // Note: Don't close individual services before closing remoteXPC
-    // Closing the service socket causes iOS to reset the RemoteXPC connection
-    // Just close remoteXPC and let it handle cleanup
-    if (remoteXPC) {
-      try {
-        await remoteXPC.close();
-        log.debug('RemoteXPC connection closed');
-      } catch (error) {
-        log.warn('Error during cleanup:', error);
-      }
+    try {
+      installationProxyService?.close();
+    } catch (error) {
+      log.warn('Error during cleanup:', error);
     }
   });
 

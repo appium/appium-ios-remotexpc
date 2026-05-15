@@ -11,7 +11,6 @@ describe('WebInspectorService', function () {
   this.timeout(60000);
 
   let service: WebInspectorService;
-  let remoteXPC: any;
   const udid = process.env.UDID || '';
   const sessionId = 'test-session-' + Date.now();
   let realAppId: string | null = null;
@@ -21,17 +20,12 @@ describe('WebInspectorService', function () {
     if (!udid) {
       throw new Error('Set UDID env var to execute tests.');
     }
-    const result = await Services.startWebInspectorService(udid);
-    service = result.webInspectorService;
-    remoteXPC = result.remoteXPC;
+    service = await Services.startWebInspectorService(udid);
   });
 
   after(async function () {
     if (service) {
       await service.close();
-    }
-    if (remoteXPC) {
-      await remoteXPC.close();
     }
   });
 

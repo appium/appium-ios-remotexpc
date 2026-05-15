@@ -11,25 +11,14 @@ log.level = 'info';
 describe('MobileConfigService', function () {
   this.timeout(60000);
 
-  let remoteXPC: any;
   let mobileConfigService: MobileConfigService;
   const udid = process.env.UDID || '';
 
   before(async function () {
-    const result = await Services.startMobileConfigService(udid);
-    mobileConfigService = result.mobileConfigService;
-    remoteXPC = result.remoteXPC;
+    mobileConfigService = await Services.startMobileConfigService(udid);
   });
 
-  after(async function () {
-    if (remoteXPC) {
-      try {
-        await remoteXPC.close();
-      } catch (error) {
-        // Ignore cleanup errors in tests
-      }
-    }
-  });
+  after(async function () {});
 
   it('get profile list', async function () {
     try {

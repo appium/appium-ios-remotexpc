@@ -10,25 +10,14 @@ log.level = 'info';
 describe('MisagentService', function () {
   this.timeout(60000);
 
-  let remoteXPC: any;
   let misagentService: MisagentService;
   const udid = process.env.UDID || '';
 
   before(async function () {
-    const result = await Services.startMisagentService(udid);
-    misagentService = result.misagentService;
-    remoteXPC = result.remoteXPC;
+    misagentService = await Services.startMisagentService(udid);
   });
 
-  after(async function () {
-    if (remoteXPC) {
-      try {
-        await remoteXPC.close();
-      } catch (error) {
-        // Ignore cleanup errors in tests
-      }
-    }
-  });
+  after(async function () {});
 
   describe('installProfile', function () {
     it('should install a valid provisioning profile', async function () {

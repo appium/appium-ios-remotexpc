@@ -7,7 +7,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { Services } from '../../src/index.js';
-import type { MobileImageMounterServiceWithConnection } from '../../src/index.js';
+import type { MobileImageMounterService } from '../../src/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -37,8 +37,7 @@ async function getFixturesInfo(): Promise<{
 describe('MobileImageMounterService Integration', function () {
   this.timeout(40000);
 
-  let serviceWithConnection: MobileImageMounterServiceWithConnection | null =
-    null;
+  let mobileImageMounterService: MobileImageMounterService | null = null;
   const testUdid = process.env.UDID || '';
 
   before(async function () {
@@ -47,21 +46,15 @@ describe('MobileImageMounterService Integration', function () {
     }
 
     // Establish connection for all tests
-    serviceWithConnection =
+    mobileImageMounterService =
       await Services.startMobileImageMounterService(testUdid);
   });
 
-  after(async function () {
-    if (serviceWithConnection) {
-      await serviceWithConnection.remoteXPC.close();
-    }
-  });
+  after(async function () {});
 
   describe('Service Connection', () => {
     it('should connect to mobile image mounter service', async function () {
-      expect(serviceWithConnection).to.not.be.null;
-      expect(serviceWithConnection!.mobileImageMounterService).to.not.be.null;
-      expect(serviceWithConnection!.remoteXPC).to.not.be.null;
+      expect(mobileImageMounterService).to.not.be.null;
     });
   });
 
@@ -85,7 +78,7 @@ describe('MobileImageMounterService Integration', function () {
       }
 
       try {
-        await serviceWithConnection!.mobileImageMounterService.mount(
+        await mobileImageMounterService!.mount(
           imagePath,
           buildManifestPath,
           trustCachePath,
@@ -93,7 +86,7 @@ describe('MobileImageMounterService Integration', function () {
 
         if (isReal) {
           const mounted =
-            await serviceWithConnection!.mobileImageMounterService.isPersonalizedImageMounted();
+            await mobileImageMounterService!.isPersonalizedImageMounted();
           expect(mounted).to.be.true;
         } else {
           console.warn('⚠️ Stub mount unexpectedly succeeded.');
@@ -110,9 +103,7 @@ describe('MobileImageMounterService Integration', function () {
   describe('Image Lookup Operations', () => {
     it('should lookup mounted personalized images', async function () {
       const signatures =
-        await serviceWithConnection!.mobileImageMounterService.lookup(
-          'Personalized',
-        );
+        await mobileImageMounterService!.lookup('Personalized');
       expect(signatures).to.be.an('array');
       log.debug(
         'Signatures:',
@@ -127,14 +118,13 @@ describe('MobileImageMounterService Integration', function () {
 
     it('should check if personalized image is mounted', async function () {
       const isImageMounted =
-        await serviceWithConnection!.mobileImageMounterService.isPersonalizedImageMounted();
+        await mobileImageMounterService!.isPersonalizedImageMounted();
       log.debug('Image mounted: ', isImageMounted);
       expect(isImageMounted).to.be.a('boolean');
     });
 
     it('should copy devices list', async function () {
-      const devices =
-        await serviceWithConnection!.mobileImageMounterService.copyDevices();
+      const devices = await mobileImageMounterService!.copyDevices();
       expect(devices).to.be.an('array');
     });
   });
@@ -142,7 +132,7 @@ describe('MobileImageMounterService Integration', function () {
   describe('Developer Mode Status', () => {
     it('should query developer mode status', async function () {
       const isDeveloperModeEnabled =
-        await serviceWithConnection!.mobileImageMounterService.queryDeveloperModeStatus();
+        await mobileImageMounterService!.queryDeveloperModeStatus();
       log.debug('Developer mode enabled: ', isDeveloperModeEnabled);
       expect(isDeveloperModeEnabled).to.be.a('boolean');
     });
@@ -151,15 +141,14 @@ describe('MobileImageMounterService Integration', function () {
   describe('Personalization identifiers and manifest', () => {
     it('should query personalization identifiers only', async function () {
       const identifiers =
-        await serviceWithConnection!.mobileImageMounterService.queryPersonalizationIdentifiers();
+        await mobileImageMounterService!.queryPersonalizationIdentifiers();
       log.debug('Personalization Identifier:', identifiers);
       expect(identifiers).to.be.an('object');
       expect(Object.keys(identifiers)).to.have.length.greaterThan(0);
     });
 
     it('should test queryPersonalizationManifest behavior', async function () {
-      const mountedSignatures =
-        await serviceWithConnection!.mobileImageMounterService.lookup();
+      const mountedSignatures = await mobileImageMounterService!.lookup();
       expect(mountedSignatures).to.be.an('array');
 
       if (mountedSignatures.length > 0) {
@@ -169,7 +158,7 @@ describe('MobileImageMounterService Integration', function () {
 
           try {
             const manifest =
-              await serviceWithConnection!.mobileImageMounterService.queryPersonalizationManifest(
+              await mobileImageMounterService!.queryPersonalizationManifest(
                 'DeveloperDiskImage',
                 sig,
               );
@@ -196,7 +185,7 @@ describe('MobileImageMounterService Integration', function () {
 
       try {
         const manifest =
-          await serviceWithConnection!.mobileImageMounterService.queryPersonalizationManifest(
+          await mobileImageMounterService!.queryPersonalizationManifest(
             'DeveloperDiskImage',
             imageHash,
           );
@@ -216,8 +205,7 @@ describe('MobileImageMounterService Integration', function () {
     });
 
     it('should query personalization nonce', async function () {
-      const nonce =
-        await serviceWithConnection!.mobileImageMounterService.queryNonce();
+      const nonce = await mobileImageMounterService!.queryNonce();
       log.debug('Personalization nonce:', nonce.toString('hex'));
       expect(nonce).to.be.instanceOf(Buffer);
       expect(nonce.length).to.be.greaterThan(0);
@@ -230,9 +218,9 @@ describe('MobileImageMounterService Integration', function () {
       const { isReal } = await getFixturesInfo();
 
       try {
-        await serviceWithConnection!.mobileImageMounterService.unmountImage();
+        await mobileImageMounterService!.unmountImage();
         const isImageMounted =
-          await serviceWithConnection!.mobileImageMounterService.isPersonalizedImageMounted();
+          await mobileImageMounterService!.isPersonalizedImageMounted();
         expect(isImageMounted).to.be.false;
       } catch (err) {
         if (isReal) throw err;

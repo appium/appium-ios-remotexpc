@@ -15,7 +15,7 @@ interface LoadedServices {
 }
 
 /**
- * Load `src/services.ts` with `TunnelManager.createRemoteXPCConnection`,
+ * Load `src/services.ts` with `TunnelManager.connectRemoteXPCUnlocked`,
  * the strongbox registry port, and the tunnel API client all stubbed so
  * we can exercise the `withRemoteXpcConnection` cleanup contract without
  * a real device.
@@ -60,7 +60,12 @@ async function loadServicesWithStubs(
     },
     '../../../src/lib/tunnel/index.js': {
       TunnelManager: {
-        createRemoteXPCConnection: async () => remoteXPCStub,
+        rsdSessionLockKey: (host: string, port: number) => `${host}:${port}`,
+        runSerializedRsdSession: async (
+          _lockKey: string,
+          fn: () => Promise<unknown>,
+        ) => fn(),
+        connectRemoteXPCUnlocked: async () => remoteXPCStub,
       },
     },
   });
@@ -126,6 +131,37 @@ describe('start*Service — discovery RemoteXpcConnection lifecycle', function (
         findServiceStub.calledOnceWith('com.apple.os_trace_relay.shim.remote'),
         'expected findService("com.apple.os_trace_relay.shim.remote")',
       ).to.equal(true);
+    });
+  });
+
+  describe('withRemoteXpcConnection contract (other start*Service helpers)', function () {
+    for (const fn of [
+      'startInstallationProxyService',
+      'startNotificationProxyService',
+      'startCrashReportsService',
+    ] as const) {
+      it(`${fn} closes the discovery connection after returning`, async function () {
+        const { services, closeSpy } = await loadServicesWithStubs();
+        await services[fn]('test-udid');
+        expect(
+          closeSpy.calledOnce,
+          `expected exactly one close() for ${fn}, got ${closeSpy.callCount}`,
+        ).to.equal(true);
+      });
+    }
+
+    it('startCrashReportsService resolves both crash report shims in one discovery pass', async function () {
+      const { services, findServiceStub } = await loadServicesWithStubs();
+      await services.startCrashReportsService('test-udid');
+      expect(findServiceStub.callCount).to.equal(2);
+      sinon.assert.calledWith(
+        findServiceStub.firstCall,
+        'com.apple.crashreportcopymobile.shim.remote',
+      );
+      sinon.assert.calledWith(
+        findServiceStub.secondCall,
+        'com.apple.crashreportmover.shim.remote',
+      );
     });
   });
 });

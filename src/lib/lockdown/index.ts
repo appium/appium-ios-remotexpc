@@ -3,6 +3,7 @@ import tls, { type ConnectionOptions, TLSSocket } from 'node:tls';
 
 import { BasePlistService } from '../../base-plist-service.js';
 import { ServiceConnection } from '../../service-connection.js';
+import { withRemoteXpcConnection } from '../../services.js';
 import { getLogger } from '../logger.js';
 import { type PairRecord } from '../pair-record/index.js';
 import { PlistService } from '../plist/plist-service.js';
@@ -606,11 +607,24 @@ export class LockdownServiceFactory {
 }
 
 /**
+ * Lockdown over an RSD tunnel using a single discovery connection that is closed
+ * before returning. Prefer this over {@link createLockdownServiceByTunnel} when you
+ * do not need to reuse an existing `RemoteXpcConnection`.
+ */
+export async function createLockdownServiceForTunnel(
+  udid: string,
+): Promise<LockdownService> {
+  return withRemoteXpcConnection(udid, (remoteXpc) =>
+    createLockdownServiceByTunnel(remoteXpc, udid),
+  );
+}
+
+/**
  * Lockdown over an RSD tunnel: TCP to `com.apple.mobile.lockdown.remote.untrusted`, then RSD
  * handshake (`RSDCheckin` → echo → `StartService`), then lockdownd plist on a plaintext socket
  * (no usbmux relay TLS). `remoteXpc` is only used to discover the service port.
  *
- * `remoteXpc` must already be connected. It is not closed here.
+ * `remoteXpc` must already be connected. The caller is responsible for closing it.
  */
 export async function createLockdownServiceByTunnel(
   remoteXpc: RemoteXpcConnection,

@@ -13,29 +13,19 @@ log.level = 'debug';
 describe('PowerAssertionService Integration', function () {
   this.timeout(30000);
 
-  let remoteXPC: any;
   let powerAssertionService: PowerAssertionService;
   const udid = process.env.UDID || '';
 
   before(async () => {
     if (!udid) throw new Error('set UDID env var to execute tests.');
 
-    const result = await Services.startPowerAssertionService(udid);
-    powerAssertionService = result.powerAssertionService;
-    remoteXPC = result.remoteXPC;
+    powerAssertionService = await Services.startPowerAssertionService(udid);
   });
 
   after(async () => {
-    if (powerAssertionService) {
-      try {
-        await powerAssertionService.close();
-      } catch {} // ignore errors
-    }
-    if (remoteXPC) {
-      try {
-        await remoteXPC.close();
-      } catch {} // ignore errors
-    }
+    try {
+      await powerAssertionService?.close();
+    } catch {}
   });
 
   it('should create power assertion and verify in syslog', async function () {

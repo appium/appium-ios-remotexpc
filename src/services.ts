@@ -2,27 +2,15 @@ import { BaseItem, strongbox } from '@appium/strongbox';
 
 import { TUNNEL_CONTAINER_NAME } from './constants.js';
 import type { RemoteXpcConnection } from './lib/remote-xpc/remote-xpc-connection.js';
-import { TunnelManager } from './lib/tunnel/index.js';
+import { TunnelManager, rsdSessionLockKey } from './lib/tunnel/index.js';
 import {
   TunnelApiClient,
   type TunnelApiClientOptions,
   type TunnelEndpoint,
 } from './lib/tunnel/tunnel-api-client.js';
 import type {
-  CrashReportsServiceWithConnection,
-  DVTServiceWithConnection,
-  DiagnosticsServiceWithConnection,
-  HouseArrestServiceWithConnection,
-  InstallationProxyServiceWithConnection,
-  MisagentServiceWithConnection,
-  MobileConfigServiceWithConnection,
-  MobileImageMounterServiceWithConnection,
-  NotificationProxyServiceWithConnection,
-  PowerAssertionServiceWithConnection,
-  SpringboardServiceWithConnection,
+  DVTInstruments,
   SyslogService as SyslogServiceType,
-  TestmanagerdServiceWithConnection,
-  WebInspectorServiceWithConnection,
   XCTestServices,
 } from './lib/types.js';
 import AfcService from './services/ios/afc/index.js';
@@ -68,18 +56,16 @@ export class TunnelAvailabilityError extends Error {
  */
 export async function startDiagnosticsService(
   udid: string,
-): Promise<DiagnosticsServiceWithConnection> {
-  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
-  const diagnosticsService = remoteXPC.findService(
-    DiagnosticsService.RSD_SERVICE_NAME,
-  );
-  return {
-    remoteXPC: remoteXPC as RemoteXpcConnection,
-    diagnosticsService: new DiagnosticsService([
+): Promise<DiagnosticsService> {
+  return withRemoteXpcConnection(udid, (remoteXPC, tunnelConnection) => {
+    const descriptor = remoteXPC.findService(
+      DiagnosticsService.RSD_SERVICE_NAME,
+    );
+    return new DiagnosticsService([
       tunnelConnection.host,
-      parseInt(diagnosticsService.port, 10),
-    ]),
-  };
+      parseInt(descriptor.port, 10),
+    ]);
+  });
 }
 
 /**
@@ -87,18 +73,16 @@ export async function startDiagnosticsService(
  */
 export async function startNotificationProxyService(
   udid: string,
-): Promise<NotificationProxyServiceWithConnection> {
-  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
-  const notificationProxyService = remoteXPC.findService(
-    NotificationProxyService.RSD_SERVICE_NAME,
-  );
-  return {
-    remoteXPC: remoteXPC as RemoteXpcConnection,
-    notificationProxyService: new NotificationProxyService([
+): Promise<NotificationProxyService> {
+  return withRemoteXpcConnection(udid, (remoteXPC, tunnelConnection) => {
+    const descriptor = remoteXPC.findService(
+      NotificationProxyService.RSD_SERVICE_NAME,
+    );
+    return new NotificationProxyService([
       tunnelConnection.host,
-      parseInt(notificationProxyService.port, 10),
-    ]),
-  };
+      parseInt(descriptor.port, 10),
+    ]);
+  });
 }
 
 /**
@@ -106,18 +90,16 @@ export async function startNotificationProxyService(
  */
 export async function startMobileConfigService(
   udid: string,
-): Promise<MobileConfigServiceWithConnection> {
-  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
-  const mobileConfigService = remoteXPC.findService(
-    MobileConfigService.RSD_SERVICE_NAME,
-  );
-  return {
-    remoteXPC: remoteXPC as RemoteXpcConnection,
-    mobileConfigService: new MobileConfigService([
+): Promise<MobileConfigService> {
+  return withRemoteXpcConnection(udid, (remoteXPC, tunnelConnection) => {
+    const descriptor = remoteXPC.findService(
+      MobileConfigService.RSD_SERVICE_NAME,
+    );
+    return new MobileConfigService([
       tunnelConnection.host,
-      parseInt(mobileConfigService.port, 10),
-    ]),
-  };
+      parseInt(descriptor.port, 10),
+    ]);
+  });
 }
 
 /**
@@ -125,18 +107,16 @@ export async function startMobileConfigService(
  */
 export async function startMobileImageMounterService(
   udid: string,
-): Promise<MobileImageMounterServiceWithConnection> {
-  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
-  const mobileImageMounterService = remoteXPC.findService(
-    MobileImageMounterService.RSD_SERVICE_NAME,
-  );
-  return {
-    remoteXPC: remoteXPC as RemoteXpcConnection,
-    mobileImageMounterService: new MobileImageMounterService([
+): Promise<MobileImageMounterService> {
+  return withRemoteXpcConnection(udid, (remoteXPC, tunnelConnection) => {
+    const descriptor = remoteXPC.findService(
+      MobileImageMounterService.RSD_SERVICE_NAME,
+    );
+    return new MobileImageMounterService([
       tunnelConnection.host,
-      parseInt(mobileImageMounterService.port, 10),
-    ]),
-  };
+      parseInt(descriptor.port, 10),
+    ]);
+  });
 }
 
 /**
@@ -144,18 +124,16 @@ export async function startMobileImageMounterService(
  */
 export async function startSpringboardService(
   udid: string,
-): Promise<SpringboardServiceWithConnection> {
-  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
-  const springboardService = remoteXPC.findService(
-    SpringBoardService.RSD_SERVICE_NAME,
-  );
-  return {
-    remoteXPC: remoteXPC as RemoteXpcConnection,
-    springboardService: new SpringBoardService([
+): Promise<SpringBoardService> {
+  return withRemoteXpcConnection(udid, (remoteXPC, tunnelConnection) => {
+    const descriptor = remoteXPC.findService(
+      SpringBoardService.RSD_SERVICE_NAME,
+    );
+    return new SpringBoardService([
       tunnelConnection.host,
-      parseInt(springboardService.port, 10),
-    ]),
-  };
+      parseInt(descriptor.port, 10),
+    ]);
+  });
 }
 
 /**
@@ -163,18 +141,14 @@ export async function startSpringboardService(
  */
 export async function startMisagentService(
   udid: string,
-): Promise<MisagentServiceWithConnection> {
-  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
-  const misagentService = remoteXPC.findService(
-    MisagentService.RSD_SERVICE_NAME,
-  );
-  return {
-    remoteXPC: remoteXPC as RemoteXpcConnection,
-    misagentService: new MisagentService([
+): Promise<MisagentService> {
+  return withRemoteXpcConnection(udid, (remoteXPC, tunnelConnection) => {
+    const descriptor = remoteXPC.findService(MisagentService.RSD_SERVICE_NAME);
+    return new MisagentService([
       tunnelConnection.host,
-      parseInt(misagentService.port, 10),
-    ]),
-  };
+      parseInt(descriptor.port, 10),
+    ]);
+  });
 }
 
 /**
@@ -182,18 +156,16 @@ export async function startMisagentService(
  */
 export async function startPowerAssertionService(
   udid: string,
-): Promise<PowerAssertionServiceWithConnection> {
-  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
-  const powerAssertionService = remoteXPC.findService(
-    PowerAssertionService.RSD_SERVICE_NAME,
-  );
-  return {
-    remoteXPC: remoteXPC as RemoteXpcConnection,
-    powerAssertionService: new PowerAssertionService([
+): Promise<PowerAssertionService> {
+  return withRemoteXpcConnection(udid, (remoteXPC, tunnelConnection) => {
+    const descriptor = remoteXPC.findService(
+      PowerAssertionService.RSD_SERVICE_NAME,
+    );
+    return new PowerAssertionService([
       tunnelConnection.host,
-      parseInt(powerAssertionService.port, 10),
-    ]),
-  };
+      parseInt(descriptor.port, 10),
+    ]);
+  });
 }
 
 /**
@@ -260,23 +232,19 @@ export async function startAfcService(udid: string): Promise<AfcService> {
  */
 export async function startCrashReportsService(
   udid: string,
-): Promise<CrashReportsServiceWithConnection> {
-  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
-
-  const copyMobileDescriptor = remoteXPC.findService(
-    CrashReportsService.RSD_COPY_MOBILE_NAME,
-  );
-  const crashMoverDescriptor = remoteXPC.findService(
-    CrashReportsService.RSD_CRASH_MOVER_NAME,
-  );
-
-  return {
-    remoteXPC: remoteXPC as RemoteXpcConnection,
-    crashReportsService: new CrashReportsService(
+): Promise<CrashReportsService> {
+  return withRemoteXpcConnection(udid, (remoteXPC, tunnelConnection) => {
+    const copyMobileDescriptor = remoteXPC.findService(
+      CrashReportsService.RSD_COPY_MOBILE_NAME,
+    );
+    const crashMoverDescriptor = remoteXPC.findService(
+      CrashReportsService.RSD_CRASH_MOVER_NAME,
+    );
+    return new CrashReportsService(
       [tunnelConnection.host, parseInt(copyMobileDescriptor.port, 10)],
       [tunnelConnection.host, parseInt(crashMoverDescriptor.port, 10)],
-    ),
-  };
+    );
+  });
 }
 
 /**
@@ -284,18 +252,16 @@ export async function startCrashReportsService(
  */
 export async function startHouseArrestService(
   udid: string,
-): Promise<HouseArrestServiceWithConnection> {
-  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
-  const houseArrestDescriptor = remoteXPC.findService(
-    HouseArrestService.RSD_SERVICE_NAME,
-  );
-  return {
-    remoteXPC: remoteXPC as RemoteXpcConnection,
-    houseArrestService: new HouseArrestService([
+): Promise<HouseArrestService> {
+  return withRemoteXpcConnection(udid, (remoteXPC, tunnelConnection) => {
+    const descriptor = remoteXPC.findService(
+      HouseArrestService.RSD_SERVICE_NAME,
+    );
+    return new HouseArrestService([
       tunnelConnection.host,
-      parseInt(houseArrestDescriptor.port, 10),
-    ]),
-  };
+      parseInt(descriptor.port, 10),
+    ]);
+  });
 }
 
 /**
@@ -303,18 +269,16 @@ export async function startHouseArrestService(
  */
 export async function startInstallationProxyService(
   udid: string,
-): Promise<InstallationProxyServiceWithConnection> {
-  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
-  const installationProxyDescriptor = remoteXPC.findService(
-    InstallationProxyService.RSD_SERVICE_NAME,
-  );
-  return {
-    remoteXPC: remoteXPC as RemoteXpcConnection,
-    installationProxyService: new InstallationProxyService([
+): Promise<InstallationProxyService> {
+  return withRemoteXpcConnection(udid, (remoteXPC, tunnelConnection) => {
+    const descriptor = remoteXPC.findService(
+      InstallationProxyService.RSD_SERVICE_NAME,
+    );
+    return new InstallationProxyService([
       tunnelConnection.host,
-      parseInt(installationProxyDescriptor.port, 10),
-    ]),
-  };
+      parseInt(descriptor.port, 10),
+    ]);
+  });
 }
 
 /**
@@ -322,64 +286,47 @@ export async function startInstallationProxyService(
  */
 export async function startWebInspectorService(
   udid: string,
-): Promise<WebInspectorServiceWithConnection> {
-  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
-  const webInspectorService = remoteXPC.findService(
-    WebInspectorService.RSD_SERVICE_NAME,
-  );
-  return {
-    remoteXPC: remoteXPC as RemoteXpcConnection,
-    webInspectorService: new WebInspectorService([
+): Promise<WebInspectorService> {
+  return withRemoteXpcConnection(udid, (remoteXPC, tunnelConnection) => {
+    const descriptor = remoteXPC.findService(
+      WebInspectorService.RSD_SERVICE_NAME,
+    );
+    return new WebInspectorService([
       tunnelConnection.host,
-      parseInt(webInspectorService.port, 10),
-    ]),
-  };
+      parseInt(descriptor.port, 10),
+    ]);
+  });
 }
 
 /**
  * Start the DVT secure socket proxy service and instrument clients.
  */
-export async function startDVTService(
-  udid: string,
-): Promise<DVTServiceWithConnection> {
-  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
-  const dvtServiceDescriptor = remoteXPC.findService(
-    DVTSecureSocketProxyService.RSD_SERVICE_NAME,
-  );
+export async function startDVTService(udid: string): Promise<DVTInstruments> {
+  return withRemoteXpcConnection(udid, async (remoteXPC, tunnelConnection) => {
+    const dvtServiceDescriptor = remoteXPC.findService(
+      DVTSecureSocketProxyService.RSD_SERVICE_NAME,
+    );
 
-  // Create DVT service instance
-  const dvtService = new DVTSecureSocketProxyService([
-    tunnelConnection.host,
-    parseInt(dvtServiceDescriptor.port, 10),
-  ]);
+    const dvtService = new DVTSecureSocketProxyService([
+      tunnelConnection.host,
+      parseInt(dvtServiceDescriptor.port, 10),
+    ]);
 
-  // Connect to DVT service
-  await dvtService.connect();
+    await dvtService.connect();
 
-  // Create instrument services
-  const locationSimulation = new LocationSimulation(dvtService);
-  const conditionInducer = new ConditionInducer(dvtService);
-  const screenshot = new Screenshot(dvtService);
-  const appListing = new ApplicationListing(dvtService);
-  const graphics = new Graphics(dvtService);
-  const deviceInfo = new DeviceInfo(dvtService);
-  const notification = new Notifications(dvtService);
-  const networkMonitor = new NetworkMonitor(dvtService);
-  const processControl = new ProcessControl(dvtService);
-
-  return {
-    remoteXPC: remoteXPC as RemoteXpcConnection,
-    dvtService,
-    locationSimulation,
-    conditionInducer,
-    screenshot,
-    appListing,
-    graphics,
-    deviceInfo,
-    notification,
-    networkMonitor,
-    processControl,
-  };
+    return {
+      dvtService,
+      locationSimulation: new LocationSimulation(dvtService),
+      conditionInducer: new ConditionInducer(dvtService),
+      screenshot: new Screenshot(dvtService),
+      appListing: new ApplicationListing(dvtService),
+      graphics: new Graphics(dvtService),
+      deviceInfo: new DeviceInfo(dvtService),
+      notification: new Notifications(dvtService),
+      networkMonitor: new NetworkMonitor(dvtService),
+      processControl: new ProcessControl(dvtService),
+    };
+  });
 }
 
 /**
@@ -387,23 +334,20 @@ export async function startDVTService(
  */
 export async function startTestmanagerdService(
   udid: string,
-): Promise<TestmanagerdServiceWithConnection> {
-  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
-  const testmanagerdDescriptor = remoteXPC.findService(
-    DvtTestmanagedProxyService.RSD_SERVICE_NAME,
-  );
+): Promise<DvtTestmanagedProxyService> {
+  return withRemoteXpcConnection(udid, async (remoteXPC, tunnelConnection) => {
+    const testmanagerdDescriptor = remoteXPC.findService(
+      DvtTestmanagedProxyService.RSD_SERVICE_NAME,
+    );
 
-  const testmanagerdService = new DvtTestmanagedProxyService([
-    tunnelConnection.host,
-    parseInt(testmanagerdDescriptor.port, 10),
-  ]);
+    const testmanagerdService = new DvtTestmanagedProxyService([
+      tunnelConnection.host,
+      parseInt(testmanagerdDescriptor.port, 10),
+    ]);
 
-  await testmanagerdService.connect();
-
-  return {
-    remoteXPC: remoteXPC as RemoteXpcConnection,
-    testmanagerdService,
-  };
+    await testmanagerdService.connect();
+    return testmanagerdService;
+  });
 }
 
 /**
@@ -419,31 +363,31 @@ export async function startXCTestServices(
   udid: string,
   options?: StartXCTestServicesOptions,
 ): Promise<XCTestServices> {
-  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
-  const host = tunnelConnection.host;
-
-  // Discover all ports via single RSD lookup, then close RemoteXPC
-  let testmanagerdPort: number;
-  let dvtPort: number;
-  let installationProxyPort: number | undefined;
-  try {
-    testmanagerdPort = parseInt(
-      remoteXPC.findService(DvtTestmanagedProxyService.RSD_SERVICE_NAME).port,
-      10,
-    );
-    dvtPort = parseInt(
-      remoteXPC.findService(DVTSecureSocketProxyService.RSD_SERVICE_NAME).port,
-      10,
-    );
-    if (options?.includeInstallationProxy) {
-      installationProxyPort = parseInt(
-        remoteXPC.findService(InstallationProxyService.RSD_SERVICE_NAME).port,
+  const { testmanagerdPort, dvtPort, installationProxyPort, host } =
+    await withRemoteXpcConnection(udid, (remoteXPC, tunnelConnection) => {
+      const testmanagerd = parseInt(
+        remoteXPC.findService(DvtTestmanagedProxyService.RSD_SERVICE_NAME).port,
         10,
       );
-    }
-  } finally {
-    await remoteXPC.close();
-  }
+      const dvt = parseInt(
+        remoteXPC.findService(DVTSecureSocketProxyService.RSD_SERVICE_NAME)
+          .port,
+        10,
+      );
+      const installationProxy = options?.includeInstallationProxy
+        ? parseInt(
+            remoteXPC.findService(InstallationProxyService.RSD_SERVICE_NAME)
+              .port,
+            10,
+          )
+        : undefined;
+      return {
+        host: tunnelConnection.host,
+        testmanagerdPort: testmanagerd,
+        dvtPort: dvt,
+        installationProxyPort: installationProxy,
+      };
+    });
 
   // Create individual service connections with cleanup on partial failure
   let execTestmanagerd: DvtTestmanagedProxyService | null = null;
@@ -489,18 +433,6 @@ export async function startXCTestServices(
 }
 
 /**
- * Create a RemoteXPC connection by resolving tunnel information from UDID.
- */
-export async function createRemoteXPCConnection(udid: string) {
-  const tunnelConnection = await getTunnelInformation(udid);
-  const remoteXPC = await startService(
-    tunnelConnection.host,
-    tunnelConnection.port,
-  );
-  return { remoteXPC, tunnelConnection };
-}
-
-/**
  * Returns the list of device UDIDs currently in the tunnel registry.
  * Used to include tunnel-only devices (e.g. Apple TV over WiFi)
  * in the "connected devices" list for session validation.
@@ -516,25 +448,60 @@ export async function getAvailableDevices(): Promise<string[]> {
 }
 
 /**
+ * Resolve tunnel registry metadata for a device (host, RSD port, packet stream).
+ * Does not open a discovery `RemoteXpcConnection`; use {@link withRemoteXpcConnection}
+ * when service ports must be looked up via RSD.
+ */
+export async function getTunnelForDevice(
+  udid: string,
+): Promise<TunnelEndpoint> {
+  const tunnelApiClient = await getTunnelRegistryClient();
+  const tunnelExists = await tunnelApiClient.hasTunnel(udid);
+  if (!tunnelExists) {
+    throw new TunnelAvailabilityError(
+      `No tunnel found for device ${udid}. Please run the tunnel creation script first`,
+    );
+  }
+  const tunnelConnection = await tunnelApiClient.getTunnelConnection(udid);
+  if (!tunnelConnection) {
+    throw new TunnelAvailabilityError(
+      `Failed to get tunnel connection details for device ${udid}`,
+    );
+  }
+  return tunnelConnection;
+}
+
+/**
  * Run `fn` with a freshly opened discovery `RemoteXpcConnection` and close
  * that connection unconditionally when `fn` settles. Use this whenever a
  * `start*Service` helper only needs the RSD to discover a service port:
  * the discovery RSD is single-use, so leaking it would race with `remoted`
  * and produce an `ECONNRESET` against any subsequent RSD probe.
  */
-async function withRemoteXpcConnection<T>(
+export async function withRemoteXpcConnection<T>(
   udid: string,
   fn: (
     remoteXPC: RemoteXpcConnection,
     tunnelConnection: TunnelEndpoint,
   ) => T | Promise<T>,
 ): Promise<T> {
-  const { remoteXPC, tunnelConnection } = await createRemoteXPCConnection(udid);
-  try {
-    return await fn(remoteXPC, tunnelConnection);
-  } finally {
-    await remoteXPC.close();
-  }
+  const tunnelConnection = await getTunnelForDevice(udid);
+  const lockKey = rsdSessionLockKey(
+    tunnelConnection.host,
+    tunnelConnection.port,
+  );
+
+  return TunnelManager.runSerializedRsdSession(lockKey, async () => {
+    const remoteXPC = await TunnelManager.connectRemoteXPCUnlocked(
+      tunnelConnection.host,
+      tunnelConnection.port,
+    );
+    try {
+      return await fn(remoteXPC, tunnelConnection);
+    } finally {
+      await remoteXPC.close();
+    }
+  });
 }
 
 /**
@@ -576,36 +543,6 @@ async function getTunnelRegistryClient(
     `http://127.0.0.1:${tunnelRegistryPort}/remotexpc/tunnels`,
     options,
   );
-}
-
-/**
- * Fetch tunnel host/port information for the provided UDID.
- */
-async function getTunnelInformation(udid: string) {
-  const tunnelApiClient = await getTunnelRegistryClient();
-  const tunnelExists = await tunnelApiClient.hasTunnel(udid);
-  if (!tunnelExists) {
-    throw new TunnelAvailabilityError(
-      `No tunnel found for device ${udid}. Please run the tunnel creation script first`,
-    );
-  }
-  const tunnelConnection = await tunnelApiClient.getTunnelConnection(udid);
-  if (!tunnelConnection) {
-    throw new TunnelAvailabilityError(
-      `Failed to get tunnel connection details for device ${udid}`,
-    );
-  }
-  return tunnelConnection;
-}
-
-/**
- * Create a low-level RemoteXPC connection to host and port.
- */
-async function startService(
-  host: string,
-  port: number,
-): Promise<RemoteXpcConnection> {
-  return await TunnelManager.createRemoteXPCConnection(host, port);
 }
 
 // #endregion

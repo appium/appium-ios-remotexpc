@@ -1,7 +1,7 @@
 import { logger } from '@appium/support';
 import { expect } from 'chai';
 
-import type { DVTServiceWithConnection } from '../../../src/index.js';
+import type { DVTInstruments } from '../../../src/index.js';
 import * as Services from '../../../src/services.js';
 
 const log = logger.getLogger('DeviceInfo.test');
@@ -10,7 +10,7 @@ log.level = 'debug';
 describe('DeviceInfo Instrument', function () {
   this.timeout(30000);
 
-  let dvtServiceConnection: DVTServiceWithConnection | null = null;
+  let dvtServiceConnection: DVTInstruments | null = null;
   const udid = process.env.UDID || '';
 
   before(async () => {
@@ -24,10 +24,6 @@ describe('DeviceInfo Instrument', function () {
     if (dvtServiceConnection) {
       try {
         await dvtServiceConnection.dvtService.close();
-      } catch (error) {}
-
-      try {
-        await dvtServiceConnection.remoteXPC.close();
       } catch (error) {}
     }
   });

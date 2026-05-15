@@ -1,7 +1,7 @@
 import { logger } from '@appium/support';
 import { expect } from 'chai';
 
-import type { DVTServiceWithConnection } from '../../../src/index.js';
+import type { DVTInstruments } from '../../../src/index.js';
 import * as Services from '../../../src/services.js';
 
 const log = logger.getLogger('Screenshot.test');
@@ -12,7 +12,7 @@ const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 describe('Screenshot Instrument', function () {
   this.timeout(30000);
 
-  let dvtServiceConnection: DVTServiceWithConnection | null = null;
+  let dvtServiceConnection: DVTInstruments | null = null;
   const udid = process.env.UDID || '';
 
   before(async () => {
@@ -26,10 +26,6 @@ describe('Screenshot Instrument', function () {
     if (dvtServiceConnection) {
       try {
         await dvtServiceConnection.dvtService.close();
-      } catch (error) {}
-
-      try {
-        await dvtServiceConnection.remoteXPC.close();
       } catch (error) {}
     }
   });

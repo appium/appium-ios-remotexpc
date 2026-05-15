@@ -4,10 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-import type {
-  HouseArrestService,
-  HouseArrestServiceWithConnection,
-} from '../../src/index.js';
+import type { HouseArrestService } from '../../src/index.js';
 import * as Services from '../../src/services.js';
 import { AfcService } from '../../src/services/ios/afc/index.js';
 
@@ -23,21 +20,17 @@ describe('House Arrest Service', function () {
   // download Adobe Acrobat from App Store
   const adobeReader = 'com.adobe.Adobe-Reader'; // used by vendDocuments test
 
-  let serviceWithConnection: HouseArrestServiceWithConnection;
   let houseArrestService: HouseArrestService;
 
   before(async function () {
     if (!udid) {
       throw new Error('Set UDID env var to execute tests.');
     }
-    serviceWithConnection = await Services.startHouseArrestService(udid);
-    houseArrestService = serviceWithConnection.houseArrestService;
+    houseArrestService = await Services.startHouseArrestService(udid);
   });
 
   after(async function () {
-    if (serviceWithConnection) {
-      await serviceWithConnection.remoteXPC.close();
-    }
+    // Discovery RSD is closed by startHouseArrestService.
   });
 
   describe('vendContainer', function () {
