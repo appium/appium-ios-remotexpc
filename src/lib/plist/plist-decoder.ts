@@ -3,12 +3,7 @@ import { Transform, type TransformCallback } from 'node:stream';
 import { getLogger } from '../logger.js';
 import { UTF8_ENCODING } from './constants.js';
 import { parsePlist } from './unified-plist-parser.js';
-import {
-  ensureString,
-  findFirstReplacementCharacter,
-  fixMultipleXmlDeclarations,
-  hasUnicodeReplacementCharacter,
-} from './utils.js';
+import { ensureString, fixMultipleXmlDeclarations } from './utils.js';
 
 const log = getLogger('Plist');
 
@@ -54,21 +49,6 @@ export class PlistServiceDecoder extends Transform {
 
       // Check for multiple XML declarations which can cause parsing errors
       const fullDataStr = ensureString(plistData);
-
-      // Check for potential corruption indicators and handle them
-      if (hasUnicodeReplacementCharacter(plistData)) {
-        log.debug(
-          'Detected Unicode replacement characters in plist data, which may indicate encoding issues',
-        );
-
-        // Try to find and clean the corrupted data
-        const firstReplacementPos = findFirstReplacementCharacter(fullDataStr);
-        if (firstReplacementPos >= 0) {
-          log.debug(
-            `Found replacement character at position ${firstReplacementPos}, attempting to clean data`,
-          );
-        }
-      }
       const xmlDeclMatches = fullDataStr.match(/(<\?xml[^>]*\?>)/g) || [];
       if (xmlDeclMatches.length > 1) {
         log.debug(
