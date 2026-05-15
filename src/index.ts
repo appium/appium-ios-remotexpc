@@ -3,7 +3,6 @@ import {
   TUNNEL_CONTAINER_NAME,
 } from './constants.js';
 import {
-  createLockdownServiceByTunnel,
   createLockdownServiceByUDID,
   createLockdownServiceForTunnel,
 } from './lib/lockdown/index.js';
@@ -138,7 +137,6 @@ export {
   rsdSessionLockKey,
   PacketStreamServer,
   PacketStreamClient,
-  createLockdownServiceByTunnel,
   createLockdownServiceForTunnel,
   createLockdownServiceByUDID,
   startCoreDeviceProxy,
