@@ -1,3 +1,9 @@
+## [1.1.11](https://github.com/appium/appium-ios-remotexpc/compare/v1.1.10...v1.1.11) (2026-05-15)
+
+### Miscellaneous Chores
+
+* Reduce noisy logs ([#211](https://github.com/appium/appium-ios-remotexpc/issues/211)) ([eb2d0e9](https://github.com/appium/appium-ios-remotexpc/commit/eb2d0e9b585f18611b4454947f34f6abc4df83ad))
+
 ## [1.1.10](https://github.com/appium/appium-ios-remotexpc/compare/v1.1.9...v1.1.10) (2026-05-14)
 
 ### Bug Fixes
