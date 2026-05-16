@@ -7,7 +7,7 @@ import {
 } from '../../src/lib/tunnel/index.js';
 import type { SyslogService as ISyslogService } from '../../src/lib/types.js';
 import {
-  createRemoteXPCConnection,
+  getTunnelForDevice,
   startSyslogBinaryService,
   startSyslogTextService,
 } from '../../src/services.js';
@@ -61,7 +61,7 @@ describe('Tunnel and Syslog Service', function () {
     before(async function () {
       ({ syslogService, serviceDescriptor } =
         await startSyslogBinaryService(udid));
-      const { tunnelConnection } = await createRemoteXPCConnection(udid);
+      const tunnelConnection = await getTunnelForDevice(udid);
       packetStreamClient = new PacketStreamClient(
         'localhost',
         tunnelConnection.packetStreamPort,

@@ -17,22 +17,15 @@ describe('Crash Reports Service', function () {
 
   const udid = process.env.UDID || '';
 
-  let remoteXPC: any;
   let crashReportsService: CrashReportsService;
 
   before(async function () {
-    const { remoteXPC: rxpc, crashReportsService: crs } =
-      await Services.startCrashReportsService(udid);
-    remoteXPC = rxpc;
-    crashReportsService = crs;
+    crashReportsService = await Services.startCrashReportsService(udid);
   });
 
   after(async function () {
     try {
       crashReportsService?.close();
-    } catch {}
-    try {
-      await remoteXPC?.close();
     } catch {}
   });
 

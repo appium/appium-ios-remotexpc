@@ -17,7 +17,6 @@ import type { PowerAssertionOptions } from '../services/ios/power-assertion/inde
 import { PowerAssertionType } from '../services/ios/power-assertion/index.js';
 import type { InterfaceOrientation } from '../services/ios/springboard-service/index.js';
 import type { SyslogEntry } from '../services/ios/syslog-service/syslog-entry-parser.js';
-import type { RemoteXpcConnection } from './remote-xpc/remote-xpc-connection.js';
 import type { Device } from './usbmux/index.js';
 
 export type { PowerAssertionOptions };
@@ -453,50 +452,6 @@ export interface DiagnosticsServiceConstructor {
    * @param address Tuple containing [host, port]
    */
   new (address: [string, number]): DiagnosticsService;
-}
-
-/**
- * Represents a DiagnosticsService instance with its associated RemoteXPC connection
- * This allows callers to properly manage the connection lifecycle
- */
-export interface DiagnosticsServiceWithConnection {
-  /** The DiagnosticsService instance */
-  diagnosticsService: DiagnosticsService;
-  /** The RemoteXPC connection that can be used to close the connection */
-  remoteXPC: RemoteXpcConnection;
-}
-
-/**
- * Represents a NotificationProxyService instance with its associated RemoteXPC connection
- * This allows callers to properly manage the connection lifecycle
- */
-export interface NotificationProxyServiceWithConnection {
-  /** The NotificationProxyService instance */
-  notificationProxyService: NotificationProxyService;
-  /** The RemoteXPC connection that can be used to close the connection */
-  remoteXPC: RemoteXpcConnection;
-}
-
-/**
- * Represents a MobileConfigService instance with its associated RemoteXPC connection
- * This allows callers to properly manage the connection lifecycle
- */
-export interface MobileConfigServiceWithConnection {
-  /** The MobileConfigService instance */
-  mobileConfigService: MobileConfigService;
-  /** The RemoteXPC connection that can be used to close the connection */
-  remoteXPC: RemoteXpcConnection;
-}
-
-/**
- * Represents a PowerAssertionService instance with its associated RemoteXPC connection
- * This allows callers to properly manage the connection lifecycle
- */
-export interface PowerAssertionServiceWithConnection {
-  /** The PowerAssertionService instance */
-  powerAssertionService: PowerAssertionService;
-  /** The RemoteXPC connection that can be used to close the connection */
-  remoteXPC: RemoteXpcConnection;
 }
 
 /**
@@ -1182,10 +1137,9 @@ export interface NotificationService {
 }
 
 /**
- * DVT service with connection
- * This allows callers to properly manage the connection lifecycle
+ * DVT secure socket proxy plus instrument clients returned from `startDVTService`.
  */
-export interface DVTServiceWithConnection {
+export interface DVTInstruments {
   /** The DVTSecureSocketProxyService instance */
   dvtService: DVTSecureSocketProxyService;
   /** The LocationSimulation service instance */
@@ -1206,8 +1160,6 @@ export interface DVTServiceWithConnection {
   networkMonitor: NetworkMonitorService;
   /** The ProcessControl service instance */
   processControl: ProcessControlService;
-  /** The RemoteXPC connection that can be used to close the connection */
-  remoteXPC: RemoteXpcConnection;
 }
 
 /**
@@ -1312,17 +1264,6 @@ export interface WebInspectorService extends BaseService {
     pageId: number,
     enable: boolean,
   ): Promise<void>;
-}
-
-/**
- * Represents a WebInspectorService instance with its associated RemoteXPC connection
- * This allows callers to properly manage the connection lifecycle
- */
-export interface WebInspectorServiceWithConnection {
-  /** The WebInspectorService instance */
-  webInspectorService: WebInspectorService;
-  /** The RemoteXPC connection that can be used to close the connection */
-  remoteXPC: RemoteXpcConnection;
 }
 
 /**
@@ -1558,26 +1499,6 @@ export interface MobileImageMounterServiceConstructor {
 }
 
 /**
- * Represents a MobileImageMounterService instance with its associated RemoteXPC connection
- */
-export interface MobileImageMounterServiceWithConnection {
-  /** The MobileImageMounterService instance */
-  mobileImageMounterService: MobileImageMounterService;
-  /** The RemoteXPC connection for service management */
-  remoteXPC: RemoteXpcConnection;
-}
-
-/**
- * Represents a HouseArrestService instance with its associated RemoteXPC connection
- */
-export interface HouseArrestServiceWithConnection {
-  /** The HouseArrestService instance */
-  houseArrestService: HouseArrestService;
-  /** The RemoteXPC connection for service management */
-  remoteXPC: RemoteXpcConnection;
-}
-
-/**
  * Represents the instance side of SpringboardService
  */
 export interface SpringboardService extends BaseService {
@@ -1678,16 +1599,6 @@ export interface SpringboardService extends BaseService {
 }
 
 /**
- * Represents a SpringboardService instance with its associated RemoteXPC connection
- */
-export interface SpringboardServiceWithConnection {
-  /** The SpringboardService instance */
-  springboardService: SpringboardService;
-  /** The RemoteXPC connection for service management */
-  remoteXPC: RemoteXpcConnection;
-}
-
-/**
  * Represents the instance side of HouseArrestService for accessing application containers
  */
 export interface HouseArrestService extends BaseService {
@@ -1780,11 +1691,6 @@ export interface MisagentService extends BaseService {
   fetchAll(): Promise<ProvisioningProfile[]>;
 }
 
-export interface MisagentServiceWithConnection {
-  misagentService: MisagentService;
-  remoteXPC: RemoteXpcConnection;
-}
-
 /**
  * Options for pulling crash reports from device to local
  */
@@ -1848,22 +1754,6 @@ export interface CrashReportsService extends BaseService {
    * Close the service and release resources
    */
   close(): void;
-}
-
-export interface CrashReportsServiceWithConnection {
-  crashReportsService: CrashReportsService;
-  remoteXPC: RemoteXpcConnection;
-}
-
-/**
- * Represents an InstallationProxyService instance with its associated RemoteXPC connection
- * This allows callers to properly manage the connection lifecycle
- */
-export interface InstallationProxyServiceWithConnection {
-  /** The InstallationProxyService instance */
-  installationProxyService: InstallationProxyService;
-  /** The RemoteXPC connection for service management */
-  remoteXPC: RemoteXpcConnection;
 }
 
 /**
@@ -1939,16 +1829,6 @@ export interface TestmanagerdService extends BaseService {
    * Close the testmanagerd service connection
    */
   close(): Promise<void>;
-}
-
-/**
- * Represents a TestmanagerdService instance with its associated RemoteXPC connection
- */
-export interface TestmanagerdServiceWithConnection {
-  /** The testmanagerd service instance */
-  testmanagerdService: TestmanagerdService;
-  /** The RemoteXPC connection for service management */
-  remoteXPC: RemoteXpcConnection;
 }
 
 /**

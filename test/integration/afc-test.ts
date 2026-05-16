@@ -14,31 +14,15 @@ describe('AFC Service', function () {
 
   const udid = process.env.UDID || '';
 
-  let remoteXPC: any;
   let afc: AfcService;
 
   before(async function () {
-    // Establish RemoteXPC connection and locate AFC shim service/port
-    const { remoteXPC: rxpc, tunnelConnection } =
-      await Services.createRemoteXPCConnection(udid);
-    remoteXPC = rxpc;
-
-    const afcDescriptor = remoteXPC.findService(AfcService.RSD_SERVICE_NAME);
-    afc = new AfcService([
-      tunnelConnection.host,
-      parseInt(afcDescriptor.port, 10),
-    ]);
+    afc = await Services.startAfcService(udid);
   });
 
   after(async function () {
-    // Cleanup: close AFC socket and RemoteXPC
     try {
       afc?.close();
-    } catch {
-      // ignore
-    }
-    try {
-      await remoteXPC?.close();
     } catch {
       // ignore
     }

@@ -49,10 +49,12 @@ export class XCTestAttachment {
       throw new Error('delete requires at least one UUID');
     }
 
-    const conn = await Services.startTestmanagerdService(this.udid);
+    const testmanagerdService = await Services.startTestmanagerdService(
+      this.udid,
+    );
     try {
       const channel =
-        await conn.testmanagerdService.makeChannel(TESTMANAGERD_CHANNEL);
+        await testmanagerdService.makeChannel(TESTMANAGERD_CHANNEL);
       const channelCode = channel.getCode();
 
       const sessionId = crypto.randomUUID();
@@ -63,28 +65,22 @@ export class XCTestAttachment {
         capabilities: DEFAULT_EXEC_CAPABILITIES,
       });
 
-      await conn.testmanagerdService.sendMessage(
+      await testmanagerdService.sendMessage(
         channelCode,
         SELECTOR.initiateSession,
         { args: initArgs },
       );
-      const [initResult] =
-        await conn.testmanagerdService.recvPlist(channelCode);
+      const [initResult] = await testmanagerdService.recvPlist(channelCode);
       log.debug('Exec session for attachment delete:', initResult);
 
       return await deleteAttachmentsOnChannel(
-        conn.testmanagerdService,
+        testmanagerdService,
         channelCode,
         uuids,
       );
     } finally {
       try {
-        await conn.testmanagerdService.close();
-      } catch {
-        /* ignore */
-      }
-      try {
-        await conn.remoteXPC.close();
+        await testmanagerdService.close();
       } catch {
         /* ignore */
       }

@@ -31,6 +31,11 @@ export interface WatchTunnelRegistryOptions {
   rsdProbeIntervalMs?: number;
   /** Connect timeout per probe (default: `1000`, 1 second). */
   rsdProbeConnectTimeoutMs?: number;
+  /**
+   * Consecutive failed RSD probes required before removing a tunnel (default: `3`).
+   * Avoids tearing down the registry when `remoted` is briefly busy with a discovery session.
+   */
+  rsdProbeFailureThreshold?: number;
 }
 
 /**
@@ -49,6 +54,7 @@ export function watchTunnelRegistrySockets(
     onTunnelDead,
     rsdProbeIntervalMs = 5_000,
     rsdProbeConnectTimeoutMs = 1_000,
+    rsdProbeFailureThreshold = 3,
   } = options;
 
   const stopped = { value: false };
@@ -122,6 +128,7 @@ export function watchTunnelRegistrySockets(
       rsdProbe.host
     ) {
       const probeTarget = rsdProbe;
+      let consecutiveProbeFailures = 0;
       const id = setInterval(() => {
         if (stopped.value || finalized) {
           return;
@@ -132,8 +139,19 @@ export function watchTunnelRegistrySockets(
             probeTarget.port,
             rsdProbeConnectTimeoutMs,
           );
-          if (!ok && !stopped.value && !finalized) {
-            await finalize('RSD probe failed');
+          if (ok) {
+            consecutiveProbeFailures = 0;
+            return;
+          }
+          consecutiveProbeFailures += 1;
+          if (
+            consecutiveProbeFailures >= rsdProbeFailureThreshold &&
+            !stopped.value &&
+            !finalized
+          ) {
+            await finalize(
+              `RSD probe failed (${consecutiveProbeFailures} consecutive)`,
+            );
           }
         })();
       }, rsdProbeIntervalMs);

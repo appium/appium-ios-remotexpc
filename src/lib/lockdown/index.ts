@@ -1,12 +1,13 @@
-import { Socket } from 'node:net';
-import tls, { type ConnectionOptions, TLSSocket } from 'node:tls';
+import type { Socket } from 'node:net';
+import tls, { type ConnectionOptions, type TLSSocket } from 'node:tls';
 
 import { BasePlistService } from '../../base-plist-service.js';
 import { ServiceConnection } from '../../service-connection.js';
+import { withRemoteXpcConnection } from '../../services.js';
 import { getLogger } from '../logger.js';
 import { type PairRecord } from '../pair-record/index.js';
 import { PlistService } from '../plist/plist-service.js';
-import { RemoteXpcConnection } from '../remote-xpc/remote-xpc-connection.js';
+import type { RemoteXpcConnection } from '../remote-xpc/remote-xpc-connection.js';
 import type { LockdownDeviceInfo, PlistMessage, PlistValue } from '../types.js';
 import { RelayService, createUsbmux } from '../usbmux/index.js';
 
@@ -606,33 +607,15 @@ export class LockdownServiceFactory {
 }
 
 /**
- * Lockdown over an RSD tunnel: TCP to `com.apple.mobile.lockdown.remote.untrusted`, then RSD
- * handshake (`RSDCheckin` → echo → `StartService`), then lockdownd plist on a plaintext socket
- * (no usbmux relay TLS). `remoteXpc` is only used to discover the service port.
- *
- * `remoteXpc` must already be connected. It is not closed here.
+ * Lockdown over an RSD tunnel. Opens a scoped discovery connection, resolves the remote
+ * lockdown port, and returns a `LockdownService` (discovery RSD is closed before return).
  */
-export async function createLockdownServiceByTunnel(
-  remoteXpc: RemoteXpcConnection,
+export async function createLockdownServiceForTunnel(
   udid: string,
 ): Promise<LockdownService> {
-  const [host] = remoteXpc.address;
-
-  let lockdownPort: string | undefined;
-  try {
-    lockdownPort = remoteXpc.findService(LOCKDOWN_REMOTE_UNTRUSTED).port;
-  } catch {
-    lockdownPort = undefined;
-  }
-  if (!lockdownPort) {
-    throw new LockdownError(
-      `RSD has no remote lockdown service (${LOCKDOWN_REMOTE_UNTRUSTED}) for ${udid}`,
-    );
-  }
-
-  const conn = await ServiceConnection.createUsingTCP(host, lockdownPort);
-  await rsdHandshakeLockdownPlistService(conn);
-  return new LockdownService(conn.getSocket(), udid, false);
+  return withRemoteXpcConnection(udid, (remoteXpc) =>
+    createLockdownServiceByTunnel(remoteXpc, udid),
+  );
 }
 
 /**
@@ -656,6 +639,37 @@ export function upgradeSocketToTLS(
 ): Promise<TLSSocket> {
   const tlsManager = new TLSManager();
   return tlsManager.upgradeSocketToTLS(socket, tlsOptions);
+}
+
+/**
+ * Lockdown over an RSD tunnel: TCP to `com.apple.mobile.lockdown.remote.untrusted`, then RSD
+ * handshake (`RSDCheckin` → echo → `StartService`), then lockdownd plist on a plaintext socket
+ * (no usbmux relay TLS). `remoteXpc` is only used to discover the service port.
+ *
+ * Internal: must be called from within `withRemoteXpcConnection` (or equivalent) while the
+ * discovery session is held; the caller must not retain `remoteXpc` after discovery closes.
+ */
+async function createLockdownServiceByTunnel(
+  remoteXpc: RemoteXpcConnection,
+  udid: string,
+): Promise<LockdownService> {
+  const [host] = remoteXpc.address;
+
+  let lockdownPort: string | undefined;
+  try {
+    lockdownPort = remoteXpc.findService(LOCKDOWN_REMOTE_UNTRUSTED).port;
+  } catch {
+    lockdownPort = undefined;
+  }
+  if (!lockdownPort) {
+    throw new LockdownError(
+      `RSD has no remote lockdown service (${LOCKDOWN_REMOTE_UNTRUSTED}) for ${udid}`,
+    );
+  }
+
+  const conn = await ServiceConnection.createUsingTCP(host, lockdownPort);
+  await rsdHandshakeLockdownPlistService(conn);
+  return new LockdownService(conn.getSocket(), udid, false);
 }
 
 /**

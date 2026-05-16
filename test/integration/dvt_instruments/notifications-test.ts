@@ -2,7 +2,7 @@ import { logger } from '@appium/support';
 import { expect } from 'chai';
 import sinon from 'sinon';
 
-import type { DVTServiceWithConnection } from '../../../src/lib/types.js';
+import type { DVTInstruments } from '../../../src/lib/types.js';
 import * as Services from '../../../src/services.js';
 
 const log = logger.getLogger('notifications.test');
@@ -11,7 +11,7 @@ log.level = 'debug';
 describe('Notifications', function () {
   this.timeout(30000);
 
-  let dvtServiceConnection: DVTServiceWithConnection | null = null;
+  let dvtServiceConnection: DVTInstruments | null = null;
   const udid = process.env.UDID || '';
 
   before(async function () {
@@ -26,12 +26,6 @@ describe('Notifications', function () {
     if (dvtServiceConnection) {
       try {
         await dvtServiceConnection.dvtService.close();
-      } catch {
-        // Ignore cleanup errors
-      }
-
-      try {
-        await dvtServiceConnection.remoteXPC.close();
       } catch {
         // Ignore cleanup errors
       }

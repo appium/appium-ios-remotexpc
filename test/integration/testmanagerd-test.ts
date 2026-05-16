@@ -2,9 +2,9 @@ import { logger } from '@appium/support';
 import { expect } from 'chai';
 
 import type {
-  DVTServiceWithConnection,
-  HouseArrestServiceWithConnection,
-  TestmanagerdServiceWithConnection,
+  DVTInstruments,
+  HouseArrestService,
+  TestmanagerdService,
 } from '../../src/index.js';
 import {
   XCTestAttachment,
@@ -37,9 +37,6 @@ const XCTEST_BUNDLE_ID = process.env.XCTEST_BUNDLE_ID;
 
 const TESTMANAGERD_CHANNEL =
   'dtxproxy:XCTestManager_IDEInterface:XCTestManager_DaemonConnectionInterface';
-
-type TestmanagerdService =
-  TestmanagerdServiceWithConnection['testmanagerdService'];
 
 async function safeClose(
   ...closeables: Array<{ close(): Promise<void> } | null | undefined>
@@ -100,50 +97,34 @@ describe('Testmanagerd Service', function () {
   });
 
   describe('Dual-connection handshake + control session init', function () {
-    let controlConnection: TestmanagerdServiceWithConnection | null = null;
-    let execConnection: TestmanagerdServiceWithConnection | null = null;
+    let controlConnection: TestmanagerdService | null = null;
+    let execConnection: TestmanagerdService | null = null;
 
     after(async function () {
-      await safeClose(
-        controlConnection?.testmanagerdService,
-        controlConnection?.remoteXPC,
-      );
-      await safeClose(
-        execConnection?.testmanagerdService,
-        execConnection?.remoteXPC,
-      );
+      await safeClose(controlConnection, execConnection);
     });
 
     it('should connect two independent testmanagerd instances and complete handshakes', async function () {
       controlConnection = await Services.startTestmanagerdService(UDID);
       execConnection = await Services.startTestmanagerdService(UDID);
 
-      expect(controlConnection.testmanagerdService).to.not.be.null;
-      expect(execConnection.testmanagerdService).to.not.be.null;
+      expect(controlConnection).to.not.be.null;
+      expect(execConnection).to.not.be.null;
     });
 
     it('should create channels on both connections', async function () {
-      const controlCode = await makeControlChannel(
-        controlConnection!.testmanagerdService,
-      );
-      const execCode = await makeControlChannel(
-        execConnection!.testmanagerdService,
-      );
+      await makeControlChannel(controlConnection!);
+      await makeControlChannel(execConnection!);
     });
 
     it('should initiate control session with protocol version', async function () {
-      const channelCode = await makeControlChannel(
-        controlConnection!.testmanagerdService,
-      );
-      const result = await initiateControlSession(
-        controlConnection!.testmanagerdService,
-        channelCode,
-      );
+      const channelCode = await makeControlChannel(controlConnection!);
+      await initiateControlSession(controlConnection!, channelCode);
     });
   });
 
   describe('XCTestConfiguration write via HouseArrest', function () {
-    let houseArrestConnection: HouseArrestServiceWithConnection | null = null;
+    let houseArrestService: HouseArrestService | null = null;
 
     before(function () {
       if (
@@ -155,25 +136,23 @@ describe('Testmanagerd Service', function () {
       }
     });
 
-    after(async function () {
-      await safeClose(houseArrestConnection?.remoteXPC);
-    });
+    after(async function () {});
 
     it('should encode XCTestConfiguration, write to device, and read back', async function () {
-      houseArrestConnection = await Services.startHouseArrestService(UDID);
+      houseArrestService = await Services.startHouseArrestService(UDID);
 
-      const installProxyConn =
-        await Services.startInstallationProxyService(UDID);
+      const installProxy = await Services.startInstallationProxyService(UDID);
       let appPath: string;
       try {
-        const lookup = await installProxyConn.installationProxyService.lookup(
-          [TEST_RUNNER_BUNDLE_ID!],
-          { returnAttributes: ['Path'] },
-        );
+        const lookup = await installProxy.lookup([TEST_RUNNER_BUNDLE_ID!], {
+          returnAttributes: ['Path'],
+        });
         appPath = (lookup[TEST_RUNNER_BUNDLE_ID!] as any)?.Path;
         expect(appPath, 'Runner app not found on device').to.be.a('string');
       } finally {
-        await safeClose(installProxyConn.remoteXPC);
+        try {
+          installProxy.close();
+        } catch {}
       }
 
       const xctestName =
@@ -198,10 +177,9 @@ describe('Testmanagerd Service', function () {
 
       log.debug(`Serialized XCTestConfiguration: ${plistData.length} bytes`);
 
-      const afcService =
-        await houseArrestConnection.houseArrestService.vendContainer(
-          TEST_RUNNER_BUNDLE_ID!,
-        );
+      const afcService = await houseArrestService.vendContainer(
+        TEST_RUNNER_BUNDLE_ID!,
+      );
 
       const configFileName = `Runner-${sessionId.toUpperCase()}.xctestconfiguration`;
       const remotePath = `/tmp/${configFileName}`;
@@ -229,26 +207,20 @@ describe('Testmanagerd Service', function () {
   });
 
   describe('Testmanagerd + DVT ProcessControl combo', function () {
-    let testmanagerdConnection: TestmanagerdServiceWithConnection | null = null;
-    let dvtConnection: DVTServiceWithConnection | null = null;
+    let testmanagerdConnection: TestmanagerdService | null = null;
+    let dvtConnection: DVTInstruments | null = null;
 
     after(async function () {
-      await safeClose(
-        testmanagerdConnection?.testmanagerdService,
-        testmanagerdConnection?.remoteXPC,
-      );
-      await safeClose(dvtConnection?.dvtService, dvtConnection?.remoteXPC);
+      await safeClose(testmanagerdConnection, dvtConnection?.dvtService);
     });
 
     it('should connect testmanagerd + DVT, launch app via ProcessControl, and authorize PID on control session', async function () {
       testmanagerdConnection = await Services.startTestmanagerdService(UDID);
       dvtConnection = await Services.startDVTService(UDID);
 
-      const channelCode = await makeControlChannel(
-        testmanagerdConnection.testmanagerdService,
-      );
+      const channelCode = await makeControlChannel(testmanagerdConnection);
       const initResult = await initiateControlSession(
-        testmanagerdConnection.testmanagerdService,
+        testmanagerdConnection,
         channelCode,
       );
 
@@ -264,14 +236,13 @@ describe('Testmanagerd Service', function () {
       const authArgs = new MessageAux();
       authArgs.appendObj(pid);
 
-      await testmanagerdConnection.testmanagerdService.sendMessage(
+      await testmanagerdConnection.sendMessage(
         channelCode,
         '_IDE_authorizeTestSessionWithProcessID:',
         { args: authArgs },
       );
 
-      const [authResult] =
-        await testmanagerdConnection.testmanagerdService.recvPlist(channelCode);
+      const [authResult] = await testmanagerdConnection.recvPlist(channelCode);
       log.debug('Authorization result:', authResult);
 
       const absPid = Math.abs(pid);

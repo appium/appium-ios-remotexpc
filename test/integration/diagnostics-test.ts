@@ -7,26 +7,15 @@ describe('Diagnostics Service', function () {
   // Increase timeout for integration tests
   this.timeout(60000);
 
-  let remoteXPC: any;
   let diagService: DiagnosticsService;
   const udid = process.env.UDID || '';
 
   before(async function () {
-    let { diagnosticsService, remoteXPC } =
-      await Services.startDiagnosticsService(udid);
-    diagService = diagnosticsService;
-    remoteXPC = remoteXPC;
+    diagService = await Services.startDiagnosticsService(udid);
   });
 
   after(async function () {
-    // Close RemoteXPC connection
-    if (remoteXPC) {
-      try {
-        await remoteXPC.close();
-      } catch (error) {
-        // Ignore cleanup errors in tests
-      }
-    }
+    // Discovery RSD is closed by startDiagnosticsService; no service-level close API.
   });
 
   it('should query power information using ioregistry', async function () {

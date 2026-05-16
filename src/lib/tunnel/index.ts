@@ -29,6 +29,11 @@ interface TunnelRegistryEntry {
 class TunnelManagerService {
   // Map of tunnel address to tunnel registry entry
   private tunnelRegistry: Map<string, TunnelRegistryEntry> = new Map();
+  /**
+   * Per-tunnel RSD discovery queue. Only one session (connect through close)
+   * may be active per `host:rsdPort` at a time; overlapping probes race `remoted`.
+   */
+  private readonly rsdSessionTail = new Map<string, Promise<void>>();
 
   /**
    * Checks if a tunnel is already open for the given address
@@ -53,13 +58,24 @@ class TunnelManagerService {
   }
 
   /**
-   * Creates a RemoteXPC connection for the specified device.
-   *
-   * @param address - The address of the tunnel
-   * @param rsdPort - The RSD port of the tunnel
-   * @returns A promise that resolves to the RemoteXPC connection
+   * Run `fn` while holding the per-tunnel RSD discovery lock (connect → discover → close).
    */
-  async createRemoteXPCConnection(
+  async runSerializedRsdSession<T>(
+    lockKey: string,
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    const release = await this.acquireRsdSession(lockKey);
+    try {
+      return await fn();
+    } finally {
+      release();
+    }
+  }
+
+  /**
+   * Connect to RSD without acquiring the session lock (caller must hold the lock).
+   */
+  async connectRemoteXPCUnlocked(
     address: string,
     rsdPort: number,
   ): Promise<RemoteXpcConnection> {
@@ -69,14 +85,12 @@ class TunnelManagerService {
         rsdPort,
       ]);
 
-      // Connect to RemoteXPC with delay between retries
       let retries = CONNECTION_MAX_RETRIES;
       let lastError;
 
       while (retries > 0) {
         try {
           await remoteXPC.connect();
-          // Update the registry entry with the RemoteXPC connection
           const entry = this.tunnelRegistry.get(address);
           if (entry) {
             entry.remoteXPC = remoteXPC;
@@ -90,14 +104,12 @@ class TunnelManagerService {
           );
           retries--;
 
-          // Wait before retrying
           if (retries > 0) {
             await new Promise((resolve) => setTimeout(resolve, 500));
           }
         }
       }
 
-      // All retries failed
       throw lastError || new Error('Failed to connect to RemoteXPC');
     } catch (error) {
       log.error(`Error for device ${address}: ${error}`);
@@ -244,6 +256,31 @@ class TunnelManagerService {
   async closeTunnel(): Promise<void> {
     return this.closeAllTunnels();
   }
+
+  /**
+   * Wait for any in-flight RSD discovery on this tunnel, then hold the lock until `release()`.
+   */
+  private async acquireRsdSession(lockKey: string): Promise<() => void> {
+    const previous = this.rsdSessionTail.get(lockKey) ?? Promise.resolve();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    this.rsdSessionTail.set(
+      lockKey,
+      (async () => {
+        await previous;
+        await gate;
+      })(),
+    );
+    await previous;
+    return release;
+  }
+}
+
+/** Lock key for one tunnel RSD endpoint (`host:rsdPort`). */
+export function rsdSessionLockKey(address: string, rsdPort: number): string {
+  return `${address}:${rsdPort}`;
 }
 
 // Create and export the singleton instance
