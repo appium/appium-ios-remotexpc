@@ -131,9 +131,6 @@ class RemoteXpcConnection {
                 // Only resolve if we found at least one service
                 if (servicesResponse.services.length > 0) {
                   this._services = servicesResponse.services;
-                  log.info(
-                    `Extracted ${servicesResponse.services.length} services`,
-                  );
                   clearTimeouts();
                   resolve(servicesResponse);
                 } else if (!serviceExtractionTimeout) {
@@ -160,9 +157,6 @@ class RemoteXpcConnection {
         });
 
         this._socket.once('close', () => {
-          if (!this._isClosing) {
-            log.info('Socket closed');
-          }
           this._isConnected = false;
           clearTimeouts();
 
@@ -249,7 +243,6 @@ class RemoteXpcConnection {
       // Listen for the close event
       if (this._socket) {
         this._socket.once('close', () => {
-          log.debug('Socket closed successfully');
           clearTimeout(closeTimeout);
           this.cleanupResources();
           resolve();
@@ -274,9 +267,6 @@ class RemoteXpcConnection {
             // But set a short timeout just in case 'close' doesn't fire
             setTimeout(() => {
               if (this._socket) {
-                log.debug(
-                  'Socket end completed but close event not fired, forcing cleanup',
-                );
                 clearTimeout(closeTimeout);
                 this.forceCleanup();
                 resolve();
@@ -347,7 +337,6 @@ class RemoteXpcConnection {
         // Stop the service-discovery parser from processing additional frames
         // while shutdown is in progress.
         this._socket.removeAllListeners('data');
-        log.debug('Successfully removed socket data listeners');
       } catch (error) {
         log.error(
           `Error removing socket data listeners: ${error instanceof Error ? error.message : String(error)}`,
@@ -379,7 +368,6 @@ class RemoteXpcConnection {
       if (this._socket) {
         // Destroy the socket forcefully
         this._socket.destroy();
-        log.debug('Socket forcefully destroyed');
       }
     } catch (error) {
       log.error(
@@ -425,11 +413,6 @@ function extractServices(response: string): ServicesResponse {
   // Sort both arrays by index to maintain order
   serviceMatches.sort((a, b) => a.index - b.index);
   portMatches.sort((a, b) => a.index - b.index);
-
-  // Log the extracted data for debugging
-  log.debug(
-    `Found ${serviceMatches.length} services and ${portMatches.length} ports`,
-  );
 
   // Create a mapping of services to ports
   const services: Service[] = [];
