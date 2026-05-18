@@ -81,7 +81,6 @@ export class LengthBasedSplitter extends Transform {
 
     // Remove all listeners
     this.removeAllListeners();
-    log.debug('LengthBasedSplitter shutdown complete');
   }
 
   _transform(

@@ -1,14 +1,11 @@
 import { EventEmitter } from 'node:events';
 import { Server, Socket, createServer } from 'node:net';
 
-import { getLogger } from '../logger.js';
 import type {
   DevicePortForwarderEvents,
   DevicePortForwarderOptions,
   UpstreamSocketConnector,
 } from './types.js';
-
-const log = getLogger('PortForwarding');
 
 /**
  * A lifecycle-managed local forwarder that proxies local TCP clients to a device port.
@@ -116,9 +113,6 @@ export class DevicePortForwarder extends EventEmitter {
       upstreamSocket = await this.openUpstreamSocket();
     } catch (err) {
       this.activeSockets.delete(localSocket);
-      log.debug(
-        `Failed to open upstream socket for device port ${this.devicePort}: ${err}`,
-      );
       this.emit('upstreamConnectError', err);
       this.emit('clientDisconnected', localSocket, err);
       localSocket.destroy();
