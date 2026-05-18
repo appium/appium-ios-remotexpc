@@ -1,3 +1,9 @@
+## [1.1.13](https://github.com/appium/appium-ios-remotexpc/compare/v1.1.12...v1.1.13) (2026-05-18)
+
+### Bug Fixes
+
+* Tune remote xpc connect retry logic ([#214](https://github.com/appium/appium-ios-remotexpc/issues/214)) ([af8b81a](https://github.com/appium/appium-ios-remotexpc/commit/af8b81a8877e86c6f6cbc8dd27090c9d14704e14))
+
 ## [1.1.12](https://github.com/appium/appium-ios-remotexpc/compare/v1.1.11...v1.1.12) (2026-05-18)
 
 ### Miscellaneous Chores
