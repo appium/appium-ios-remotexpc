@@ -91,8 +91,11 @@ class TunnelManagerService {
           return remoteXPC;
         } catch (error) {
           lastError = error;
+          const remainingAfterAttemptMs = Math.ceil(
+            Math.max(0, deadline - performance.now()),
+          );
           log.warn(
-            `RemoteXPC connection attempt failed (${remainingMs}ms left): ${error}`,
+            `RemoteXPC connection attempt failed (${remainingAfterAttemptMs}ms left): ${error}`,
           );
           await sleepIfNeeded(attemptStartedAt, deadline);
         }

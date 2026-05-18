@@ -243,7 +243,7 @@ class RemoteXpcConnection {
     let accumulatedData = Buffer.alloc(0);
     let partialExtractionTimer: NodeJS.Timeout | undefined;
 
-    const schedulePartialExtractionTimeout = (data: Buffer): void => {
+    const schedulePartialExtractionTimeout = (): void => {
       if (partialExtractionTimer) {
         return;
       }
@@ -253,7 +253,7 @@ class RemoteXpcConnection {
         log.warn(
           'Service extraction timeout reached, resolving with current data',
         );
-        const finalResponse = extractServices(data.toString('utf8'));
+        const finalResponse = extractServices(accumulatedData.toString('utf8'));
         session.settleSuccess(finalResponse);
       }, SERVICE_EXTRACTION_TIMEOUT_MS);
       session.trackPartialExtractionTimer(partialExtractionTimer);
@@ -299,7 +299,7 @@ class RemoteXpcConnection {
   private tryResolveServicesFromPayload(
     session: ConnectSession,
     accumulatedData: Buffer,
-    schedulePartialExtractionTimeout: (data: Buffer) => void,
+    schedulePartialExtractionTimeout: () => void,
   ): void {
     const dataStr = accumulatedData.toString('utf8');
     if (!dataStr.includes('com.apple') || !dataStr.includes('Port')) {
@@ -313,7 +313,7 @@ class RemoteXpcConnection {
         return;
       }
 
-      schedulePartialExtractionTimeout(accumulatedData);
+      schedulePartialExtractionTimeout();
     } catch (error) {
       log.warn(
         `Error extracting services: ${error}, continuing to collect data`,
