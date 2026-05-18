@@ -6,15 +6,34 @@ import Handshake from './handshake.js';
 const log = getLogger('RemoteXpcConnection');
 
 // Timeout constants
-const CONNECTION_TIMEOUT_MS = 3000; // 3 seconds
-const SERVICE_EXTRACTION_TIMEOUT_MS = 5000; // 5 seconds
-const HANDSHAKE_DELAY_MS = 100; // 100 milliseconds
-const SERVICE_AFTER_HANDSHAKE_TIMEOUT_MS = 10000; // 10 seconds
+/** Max time to wait for the TCP socket to connect. */
+export const CONNECTION_CONNECT_TIMEOUT_MS = 500;
+const HANDSHAKE_DELAY_MS = 100;
+/** Wait for service list after handshake before failing the connect attempt. */
+const SERVICE_AFTER_HANDSHAKE_TIMEOUT_MS = 10_000;
+/** Resolve with partial data if service parsing stalls mid-stream. */
+const SERVICE_EXTRACTION_TIMEOUT_MS = 5_000;
+/**
+ * Default max time for one connect attempt (TCP + handshake + service discovery).
+ * Must cover the longest connect-phase timeout plus earlier phases.
+ */
+export const CONNECTION_DEFAULT_OPERATION_TIMEOUT_MS = Math.max(
+  SERVICE_EXTRACTION_TIMEOUT_MS,
+  SERVICE_AFTER_HANDSHAKE_TIMEOUT_MS +
+    HANDSHAKE_DELAY_MS +
+    CONNECTION_CONNECT_TIMEOUT_MS,
+);
+/** TunnelManager retry budget; never shorter than a single connect attempt. */
+export const CONNECTION_OVERALL_TIMEOUT_MS =
+  CONNECTION_DEFAULT_OPERATION_TIMEOUT_MS;
 const SOCKET_CLOSE_TIMEOUT_MS = 1000; // 1 second
 const SOCKET_END_TIMEOUT_MS = 500; // 0.5 seconds
 const SOCKET_WRITE_TIMEOUT_MS = 500; // 0.5 seconds
 
-export const CONNECTION_MAX_RETRIES = 15;
+export interface RemoteXpcConnectOptions {
+  /** Max time for this connect attempt (TCP + handshake + services). */
+  timeoutMs?: number;
+}
 
 interface Service {
   serviceName: string;
@@ -25,8 +44,14 @@ interface ServicesResponse {
   services: Service[];
 }
 
-type ConnectionTimeout = NodeJS.Timeout;
-type ServiceExtractionTimeout = NodeJS.Timeout;
+/** Guards connect() resolve/reject and clears active connect-phase timers. */
+interface ConnectSession {
+  settleSuccess(response: ServicesResponse): void;
+  settleFailure(error: Error | unknown): void;
+  isSettled(): boolean;
+  clearTcpTimer(): void;
+  trackPartialExtractionTimer(timer: NodeJS.Timeout): void;
+}
 
 class RemoteXpcConnection {
   private readonly _address: [string, number];
@@ -61,155 +86,27 @@ class RemoteXpcConnection {
    * Connect to the remote device and perform handshake
    * @returns Promise that resolves with the list of available services
    */
-  async connect(): Promise<ServicesResponse> {
+  async connect(options?: RemoteXpcConnectOptions): Promise<ServicesResponse> {
     if (this._isConnected) {
       throw new Error('Already connected');
     }
 
+    const operationTimeoutMs =
+      options?.timeoutMs ?? CONNECTION_DEFAULT_OPERATION_TIMEOUT_MS;
+
     return new Promise<ServicesResponse>((resolve, reject) => {
-      // Set a timeout for the entire connection process
-      const connectionTimeout: ConnectionTimeout = setTimeout(() => {
-        if (this._socket) {
-          this._socket.destroy();
-        }
-        reject(
-          new Error(
-            `Connection timed out after ${CONNECTION_TIMEOUT_MS / 1000} seconds`,
-          ),
-        );
-      }, CONNECTION_TIMEOUT_MS);
-
-      // Set a timeout for service extraction
-      let serviceExtractionTimeout: ServiceExtractionTimeout;
-
-      const clearTimeouts = (): void => {
-        clearTimeout(connectionTimeout);
-        if (serviceExtractionTimeout) {
-          clearTimeout(serviceExtractionTimeout);
-        }
-      };
+      const session = this.createConnectSession(
+        operationTimeoutMs,
+        resolve,
+        reject,
+      );
 
       try {
-        this._socket = net.connect({
-          host: this._address[0],
-          port: this._address[1],
-          family: 6,
-        });
-
-        this._socket.setNoDelay(true);
-        this._socket.setKeepAlive(true);
-
-        // Buffer to accumulate data
-        let accumulatedData = Buffer.alloc(0);
-
-        this._socket.once('error', (error: Error) => {
-          if (!this._isClosing) {
-            log.error(`Connection error: ${error}`);
-          }
-          this._isConnected = false;
-          clearTimeouts();
-          reject(error);
-        });
-
-        // Handle incoming data
-        this._socket.on('data', (data: Buffer | string) => {
-          if (Buffer.isBuffer(data) || typeof data === 'string') {
-            const buffer = Buffer.isBuffer(data)
-              ? data
-              : Buffer.from(data, 'hex');
-
-            // Accumulate data
-            accumulatedData = Buffer.concat([accumulatedData, buffer]);
-
-            // Check if we have enough data to extract services
-            // Don't rely solely on buffer length, also check for service patterns
-            const dataStr = accumulatedData.toString('utf8');
-            if (dataStr.includes('com.apple') && dataStr.includes('Port')) {
-              try {
-                const servicesResponse = extractServices(dataStr);
-
-                // Only resolve if we found at least one service
-                if (servicesResponse.services.length > 0) {
-                  this._services = servicesResponse.services;
-                  clearTimeouts();
-                  resolve(servicesResponse);
-                } else if (!serviceExtractionTimeout) {
-                  // Set a timeout to resolve with whatever we have if no more data comes
-                  serviceExtractionTimeout = setTimeout(() => {
-                    log.warn(
-                      'Service extraction timeout reached, resolving with current data',
-                    );
-                    const finalResponse = extractServices(
-                      accumulatedData.toString('utf8'),
-                    );
-                    this._services = finalResponse.services;
-                    clearTimeouts();
-                    resolve(finalResponse);
-                  }, SERVICE_EXTRACTION_TIMEOUT_MS);
-                }
-              } catch (error) {
-                log.warn(
-                  `Error extracting services: ${error}, continuing to collect data`,
-                );
-              }
-            }
-          }
-        });
-
-        this._socket.once('close', () => {
-          this._isConnected = false;
-          clearTimeouts();
-
-          // If we haven't resolved yet, reject with an error
-          if (this._services === undefined) {
-            reject(
-              new Error('Connection closed before services were extracted'),
-            );
-          }
-        });
-
-        this._socket.once('connect', async () => {
-          try {
-            this._isConnected = true;
-            if (this._socket) {
-              this._handshake = new Handshake(this._socket);
-
-              // Add a small delay before performing handshake to ensure socket is ready
-              await new Promise<void>((resolve) =>
-                setTimeout(resolve, HANDSHAKE_DELAY_MS),
-              );
-
-              // Once handshake is successful we can get
-              // peer-info and get ports for lockdown in RSD
-              await this._handshake.perform();
-
-              // Set a timeout for service extraction (cleared on close())
-              this._serviceExtractionTimer = setTimeout(async () => {
-                this._serviceExtractionTimer = undefined;
-                if (this._services === undefined) {
-                  log.warn(
-                    'No services received after handshake, closing connection',
-                  );
-                  try {
-                    await this.close();
-                  } catch (err) {
-                    log.error(`Error closing connection: ${err}`);
-                  }
-                  reject(new Error('No services received after handshake'));
-                }
-              }, SERVICE_AFTER_HANDSHAKE_TIMEOUT_MS);
-            }
-          } catch (error) {
-            log.error(`Handshake failed: ${error}`);
-            clearTimeouts();
-            await this.close();
-            reject(error);
-          }
-        });
+        this._socket = this.createConnectSocket();
+        this.registerConnectSocketHandlers(session, this._socket);
       } catch (error) {
         log.error(`Failed to create connection: ${error}`);
-        clearTimeouts();
-        reject(error);
+        session.settleFailure(error);
       }
     });
   }
@@ -219,74 +116,15 @@ class RemoteXpcConnection {
    */
   async close(): Promise<void> {
     this._isClosing = true;
+    this.clearServiceExtractionTimer();
 
-    if (this._serviceExtractionTimer) {
-      clearTimeout(this._serviceExtractionTimer);
-      this._serviceExtractionTimer = undefined;
+    const socket = this._socket;
+    if (!socket) {
+      return;
     }
 
-    if (!this._socket) {
-      return Promise.resolve();
-    }
-
-    // Immediately mark as disconnected to prevent further operations
     this._isConnected = false;
-
-    return new Promise<void>((resolve) => {
-      // Set a shorter timeout for socket closing
-      const closeTimeout = setTimeout(() => {
-        log.warn('Socket close timed out, destroying socket');
-        this.forceCleanup();
-        resolve();
-      }, SOCKET_CLOSE_TIMEOUT_MS);
-
-      // Listen for the close event
-      if (this._socket) {
-        this._socket.once('close', () => {
-          clearTimeout(closeTimeout);
-          this.cleanupResources();
-          resolve();
-        });
-
-        // Swallow socket errors (e.g., ECONNRESET) to avoid
-        // uncaught socket errors during intentional shutdown.
-        this._socket.on('error', () => {});
-      }
-
-      try {
-        // First remove all data listeners to prevent parsing during close
-        this.cleanupSocket();
-
-        if (this._socket) {
-          // Set a small write timeout to prevent hanging
-          this._socket.setTimeout(SOCKET_WRITE_TIMEOUT_MS);
-
-          // End the socket with a small empty buffer to flush any pending data
-          this._socket.end(Buffer.alloc(0), () => {
-            // If end completes successfully, the 'close' event will handle cleanup
-            // But set a short timeout just in case 'close' doesn't fire
-            setTimeout(() => {
-              if (this._socket) {
-                clearTimeout(closeTimeout);
-                this.forceCleanup();
-                resolve();
-              }
-            }, SOCKET_END_TIMEOUT_MS);
-          });
-        } else {
-          clearTimeout(closeTimeout);
-          this.cleanupResources();
-          resolve();
-        }
-      } catch (error) {
-        log.error(
-          `Unexpected error during close: ${error instanceof Error ? error.message : String(error)}`,
-        );
-        clearTimeout(closeTimeout);
-        this.forceCleanup();
-        resolve();
-      }
-    });
+    await this.shutdownSocket(socket);
   }
 
   /**
@@ -323,6 +161,274 @@ class RemoteXpcConnection {
         Check if the device is locked.`);
     }
     return service;
+  }
+
+  private createConnectSession(
+    operationTimeoutMs: number,
+    resolve: (response: ServicesResponse) => void,
+    reject: (reason: Error) => void,
+  ): ConnectSession {
+    let settled = false;
+    let partialExtractionTimer: NodeJS.Timeout | undefined;
+
+    const clearAllTimers = (): void => {
+      clearTimeout(operationTimer);
+      clearTimeout(tcpTimer);
+      if (partialExtractionTimer) {
+        clearTimeout(partialExtractionTimer);
+        partialExtractionTimer = undefined;
+      }
+    };
+
+    const settleSuccess = (response: ServicesResponse): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearAllTimers();
+      this._services = response.services;
+      resolve(response);
+    };
+
+    const settleFailure = (error: Error | unknown): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearAllTimers();
+      reject(error instanceof Error ? error : new Error(String(error)));
+    };
+
+    const operationTimer = setTimeout(() => {
+      this._socket?.destroy();
+      settleFailure(
+        new Error(`Connection timed out after ${operationTimeoutMs}ms`),
+      );
+    }, operationTimeoutMs);
+
+    const tcpTimer = setTimeout(() => {
+      this._socket?.destroy();
+      settleFailure(
+        new Error(
+          `Connection timed out after ${CONNECTION_CONNECT_TIMEOUT_MS}ms`,
+        ),
+      );
+    }, CONNECTION_CONNECT_TIMEOUT_MS);
+
+    return {
+      settleSuccess,
+      settleFailure,
+      isSettled: () => settled,
+      clearTcpTimer: () => clearTimeout(tcpTimer),
+      trackPartialExtractionTimer: (timer) => {
+        partialExtractionTimer = timer;
+      },
+    };
+  }
+
+  private createConnectSocket(): net.Socket {
+    return net.connect({
+      host: this._address[0],
+      port: this._address[1],
+      family: 6,
+      noDelay: true,
+      keepAlive: true,
+    });
+  }
+
+  private registerConnectSocketHandlers(
+    session: ConnectSession,
+    socket: net.Socket,
+  ): void {
+    let accumulatedData = Buffer.alloc(0);
+    let partialExtractionTimer: NodeJS.Timeout | undefined;
+
+    const schedulePartialExtractionTimeout = (): void => {
+      if (partialExtractionTimer) {
+        return;
+      }
+
+      partialExtractionTimer = setTimeout(() => {
+        partialExtractionTimer = undefined;
+        log.warn(
+          'Service extraction timeout reached, resolving with current data',
+        );
+        const finalResponse = extractServices(accumulatedData.toString('utf8'));
+        session.settleSuccess(finalResponse);
+      }, SERVICE_EXTRACTION_TIMEOUT_MS);
+      session.trackPartialExtractionTimer(partialExtractionTimer);
+    };
+
+    socket.once('error', (error: Error) => {
+      if (!this._isClosing) {
+        log.error(`Connection error: ${error}`);
+      }
+      this._isConnected = false;
+      session.settleFailure(error);
+    });
+
+    socket.on('data', (data: Buffer | string) => {
+      if (Buffer.isBuffer(data) || typeof data === 'string') {
+        const chunk = Buffer.isBuffer(data) ? data : Buffer.from(data, 'hex');
+        accumulatedData = Buffer.concat([accumulatedData, chunk]);
+      }
+
+      this.tryResolveServicesFromPayload(
+        session,
+        accumulatedData,
+        schedulePartialExtractionTimeout,
+      );
+    });
+
+    socket.once('close', () => {
+      this._isConnected = false;
+
+      if (!session.isSettled()) {
+        session.settleFailure(
+          new Error('Connection closed before services were extracted'),
+        );
+      }
+    });
+
+    socket.once('connect', () => {
+      session.clearTcpTimer();
+      void this.onConnectSocketReady(session, socket);
+    });
+  }
+
+  private tryResolveServicesFromPayload(
+    session: ConnectSession,
+    accumulatedData: Buffer,
+    schedulePartialExtractionTimeout: () => void,
+  ): void {
+    const dataStr = accumulatedData.toString('utf8');
+    if (!dataStr.includes('com.apple') || !dataStr.includes('Port')) {
+      return;
+    }
+
+    try {
+      const servicesResponse = extractServices(dataStr);
+      if (servicesResponse.services.length > 0) {
+        session.settleSuccess(servicesResponse);
+        return;
+      }
+
+      schedulePartialExtractionTimeout();
+    } catch (error) {
+      log.warn(
+        `Error extracting services: ${error}, continuing to collect data`,
+      );
+    }
+  }
+
+  private async onConnectSocketReady(
+    session: ConnectSession,
+    socket: net.Socket,
+  ): Promise<void> {
+    this._isConnected = true;
+
+    try {
+      await this.performHandshake(socket);
+      this.schedulePostHandshakeServiceTimeout(session);
+    } catch (error) {
+      log.error(`Handshake failed: ${error}`);
+      session.settleFailure(error);
+      await this.close();
+    }
+  }
+
+  private async performHandshake(socket: net.Socket): Promise<void> {
+    this._handshake = new Handshake(socket);
+
+    await new Promise<void>((resolve) =>
+      setTimeout(resolve, HANDSHAKE_DELAY_MS),
+    );
+
+    await this._handshake.perform();
+  }
+
+  private schedulePostHandshakeServiceTimeout(session: ConnectSession): void {
+    this.clearServiceExtractionTimer();
+
+    this._serviceExtractionTimer = setTimeout(() => {
+      void this.handlePostHandshakeServiceTimeout(session);
+    }, SERVICE_AFTER_HANDSHAKE_TIMEOUT_MS);
+  }
+
+  private async handlePostHandshakeServiceTimeout(
+    session: ConnectSession,
+  ): Promise<void> {
+    this._serviceExtractionTimer = undefined;
+
+    if (this._services !== undefined || session.isSettled()) {
+      return;
+    }
+
+    log.warn('No services received after handshake, closing connection');
+    try {
+      await this.close();
+    } catch (err) {
+      log.error(`Error closing connection: ${err}`);
+    }
+    session.settleFailure(new Error('No services received after handshake'));
+  }
+
+  private clearServiceExtractionTimer(): void {
+    if (!this._serviceExtractionTimer) {
+      return;
+    }
+
+    clearTimeout(this._serviceExtractionTimer);
+    this._serviceExtractionTimer = undefined;
+  }
+
+  private shutdownSocket(socket: net.Socket): Promise<void> {
+    return new Promise<void>((resolve) => {
+      let finished = false;
+      const finish = (): void => {
+        if (finished) {
+          return;
+        }
+        finished = true;
+        resolve();
+      };
+
+      const closeTimeout = setTimeout(() => {
+        log.warn('Socket close timed out, destroying socket');
+        this.forceCleanup();
+        finish();
+      }, SOCKET_CLOSE_TIMEOUT_MS);
+
+      const onClosed = (): void => {
+        clearTimeout(closeTimeout);
+        this.cleanupResources();
+        finish();
+      };
+
+      socket.once('close', onClosed);
+      socket.on('error', () => {});
+
+      try {
+        this.cleanupSocket();
+        socket.setTimeout(SOCKET_WRITE_TIMEOUT_MS);
+        socket.end(Buffer.alloc(0), () => {
+          setTimeout(() => {
+            if (!finished && this._socket) {
+              clearTimeout(closeTimeout);
+              this.forceCleanup();
+              finish();
+            }
+          }, SOCKET_END_TIMEOUT_MS);
+        });
+      } catch (error) {
+        log.error(
+          `Unexpected error during close: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        clearTimeout(closeTimeout);
+        this.forceCleanup();
+        finish();
+      }
+    });
   }
 
   /**
