@@ -86,9 +86,7 @@ class RemoteXpcConnection {
    * Connect to the remote device and perform handshake
    * @returns Promise that resolves with the list of available services
    */
-  async connect(
-    options?: RemoteXpcConnectOptions,
-  ): Promise<ServicesResponse> {
+  async connect(options?: RemoteXpcConnectOptions): Promise<ServicesResponse> {
     if (this._isConnected) {
       throw new Error('Already connected');
     }
@@ -271,9 +269,7 @@ class RemoteXpcConnection {
 
     socket.on('data', (data: Buffer | string) => {
       if (Buffer.isBuffer(data) || typeof data === 'string') {
-        const chunk = Buffer.isBuffer(data)
-          ? data
-          : Buffer.from(data, 'hex');
+        const chunk = Buffer.isBuffer(data) ? data : Buffer.from(data, 'hex');
         accumulatedData = Buffer.concat([accumulatedData, chunk]);
       }
 
