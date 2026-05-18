@@ -2,15 +2,22 @@ import {
   type TunnelConnection,
   connectToTunnelLockdown,
 } from 'appium-ios-tuntap';
+import { performance } from 'node:perf_hooks';
 import type { TLSSocket } from 'node:tls';
 
 import { getLogger } from '../logger.js';
 import {
-  CONNECTION_MAX_RETRIES,
+  CONNECTION_CONNECT_TIMEOUT_MS,
+  CONNECTION_OVERALL_TIMEOUT_MS,
   RemoteXpcConnection,
 } from '../remote-xpc/remote-xpc-connection.js';
 
 const log = getLogger('TunnelManager');
+
+/** Pause before retry when a connect attempt fails at or below this duration. */
+const FAST_CONNECT_FAILURE_THRESHOLD_MS = CONNECTION_CONNECT_TIMEOUT_MS;
+/** Backoff after a fast failure to avoid hammering an unavailable RSD endpoint. */
+const RECONNECT_BACKOFF_MS = 500;
 
 /**
  * Interface for tunnel registry entry
@@ -80,17 +87,18 @@ class TunnelManagerService {
     rsdPort: number,
   ): Promise<RemoteXpcConnection> {
     try {
-      const remoteXPC: RemoteXpcConnection = new RemoteXpcConnection([
-        address,
-        rsdPort,
-      ]);
+      const deadline = performance.now() + CONNECTION_OVERALL_TIMEOUT_MS;
+      let lastError: unknown;
 
-      let retries = CONNECTION_MAX_RETRIES;
-      let lastError;
+      while (performance.now() < deadline) {
+        const remainingMs = Math.ceil(
+          Math.max(0, deadline - performance.now()),
+        );
+        const remoteXPC = new RemoteXpcConnection([address, rsdPort]);
+        const attemptStartedAt = performance.now();
 
-      while (retries > 0) {
         try {
-          await remoteXPC.connect();
+          await remoteXPC.connect({ timeoutMs: remainingMs });
           const entry = this.tunnelRegistry.get(address);
           if (entry) {
             entry.remoteXPC = remoteXPC;
@@ -99,14 +107,13 @@ class TunnelManagerService {
           return remoteXPC;
         } catch (error) {
           lastError = error;
-          log.warn(
-            `RemoteXPC connection attempt failed (${retries} retries left): ${error}`,
+          const remainingAfterAttemptMs = Math.ceil(
+            Math.max(0, deadline - performance.now()),
           );
-          retries--;
-
-          if (retries > 0) {
-            await new Promise((resolve) => setTimeout(resolve, 500));
-          }
+          log.warn(
+            `RemoteXPC connection attempt failed (${remainingAfterAttemptMs}ms left): ${error}`,
+          );
+          await sleepIfNeeded(attemptStartedAt, deadline);
         }
       }
 
@@ -278,9 +285,24 @@ class TunnelManagerService {
   }
 }
 
-/** Lock key for one tunnel RSD endpoint (`host:rsdPort`). */
-export function rsdSessionLockKey(address: string, rsdPort: number): string {
-  return `${address}:${rsdPort}`;
+async function sleepIfNeeded(
+  attemptStartedAt: number,
+  deadline: number,
+): Promise<void> {
+  const attemptMs = performance.now() - attemptStartedAt;
+  if (attemptMs >= FAST_CONNECT_FAILURE_THRESHOLD_MS) {
+    return;
+  }
+
+  const backoffMs = Math.min(
+    RECONNECT_BACKOFF_MS,
+    Math.ceil(Math.max(0, deadline - performance.now())),
+  );
+  if (backoffMs <= 0) {
+    return;
+  }
+
+  await new Promise<void>((resolve) => setTimeout(resolve, backoffMs));
 }
 
 // Create and export the singleton instance
