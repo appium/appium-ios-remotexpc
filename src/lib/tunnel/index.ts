@@ -285,6 +285,11 @@ class TunnelManagerService {
   }
 }
 
+/** Lock key for one tunnel RSD endpoint (`host:rsdPort`). */
+export function rsdSessionLockKey(address: string, rsdPort: number): string {
+  return `${address}:${rsdPort}`;
+}
+
 async function sleepIfNeeded(
   attemptStartedAt: number,
   deadline: number,
