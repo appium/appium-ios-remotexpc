@@ -2,6 +2,7 @@ import {
   type TunnelConnection,
   connectToTunnelLockdown,
 } from 'appium-ios-tuntap';
+import AsyncLock from 'async-lock';
 import { performance } from 'node:perf_hooks';
 import type { TLSSocket } from 'node:tls';
 
@@ -37,10 +38,10 @@ class TunnelManagerService {
   // Map of tunnel address to tunnel registry entry
   private tunnelRegistry: Map<string, TunnelRegistryEntry> = new Map();
   /**
-   * Per-tunnel RSD discovery queue. Only one session (connect through close)
-   * may be active per `host:rsdPort` at a time; overlapping probes race `remoted`.
+   * Per-tunnel RSD discovery lock (`host:rsdPort`). Only one session (connect
+   * through close) may run at a time; overlapping probes race `remoted`.
    */
-  private readonly rsdSessionTail = new Map<string, Promise<void>>();
+  private readonly rsdSessionLock = new AsyncLock();
 
   /**
    * Checks if a tunnel is already open for the given address
@@ -71,12 +72,7 @@ class TunnelManagerService {
     lockKey: string,
     fn: () => Promise<T>,
   ): Promise<T> {
-    const release = await this.acquireRsdSession(lockKey);
-    try {
-      return await fn();
-    } finally {
-      release();
-    }
+    return await this.rsdSessionLock.acquire(lockKey, fn);
   }
 
   /**
@@ -229,7 +225,6 @@ class TunnelManagerService {
         } finally {
           entry.isActive = false;
           log.info(`Marked tunnel for address ${address} as inactive`);
-          this.clearRsdSessionLockForTunnel(address, entry.tunnel.RsdPort);
         }
       } catch (error) {
         log.error(`Error closing tunnel for address ${address}: ${error}`);
@@ -252,7 +247,6 @@ class TunnelManagerService {
     }
 
     this.tunnelRegistry.clear();
-    this.rsdSessionTail.clear();
     log.info('All tunnels closed');
   }
 
@@ -264,45 +258,6 @@ class TunnelManagerService {
    */
   async closeTunnel(): Promise<void> {
     return this.closeAllTunnels();
-  }
-
-  /**
-   * Wait for any in-flight RSD discovery on this tunnel, then hold the lock until `release()`.
-   */
-  private async acquireRsdSession(lockKey: string): Promise<() => void> {
-    const previous = this.rsdSessionTail.get(lockKey) ?? Promise.resolve();
-    let releaseGate!: () => void;
-    const gate = new Promise<void>((resolve) => {
-      releaseGate = resolve;
-    });
-    const chained = (async () => {
-      await previous;
-      await gate;
-    })();
-    this.rsdSessionTail.set(lockKey, chained);
-    await previous;
-    return () => {
-      releaseGate();
-      void (async () => {
-        try {
-          await chained;
-        } finally {
-          if (this.rsdSessionTail.get(lockKey) === chained) {
-            this.rsdSessionTail.delete(lockKey);
-          }
-        }
-      })();
-    };
-  }
-
-  private clearRsdSessionLockForTunnel(
-    address: string,
-    rsdPort: number | undefined,
-  ): void {
-    if (typeof rsdPort !== 'number' || rsdPort <= 0) {
-      return;
-    }
-    this.rsdSessionTail.delete(rsdSessionLockKey(address, rsdPort));
   }
 }
 
