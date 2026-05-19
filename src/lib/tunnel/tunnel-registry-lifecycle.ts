@@ -3,6 +3,7 @@ import type { TLSSocket } from 'node:tls';
 
 import { getLogger } from '../logger.js';
 import type { TunnelRegistry } from '../types.js';
+import { isRsdDiscoveryBusy } from './rsd-session-lock.js';
 
 const log = getLogger('TunnelRegistryLifecycle');
 
@@ -27,7 +28,10 @@ export interface WatchTunnelRegistryOptions {
     udid: string;
     address: string;
   }) => void | Promise<void>;
-  /** Interval for RSD TCP probes; `0` disables (default: `5000`, 5 seconds). */
+  /**
+   * Delay after each RSD probe finishes before the next one starts; `0` disables
+   * (default: `5000`, 5 seconds). Probes never overlap.
+   */
   rsdProbeIntervalMs?: number;
   /** Connect timeout per probe (default: `1000`, 1 second). */
   rsdProbeConnectTimeoutMs?: number;
@@ -36,6 +40,17 @@ export interface WatchTunnelRegistryOptions {
    * Avoids tearing down the registry when `remoted` is briefly busy with a discovery session.
    */
   rsdProbeFailureThreshold?: number;
+}
+
+interface RsdProbeLoopOptions {
+  host: string;
+  port: number;
+  intervalMs: number;
+  connectTimeoutMs: number;
+  failureThreshold: number;
+  shouldStop: () => boolean;
+  onFinalize: (reason: string) => Promise<void>;
+  registerTeardown: (cancel: () => void) => void;
 }
 
 /**
@@ -127,36 +142,18 @@ export function watchTunnelRegistrySockets(
       rsdProbe.port > 0 &&
       rsdProbe.host
     ) {
-      const probeTarget = rsdProbe;
-      let consecutiveProbeFailures = 0;
-      const id = setInterval(() => {
-        if (stopped.value || finalized) {
-          return;
-        }
-        void (async () => {
-          const ok = await probeRsd(
-            probeTarget.host,
-            probeTarget.port,
-            rsdProbeConnectTimeoutMs,
-          );
-          if (ok) {
-            consecutiveProbeFailures = 0;
-            return;
-          }
-          consecutiveProbeFailures += 1;
-          if (
-            consecutiveProbeFailures >= rsdProbeFailureThreshold &&
-            !stopped.value &&
-            !finalized
-          ) {
-            await finalize(
-              `RSD probe failed (${consecutiveProbeFailures} consecutive)`,
-            );
-          }
-        })();
-      }, rsdProbeIntervalMs);
-
-      teardownFns.push(() => clearInterval(id));
+      startRsdProbeLoop({
+        host: rsdProbe.host,
+        port: rsdProbe.port,
+        intervalMs: rsdProbeIntervalMs,
+        connectTimeoutMs: rsdProbeConnectTimeoutMs,
+        failureThreshold: rsdProbeFailureThreshold,
+        shouldStop: () => stopped.value || finalized,
+        onFinalize: finalize,
+        registerTeardown: (cancel) => {
+          teardownFns.push(cancel);
+        },
+      });
     }
   }
 
@@ -164,34 +161,124 @@ export function watchTunnelRegistrySockets(
 }
 
 /**
- * Probe an RSD socket endpoint and resolve true when reachable.
+ * Run RSD probes sequentially: wait for each probe to finish, then wait
+ * `intervalMs` before starting the next (no overlapping TCP connects).
+ */
+function startRsdProbeLoop(options: RsdProbeLoopOptions): void {
+  const {
+    host,
+    port,
+    intervalMs,
+    connectTimeoutMs,
+    failureThreshold,
+    shouldStop,
+    onFinalize,
+    registerTeardown,
+  } = options;
+
+  let consecutiveProbeFailures = 0;
+  let nextProbeTimer: NodeJS.Timeout | undefined;
+  let cancelled = false;
+
+  const cancel = (): void => {
+    cancelled = true;
+    if (nextProbeTimer !== undefined) {
+      clearTimeout(nextProbeTimer);
+      nextProbeTimer = undefined;
+    }
+  };
+
+  const scheduleNext = (): void => {
+    if (cancelled || shouldStop()) {
+      return;
+    }
+    nextProbeTimer = setTimeout(() => {
+      nextProbeTimer = undefined;
+      void runProbeCycle();
+    }, intervalMs);
+  };
+
+  const runProbeCycle = async (): Promise<void> => {
+    if (cancelled || shouldStop()) {
+      return;
+    }
+
+    if (!isRsdDiscoveryBusy(host, port)) {
+      const result = await probeRsd(host, port, connectTimeoutMs);
+      if (result === 'reachable') {
+        consecutiveProbeFailures = 0;
+      } else if (result === 'unreachable') {
+        consecutiveProbeFailures += 1;
+        if (
+          consecutiveProbeFailures >= failureThreshold &&
+          !cancelled &&
+          !shouldStop()
+        ) {
+          await onFinalize(
+            `RSD probe failed (${consecutiveProbeFailures} consecutive)`,
+          );
+          return;
+        }
+      }
+    }
+
+    scheduleNext();
+  };
+
+  registerTeardown(cancel);
+  void runProbeCycle();
+}
+
+/**
+ * Probe an RSD socket endpoint.
+ *
+ * - `reachable`: TCP connect succeeded, or the host reset the probe (`ECONNRESET` /
+ *   `EPIPE`) — `remoted` is present but may be busy (see issue #208).
+ * - `inconclusive`: probe timed out or returned a soft error; do not count toward removal.
+ * - `unreachable`: explicit down signals (`ECONNREFUSED`, `ENETUNREACH`, …).
  */
 function probeRsd(
   host: string,
   port: number,
   timeoutMs: number,
-): Promise<boolean> {
+): Promise<'reachable' | 'unreachable' | 'inconclusive'> {
   if (!host || port <= 0) {
-    return Promise.resolve(false);
+    return Promise.resolve('unreachable');
   }
 
   return new Promise((resolve) => {
     const socket = createConnection({ host, port });
+    let settled = false;
 
-    const finish = (ok: boolean): void => {
+    const finish = (
+      result: 'reachable' | 'unreachable' | 'inconclusive',
+    ): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearTimeout(timer);
       socket.destroy();
-      resolve(ok);
+      resolve(result);
     };
 
-    const timer = setTimeout(() => finish(false), timeoutMs);
+    const timer = setTimeout(() => finish('inconclusive'), timeoutMs);
 
-    socket.once('connect', () => {
-      clearTimeout(timer);
-      finish(true);
-    });
-    socket.once('error', () => {
-      clearTimeout(timer);
-      finish(false);
+    socket.once('connect', () => finish('reachable'));
+    socket.once('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'ECONNRESET' || err.code === 'EPIPE') {
+        finish('reachable');
+        return;
+      }
+      if (
+        err.code === 'ECONNREFUSED' ||
+        err.code === 'ENETUNREACH' ||
+        err.code === 'EHOSTUNREACH'
+      ) {
+        finish('unreachable');
+        return;
+      }
+      finish('inconclusive');
     });
   });
 }

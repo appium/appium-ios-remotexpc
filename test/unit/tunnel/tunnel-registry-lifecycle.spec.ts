@@ -142,4 +142,101 @@ describe('watchTunnelRegistrySockets', function () {
     client.destroy();
     await new Promise<void>((resolve) => server.close(() => resolve()));
   });
+
+  it('does not count probe timeouts as consecutive failures', async function () {
+    const registry = makeRegistry('dev-4');
+
+    const server = createServer();
+    await new Promise<void>((resolve, reject) => {
+      server.listen(0, '127.0.0.1', resolve);
+      server.once('error', reject);
+    });
+
+    const client = createConnection({
+      host: '127.0.0.1',
+      port: (server.address() as AddressInfo).port,
+    });
+    await once(client, 'connect');
+
+    let removed = false;
+    const { stop } = watchTunnelRegistrySockets({
+      registry,
+      watches: [
+        {
+          udid: 'dev-4',
+          socket: client,
+          // TEST-NET address with no route — probes should time out (inconclusive).
+          rsdProbe: { host: '192.0.2.1', port: 9 },
+        },
+      ],
+      rsdProbeIntervalMs: 30,
+      rsdProbeConnectTimeoutMs: 20,
+      rsdProbeFailureThreshold: 3,
+      onRemove: () => {
+        removed = true;
+      },
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(registry.tunnels['dev-4']).to.not.equal(undefined);
+    expect(removed).to.equal(false);
+
+    stop();
+    client.destroy();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  });
+
+  it('treats ECONNRESET on the probe socket as reachable', async function () {
+    const registry = makeRegistry('dev-5');
+
+    const resetServer = createServer((socket) => {
+      socket.destroy();
+    });
+    await new Promise<void>((resolve, reject) => {
+      resetServer.listen(0, '127.0.0.1', resolve);
+      resetServer.once('error', reject);
+    });
+    const rsdPort = (resetServer.address() as AddressInfo).port;
+
+    const upstream = createServer();
+    await new Promise<void>((resolve, reject) => {
+      upstream.listen(0, '127.0.0.1', resolve);
+      upstream.once('error', reject);
+    });
+    const client = createConnection({
+      host: '127.0.0.1',
+      port: (upstream.address() as AddressInfo).port,
+    });
+    await once(client, 'connect');
+
+    let removed = false;
+    const { stop } = watchTunnelRegistrySockets({
+      registry,
+      watches: [
+        {
+          udid: 'dev-5',
+          socket: client,
+          rsdProbe: { host: '127.0.0.1', port: rsdPort },
+        },
+      ],
+      rsdProbeIntervalMs: 30,
+      rsdProbeConnectTimeoutMs: 500,
+      rsdProbeFailureThreshold: 3,
+      onRemove: () => {
+        removed = true;
+      },
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(registry.tunnels['dev-5']).to.not.equal(undefined);
+    expect(removed).to.equal(false);
+
+    stop();
+    client.destroy();
+    await new Promise<void>((resolve) => {
+      resetServer.close(() => {
+        upstream.close(() => resolve());
+      });
+    });
+  });
 });

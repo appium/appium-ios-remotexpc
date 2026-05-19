@@ -2,7 +2,6 @@ import {
   type TunnelConnection,
   connectToTunnelLockdown,
 } from 'appium-ios-tuntap';
-import AsyncLock from 'async-lock';
 import { performance } from 'node:perf_hooks';
 import type { TLSSocket } from 'node:tls';
 
@@ -12,6 +11,7 @@ import {
   CONNECTION_OVERALL_TIMEOUT_MS,
   RemoteXpcConnection,
 } from '../remote-xpc/remote-xpc-connection.js';
+import { runSerializedRsdSession } from './rsd-session-lock.js';
 
 const log = getLogger('TunnelManager');
 
@@ -37,12 +37,6 @@ interface TunnelRegistryEntry {
 class TunnelManagerService {
   // Map of tunnel address to tunnel registry entry
   private tunnelRegistry: Map<string, TunnelRegistryEntry> = new Map();
-  /**
-   * Per-tunnel RSD discovery lock (`host:rsdPort`). Only one session (connect
-   * through close) may run at a time; overlapping probes race `remoted`.
-   */
-  private readonly rsdSessionLock = new AsyncLock();
-
   /**
    * Checks if a tunnel is already open for the given address
    *
@@ -72,7 +66,7 @@ class TunnelManagerService {
     lockKey: string,
     fn: () => Promise<T>,
   ): Promise<T> {
-    return await this.rsdSessionLock.acquire(lockKey, fn);
+    return await runSerializedRsdSession(lockKey, fn);
   }
 
   /**
@@ -261,10 +255,7 @@ class TunnelManagerService {
   }
 }
 
-/** Lock key for one tunnel RSD endpoint (`host:rsdPort`). */
-export function rsdSessionLockKey(address: string, rsdPort: number): string {
-  return `${address}:${rsdPort}`;
-}
+export { isRsdDiscoveryBusy, rsdSessionLockKey } from './rsd-session-lock.js';
 
 async function sleepIfNeeded(
   attemptStartedAt: number,

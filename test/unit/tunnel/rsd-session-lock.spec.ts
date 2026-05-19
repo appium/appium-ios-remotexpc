@@ -4,6 +4,7 @@ import * as sinon from 'sinon';
 import { RemoteXpcConnection } from '../../../src/lib/remote-xpc/remote-xpc-connection.js';
 import {
   TunnelManager,
+  isRsdDiscoveryBusy,
   rsdSessionLockKey,
 } from '../../../src/lib/tunnel/index.js';
 
@@ -69,7 +70,7 @@ describe('TunnelManager RSD session lock', function () {
 
     await TunnelManager.runSerializedRsdSession(lockKey, async () => 'done');
 
-    expect((TunnelManager as any).rsdSessionLock.isBusy(lockKey)).to.equal(
+    expect(isRsdDiscoveryBusy('fd00::2', 54321)).to.equal(
       false,
       'lock should be idle after runSerializedRsdSession completes',
     );
