@@ -21,9 +21,12 @@ interface LoadedServices {
  * a real device.
  */
 async function loadServicesWithStubs(
-  options: { findServiceImpl?: (name: string) => unknown } = {},
+  options: {
+    findServiceImpl?: (name: string) => unknown;
+    closeImpl?: () => Promise<void>;
+  } = {},
 ): Promise<LoadedServices> {
-  const closeSpy = sinon.spy(async () => {});
+  const closeSpy = sinon.spy(options.closeImpl ?? (async () => {}));
   const findServiceStub = sinon.stub();
   if (options.findServiceImpl) {
     findServiceStub.callsFake(options.findServiceImpl);
@@ -107,6 +110,38 @@ describe('start*Service — discovery RemoteXpcConnection lifecycle', function (
         closeSpy.calledOnce,
         `expected exactly one close() call on the error path, got ${closeSpy.callCount}`,
       ).to.equal(true);
+    });
+
+    it('propagates the body error when close() also fails', async function () {
+      const { services } = await loadServicesWithStubs({
+        findServiceImpl: () => {
+          throw new Error('fn failed');
+        },
+        closeImpl: async () => {
+          throw new Error('close failed');
+        },
+      });
+
+      let caught: Error | undefined;
+      try {
+        await services.startAfcService('test-udid');
+      } catch (err) {
+        caught = err as Error;
+      }
+
+      expect(caught?.message).to.equal('fn failed');
+    });
+
+    it('does not fail the caller when close() errors after a successful body', async function () {
+      const { services, closeSpy } = await loadServicesWithStubs({
+        closeImpl: async () => {
+          throw new Error('close failed');
+        },
+      });
+
+      await services.startAfcService('test-udid');
+
+      expect(closeSpy.calledOnce).to.equal(true);
     });
   });
 

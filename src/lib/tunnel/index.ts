@@ -229,6 +229,7 @@ class TunnelManagerService {
         } finally {
           entry.isActive = false;
           log.info(`Marked tunnel for address ${address} as inactive`);
+          this.clearRsdSessionLockForTunnel(address, entry.tunnel.RsdPort);
         }
       } catch (error) {
         log.error(`Error closing tunnel for address ${address}: ${error}`);
@@ -251,6 +252,7 @@ class TunnelManagerService {
     }
 
     this.tunnelRegistry.clear();
+    this.rsdSessionTail.clear();
     log.info('All tunnels closed');
   }
 
@@ -269,19 +271,38 @@ class TunnelManagerService {
    */
   private async acquireRsdSession(lockKey: string): Promise<() => void> {
     const previous = this.rsdSessionTail.get(lockKey) ?? Promise.resolve();
-    let release!: () => void;
+    let releaseGate!: () => void;
     const gate = new Promise<void>((resolve) => {
-      release = resolve;
+      releaseGate = resolve;
     });
-    this.rsdSessionTail.set(
-      lockKey,
-      (async () => {
-        await previous;
-        await gate;
-      })(),
-    );
+    const chained = (async () => {
+      await previous;
+      await gate;
+    })();
+    this.rsdSessionTail.set(lockKey, chained);
     await previous;
-    return release;
+    return () => {
+      releaseGate();
+      void (async () => {
+        try {
+          await chained;
+        } finally {
+          if (this.rsdSessionTail.get(lockKey) === chained) {
+            this.rsdSessionTail.delete(lockKey);
+          }
+        }
+      })();
+    };
+  }
+
+  private clearRsdSessionLockForTunnel(
+    address: string,
+    rsdPort: number | undefined,
+  ): void {
+    if (typeof rsdPort !== 'number' || rsdPort <= 0) {
+      return;
+    }
+    this.rsdSessionTail.delete(rsdSessionLockKey(address, rsdPort));
   }
 }
 

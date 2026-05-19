@@ -1,6 +1,7 @@
 import { BaseItem, strongbox } from '@appium/strongbox';
 
 import { TUNNEL_CONTAINER_NAME } from './constants.js';
+import { getLogger } from './lib/logger.js';
 import type { RemoteXpcConnection } from './lib/remote-xpc/remote-xpc-connection.js';
 import { TunnelManager, rsdSessionLockKey } from './lib/tunnel/index.js';
 import {
@@ -40,6 +41,7 @@ import { DvtTestmanagedProxyService } from './services/ios/testmanagerd/index.js
 import { WebInspectorService } from './services/ios/webinspector/index.js';
 
 const TUNNEL_REGISTRY_PORT = 'tunnelRegistryPort';
+const log = getLogger('Services');
 
 export class TunnelAvailabilityError extends Error {
   readonly code = 'ERR_TUNNEL_AVAILABILITY';
@@ -496,11 +498,25 @@ export async function withRemoteXpcConnection<T>(
       tunnelConnection.host,
       tunnelConnection.port,
     );
+    let fnError: unknown;
+    let result: T | undefined;
     try {
-      return await fn(remoteXPC, tunnelConnection);
+      result = await fn(remoteXPC, tunnelConnection);
+    } catch (err) {
+      fnError = err;
     } finally {
-      await remoteXPC.close();
+      try {
+        await remoteXPC.close();
+      } catch (err) {
+        log.warn(
+          `Discovery RemoteXpcConnection close failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
     }
+    if (fnError !== undefined) {
+      throw fnError;
+    }
+    return result as T;
   });
 }
 

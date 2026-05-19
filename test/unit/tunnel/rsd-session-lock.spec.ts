@@ -57,4 +57,24 @@ describe('TunnelManager RSD session lock', function () {
 
     connectStub.restore();
   });
+
+  it('removes the lock key from the queue map after the session ends', async function () {
+    const lockKey = rsdSessionLockKey('fd00::2', 54321);
+
+    const connectStub = sinon
+      .stub(TunnelManager, 'connectRemoteXPCUnlocked')
+      .resolves({
+        close: async () => {},
+      } as unknown as RemoteXpcConnection);
+
+    await TunnelManager.runSerializedRsdSession(lockKey, async () => 'done');
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect((TunnelManager as any).rsdSessionTail.has(lockKey)).to.equal(
+      false,
+      'idle lock keys should not accumulate in rsdSessionTail',
+    );
+
+    connectStub.restore();
+  });
 });
