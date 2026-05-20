@@ -7,7 +7,7 @@ const log = getLogger('RemoteXpcConnection');
 
 // Timeout constants
 /** Max time to wait for the TCP socket to connect. */
-export const CONNECTION_CONNECT_TIMEOUT_MS = 500;
+export const CONNECTION_CONNECT_TIMEOUT_MS = 3_000;
 const HANDSHAKE_DELAY_MS = 100;
 /** Wait for service list after handshake before failing the connect attempt. */
 const SERVICE_AFTER_HANDSHAKE_TIMEOUT_MS = 10_000;
@@ -23,9 +23,6 @@ export const CONNECTION_DEFAULT_OPERATION_TIMEOUT_MS = Math.max(
     HANDSHAKE_DELAY_MS +
     CONNECTION_CONNECT_TIMEOUT_MS,
 );
-/** TunnelManager retry budget; never shorter than a single connect attempt. */
-export const CONNECTION_OVERALL_TIMEOUT_MS =
-  CONNECTION_DEFAULT_OPERATION_TIMEOUT_MS;
 const SOCKET_CLOSE_TIMEOUT_MS = 1000; // 1 second
 const SOCKET_END_TIMEOUT_MS = 500; // 0.5 seconds
 const SOCKET_WRITE_TIMEOUT_MS = 500; // 0.5 seconds
@@ -199,6 +196,11 @@ class RemoteXpcConnection {
       reject(error instanceof Error ? error : new Error(String(error)));
     };
 
+    const tcpTimeoutMs = Math.min(
+      CONNECTION_CONNECT_TIMEOUT_MS,
+      operationTimeoutMs,
+    );
+
     const operationTimer = setTimeout(() => {
       this._socket?.destroy();
       settleFailure(
@@ -208,12 +210,8 @@ class RemoteXpcConnection {
 
     const tcpTimer = setTimeout(() => {
       this._socket?.destroy();
-      settleFailure(
-        new Error(
-          `Connection timed out after ${CONNECTION_CONNECT_TIMEOUT_MS}ms`,
-        ),
-      );
-    }, CONNECTION_CONNECT_TIMEOUT_MS);
+      settleFailure(new Error(`TCP connect timed out after ${tcpTimeoutMs}ms`));
+    }, tcpTimeoutMs);
 
     return {
       settleSuccess,
