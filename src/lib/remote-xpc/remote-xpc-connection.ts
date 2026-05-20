@@ -46,7 +46,6 @@ interface ConnectSession {
   settleSuccess(response: ServicesResponse): void;
   settleFailure(error: Error | unknown): void;
   isSettled(): boolean;
-  clearTcpTimer(): void;
   trackPartialExtractionTimer(timer: NodeJS.Timeout): void;
 }
 
@@ -170,7 +169,6 @@ class RemoteXpcConnection {
 
     const clearAllTimers = (): void => {
       clearTimeout(operationTimer);
-      clearTimeout(tcpTimer);
       if (partialExtractionTimer) {
         clearTimeout(partialExtractionTimer);
         partialExtractionTimer = undefined;
@@ -196,28 +194,17 @@ class RemoteXpcConnection {
       reject(error instanceof Error ? error : new Error(String(error)));
     };
 
-    const tcpTimeoutMs = Math.min(
-      CONNECTION_CONNECT_TIMEOUT_MS,
-      operationTimeoutMs,
-    );
-
     const operationTimer = setTimeout(() => {
-      this._socket?.destroy();
+      this.forceCleanup();
       settleFailure(
         new Error(`Connection timed out after ${operationTimeoutMs}ms`),
       );
     }, operationTimeoutMs);
 
-    const tcpTimer = setTimeout(() => {
-      this._socket?.destroy();
-      settleFailure(new Error(`TCP connect timed out after ${tcpTimeoutMs}ms`));
-    }, tcpTimeoutMs);
-
     return {
       settleSuccess,
       settleFailure,
       isSettled: () => settled,
-      clearTcpTimer: () => clearTimeout(tcpTimer),
       trackPartialExtractionTimer: (timer) => {
         partialExtractionTimer = timer;
       },
@@ -289,7 +276,6 @@ class RemoteXpcConnection {
     });
 
     socket.once('connect', () => {
-      session.clearTcpTimer();
       void this.onConnectSocketReady(session, socket);
     });
   }

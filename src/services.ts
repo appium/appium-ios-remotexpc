@@ -304,31 +304,34 @@ export async function startWebInspectorService(
  * Start the DVT secure socket proxy service and instrument clients.
  */
 export async function startDVTService(udid: string): Promise<DVTInstruments> {
-  return withRemoteXpcConnection(udid, async (remoteXPC, tunnelConnection) => {
-    const dvtServiceDescriptor = remoteXPC.findService(
-      DVTSecureSocketProxyService.RSD_SERVICE_NAME,
-    );
+  const { host, port } = await withRemoteXpcConnection(
+    udid,
+    (remoteXPC, tunnelConnection) => {
+      const dvtServiceDescriptor = remoteXPC.findService(
+        DVTSecureSocketProxyService.RSD_SERVICE_NAME,
+      );
+      return {
+        host: tunnelConnection.host,
+        port: parseInt(dvtServiceDescriptor.port, 10),
+      };
+    },
+  );
 
-    const dvtService = new DVTSecureSocketProxyService([
-      tunnelConnection.host,
-      parseInt(dvtServiceDescriptor.port, 10),
-    ]);
+  const dvtService = new DVTSecureSocketProxyService([host, port]);
+  await dvtService.connect();
 
-    await dvtService.connect();
-
-    return {
-      dvtService,
-      locationSimulation: new LocationSimulation(dvtService),
-      conditionInducer: new ConditionInducer(dvtService),
-      screenshot: new Screenshot(dvtService),
-      appListing: new ApplicationListing(dvtService),
-      graphics: new Graphics(dvtService),
-      deviceInfo: new DeviceInfo(dvtService),
-      notification: new Notifications(dvtService),
-      networkMonitor: new NetworkMonitor(dvtService),
-      processControl: new ProcessControl(dvtService),
-    };
-  });
+  return {
+    dvtService,
+    locationSimulation: new LocationSimulation(dvtService),
+    conditionInducer: new ConditionInducer(dvtService),
+    screenshot: new Screenshot(dvtService),
+    appListing: new ApplicationListing(dvtService),
+    graphics: new Graphics(dvtService),
+    deviceInfo: new DeviceInfo(dvtService),
+    notification: new Notifications(dvtService),
+    networkMonitor: new NetworkMonitor(dvtService),
+    processControl: new ProcessControl(dvtService),
+  };
 }
 
 /**
@@ -337,19 +340,22 @@ export async function startDVTService(udid: string): Promise<DVTInstruments> {
 export async function startTestmanagerdService(
   udid: string,
 ): Promise<DvtTestmanagedProxyService> {
-  return withRemoteXpcConnection(udid, async (remoteXPC, tunnelConnection) => {
-    const testmanagerdDescriptor = remoteXPC.findService(
-      DvtTestmanagedProxyService.RSD_SERVICE_NAME,
-    );
+  const { host, port } = await withRemoteXpcConnection(
+    udid,
+    (remoteXPC, tunnelConnection) => {
+      const testmanagerdDescriptor = remoteXPC.findService(
+        DvtTestmanagedProxyService.RSD_SERVICE_NAME,
+      );
+      return {
+        host: tunnelConnection.host,
+        port: parseInt(testmanagerdDescriptor.port, 10),
+      };
+    },
+  );
 
-    const testmanagerdService = new DvtTestmanagedProxyService([
-      tunnelConnection.host,
-      parseInt(testmanagerdDescriptor.port, 10),
-    ]);
-
-    await testmanagerdService.connect();
-    return testmanagerdService;
-  });
+  const testmanagerdService = new DvtTestmanagedProxyService([host, port]);
+  await testmanagerdService.connect();
+  return testmanagerdService;
 }
 
 /**

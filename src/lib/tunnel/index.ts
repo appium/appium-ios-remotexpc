@@ -13,7 +13,7 @@ import { runSerializedRsdSession } from './rsd-session-lock.js';
 
 const log = getLogger('TunnelManager');
 
-/** Retry once when remoted closes the stream during discovery (race with another client). */
+/** Retry once when remoted is busy or a discovery attempt times out. */
 const REMOTED_RACE_MAX_ATTEMPTS = 2;
 const REMOTED_RACE_RETRY_DELAY_MS = 250;
 
@@ -24,7 +24,6 @@ interface TunnelRegistryEntry {
   tunnel: TunnelConnection;
   lastUsed: number;
   isActive: boolean;
-  remoteXPC?: RemoteXpcConnection;
 }
 
 /**
@@ -87,10 +86,6 @@ class TunnelManagerService {
         await remoteXPC.connect({
           timeoutMs: CONNECTION_DEFAULT_OPERATION_TIMEOUT_MS,
         });
-        const entry = this.tunnelRegistry.get(address);
-        if (entry) {
-          entry.remoteXPC = remoteXPC;
-        }
 
         return remoteXPC;
       } catch (error) {
@@ -196,18 +191,6 @@ class TunnelManagerService {
     const entry = this.tunnelRegistry.get(address);
     if (entry?.isActive) {
       try {
-        // Close RemoteXPC connection if it exists
-        if (entry.remoteXPC) {
-          try {
-            await entry.remoteXPC.close();
-            log.info(`Closed RemoteXPC connection for address: ${address}`);
-          } catch (error) {
-            log.error(
-              `Error closing RemoteXPC connection for address ${address}: ${error}`,
-            );
-          }
-        }
-
         // Close the tunnel
         try {
           await entry.tunnel.closer();
@@ -260,6 +243,7 @@ function isRemotedRaceError(error: unknown): boolean {
   const message = error.message;
   return (
     message.includes('ECONNRESET') ||
+    message.includes('Connection timed out') ||
     message.includes('Connection closed before services were extracted') ||
     message.includes('No services received after handshake')
   );

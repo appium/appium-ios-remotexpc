@@ -247,7 +247,7 @@ function probeRsd(
   }
 
   return new Promise((resolve) => {
-    const socket = createConnection({ host, port });
+    const socket = createConnection(rsdConnectOptions(host, port));
     let settled = false;
 
     const finish = (
@@ -266,6 +266,7 @@ function probeRsd(
 
     socket.once('connect', () => finish('reachable'));
     socket.once('error', (err: NodeJS.ErrnoException) => {
+      log.info(`RSD probe error: ${JSON.stringify(err)}`);
       if (err.code === 'ECONNRESET' || err.code === 'EPIPE') {
         finish('reachable');
         return;
@@ -281,4 +282,14 @@ function probeRsd(
       finish('inconclusive');
     });
   });
+}
+
+function rsdConnectOptions(
+  host: string,
+  port: number,
+): { host: string; port: number; family?: 6 } {
+  if (host.includes(':')) {
+    return { host, port, family: 6 };
+  }
+  return { host, port };
 }
