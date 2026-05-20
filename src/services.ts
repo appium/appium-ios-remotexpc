@@ -43,6 +43,9 @@ import { WebInspectorService } from './services/ios/webinspector/index.js';
 const TUNNEL_REGISTRY_PORT = 'tunnelRegistryPort';
 const log = getLogger('Services');
 
+/** Pause after closing discovery RSD so device `remoted` can accept the next session. */
+const RSD_RELEASE_DELAY_MS = 300;
+
 export class TunnelAvailabilityError extends Error {
   readonly code = 'ERR_TUNNEL_AVAILABILITY';
 
@@ -483,8 +486,7 @@ export async function getTunnelForDevice(
  * Run `fn` with a freshly opened discovery `RemoteXpcConnection` and close
  * that connection unconditionally when `fn` settles. Use this whenever a
  * `start*Service` helper only needs the RSD to discover a service port:
- * the discovery RSD is single-use, so leaking it would race with `remoted`
- * and produce an `ECONNRESET` against any subsequent RSD probe.
+ * the discovery RSD is single-use, so leaking it would race with `remoted`.
  */
 export async function withRemoteXpcConnection<T>(
   udid: string,
@@ -516,6 +518,11 @@ export async function withRemoteXpcConnection<T>(
       } catch (err) {
         log.warn(
           `Discovery RemoteXpcConnection close failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+      if (RSD_RELEASE_DELAY_MS > 0) {
+        await new Promise<void>((resolve) =>
+          setTimeout(resolve, RSD_RELEASE_DELAY_MS),
         );
       }
     }

@@ -23,6 +23,9 @@ export const CONNECTION_DEFAULT_OPERATION_TIMEOUT_MS = Math.max(
     HANDSHAKE_DELAY_MS +
     CONNECTION_CONNECT_TIMEOUT_MS,
 );
+/** TunnelManager retry budget; never shorter than a single connect attempt. */
+export const CONNECTION_OVERALL_TIMEOUT_MS =
+  CONNECTION_DEFAULT_OPERATION_TIMEOUT_MS;
 const SOCKET_CLOSE_TIMEOUT_MS = 1000; // 1 second
 const SOCKET_END_TIMEOUT_MS = 500; // 0.5 seconds
 const SOCKET_WRITE_TIMEOUT_MS = 500; // 0.5 seconds

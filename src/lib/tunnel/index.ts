@@ -2,20 +2,23 @@ import {
   type TunnelConnection,
   connectToTunnelLockdown,
 } from 'appium-ios-tuntap';
+import { performance } from 'node:perf_hooks';
 import type { TLSSocket } from 'node:tls';
 
 import { getLogger } from '../logger.js';
 import {
-  CONNECTION_DEFAULT_OPERATION_TIMEOUT_MS,
+  CONNECTION_CONNECT_TIMEOUT_MS,
+  CONNECTION_OVERALL_TIMEOUT_MS,
   RemoteXpcConnection,
 } from '../remote-xpc/remote-xpc-connection.js';
 import { runSerializedRsdSession } from './rsd-session-lock.js';
 
 const log = getLogger('TunnelManager');
 
-/** Retry once when remoted is busy or a discovery attempt times out. */
-const REMOTED_RACE_MAX_ATTEMPTS = 2;
-const REMOTED_RACE_RETRY_DELAY_MS = 250;
+/** Pause before retry when a connect attempt fails at or below this duration. */
+const FAST_CONNECT_FAILURE_THRESHOLD_MS = CONNECTION_CONNECT_TIMEOUT_MS;
+/** Backoff after a fast failure to avoid hammering an unavailable RSD endpoint. */
+const RECONNECT_BACKOFF_MS = 500;
 
 /**
  * Interface for tunnel registry entry
@@ -72,39 +75,38 @@ class TunnelManagerService {
     address: string,
     rsdPort: number,
   ): Promise<RemoteXpcConnection> {
-    let lastError: unknown;
+    try {
+      const deadline = performance.now() + CONNECTION_OVERALL_TIMEOUT_MS;
+      let lastError: unknown;
 
-    for (let attempt = 1; attempt <= REMOTED_RACE_MAX_ATTEMPTS; attempt++) {
-      if (attempt > 1) {
-        await new Promise<void>((resolve) =>
-          setTimeout(resolve, REMOTED_RACE_RETRY_DELAY_MS),
+      while (performance.now() < deadline) {
+        const remainingMs = Math.ceil(
+          Math.max(0, deadline - performance.now()),
         );
-      }
+        const remoteXPC = new RemoteXpcConnection([address, rsdPort]);
+        const attemptStartedAt = performance.now();
 
-      const remoteXPC = new RemoteXpcConnection([address, rsdPort]);
-      try {
-        await remoteXPC.connect({
-          timeoutMs: CONNECTION_DEFAULT_OPERATION_TIMEOUT_MS,
-        });
-
-        return remoteXPC;
-      } catch (error) {
-        lastError = error;
-        await remoteXPC.close().catch(() => {});
-        if (
-          attempt >= REMOTED_RACE_MAX_ATTEMPTS ||
-          !isRemotedRaceError(error)
-        ) {
-          break;
+        try {
+          await remoteXPC.connect({ timeoutMs: remainingMs });
+          return remoteXPC;
+        } catch (error) {
+          lastError = error;
+          await remoteXPC.close().catch(() => {});
+          const remainingAfterAttemptMs = Math.ceil(
+            Math.max(0, deadline - performance.now()),
+          );
+          log.warn(
+            `RemoteXPC connection attempt failed (${remainingAfterAttemptMs}ms left): ${error}`,
+          );
+          await sleepIfNeeded(attemptStartedAt, deadline);
         }
-        log.warn(
-          `RemoteXPC connection attempt ${attempt} failed (remoted race), retrying: ${error}`,
-        );
       }
-    }
 
-    log.error(`Error for device ${address}: ${lastError}`);
-    throw lastError ?? new Error('Failed to connect to RemoteXPC');
+      throw lastError ?? new Error('Failed to connect to RemoteXPC');
+    } catch (error) {
+      log.error(`Error for device ${address}: ${error}`);
+      throw error;
+    }
   }
 
   /**
@@ -236,17 +238,24 @@ class TunnelManagerService {
   }
 }
 
-function isRemotedRaceError(error: unknown): boolean {
-  if (!(error instanceof Error)) {
-    return false;
+async function sleepIfNeeded(
+  attemptStartedAt: number,
+  deadline: number,
+): Promise<void> {
+  const attemptMs = performance.now() - attemptStartedAt;
+  if (attemptMs >= FAST_CONNECT_FAILURE_THRESHOLD_MS) {
+    return;
   }
-  const message = error.message;
-  return (
-    message.includes('ECONNRESET') ||
-    message.includes('Connection timed out') ||
-    message.includes('Connection closed before services were extracted') ||
-    message.includes('No services received after handshake')
+
+  const backoffMs = Math.min(
+    RECONNECT_BACKOFF_MS,
+    Math.ceil(Math.max(0, deadline - performance.now())),
   );
+  if (backoffMs <= 0) {
+    return;
+  }
+
+  await new Promise<void>((resolve) => setTimeout(resolve, backoffMs));
 }
 
 // Create and export the singleton instance
