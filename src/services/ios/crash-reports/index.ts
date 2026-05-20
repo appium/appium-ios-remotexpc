@@ -96,34 +96,6 @@ export class CrashReportsService extends BaseService {
     return results;
   }
 
-  private async _collectCrashReportFiles(
-    dirPath: string,
-    results: string[],
-  ): Promise<void> {
-    let entries: string[];
-    try {
-      entries = await this.afc.listdir(dirPath);
-    } catch {
-      return;
-    }
-
-    for (const entry of entries) {
-      const entryPath = posixpath.join(dirPath, entry);
-      if (CRASH_REPORT_EXTENSIONS.some((ext) => entry.endsWith(ext))) {
-        results.push(entryPath);
-        continue;
-      }
-
-      try {
-        if (await this.afc.isdir(entryPath)) {
-          await this._collectCrashReportFiles(entryPath, results);
-        }
-      } catch {
-        // Skip entries we can't access
-      }
-    }
-  }
-
   /**
    * Pull crash reports from the device to the local machine.
    * @param out Local directory path
@@ -215,6 +187,34 @@ export class CrashReportsService extends BaseService {
     try {
       this.afc.close();
     } catch {}
+  }
+
+  private async _collectCrashReportFiles(
+    dirPath: string,
+    results: string[],
+  ): Promise<void> {
+    let entries: string[];
+    try {
+      entries = await this.afc.listdir(dirPath);
+    } catch {
+      return;
+    }
+
+    for (const entry of entries) {
+      const entryPath = posixpath.join(dirPath, entry);
+      if (CRASH_REPORT_EXTENSIONS.some((ext) => entry.endsWith(ext))) {
+        results.push(entryPath);
+        continue;
+      }
+
+      try {
+        if (await this.afc.isdir(entryPath)) {
+          await this._collectCrashReportFiles(entryPath, results);
+        }
+      } catch {
+        // Skip entries we can't access
+      }
+    }
   }
 }
 
