@@ -2,7 +2,12 @@ import net from 'node:net';
 
 import { createPlist } from '../../../lib/plist/plist-creator.js';
 import { parsePlist } from '../../../lib/plist/unified-plist-parser.js';
-import { AFCMAGIC, AFC_HEADER_SIZE, AFC_OPERATION_TIMEOUT_MS, NULL_BYTE } from './constants.js';
+import {
+  AFCMAGIC,
+  AFC_HEADER_SIZE,
+  AFC_OPERATION_TIMEOUT_MS,
+  NULL_BYTE,
+} from './constants.js';
 import { AfcError, AfcFopenMode, AfcOpcode } from './enums.js';
 
 export interface AfcHeader {
@@ -402,10 +407,7 @@ export function nanosecondsToMilliseconds(nanoseconds: string): number {
 /**
  * Remove socket listeners and reject pending read waiters.
  */
-export function cleanupServiceSocket(
-  socket: net.Socket,
-  error?: Error,
-): void {
+export function cleanupServiceSocket(socket: net.Socket, error?: Error): void {
   cleanupSocketState(socket, error);
 }
 
