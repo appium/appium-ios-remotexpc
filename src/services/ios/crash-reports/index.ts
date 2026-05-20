@@ -9,6 +9,8 @@ import { BaseService } from '../base-service.js';
 
 const log = getLogger('CrashReportsService');
 
+const CRASH_REPORT_EXTENSIONS = ['.ips', '.crash'];
+
 /**
  * Path that is sometimes auto-created after deletion
  */
@@ -81,6 +83,45 @@ export class CrashReportsService extends BaseService {
     }
 
     return results;
+  }
+
+  /**
+   * List crash report files (.ips / .crash) anywhere under the crash reports root.
+   * Walks directories on demand instead of materializing the full tree first.
+   */
+  async listCrashReportFiles(): Promise<string[]> {
+    log.debug('Listing crash report files');
+    const results: string[] = [];
+    await this._collectCrashReportFiles('/', results);
+    return results;
+  }
+
+  private async _collectCrashReportFiles(
+    dirPath: string,
+    results: string[],
+  ): Promise<void> {
+    let entries: string[];
+    try {
+      entries = await this.afc.listdir(dirPath);
+    } catch {
+      return;
+    }
+
+    for (const entry of entries) {
+      const entryPath = posixpath.join(dirPath, entry);
+      if (CRASH_REPORT_EXTENSIONS.some((ext) => entry.endsWith(ext))) {
+        results.push(entryPath);
+        continue;
+      }
+
+      try {
+        if (await this.afc.isdir(entryPath)) {
+          await this._collectCrashReportFiles(entryPath, results);
+        }
+      } catch {
+        // Skip entries we can't access
+      }
+    }
   }
 
   /**

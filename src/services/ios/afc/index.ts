@@ -18,6 +18,7 @@ import {
   nanosecondsToMilliseconds,
   parseCStringArray,
   parseKeyValueNullList,
+  cleanupServiceSocket,
   readAfcResponse,
   sendAfcPacket,
   writeUInt64LE,
@@ -560,12 +561,17 @@ export class AfcService {
    */
   close(): void {
     log.debug('Closing AFC service connection');
+    const socket = this.socket;
+    this.socket = null;
+    if (!socket || socket.destroyed) {
+      return;
+    }
     try {
-      this.socket?.end();
+      cleanupServiceSocket(socket);
+      socket.destroy();
     } catch (error) {
       log.debug('Error while closing socket (ignored):', error);
     }
-    this.socket = null;
   }
 
   /**
