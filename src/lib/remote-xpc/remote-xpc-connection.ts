@@ -264,7 +264,14 @@ class RemoteXpcConnection {
       return;
     }
 
-    const frames = frameParser.append(chunk);
+    let frames;
+    try {
+      frames = frameParser.append(chunk);
+    } catch (error) {
+      session.settleFailure(error);
+      return;
+    }
+
     for (const frame of frames) {
       if (frame.type !== 'data') {
         continue;

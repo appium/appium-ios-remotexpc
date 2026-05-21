@@ -1,4 +1,4 @@
-import { WindowUpdateFrame } from './handshake-frames.js';
+import { InvalidDataError, WindowUpdateFrame } from './handshake-frames.js';
 
 const FRAME_HEADER_SIZE = 9;
 const FRAME_TYPE_DATA = 0x00;
@@ -68,14 +68,35 @@ function parseFrame(buffer: Buffer): ParsedFrame {
     return { type: 'other' };
   }
 
-  let data = body;
-  if (flags & FLAG_PADDED) {
-    const padLength = body[0] ?? 0;
-    data = body.subarray(1, body.length - padLength);
-  }
+  const data = stripDataFramePadding(body, flags);
 
   return {
     type: 'data',
     frame: { streamId, data, bodyLen: length },
   };
+}
+
+/**
+ * Strip HTTP/2 DATA frame padding (RFC 7540 §6.1).
+ * @throws {InvalidDataError} when padding length is invalid
+ */
+function stripDataFramePadding(body: Buffer, flags: number): Buffer {
+  if (!(flags & FLAG_PADDED)) {
+    return body;
+  }
+
+  if (body.length === 0) {
+    throw new InvalidDataError(
+      'PROTOCOL_ERROR: PADDED DATA frame has empty payload',
+    );
+  }
+
+  const padLength = body.readUInt8(0);
+  if (padLength >= body.length) {
+    throw new InvalidDataError(
+      'PROTOCOL_ERROR: Padding exceeds frame size',
+    );
+  }
+
+  return body.subarray(1, body.length - padLength);
 }

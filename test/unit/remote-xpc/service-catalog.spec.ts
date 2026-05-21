@@ -141,6 +141,21 @@ describe('RSD service catalog discovery', function () {
   });
 
   describe('Http2FrameParser', function () {
+    it('rejects DATA frames whose padding exceeds the payload', function () {
+      const parser = new Http2FrameParser();
+      // PADDED flag (0x08), 1-byte body: pad length 0 with no room for data
+      const header = Buffer.alloc(9);
+      header[2] = 1; // length = 1
+      header[3] = 0x00; // DATA
+      header[4] = 0x08; // PADDED
+      header.writeUInt32BE(1, 5); // stream 1
+      const body = Buffer.from([5]); // pad length 5 >= body length 1
+
+      expect(() => parser.append(Buffer.concat([header, body]))).to.throw(
+        /PROTOCOL_ERROR: Padding exceeds frame size/,
+      );
+    });
+
     it('reassembles a DATA frame split across multiple socket reads', function () {
       const xpcPayload = buildCatalogXpcPayload(5);
       const dataFrame = new DataFrame(1, xpcPayload, []).serialize();
