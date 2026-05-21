@@ -22,13 +22,12 @@ const HANDSHAKE_DELAY_MS = 100;
 const SERVICE_AFTER_HANDSHAKE_TIMEOUT_MS = 10_000;
 /**
  * Default max time for one connect attempt (TCP + handshake + service discovery).
- * Must cover the longest connect-phase timeout plus earlier phases.
+ * Sum of connect, handshake delay, and post-handshake service wait.
  */
-export const CONNECTION_DEFAULT_OPERATION_TIMEOUT_MS = Math.max(
+export const CONNECTION_DEFAULT_OPERATION_TIMEOUT_MS =
   SERVICE_AFTER_HANDSHAKE_TIMEOUT_MS +
-    HANDSHAKE_DELAY_MS +
-    CONNECTION_CONNECT_TIMEOUT_MS,
-);
+  HANDSHAKE_DELAY_MS +
+  CONNECTION_CONNECT_TIMEOUT_MS;
 /** TunnelManager retry budget; never shorter than a single connect attempt. */
 export const CONNECTION_OVERALL_TIMEOUT_MS =
   CONNECTION_DEFAULT_OPERATION_TIMEOUT_MS;

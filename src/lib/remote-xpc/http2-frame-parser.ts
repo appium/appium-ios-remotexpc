@@ -93,9 +93,7 @@ function stripDataFramePadding(body: Buffer, flags: number): Buffer {
 
   const padLength = body.readUInt8(0);
   if (padLength >= body.length) {
-    throw new InvalidDataError(
-      'PROTOCOL_ERROR: Padding exceeds frame size',
-    );
+    throw new InvalidDataError('PROTOCOL_ERROR: Padding exceeds frame size');
   }
 
   return body.subarray(1, body.length - padLength);
