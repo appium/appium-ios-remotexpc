@@ -95,7 +95,7 @@
     "semantic-release": "^25.0.2",
     "sinon": "^22.0.0",
     "ts-node": "^10.9.2",
-    "tsx": "4.21.0",
+    "tsx": "4.22.3",
     "typescript": "^6.0.2"
   },
   "dependencies": {
@@ -109,7 +109,7 @@
     "dnssd": "^0.x",
     "minimatch": "^10.1.1",
     "node-devicectl": "^1.2.0",
-    "npm-run-all2": "^8.0.4",
+    "npm-run-all2": "^9.0.0",
     "path-to-regexp": "^8.3.0"
   },
   "files": [
