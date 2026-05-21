@@ -2,6 +2,15 @@ import net from 'node:net';
 
 import { getLogger } from '../logger.js';
 import Handshake from './handshake.js';
+import {
+  Http2FrameParser,
+  buildWindowUpdateFrames,
+} from './http2-frame-parser.js';
+import {
+  type Service,
+  ServiceCatalogCollector,
+  type ServicesResponse,
+} from './service-catalog.js';
 
 const log = getLogger('RemoteXpcConnection');
 
@@ -11,18 +20,14 @@ export const CONNECTION_CONNECT_TIMEOUT_MS = 3_000;
 const HANDSHAKE_DELAY_MS = 100;
 /** Wait for service list after handshake before failing the connect attempt. */
 const SERVICE_AFTER_HANDSHAKE_TIMEOUT_MS = 10_000;
-/** Resolve with partial data if service parsing stalls mid-stream. */
-const SERVICE_EXTRACTION_TIMEOUT_MS = 5_000;
 /**
  * Default max time for one connect attempt (TCP + handshake + service discovery).
- * Must cover the longest connect-phase timeout plus earlier phases.
+ * Sum of connect, handshake delay, and post-handshake service wait.
  */
-export const CONNECTION_DEFAULT_OPERATION_TIMEOUT_MS = Math.max(
-  SERVICE_EXTRACTION_TIMEOUT_MS,
+export const CONNECTION_DEFAULT_OPERATION_TIMEOUT_MS =
   SERVICE_AFTER_HANDSHAKE_TIMEOUT_MS +
-    HANDSHAKE_DELAY_MS +
-    CONNECTION_CONNECT_TIMEOUT_MS,
-);
+  HANDSHAKE_DELAY_MS +
+  CONNECTION_CONNECT_TIMEOUT_MS;
 /** TunnelManager retry budget; never shorter than a single connect attempt. */
 export const CONNECTION_OVERALL_TIMEOUT_MS =
   CONNECTION_DEFAULT_OPERATION_TIMEOUT_MS;
@@ -35,21 +40,11 @@ export interface RemoteXpcConnectOptions {
   timeoutMs?: number;
 }
 
-interface Service {
-  serviceName: string;
-  port: string;
-}
-
-interface ServicesResponse {
-  services: Service[];
-}
-
 /** Guards connect() resolve/reject and clears active connect-phase timers. */
 interface ConnectSession {
   settleSuccess(response: ServicesResponse): void;
   settleFailure(error: Error | unknown): void;
   isSettled(): boolean;
-  trackPartialExtractionTimer(timer: NodeJS.Timeout): void;
 }
 
 class RemoteXpcConnection {
@@ -168,14 +163,9 @@ class RemoteXpcConnection {
     reject: (reason: Error) => void,
   ): ConnectSession {
     let settled = false;
-    let partialExtractionTimer: NodeJS.Timeout | undefined;
 
     const clearAllTimers = (): void => {
       clearTimeout(operationTimer);
-      if (partialExtractionTimer) {
-        clearTimeout(partialExtractionTimer);
-        partialExtractionTimer = undefined;
-      }
     };
 
     const settleSuccess = (response: ServicesResponse): void => {
@@ -208,9 +198,6 @@ class RemoteXpcConnection {
       settleSuccess,
       settleFailure,
       isSettled: () => settled,
-      trackPartialExtractionTimer: (timer) => {
-        partialExtractionTimer = timer;
-      },
     };
   }
 
@@ -228,24 +215,8 @@ class RemoteXpcConnection {
     session: ConnectSession,
     socket: net.Socket,
   ): void {
-    let accumulatedData = Buffer.alloc(0);
-    let partialExtractionTimer: NodeJS.Timeout | undefined;
-
-    const schedulePartialExtractionTimeout = (): void => {
-      if (partialExtractionTimer) {
-        return;
-      }
-
-      partialExtractionTimer = setTimeout(() => {
-        partialExtractionTimer = undefined;
-        log.warn(
-          'Service extraction timeout reached, resolving with current data',
-        );
-        const finalResponse = extractServices(accumulatedData.toString('utf8'));
-        session.settleSuccess(finalResponse);
-      }, SERVICE_EXTRACTION_TIMEOUT_MS);
-      session.trackPartialExtractionTimer(partialExtractionTimer);
-    };
+    const frameParser = new Http2FrameParser();
+    const catalogCollector = new ServiceCatalogCollector();
 
     socket.once('error', (error: Error) => {
       if (!this._isClosing) {
@@ -256,15 +227,13 @@ class RemoteXpcConnection {
     });
 
     socket.on('data', (data: Buffer | string) => {
-      if (Buffer.isBuffer(data) || typeof data === 'string') {
-        const chunk = Buffer.isBuffer(data) ? data : Buffer.from(data, 'hex');
-        accumulatedData = Buffer.concat([accumulatedData, chunk]);
-      }
-
-      this.tryResolveServicesFromPayload(
+      const chunk = Buffer.isBuffer(data) ? data : Buffer.from(data, 'hex');
+      this.processIncomingData(
         session,
-        accumulatedData,
-        schedulePartialExtractionTimeout,
+        socket,
+        frameParser,
+        catalogCollector,
+        chunk,
       );
     });
 
@@ -283,28 +252,40 @@ class RemoteXpcConnection {
     });
   }
 
-  private tryResolveServicesFromPayload(
+  private processIncomingData(
     session: ConnectSession,
-    accumulatedData: Buffer,
-    schedulePartialExtractionTimeout: () => void,
+    socket: net.Socket,
+    frameParser: Http2FrameParser,
+    catalogCollector: ServiceCatalogCollector,
+    chunk: Buffer,
   ): void {
-    const dataStr = accumulatedData.toString('utf8');
-    if (!dataStr.includes('com.apple') || !dataStr.includes('Port')) {
+    if (session.isSettled()) {
       return;
     }
 
+    let frames;
     try {
-      const servicesResponse = extractServices(dataStr);
-      if (servicesResponse.services.length > 0) {
+      frames = frameParser.append(chunk);
+    } catch (error) {
+      session.settleFailure(error);
+      return;
+    }
+
+    for (const frame of frames) {
+      if (frame.type !== 'data') {
+        continue;
+      }
+
+      const { streamId, data, bodyLen } = frame.frame;
+      for (const windowUpdate of buildWindowUpdateFrames(streamId, bodyLen)) {
+        socket.write(windowUpdate);
+      }
+
+      const servicesResponse = catalogCollector.ingestDataPayload(data);
+      if (servicesResponse) {
         session.settleSuccess(servicesResponse);
         return;
       }
-
-      schedulePartialExtractionTimeout();
-    } catch (error) {
-      log.warn(
-        `Error extracting services: ${error}, continuing to collect data`,
-      );
     }
   }
 
@@ -470,81 +451,6 @@ class RemoteXpcConnection {
       this.cleanupResources();
     }
   }
-}
-
-/**
- * Extract services from the response
- * @param response The response string to parse
- * @returns Object containing the extracted services
- */
-function extractServices(response: string): ServicesResponse {
-  // More robust regex that handles various formats of service names and port specifications
-  const serviceRegex = /com\.apple(?:\.[\w-]+)+/g;
-  const portRegex = /Port[^0-9]*(\d+)/g;
-
-  interface Match {
-    value: string;
-    index: number;
-  }
-
-  // First, collect all service names
-  const serviceMatches: Match[] = [];
-  let match: RegExpExecArray | null;
-  while ((match = serviceRegex.exec(response)) !== null) {
-    serviceMatches.push({ value: match[0], index: match.index });
-  }
-
-  // Then, collect all port numbers
-  const portMatches: Match[] = [];
-  while ((match = portRegex.exec(response)) !== null) {
-    if (match[1]) {
-      // Ensure we have a captured port number
-      portMatches.push({ value: match[1], index: match.index });
-    }
-  }
-
-  // Sort both arrays by index to maintain order
-  serviceMatches.sort((a, b) => a.index - b.index);
-  portMatches.sort((a, b) => a.index - b.index);
-
-  // Create a mapping of services to ports
-  const services: Service[] = [];
-
-  // Assign a port to each service based on proximity in the response
-  for (let i = 0; i < serviceMatches.length; i++) {
-    const serviceName = serviceMatches[i].value;
-    const serviceIndex = serviceMatches[i].index;
-
-    // Find the closest port after this service
-    let closestPort = '';
-    let closestDistance = Number.MAX_SAFE_INTEGER;
-
-    for (const portMatch of portMatches) {
-      // Only consider ports that come after the service in the response
-      if (portMatch.index > serviceIndex) {
-        const distance = portMatch.index - serviceIndex;
-
-        // If this port is closer than the current closest, update
-        if (distance < closestDistance) {
-          closestDistance = distance;
-          closestPort = portMatch.value;
-
-          // If the port is very close (within 200 chars), we can be confident it's the right one
-          if (distance < 200) {
-            break;
-          }
-        }
-      }
-    }
-
-    // Add the service with its port (or empty string if no port found)
-    services.push({
-      serviceName,
-      port: closestPort || '',
-    });
-  }
-
-  return { services };
 }
 
 export { RemoteXpcConnection, type Service, type ServicesResponse };
