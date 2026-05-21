@@ -1,5 +1,6 @@
 import { EventEmitter } from 'node:events';
-import { Server, Socket, createServer } from 'node:net';
+import type { Server, Socket } from 'node:net';
+import { createServer } from 'node:net';
 
 import type {
   DevicePortForwarderEvents,

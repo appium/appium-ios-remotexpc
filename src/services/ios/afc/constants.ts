@@ -23,6 +23,8 @@ export const AFC_FOPEN_TEXTUAL_MODES: Record<string, AfcFopenMode> = {
 // Header size: magic (8) + entire_length (8) + this_length (8) + packet_num (8) + operation (8)
 export const AFC_HEADER_SIZE = 40;
 
+export const AFC_OPERATION_TIMEOUT_MS = 15_000;
+
 // Override for WRITE packets' this_length
 export const AFC_WRITE_THIS_LENGTH = 48;
 

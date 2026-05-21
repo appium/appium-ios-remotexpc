@@ -25,7 +25,6 @@ describe('AFC + Installation Proxy Workflow', function () {
   // Installation can take several minutes depending on app size
   this.timeout(300000); // 5 minutes
 
-  let remoteXPC: any;
   let afcService: AfcService;
   let installationProxyService: InstallationProxyService;
 
@@ -53,27 +52,11 @@ describe('AFC + Installation Proxy Workflow', function () {
     try {
       log.info('Initializing AFC and Installation Proxy services...');
 
-      // Create ONE RemoteXPC connection to be shared by both services
-      const { remoteXPC: rxpc, tunnelConnection } =
-        await Services.createRemoteXPCConnection(udid);
-      remoteXPC = rxpc;
-
-      // Manually create AFC service from the shared connection
-      const afcDescriptor = remoteXPC.findService(AfcService.RSD_SERVICE_NAME);
-      afcService = new AfcService([
-        tunnelConnection.host,
-        parseInt(afcDescriptor.port, 10),
-      ]);
+      afcService = await Services.startAfcService(udid);
       log.info('AFC service initialized');
 
-      // Manually create Installation Proxy service from the SAME connection
-      const installationProxyDescriptor = remoteXPC.findService(
-        InstallationProxyService.RSD_SERVICE_NAME,
-      );
-      installationProxyService = new InstallationProxyService([
-        tunnelConnection.host,
-        parseInt(installationProxyDescriptor.port, 10),
-      ]);
+      installationProxyService =
+        await Services.startInstallationProxyService(udid);
       log.info('Installation Proxy service initialized');
     } catch (error) {
       log.error('Failed to initialize services:', error);
@@ -82,17 +65,15 @@ describe('AFC + Installation Proxy Workflow', function () {
   });
 
   after(async function () {
-    // Cleanup: Close RemoteXPC connection
-    // Note: Don't close individual services before closing remoteXPC
-    // Closing service sockets causes iOS to reset the RemoteXPC connection
-    // Just close remoteXPC and let it handle cleanup
-    if (remoteXPC) {
-      try {
-        await remoteXPC.close();
-        log.info('RemoteXPC connection closed');
-      } catch (error) {
-        log.warn('Error closing RemoteXPC:', error);
-      }
+    try {
+      afcService?.close();
+    } catch (error) {
+      log.warn('Error closing AFC:', error);
+    }
+    try {
+      installationProxyService?.close();
+    } catch (error) {
+      log.warn('Error closing Installation Proxy:', error);
     }
   });
 

@@ -2,7 +2,12 @@ import net from 'node:net';
 
 import { createPlist } from '../../../lib/plist/plist-creator.js';
 import { parsePlist } from '../../../lib/plist/unified-plist-parser.js';
-import { AFCMAGIC, AFC_HEADER_SIZE, NULL_BYTE } from './constants.js';
+import {
+  AFCMAGIC,
+  AFC_HEADER_SIZE,
+  AFC_OPERATION_TIMEOUT_MS,
+  NULL_BYTE,
+} from './constants.js';
 import { AfcError, AfcFopenMode, AfcOpcode } from './enums.js';
 
 export interface AfcHeader {
@@ -122,8 +127,11 @@ export async function readExact(
 /**
  * Read and decode an AFC response header from the socket.
  */
-export async function readAfcHeader(socket: net.Socket): Promise<AfcHeader> {
-  const buf = await readExact(socket, AFC_HEADER_SIZE);
+export async function readAfcHeader(
+  socket: net.Socket,
+  timeoutMs = AFC_OPERATION_TIMEOUT_MS,
+): Promise<AfcHeader> {
+  const buf = await readExact(socket, AFC_HEADER_SIZE, timeoutMs);
   const magic = buf.subarray(0, 8);
   if (!magic.equals(AFCMAGIC)) {
     throw new Error(`Invalid AFC magic: ${magic.toString('hex')}`);
@@ -146,11 +154,14 @@ export async function readAfcHeader(socket: net.Socket): Promise<AfcHeader> {
  */
 export async function readAfcResponse(
   socket: net.Socket,
+  timeoutMs = AFC_OPERATION_TIMEOUT_MS,
 ): Promise<AfcResponse> {
-  const header = await readAfcHeader(socket);
+  const header = await readAfcHeader(socket, timeoutMs);
   const payloadLen = Number(header.entireLength - BigInt(AFC_HEADER_SIZE));
   const payload =
-    payloadLen > 0 ? await readExact(socket, payloadLen) : Buffer.alloc(0);
+    payloadLen > 0
+      ? await readExact(socket, payloadLen, timeoutMs)
+      : Buffer.alloc(0);
   const op = Number(header.operation) as AfcOpcode;
 
   if (op === AfcOpcode.STATUS) {
@@ -370,6 +381,9 @@ export async function createRawServiceSocket(
     await rsdHandshakeForRawService(socket);
   }
 
+  // Connect-time idle timeout must not apply to long-lived service I/O.
+  socket.setTimeout(0);
+
   return socket;
 }
 
@@ -393,6 +407,10 @@ export function nanosecondsToMilliseconds(nanoseconds: string): number {
 /**
  * Remove socket listeners and reject pending read waiters.
  */
+export function cleanupServiceSocket(socket: net.Socket, error?: Error): void {
+  cleanupSocketState(socket, error);
+}
+
 function cleanupSocketState(socket: net.Socket, error?: Error): void {
   const state = SOCKET_STATES.get(socket);
   if (!state) {

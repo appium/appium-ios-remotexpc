@@ -15,15 +15,18 @@ interface LoadedServices {
 }
 
 /**
- * Load `src/services.ts` with `TunnelManager.createRemoteXPCConnection`,
+ * Load `src/services.ts` with `TunnelManager.connectRemoteXPCUnlocked`,
  * the strongbox registry port, and the tunnel API client all stubbed so
  * we can exercise the `withRemoteXpcConnection` cleanup contract without
  * a real device.
  */
 async function loadServicesWithStubs(
-  options: { findServiceImpl?: (name: string) => unknown } = {},
+  options: {
+    findServiceImpl?: (name: string) => unknown;
+    closeImpl?: () => Promise<void>;
+  } = {},
 ): Promise<LoadedServices> {
-  const closeSpy = sinon.spy(async () => {});
+  const closeSpy = sinon.spy(options.closeImpl ?? (async () => {}));
   const findServiceStub = sinon.stub();
   if (options.findServiceImpl) {
     findServiceStub.callsFake(options.findServiceImpl);
@@ -60,7 +63,12 @@ async function loadServicesWithStubs(
     },
     '../../../src/lib/tunnel/index.js': {
       TunnelManager: {
-        createRemoteXPCConnection: async () => remoteXPCStub,
+        rsdSessionLockKey: (host: string, port: number) => `${host}:${port}`,
+        runSerializedRsdSession: async (
+          _lockKey: string,
+          fn: () => Promise<unknown>,
+        ) => fn(),
+        connectRemoteXPCUnlocked: async () => remoteXPCStub,
       },
     },
   });
@@ -103,6 +111,38 @@ describe('start*Service — discovery RemoteXpcConnection lifecycle', function (
         `expected exactly one close() call on the error path, got ${closeSpy.callCount}`,
       ).to.equal(true);
     });
+
+    it('propagates the body error when close() also fails', async function () {
+      const { services } = await loadServicesWithStubs({
+        findServiceImpl: () => {
+          throw new Error('fn failed');
+        },
+        closeImpl: async () => {
+          throw new Error('close failed');
+        },
+      });
+
+      let caught: Error | undefined;
+      try {
+        await services.startAfcService('test-udid');
+      } catch (err) {
+        caught = err as Error;
+      }
+
+      expect(caught?.message).to.equal('fn failed');
+    });
+
+    it('does not fail the caller when close() errors after a successful body', async function () {
+      const { services, closeSpy } = await loadServicesWithStubs({
+        closeImpl: async () => {
+          throw new Error('close failed');
+        },
+      });
+
+      await services.startAfcService('test-udid');
+
+      expect(closeSpy.calledOnce).to.equal(true);
+    });
   });
 
   describe('RSD service-name correctness', function () {
@@ -126,6 +166,37 @@ describe('start*Service — discovery RemoteXpcConnection lifecycle', function (
         findServiceStub.calledOnceWith('com.apple.os_trace_relay.shim.remote'),
         'expected findService("com.apple.os_trace_relay.shim.remote")',
       ).to.equal(true);
+    });
+  });
+
+  describe('withRemoteXpcConnection contract (other start*Service helpers)', function () {
+    for (const fn of [
+      'startInstallationProxyService',
+      'startNotificationProxyService',
+      'startCrashReportsService',
+    ] as const) {
+      it(`${fn} closes the discovery connection after returning`, async function () {
+        const { services, closeSpy } = await loadServicesWithStubs();
+        await services[fn]('test-udid');
+        expect(
+          closeSpy.calledOnce,
+          `expected exactly one close() for ${fn}, got ${closeSpy.callCount}`,
+        ).to.equal(true);
+      });
+    }
+
+    it('startCrashReportsService resolves both crash report shims in one discovery pass', async function () {
+      const { services, findServiceStub } = await loadServicesWithStubs();
+      await services.startCrashReportsService('test-udid');
+      expect(findServiceStub.callCount).to.equal(2);
+      sinon.assert.calledWith(
+        findServiceStub.firstCall,
+        'com.apple.crashreportcopymobile.shim.remote',
+      );
+      sinon.assert.calledWith(
+        findServiceStub.secondCall,
+        'com.apple.crashreportmover.shim.remote',
+      );
     });
   });
 });

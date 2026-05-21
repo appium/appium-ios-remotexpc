@@ -55,7 +55,6 @@ describe('watchTunnelRegistrySockets', function () {
           socket: client,
         },
       ],
-      rsdProbeIntervalMs: 0,
       onRemove: (udid) => {
         removedUdid = udid;
       },
@@ -87,7 +86,6 @@ describe('watchTunnelRegistrySockets', function () {
     const { stop } = watchTunnelRegistrySockets({
       registry,
       watches: [{ udid: 'dev-2', socket: client }],
-      rsdProbeIntervalMs: 0,
     });
 
     stop();

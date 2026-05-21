@@ -16,10 +16,10 @@ const PGREP_NO_MATCH_EXIT_CODE = 1;
  *
  * `remoted` holds the trusted RemoteXPC tunnel for any paired device on this
  * Mac. While it is active, the device may refuse a second `createListener`
- * request from another client (returning `errorExtended`). pymobiledevice3
- * solves this by SIGSTOP'ing `remoted` for the duration of the tunnel
- * handshake, then SIGCONT'ing it afterwards. This class mirrors that
- * behavior and is a no-op on non-darwin platforms.
+ * request from another client (returning `errorExtended`). Suspending
+ * `remoted` with SIGSTOP for the duration of the tunnel handshake, then
+ * resuming it with SIGCONT, avoids that conflict. This class implements
+ * that behavior and is a no-op on non-darwin platforms.
  */
 export class RemotedController {
   private suspendedPid: number | null = null;

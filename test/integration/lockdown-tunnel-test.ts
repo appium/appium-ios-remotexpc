@@ -1,12 +1,10 @@
 import { expect } from 'chai';
 
-import { Services, createLockdownServiceByTunnel } from '../../src/index.js';
-import type { LockdownService } from '../../src/lib/lockdown/index.js';
-import type { RemoteXpcConnection } from '../../src/lib/remote-xpc/remote-xpc-connection.js';
+import { createLockdownServiceForTunnel } from '../../src/index.js';
 import type { LockdownDeviceInfo } from '../../src/lib/types.js';
 
 /**
- * Integration: tunnel lockdown (`createLockdownServiceByTunnel`) and `getDeviceInfo()`.
+ * Integration: tunnel lockdown (`createLockdownServiceForTunnel`) and `getDeviceInfo()`.
  *
  * **Prerequisites (same as other tunnel tests, e.g. AFC):**
  * - Active tunnel plus tunnel registry HTTP API (`tunnel-creation.mjs`, `start-appletv-tunnel.mjs`,
@@ -19,36 +17,19 @@ describe('Lockdown over tunnel (getDeviceInfo)', function () {
 
   const udid = process.env.UDID?.trim() ?? '';
 
-  let remoteXPC: RemoteXpcConnection | undefined;
-  let lockdown: LockdownService | undefined;
-
-  before(async function () {
+  it('should return lockdown device info', async function () {
     if (!udid) {
       this.skip();
     }
-    const { remoteXPC: rx } = await Services.createRemoteXPCConnection(udid);
-    remoteXPC = rx;
-  });
 
-  after(async function () {
+    const lockdown = await createLockdownServiceForTunnel(udid);
     try {
-      if (lockdown) {
-        lockdown.close();
-      }
-    } catch {
-      // ignore
+      const info: LockdownDeviceInfo = await lockdown.getDeviceInfo();
+      expect(info).to.be.an('object');
+      expect(info.UniqueDeviceID).to.be.a('string').and.not.empty;
+      expect(info.ProductVersion).to.be.a('string').and.not.empty;
+    } finally {
+      lockdown.close();
     }
-  });
-
-  it('should return lockdown device info', async function () {
-    if (!udid || !remoteXPC) {
-      this.skip();
-    }
-
-    const lockdown = await createLockdownServiceByTunnel(remoteXPC, udid);
-    const info: LockdownDeviceInfo = await lockdown.getDeviceInfo();
-    expect(info).to.be.an('object');
-    expect(info.UniqueDeviceID).to.be.a('string').and.not.empty;
-    expect(info.ProductVersion).to.be.a('string').and.not.empty;
   });
 });

@@ -7,7 +7,7 @@ const log = getLogger('RemoteXpcConnection');
 
 // Timeout constants
 /** Max time to wait for the TCP socket to connect. */
-export const CONNECTION_CONNECT_TIMEOUT_MS = 500;
+export const CONNECTION_CONNECT_TIMEOUT_MS = 3_000;
 const HANDSHAKE_DELAY_MS = 100;
 /** Wait for service list after handshake before failing the connect attempt. */
 const SERVICE_AFTER_HANDSHAKE_TIMEOUT_MS = 10_000;
@@ -49,7 +49,6 @@ interface ConnectSession {
   settleSuccess(response: ServicesResponse): void;
   settleFailure(error: Error | unknown): void;
   isSettled(): boolean;
-  clearTcpTimer(): void;
   trackPartialExtractionTimer(timer: NodeJS.Timeout): void;
 }
 
@@ -173,7 +172,6 @@ class RemoteXpcConnection {
 
     const clearAllTimers = (): void => {
       clearTimeout(operationTimer);
-      clearTimeout(tcpTimer);
       if (partialExtractionTimer) {
         clearTimeout(partialExtractionTimer);
         partialExtractionTimer = undefined;
@@ -200,26 +198,16 @@ class RemoteXpcConnection {
     };
 
     const operationTimer = setTimeout(() => {
-      this._socket?.destroy();
+      this.forceCleanup();
       settleFailure(
         new Error(`Connection timed out after ${operationTimeoutMs}ms`),
       );
     }, operationTimeoutMs);
 
-    const tcpTimer = setTimeout(() => {
-      this._socket?.destroy();
-      settleFailure(
-        new Error(
-          `Connection timed out after ${CONNECTION_CONNECT_TIMEOUT_MS}ms`,
-        ),
-      );
-    }, CONNECTION_CONNECT_TIMEOUT_MS);
-
     return {
       settleSuccess,
       settleFailure,
       isSettled: () => settled,
-      clearTcpTimer: () => clearTimeout(tcpTimer),
       trackPartialExtractionTimer: (timer) => {
         partialExtractionTimer = timer;
       },
@@ -291,7 +279,6 @@ class RemoteXpcConnection {
     });
 
     socket.once('connect', () => {
-      session.clearTcpTimer();
       void this.onConnectSocketReady(session, socket);
     });
   }

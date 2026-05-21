@@ -3,14 +3,15 @@ import {
   TUNNEL_CONTAINER_NAME,
 } from './constants.js';
 import {
-  createLockdownServiceByTunnel,
   createLockdownServiceByUDID,
+  createLockdownServiceForTunnel,
 } from './lib/lockdown/index.js';
 import { DevicePortForwarder } from './lib/port-forwarding/index.js';
 import {
   PacketStreamClient,
   PacketStreamServer,
   TunnelManager,
+  rsdSessionLockKey,
   watchTunnelRegistrySockets,
 } from './lib/tunnel/index.js';
 import {
@@ -39,7 +40,6 @@ export type {
 export type {
   CrashReportsService,
   CrashReportsPullOptions,
-  CrashReportsServiceWithConnection,
   DiagnosticsService,
   MobileImageMounterService,
   NotificationProxyService,
@@ -65,17 +65,7 @@ export type {
   TunnelResult,
   TunnelRegistry,
   TunnelRegistryEntry,
-  DiagnosticsServiceWithConnection,
-  HouseArrestServiceWithConnection,
-  InstallationProxyServiceWithConnection,
-  MobileImageMounterServiceWithConnection,
-  NotificationProxyServiceWithConnection,
-  MobileConfigServiceWithConnection,
-  PowerAssertionServiceWithConnection,
-  SpringboardServiceWithConnection,
-  WebInspectorServiceWithConnection,
-  MisagentServiceWithConnection,
-  DVTServiceWithConnection,
+  DVTInstruments,
   NetworkAddress,
   InterfaceDetectionEvent,
   ConnectionDetectionEvent,
@@ -86,12 +76,16 @@ export type {
   OutputReceivedEvent,
   SendMessageOptions,
   TestmanagerdService,
-  TestmanagerdServiceWithConnection,
   XCTestServices,
 } from './lib/types.js';
 export { PowerAssertionType } from './lib/types.js';
 export { NetworkMessageType } from './services/ios/dvt/instruments/network-monitor.js';
-export { TunnelAvailabilityError } from './services.js';
+export {
+  TunnelAvailabilityError,
+  getTunnelForDevice,
+  withRemoteXpcConnection,
+} from './services.js';
+export type { TunnelEndpoint } from './lib/tunnel/tunnel-api-client.js';
 export { XCTestConfigurationEncoder } from './services/ios/testmanagerd/xctestconfiguration.js';
 export type { XCTestConfigurationParams } from './services/ios/testmanagerd/xctestconfiguration.js';
 export { ProcessControl } from './services/ios/dvt/instruments/process-control.js';
@@ -126,6 +120,7 @@ export {
 } from './lib/apple-tv/pairing/index.js';
 export { AppleTVTunnelService } from './lib/apple-tv/tunnel/index.js';
 export type { AppleTVPairingResult } from './lib/apple-tv/types.js';
+export type { LockdownService } from './lib/lockdown/index.js';
 
 export {
   connectViaTunnel,
@@ -140,9 +135,10 @@ export {
   Usbmux,
   DevicePortForwarder,
   TunnelManager,
+  rsdSessionLockKey,
   PacketStreamServer,
   PacketStreamClient,
-  createLockdownServiceByTunnel,
+  createLockdownServiceForTunnel,
   createLockdownServiceByUDID,
   startCoreDeviceProxy,
   TunnelRegistryServer,

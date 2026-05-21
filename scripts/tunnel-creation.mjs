@@ -131,7 +131,7 @@ const registryWatcherStops = [];
 const reconnectingByUdid = new Map();
 
 /**
- * When CoreDeviceProxy sockets or RSD go away, drop the UDID from the HTTP registry
+ * When CoreDeviceProxy upstream sockets go away, drop the UDID from the HTTP registry
  * and tear down packet streams / TunnelManager state.
  *
  * @param {object} registry
@@ -145,10 +145,6 @@ function attachTunnelRegistryLifecycleWatch(registry, successful, callbacks = {}
         udid: r.device.Properties.SerialNumber,
         socket: r.socket,
       };
-      const { Address, RsdPort } = r.tunnel;
-      if (Address && typeof RsdPort === 'number' && RsdPort > 0) {
-        watch.rsdProbe = { host: Address, port: RsdPort };
-      }
       return watch;
     });
 
@@ -182,7 +178,7 @@ function attachTunnelRegistryLifecycleWatch(registry, successful, callbacks = {}
   });
   registryWatcherStops.push(stop);
   log.info(
-    'Tunnel registry will update automatically if a tunnel or RSD endpoint goes away.',
+    'Tunnel registry will update automatically if a tunnel upstream socket goes away.',
   );
 }
 

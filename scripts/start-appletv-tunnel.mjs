@@ -59,10 +59,6 @@ function attachAppleTvTunnelRegistryLifecycleWatch(registry, successfulResults, 
         udid: r.device.identifier,
         socket: r.tlsSocket,
       };
-      const { Address, RsdPort } = r.tunnel;
-      if (Address && typeof RsdPort === 'number' && RsdPort > 0) {
-        watch.rsdProbe = { host: Address, port: RsdPort };
-      }
       return watch;
     });
 
@@ -96,7 +92,7 @@ function attachAppleTvTunnelRegistryLifecycleWatch(registry, successfulResults, 
   });
   registryWatcherStops.push(stop);
   log.info(
-    'Tunnel registry will update automatically if a tunnel or RSD endpoint goes away.',
+    'Tunnel registry will update automatically if a tunnel upstream socket goes away.',
   );
 }
 

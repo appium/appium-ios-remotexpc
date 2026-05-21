@@ -103,7 +103,12 @@ The `appium-ios-tuntap (previously tuntap-bridge)` module plays a crucial role i
 ### Creating a Tunnel (Low-level approach)
 
 ```typescript
-import { createLockdownServiceByUDID, startCoreDeviceProxy, TunnelManager } from 'appium-ios-remotexpc';
+import {
+  createLockdownServiceByUDID,
+  rsdSessionLockKey,
+  startCoreDeviceProxy,
+  TunnelManager,
+} from 'appium-ios-remotexpc';
 
 // Create lockdown service
 const { lockdownService, device } = await createLockdownServiceByUDID(udid);
@@ -120,14 +125,21 @@ const { socket } = await startCoreDeviceProxy(
 const tunnel = await TunnelManager.getTunnel(socket);
 console.log(`Tunnel created at ${tunnel.Address} with RSD port ${tunnel.RsdPort}`);
 
-// Create RemoteXPC connection
-const remoteXPC = await TunnelManager.createRemoteXPCConnection(
-  tunnel.Address,
-  tunnel.RsdPort
+// Discover RSD services (serialized per tunnel; closed before return)
+await TunnelManager.runSerializedRsdSession(
+  rsdSessionLockKey(tunnel.Address, tunnel.RsdPort),
+  async () => {
+    const remoteXPC = await TunnelManager.connectRemoteXPCUnlocked(
+      tunnel.Address,
+      tunnel.RsdPort,
+    );
+    try {
+      console.log(remoteXPC.getServices());
+    } finally {
+      await remoteXPC.close();
+    }
+  },
 );
-
-// Access services
-const services = remoteXPC.getServices();
 ```
 
 ### iPhone / iPad over WiFi (usbmuxd “network” devices)

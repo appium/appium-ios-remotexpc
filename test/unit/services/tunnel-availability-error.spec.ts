@@ -65,7 +65,7 @@ describe('TunnelAvailabilityError', function () {
       hasTunnel: async () => false,
     });
     await expectTunnelAvailabilityError(
-      async () => await services.createRemoteXPCConnection('test-udid'),
+      async () => await services.getTunnelForDevice('test-udid'),
       'No tunnel found for device test-udid. Please run the tunnel creation script first',
       services,
     );
@@ -77,7 +77,7 @@ describe('TunnelAvailabilityError', function () {
       getTunnelConnection: async () => undefined,
     });
     await expectTunnelAvailabilityError(
-      async () => await services.createRemoteXPCConnection('test-udid'),
+      async () => await services.getTunnelForDevice('test-udid'),
       'Failed to get tunnel connection details for device test-udid',
       services,
     );

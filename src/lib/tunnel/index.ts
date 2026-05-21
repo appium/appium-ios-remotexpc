@@ -11,6 +11,7 @@ import {
   CONNECTION_OVERALL_TIMEOUT_MS,
   RemoteXpcConnection,
 } from '../remote-xpc/remote-xpc-connection.js';
+import { runSerializedRsdSession } from './rsd-session-lock.js';
 
 const log = getLogger('TunnelManager');
 
@@ -26,7 +27,6 @@ interface TunnelRegistryEntry {
   tunnel: TunnelConnection;
   lastUsed: number;
   isActive: boolean;
-  remoteXPC?: RemoteXpcConnection;
 }
 
 /**
@@ -36,7 +36,6 @@ interface TunnelRegistryEntry {
 class TunnelManagerService {
   // Map of tunnel address to tunnel registry entry
   private tunnelRegistry: Map<string, TunnelRegistryEntry> = new Map();
-
   /**
    * Checks if a tunnel is already open for the given address
    *
@@ -60,13 +59,19 @@ class TunnelManagerService {
   }
 
   /**
-   * Creates a RemoteXPC connection for the specified device.
-   *
-   * @param address - The address of the tunnel
-   * @param rsdPort - The RSD port of the tunnel
-   * @returns A promise that resolves to the RemoteXPC connection
+   * Run `fn` while holding the per-tunnel RSD discovery lock (connect → discover → close).
    */
-  async createRemoteXPCConnection(
+  async runSerializedRsdSession<T>(
+    lockKey: string,
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    return await runSerializedRsdSession(lockKey, fn);
+  }
+
+  /**
+   * Connect to RSD without acquiring the session lock (caller must hold the lock).
+   */
+  async connectRemoteXPCUnlocked(
     address: string,
     rsdPort: number,
   ): Promise<RemoteXpcConnection> {
@@ -83,14 +88,10 @@ class TunnelManagerService {
 
         try {
           await remoteXPC.connect({ timeoutMs: remainingMs });
-          const entry = this.tunnelRegistry.get(address);
-          if (entry) {
-            entry.remoteXPC = remoteXPC;
-          }
-
           return remoteXPC;
         } catch (error) {
           lastError = error;
+          await remoteXPC.close().catch(() => {});
           const remainingAfterAttemptMs = Math.ceil(
             Math.max(0, deadline - performance.now()),
           );
@@ -101,7 +102,7 @@ class TunnelManagerService {
         }
       }
 
-      throw lastError || new Error('Failed to connect to RemoteXPC');
+      throw lastError ?? new Error('Failed to connect to RemoteXPC');
     } catch (error) {
       log.error(`Error for device ${address}: ${error}`);
       throw error;
@@ -192,18 +193,6 @@ class TunnelManagerService {
     const entry = this.tunnelRegistry.get(address);
     if (entry?.isActive) {
       try {
-        // Close RemoteXPC connection if it exists
-        if (entry.remoteXPC) {
-          try {
-            await entry.remoteXPC.close();
-            log.info(`Closed RemoteXPC connection for address: ${address}`);
-          } catch (error) {
-            log.error(
-              `Error closing RemoteXPC connection for address ${address}: ${error}`,
-            );
-          }
-        }
-
         // Close the tunnel
         try {
           await entry.tunnel.closer();
@@ -271,6 +260,7 @@ async function sleepIfNeeded(
 
 // Create and export the singleton instance
 export const TunnelManager = new TunnelManagerService();
+export { isRsdDiscoveryBusy, rsdSessionLockKey } from './rsd-session-lock.js';
 // Export packet streaming IPC functionality
 export { PacketStreamClient } from './packet-stream-client.js';
 export { PacketStreamServer } from './packet-stream-server.js';

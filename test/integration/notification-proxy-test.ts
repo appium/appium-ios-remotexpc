@@ -11,23 +11,19 @@ log.level = 'info';
 describe('NotificationProxyService', function () {
   this.timeout(60000);
 
-  let remoteXPC: any;
   let notificationProxyService: NotificationProxyService;
   const udid = process.env.UDID || '';
 
   before(async function () {
-    const result = await Services.startNotificationProxyService(udid);
-    notificationProxyService = result.notificationProxyService;
-    remoteXPC = result.remoteXPC;
+    notificationProxyService =
+      await Services.startNotificationProxyService(udid);
   });
 
   after(async function () {
-    if (remoteXPC) {
-      try {
-        await remoteXPC.close();
-      } catch (error) {
-        // Ignore cleanup errors in tests
-      }
+    try {
+      notificationProxyService?.close();
+    } catch {
+      // Ignore cleanup errors in tests
     }
   });
 

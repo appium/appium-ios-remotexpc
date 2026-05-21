@@ -12,15 +12,12 @@ log.level = 'info';
 describe('SpringBoardService', function () {
   this.timeout(60000);
 
-  let remoteXPC: any;
   let springboardService: SpringboardService;
   const udid = process.env.UDID || '';
 
   before(async function () {
     try {
-      const result = await Services.startSpringboardService(udid);
-      springboardService = result.springboardService;
-      remoteXPC = result.remoteXPC;
+      springboardService = await Services.startSpringboardService(udid);
       log.info('SpringBoard service initialized successfully');
     } catch (error) {
       log.error('Failed to initialize SpringBoard service:', error);
@@ -28,17 +25,7 @@ describe('SpringBoardService', function () {
     }
   });
 
-  after(async function () {
-    if (remoteXPC) {
-      try {
-        await remoteXPC.close();
-        log.info('SpringBoard service connection closed');
-      } catch (error) {
-        log.warn('Error during cleanup:', error);
-        // Ignore cleanup errors in tests
-      }
-    }
-  });
+  after(async function () {});
 
   describe('getIconState', function () {
     it('should retrieve the current icon state', async function () {
