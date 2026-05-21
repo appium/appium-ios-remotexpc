@@ -1,3 +1,9 @@
+## [2.0.2](https://github.com/appium/appium-ios-remotexpc/compare/v2.0.1...v2.0.2) (2026-05-21)
+
+### Bug Fixes
+
+* AFC connection desync ([#219](https://github.com/appium/appium-ios-remotexpc/issues/219)) ([ce32050](https://github.com/appium/appium-ios-remotexpc/commit/ce32050b5691f7f010105a98a273e60107c16cb8))
+
 ## [2.0.1](https://github.com/appium/appium-ios-remotexpc/compare/v2.0.0...v2.0.1) (2026-05-21)
 
 ### Bug Fixes
