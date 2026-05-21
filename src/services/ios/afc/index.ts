@@ -389,8 +389,9 @@ export class AfcService {
       throw new Error(`Remote path does not exist: ${remoteSrc}`);
     }
 
-    const localNames = new PullLocalNameAllocator((localPath) =>
-      this._localPathExists(localPath),
+    const localNames = new PullLocalNameAllocator(
+      (localPath) => this._localPathExists(localPath),
+      overwrite,
     );
 
     const pullSingleFile = async (

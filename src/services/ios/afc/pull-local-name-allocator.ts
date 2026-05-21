@@ -13,8 +13,8 @@ export type CaseSensitiveDirectoryCheck = (dir: string) => Promise<boolean>;
 
 /**
  * Resolves sanitized local path segment names during a single AFC pull.
- * Adds a UUID-based suffix only when the sanitized name is already taken in the
- * destination directory (by an earlier entry in this pull or an existing local path).
+ * Adds a UUID-based suffix when the sanitized name is already taken in this pull, or
+ * when `overwrite` is false and a file already exists at that path on disk.
  */
 export class PullLocalNameAllocator {
   private readonly usedByDir = new Map<string, Set<string>>();
@@ -22,6 +22,7 @@ export class PullLocalNameAllocator {
 
   constructor(
     private readonly pathExists: (localPath: string) => Promise<boolean>,
+    private readonly overwrite: boolean,
     private readonly checkCaseSensitive: CaseSensitiveDirectoryCheck = isCaseSensitiveDirectory,
   ) {}
 
@@ -49,7 +50,10 @@ export class PullLocalNameAllocator {
     if (await this.isUsedInPull(parentDir, name)) {
       return true;
     }
-    return this.pathExists(path.join(parentDir, name));
+    if (!this.overwrite) {
+      return this.pathExists(path.join(parentDir, name));
+    }
+    return false;
   }
 
   private async isUsedInPull(

@@ -35,7 +35,7 @@ describe('PullLocalNameAllocator', function () {
   it('should return the sanitized name when there is no clash', async function () {
     stubPlatform('linux');
     const exists = sinon.stub().resolves(false);
-    const allocator = new PullLocalNameAllocator(exists);
+    const allocator = new PullLocalNameAllocator(exists, false);
 
     const name = await allocator.allocate(parentDir, 'keeps>chars');
 
@@ -49,7 +49,7 @@ describe('PullLocalNameAllocator', function () {
   it('should add a suffix when two remote names sanitize to the same local name', async function () {
     stubPlatform('win32');
     const exists = sinon.stub().resolves(false);
-    const allocator = new PullLocalNameAllocator(exists);
+    const allocator = new PullLocalNameAllocator(exists, true);
 
     const first = await allocator.allocate(parentDir, 'file?');
     const second = await allocator.allocate(parentDir, '*file*');
@@ -59,7 +59,7 @@ describe('PullLocalNameAllocator', function () {
     expect(second).to.not.equal(first);
   });
 
-  it('should add a suffix when the sanitized name already exists on disk', async function () {
+  it('should add a suffix when the sanitized name already exists on disk and overwrite is false', async function () {
     stubPlatform('win32');
     const exists = sinon
       .stub()
@@ -67,16 +67,31 @@ describe('PullLocalNameAllocator', function () {
         async (localPath: string) =>
           path.basename(localPath) === 'reportfile.txt',
       );
-    const allocator = new PullLocalNameAllocator(exists);
+    const allocator = new PullLocalNameAllocator(exists, false);
 
     const name = await allocator.allocate(parentDir, 'report>file.txt');
 
     expect(name).to.match(/^reportfile_[0-9a-f]{8}\.txt$/);
   });
 
+  it('should reuse the sanitized name when overwrite is true and the path exists on disk', async function () {
+    stubPlatform('win32');
+    const exists = sinon.stub().resolves(true);
+    const allocator = new PullLocalNameAllocator(exists, true);
+
+    const name = await allocator.allocate(parentDir, 'report>file.txt');
+
+    expect(name).to.equal('reportfile.txt');
+    expect(exists.called).to.equal(false);
+  });
+
   it('should treat names as case-insensitive when the volume is case-insensitive', async function () {
     const exists = sinon.stub().resolves(false);
-    const allocator = new PullLocalNameAllocator(exists, async () => false);
+    const allocator = new PullLocalNameAllocator(
+      exists,
+      true,
+      async () => false,
+    );
 
     await allocator.allocate(parentDir, 'File');
     const second = await allocator.allocate(parentDir, 'file');
@@ -86,7 +101,11 @@ describe('PullLocalNameAllocator', function () {
 
   it('should allow differing case when the volume is case-sensitive', async function () {
     const exists = sinon.stub().resolves(false);
-    const allocator = new PullLocalNameAllocator(exists, async () => true);
+    const allocator = new PullLocalNameAllocator(
+      exists,
+      true,
+      async () => true,
+    );
 
     const first = await allocator.allocate(parentDir, 'File');
     const second = await allocator.allocate(parentDir, 'file');
