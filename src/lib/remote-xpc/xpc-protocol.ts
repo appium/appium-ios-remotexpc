@@ -28,6 +28,12 @@ export interface XPCMessage {
   size?: number;
 }
 
+export interface DecodedXpcMessage {
+  message: XPCMessage;
+  /** Bytes consumed from `buffer` (may be less than `buffer.length`). */
+  bytesConsumed: number;
+}
+
 // A simple binary writer that collects Buffer chunks.
 class Writer {
   private chunks: Buffer[] = [];
@@ -126,6 +132,10 @@ class Reader {
   skip(n: number): void {
     this.offset += n;
   }
+
+  getOffset(): number {
+    return this.offset;
+  }
 }
 
 /**
@@ -169,11 +179,34 @@ export function encodeMessage(message: XPCMessage): Buffer {
   return writer.concat();
 }
 
+const XPC_WRAPPER_HEADER_SIZE = 24;
+
+/**
+ * Returns the total byte length of one length-prefixed XPC wrapper in `buffer`.
+ * @throws if the header is missing, invalid, or the buffer is shorter than the message
+ */
+export function getXpcMessageByteLength(buffer: Buffer): number {
+  if (buffer.length < XPC_WRAPPER_HEADER_SIZE) {
+    throw new Error('Incomplete XPC wrapper');
+  }
+  const magic = buffer.readUInt32LE(0);
+  if (magic !== WRAPPER_MAGIC) {
+    throw new Error(`Invalid wrapper magic: 0x${magic.toString(16)}`);
+  }
+  const bodyLen = Number(buffer.readBigUInt64LE(8));
+  const total = XPC_WRAPPER_HEADER_SIZE + bodyLen;
+  if (buffer.length < total) {
+    throw new Error('Incomplete XPC wrapper');
+  }
+  return total;
+}
+
 /**
  * Decodes an XPC Buffer into a message object.
  * (Keep this function if you plan to handle incoming messages.)
  */
-export function decodeMessage(buffer: Buffer): XPCMessage {
+export function decodeMessage(buffer: Buffer): DecodedXpcMessage {
+  const bytesConsumed = getXpcMessageByteLength(buffer);
   const reader = new Reader(buffer);
   const magic = reader.readUInt32LE();
   if (magic !== WRAPPER_MAGIC) {
@@ -183,7 +216,10 @@ export function decodeMessage(buffer: Buffer): XPCMessage {
   const bodyLen = reader.readBigUInt64LE();
   const msgId = reader.readBigUInt64LE();
   if (bodyLen === BigInt(0)) {
-    return { flags, id: msgId, body: null };
+    return {
+      message: { flags, id: msgId, body: null },
+      bytesConsumed,
+    };
   }
   // Read body header.
   const objMagic = reader.readUInt32LE();
@@ -208,7 +244,10 @@ export function decodeMessage(buffer: Buffer): XPCMessage {
     throw new TypeError('Expected dictionary as message body');
   }
 
-  return { flags, id: msgId, body: decodedValue as XPCDictionary };
+  return {
+    message: { flags, id: msgId, body: decodedValue as XPCDictionary },
+    bytesConsumed,
+  };
 }
 
 /**
@@ -367,15 +406,21 @@ function decodeObject(reader: Reader): XPCValue {
       return uuidBuf.toString('hex'); // Return UUID as hex string.
     }
     case XPC_TYPES.array: {
-      const numElements = reader.readUInt32LE();
+      const payloadLen = reader.readUInt32LE();
+      const payload = reader.readBytes(payloadLen);
+      const payloadReader = new Reader(payload);
+      const numElements = payloadReader.readUInt32LE();
       const arr: XPCArray = [];
       for (let i = 0; i < numElements; i++) {
-        arr.push(decodeObject(reader));
+        arr.push(decodeObject(payloadReader));
       }
       return arr;
     }
-    case XPC_TYPES.dictionary:
-      return decodeDictionary(reader);
+    case XPC_TYPES.dictionary: {
+      const payloadLen = reader.readUInt32LE();
+      const payload = reader.readBytes(payloadLen);
+      return decodeDictionary(new Reader(payload));
+    }
     // Note: fileTransfer type is not implemented here.
     default:
       throw new TypeError(`Unsupported xpc type: 0x${type.toString(16)}`);
