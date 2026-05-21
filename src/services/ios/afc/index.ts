@@ -397,10 +397,15 @@ export class AfcService {
     const pullSingleFile = async (
       remoteFilePath: string,
       localFilePath: string,
+      nameAllocated = false,
     ): Promise<void> => {
       log.debug(`Pulling file from '${remoteFilePath}' to '${localFilePath}'`);
 
-      if (!overwrite && (await this._localPathExists(localFilePath))) {
+      if (
+        !nameAllocated &&
+        !overwrite &&
+        (await this._localPathExists(localFilePath))
+      ) {
         throw new Error(`Local file already exists: ${localFilePath}`);
       }
 
@@ -428,7 +433,7 @@ export class AfcService {
           )
         : localDst;
 
-      await pullSingleFile(remoteSrc, targetPath);
+      await pullSingleFile(remoteSrc, targetPath, localDstIsDirectory);
       return;
     }
 
@@ -716,10 +721,6 @@ export class AfcService {
         await ensureLocalDir();
 
         const targetPath = path.join(localDirPath, localEntryName);
-        if (!overwrite && (await this._localPathExists(targetPath))) {
-          throw new Error(`Local file already exists: ${targetPath}`);
-        }
-
         await this._pullFile(entryPath, targetPath);
 
         if (onPullProgress) {
