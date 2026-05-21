@@ -7,8 +7,8 @@ import {
   buildWindowUpdateFrames,
 } from './http2-frame-parser.js';
 import {
-  ServiceCatalogCollector,
   type Service,
+  ServiceCatalogCollector,
   type ServicesResponse,
 } from './service-catalog.js';
 

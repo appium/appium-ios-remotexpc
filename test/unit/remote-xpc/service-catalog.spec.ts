@@ -48,8 +48,7 @@ describe('RSD service catalog discovery', function () {
       expect(
         result!.services.find(
           (s) =>
-            s.serviceName ===
-            'com.apple.mobile.diagnostics_relay.shim.remote',
+            s.serviceName === 'com.apple.mobile.diagnostics_relay.shim.remote',
         )?.port,
       ).to.equal('52299');
     });
@@ -67,9 +66,8 @@ describe('RSD service catalog discovery', function () {
 
       expect(collector.ingestDataPayload(payload.subarray(0, splitAt))).to.be
         .null;
-      expect(
-        collector.ingestDataPayload(payload.subarray(splitAt)),
-      ).to.not.be.null;
+      expect(collector.ingestDataPayload(payload.subarray(splitAt))).to.not.be
+        .null;
     });
 
     it('returns the complete catalog across many TCP-sized chunks', function () {
@@ -91,8 +89,7 @@ describe('RSD service catalog discovery', function () {
       expect(
         result!.services.some(
           (s) =>
-            s.serviceName ===
-            'com.apple.mobile.diagnostics_relay.shim.remote',
+            s.serviceName === 'com.apple.mobile.diagnostics_relay.shim.remote',
         ),
       ).to.be.true;
     });

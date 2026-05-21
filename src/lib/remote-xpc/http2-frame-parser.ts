@@ -26,9 +26,7 @@ export class Http2FrameParser {
 
     while (this.buffer.length >= FRAME_HEADER_SIZE) {
       const length =
-        (this.buffer[0] << 16) |
-        (this.buffer[1] << 8) |
-        this.buffer[2];
+        (this.buffer[0] << 16) | (this.buffer[1] << 8) | this.buffer[2];
       const totalSize = FRAME_HEADER_SIZE + length;
       if (this.buffer.length < totalSize) {
         break;
@@ -60,8 +58,7 @@ export function buildWindowUpdateFrames(
 }
 
 function parseFrame(buffer: Buffer): ParsedFrame {
-  const length =
-    (buffer[0] << 16) | (buffer[1] << 8) | buffer[2];
+  const length = (buffer[0] << 16) | (buffer[1] << 8) | buffer[2];
   const type = buffer[3];
   const flags = buffer[4];
   const streamId = buffer.readUInt32BE(5) & 0x7fffffff;
