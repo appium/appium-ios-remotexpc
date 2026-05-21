@@ -1,3 +1,9 @@
+## [2.0.1](https://github.com/appium/appium-ios-remotexpc/compare/v2.0.0...v2.0.1) (2026-05-21)
+
+### Bug Fixes
+
+* Partial XPC services discovery ([#218](https://github.com/appium/appium-ios-remotexpc/issues/218)) ([d173b70](https://github.com/appium/appium-ios-remotexpc/commit/d173b7029fc51c32c2941bcdf9886b9310cc4eef))
+
 ## [2.0.0](https://github.com/appium/appium-ios-remotexpc/compare/v1.1.13...v2.0.0) (2026-05-21)
 
 ### ⚠ BREAKING CHANGES
