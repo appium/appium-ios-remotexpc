@@ -367,15 +367,21 @@ function decodeObject(reader: Reader): XPCValue {
       return uuidBuf.toString('hex'); // Return UUID as hex string.
     }
     case XPC_TYPES.array: {
-      const numElements = reader.readUInt32LE();
+      const payloadLen = reader.readUInt32LE();
+      const payload = reader.readBytes(payloadLen);
+      const payloadReader = new Reader(payload);
+      const numElements = payloadReader.readUInt32LE();
       const arr: XPCArray = [];
       for (let i = 0; i < numElements; i++) {
-        arr.push(decodeObject(reader));
+        arr.push(decodeObject(payloadReader));
       }
       return arr;
     }
-    case XPC_TYPES.dictionary:
-      return decodeDictionary(reader);
+    case XPC_TYPES.dictionary: {
+      const payloadLen = reader.readUInt32LE();
+      const payload = reader.readBytes(payloadLen);
+      return decodeDictionary(new Reader(payload));
+    }
     // Note: fileTransfer type is not implemented here.
     default:
       throw new TypeError(`Unsupported xpc type: 0x${type.toString(16)}`);
