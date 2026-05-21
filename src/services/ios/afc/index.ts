@@ -16,6 +16,7 @@ import {
   buildStatPayload,
   cleanupServiceSocket,
   createRawServiceSocket,
+  fatalizeAfcSocket,
   nanosecondsToMilliseconds,
   parseCStringArray,
   parseKeyValueNullList,
@@ -29,6 +30,7 @@ import {
   AFC_LOCK_UN,
   AFC_WRITE_THIS_LENGTH,
 } from './constants.js';
+import { AfcConnectionError } from './errors.js';
 import { AfcError, AfcFileMode, AfcOpcode } from './enums.js';
 import { createAfcReadStream, createAfcWriteStream } from './stream-utils.js';
 
@@ -94,6 +96,8 @@ export class AfcService {
   private socket: net.Socket | null = null;
   private packetNum: bigint = 0n;
   private silent: boolean = false;
+  /** Set when the AFC byte stream is no longer safe to reuse on this instance. */
+  private connectionError: Error | null = null;
 
   constructor(
     private readonly address: [string, number],
@@ -563,6 +567,7 @@ export class AfcService {
     log.debug('Closing AFC service connection');
     const socket = this.socket;
     this.socket = null;
+    this.connectionError = null;
     if (!socket || socket.destroyed) {
       return;
     }
@@ -730,7 +735,43 @@ export class AfcService {
    * Connect to RSD port and perform RSDCheckin.
    * Keeps the underlying socket for raw AFC I/O.
    */
+  private _assertConnectionAlive(): void {
+    if (this.connectionError) {
+      throw this.connectionError;
+    }
+  }
+
+  private _markConnectionDead(error: Error): void {
+    if (this.connectionError) {
+      return;
+    }
+    this.connectionError =
+      error instanceof AfcConnectionError
+        ? error
+        : new AfcConnectionError(error.message, { cause: error });
+    const sock = this.socket;
+    this.socket = null;
+    if (sock && !sock.destroyed) {
+      fatalizeAfcSocket(sock, this.connectionError);
+    } else if (sock) {
+      cleanupServiceSocket(sock, this.connectionError);
+    }
+  }
+
+  private async _withAfcConnection<T>(fn: () => Promise<T>): Promise<T> {
+    this._assertConnectionAlive();
+    try {
+      return await fn();
+    } catch (err) {
+      if (err instanceof AfcConnectionError) {
+        this._markConnectionDead(err);
+      }
+      throw err;
+    }
+  }
+
   private async _connect(): Promise<net.Socket> {
+    this._assertConnectionAlive();
     if (this.socket && !this.socket.destroyed) {
       return this.socket;
     }
@@ -779,14 +820,18 @@ export class AfcService {
     payload: Buffer = Buffer.alloc(0),
     thisLenOverride?: number,
   ): Promise<void> {
-    const sock = await this._connect();
-    await sendAfcPacket(sock, op, this.packetNum++, payload, thisLenOverride);
+    return await this._withAfcConnection(async () => {
+      const sock = await this._connect();
+      await sendAfcPacket(sock, op, this.packetNum++, payload, thisLenOverride);
+    });
   }
 
   private async _receive(): Promise<{ status: AfcError; data: Buffer }> {
-    const sock = await this._connect();
-    const res = await readAfcResponse(sock);
-    return { status: res.status, data: res.data };
+    return await this._withAfcConnection(async () => {
+      const sock = await this._connect();
+      const res = await readAfcResponse(sock);
+      return { status: res.status, data: res.data };
+    });
   }
 
   /**
