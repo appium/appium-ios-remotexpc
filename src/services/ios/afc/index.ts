@@ -30,8 +30,8 @@ import {
   AFC_LOCK_UN,
   AFC_WRITE_THIS_LENGTH,
 } from './constants.js';
-import { AfcConnectionError } from './errors.js';
 import { AfcError, AfcFileMode, AfcOpcode } from './enums.js';
+import { AfcConnectionError } from './errors.js';
 import { createAfcReadStream, createAfcWriteStream } from './stream-utils.js';
 
 const log = getLogger('AfcService');

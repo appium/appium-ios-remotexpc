@@ -8,8 +8,8 @@ import {
   AFC_OPERATION_TIMEOUT_MS,
   NULL_BYTE,
 } from './constants.js';
-import { AfcConnectionError } from './errors.js';
 import { AfcError, AfcFopenMode, AfcOpcode } from './enums.js';
+import { AfcConnectionError } from './errors.js';
 
 export interface AfcHeader {
   magic: Buffer;
