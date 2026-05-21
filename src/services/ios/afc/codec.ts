@@ -118,7 +118,6 @@ export async function readExact(
   n: number,
   timeoutMs = 30000,
 ): Promise<Buffer> {
-  assertSocketReadable(socket);
   const state = ensureSocketState(socket);
 
   if (state.buffer.length >= n) {
