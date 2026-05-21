@@ -9,6 +9,7 @@ import {
   NULL_BYTE,
 } from './constants.js';
 import { AfcError, AfcFopenMode, AfcOpcode } from './enums.js';
+import { AfcConnectionError } from './errors.js';
 
 export interface AfcHeader {
   magic: Buffer;
@@ -94,9 +95,23 @@ export function encodeHeader(
 }
 
 const SOCKET_STATES = new WeakMap<net.Socket, SocketState>();
+const FATAL_SOCKETS = new WeakSet<net.Socket>();
+
+/**
+ * Tear down buffered-reader state and destroy the socket after a fatal read error.
+ * Late-arriving bytes must not be left for a subsequent readExact on the same socket.
+ */
+export function fatalizeAfcSocket(socket: net.Socket, error: Error): void {
+  FATAL_SOCKETS.add(socket);
+  cleanupSocketState(socket, error);
+  if (!socket.destroyed) {
+    socket.destroy();
+  }
+}
 
 /**
  * Read exactly `n` bytes from a socket, waiting up to timeoutMs.
+ * On timeout the socket is destroyed; further reads throw AfcConnectionError.
  */
 export async function readExact(
   socket: net.Socket,
@@ -118,7 +133,11 @@ export async function readExact(
       const idx = state.waiters.indexOf(waiter);
       if (idx >= 0) {
         state.waiters.splice(idx, 1);
-        reject(new Error(`readExact timeout after ${timeoutMs}ms`));
+        const err = new AfcConnectionError(
+          `readExact timeout after ${timeoutMs}ms`,
+        );
+        fatalizeAfcSocket(socket, err);
+        reject(err);
       }
     }, timeoutMs);
   });
@@ -134,7 +153,11 @@ export async function readAfcHeader(
   const buf = await readExact(socket, AFC_HEADER_SIZE, timeoutMs);
   const magic = buf.subarray(0, 8);
   if (!magic.equals(AFCMAGIC)) {
-    throw new Error(`Invalid AFC magic: ${magic.toString('hex')}`);
+    const err = new AfcConnectionError(
+      `Invalid AFC magic: ${magic.toString('hex')}`,
+    );
+    fatalizeAfcSocket(socket, err);
+    throw err;
   }
   const entireLength = readUInt64LE(buf, 8);
   const thisLength = readUInt64LE(buf, 16);
@@ -411,6 +434,17 @@ export function cleanupServiceSocket(socket: net.Socket, error?: Error): void {
   cleanupSocketState(socket, error);
 }
 
+function assertSocketReadable(socket: net.Socket): void {
+  if (FATAL_SOCKETS.has(socket)) {
+    throw new AfcConnectionError(
+      'AFC connection is closed (prior read timeout or fatal I/O error)',
+    );
+  }
+  if (socket.destroyed) {
+    throw new AfcConnectionError('AFC socket is destroyed');
+  }
+}
+
 function cleanupSocketState(socket: net.Socket, error?: Error): void {
   const state = SOCKET_STATES.get(socket);
   if (!state) {
@@ -444,6 +478,7 @@ function cleanupSocketState(socket: net.Socket, error?: Error): void {
  * Ensure per-socket buffered reader state and listeners are initialized.
  */
 function ensureSocketState(socket: net.Socket): SocketState {
+  assertSocketReadable(socket);
   let state = SOCKET_STATES.get(socket);
   if (state) {
     return state;
