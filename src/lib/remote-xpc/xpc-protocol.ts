@@ -28,6 +28,12 @@ export interface XPCMessage {
   size?: number;
 }
 
+export interface DecodedXpcMessage {
+  message: XPCMessage;
+  /** Bytes consumed from `buffer` (may be less than `buffer.length`). */
+  bytesConsumed: number;
+}
+
 // A simple binary writer that collects Buffer chunks.
 class Writer {
   private chunks: Buffer[] = [];
@@ -171,12 +177,6 @@ export function encodeMessage(message: XPCMessage): Buffer {
   // Write the actual body payload.
   writer.writeBuffer(bodyBuffer);
   return writer.concat();
-}
-
-export interface DecodedXpcMessage {
-  message: XPCMessage;
-  /** Bytes consumed from `buffer` (may be less than `buffer.length`). */
-  bytesConsumed: number;
 }
 
 const XPC_WRAPPER_HEADER_SIZE = 24;
