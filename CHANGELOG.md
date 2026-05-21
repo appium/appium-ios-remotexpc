@@ -1,3 +1,28 @@
+## [2.0.0](https://github.com/appium/appium-ios-remotexpc/compare/v1.1.13...v2.0.0) (2026-05-21)
+
+### ⚠ BREAKING CHANGES
+
+* Return type changed from `DiagnosticsServiceWithConnection` to `DiagnosticsService`. Do not expect or close `remoteXPC`.
+ 
+* Return type changed from `NotificationProxyServiceWithConnection` to `NotificationProxyService`.
+ 
+* Return type changed from `MobileConfigServiceWithConnection` to `MobileConfigService`.
+* Return type changed from `MobileImageMounterServiceWithConnection` to `MobileImageMounterService`.
+* Return type changed from `SpringboardServiceWithConnection` to `SpringboardService`.
+* Return type changed from `MisagentServiceWithConnection` to `MisagentService`.
+* Return type changed from `PowerAssertionServiceWithConnection` to `PowerAssertionService`.
+* Return type changed from `WebInspectorServiceWithConnection` to `WebInspectorService`.
+* Return type changed from `HouseArrestServiceWithConnection` to `HouseArrestService`.
+* Return type changed from `InstallationProxyServiceWithConnection` to `InstallationProxyService`.
+* Return type changed from `CrashReportsServiceWithConnection` to `CrashReportsService`.
+* Return type changed from `TestmanagerdServiceWithConnection` (or `{ testmanagerdService, remoteXPC }`) to `DvtTestmanagedProxyService` only.
+* `startDVTService` returns `DVTInstruments` (renamed from `DVTServiceWithConnection`). The `remoteXPC` field is removed; close `dvtService` and instrument clients when done.
+* Port discovery for XCTest services runs inside `withRemoteXpcConnection` (no leaked discovery RSD). Returned `XCTestServices` shape is unchanged; callers must not assume a separate discovery connection remains open.
+
+### Bug Fixes
+
+* serialize RSD discovery and remove leaked discovery APIs ([#208](https://github.com/appium/appium-ios-remotexpc/issues/208)) ([#212](https://github.com/appium/appium-ios-remotexpc/issues/212)) ([689561a](https://github.com/appium/appium-ios-remotexpc/commit/689561a30afc69795c55dab8933ff6335d9a43be))
+
 ## [1.1.13](https://github.com/appium/appium-ios-remotexpc/compare/v1.1.12...v1.1.13) (2026-05-18)
 
 ### Bug Fixes
