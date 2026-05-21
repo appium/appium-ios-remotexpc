@@ -22,8 +22,7 @@ const DARWIN_ILLEGAL_RE = /:/g;
 const RESERVED_DOTS_RE = /^\.+$/;
 
 /** Windows reserved device names (case-insensitive, optional extension). */
-const WINDOWS_RESERVED_RE =
-  /^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\..*)?$/i;
+const WINDOWS_RESERVED_RE = /^(con|prn|aux|nul|com[0-9]|lpt[0-9])(\..*)?$/i;
 
 /**
  * Sanitize a single path segment from the device for use on the local filesystem.
@@ -77,10 +76,7 @@ function truncateUtf8Bytes(input: string, byteLength: number): string {
     const codePoint = input.charCodeAt(i);
     let segment = input.charAt(i);
 
-    if (
-      isHighSurrogate(codePoint) &&
-      isLowSurrogate(input.charCodeAt(i + 1))
-    ) {
+    if (isHighSurrogate(codePoint) && isLowSurrogate(input.charCodeAt(i + 1))) {
       i += 1;
       segment += input.charAt(i);
     }
@@ -114,11 +110,7 @@ function replaceTrailingDotsAndSpaces(
   return end < input.length ? input.slice(0, end) + replacement : input;
 }
 
-function stripWith(
-  input: string,
-  pattern: RegExp,
-  replacement = '',
-): string {
+function stripWith(input: string, pattern: RegExp, replacement = ''): string {
   return input.replace(pattern, replacement);
 }
 

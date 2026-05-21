@@ -9,9 +9,7 @@ import {
 
 const MAX_ALLOCATION_ATTEMPTS = 100;
 
-export type CaseSensitiveDirectoryCheck = (
-  dir: string,
-) => Promise<boolean>;
+export type CaseSensitiveDirectoryCheck = (dir: string) => Promise<boolean>;
 
 /**
  * Resolves sanitized local path segment names during a single AFC pull.

@@ -2,10 +2,10 @@ import { expect } from 'chai';
 import os from 'node:os';
 
 import {
+  type DiskutilInfoPlist,
   clearCaseSensitivityCache,
   isCaseSensitiveDirectory,
   parseDiskutilInfoPlist,
-  type DiskutilInfoPlist,
 } from '../../../src/services/ios/afc/local-filesystem-case.js';
 
 describe('parseDiskutilInfoPlist', function () {
@@ -36,17 +36,15 @@ describe('parseDiskutilInfoPlist', function () {
   });
 
   it('should throw when diskutil plist omits case semantics', function () {
-    expect(() =>
-      parseDiskutilInfoPlist({ VolumeName: 'Mystery' }),
-    ).to.throw(
+    expect(() => parseDiskutilInfoPlist({ VolumeName: 'Mystery' })).to.throw(
       'diskutil info plist did not include recognizable case-sensitivity details',
     );
   });
 
   it('should honor explicit case-sensitive plist fields when present', function () {
-    expect(
-      parseDiskutilInfoPlist({ 'Name (Case-Sensitive)': 'Yes' }),
-    ).to.equal(true);
+    expect(parseDiskutilInfoPlist({ 'Name (Case-Sensitive)': 'Yes' })).to.equal(
+      true,
+    );
     expect(parseDiskutilInfoPlist({ 'Name (Case-Sensitive)': 'No' })).to.equal(
       false,
     );

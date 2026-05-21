@@ -61,7 +61,12 @@ describe('PullLocalNameAllocator', function () {
 
   it('should add a suffix when the sanitized name already exists on disk', async function () {
     stubPlatform('win32');
-    const exists = sinon.stub().callsFake(async (localPath: string) => path.basename(localPath) === 'reportfile.txt');
+    const exists = sinon
+      .stub()
+      .callsFake(
+        async (localPath: string) =>
+          path.basename(localPath) === 'reportfile.txt',
+      );
     const allocator = new PullLocalNameAllocator(exists);
 
     const name = await allocator.allocate(parentDir, 'report>file.txt');

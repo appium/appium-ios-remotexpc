@@ -84,7 +84,10 @@ export function parseDiskutilInfoPlist(info: DiskutilInfoPlist): boolean {
     }
   }
 
-  if (filesystemName?.includes('HFS') && !/case-sensitive/i.test(filesystemName)) {
+  if (
+    filesystemName?.includes('HFS') &&
+    !/case-sensitive/i.test(filesystemName)
+  ) {
     return false;
   }
 
@@ -109,10 +112,14 @@ async function getDarwinCaseSensitivity(dir: string): Promise<boolean> {
     return cached;
   }
 
-  const { stdout } = await execFileAsync('diskutil', ['info', '-plist', device], {
-    encoding: 'utf8',
-    maxBuffer: 4 * 1024 * 1024,
-  });
+  const { stdout } = await execFileAsync(
+    'diskutil',
+    ['info', '-plist', device],
+    {
+      encoding: 'utf8',
+      maxBuffer: 4 * 1024 * 1024,
+    },
+  );
 
   const diskInfo = plist.parsePlist(stdout) as DiskutilInfoPlist;
   const caseSensitive = parseDiskutilInfoPlist(diskInfo);
