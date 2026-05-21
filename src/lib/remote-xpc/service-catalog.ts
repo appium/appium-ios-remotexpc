@@ -22,21 +22,30 @@ export class ServiceCatalogCollector {
    * message containing `Services` has been decoded.
    */
   ingestDataPayload(chunk: Buffer): ServicesResponse | null {
-    const combined = Buffer.concat([this.previousFrameData, chunk]);
+    let pending = Buffer.concat([this.previousFrameData, chunk]);
+    this.previousFrameData = Buffer.alloc(0);
 
-    try {
-      const message = decodeMessage(combined);
-      this.previousFrameData = Buffer.alloc(0);
+    while (pending.length > 0) {
+      try {
+        const { message, bytesConsumed } = decodeMessage(pending);
+        pending = pending.subarray(bytesConsumed);
 
-      if (message.body === null || message.body === undefined) {
+        if (message.body === null || message.body === undefined) {
+          continue;
+        }
+
+        const catalog = servicesFromXpcBody(message.body);
+        if (catalog) {
+          this.previousFrameData = pending;
+          return catalog;
+        }
+      } catch {
+        this.previousFrameData = pending;
         return null;
       }
-
-      return servicesFromXpcBody(message.body);
-    } catch {
-      this.previousFrameData = combined;
-      return null;
     }
+
+    return null;
   }
 }
 

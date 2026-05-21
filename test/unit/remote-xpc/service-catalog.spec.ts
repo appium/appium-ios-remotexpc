@@ -70,6 +70,51 @@ describe('RSD service catalog discovery', function () {
         .null;
     });
 
+    it('parses multiple back-to-back XPC messages in one chunk', function () {
+      const prelude = encodeMessage({
+        flags: 0x0201,
+        id: BigInt(0),
+        body: null,
+      });
+      const catalog = buildCatalogXpcPayload(3);
+      const collector = new ServiceCatalogCollector();
+
+      const result = collector.ingestDataPayload(
+        Buffer.concat([prelude, catalog]),
+      );
+
+      expect(result).not.to.be.null;
+      expect(
+        result!.services.some(
+          (s) =>
+            s.serviceName ===
+            'com.apple.mobile.diagnostics_relay.shim.remote',
+        ),
+      ).to.be.true;
+    });
+
+    it('preserves trailing bytes after a decoded non-catalog message', function () {
+      const prelude = encodeMessage({
+        flags: 0x0201,
+        id: BigInt(0),
+        body: { MessageType: 'Handshake' },
+      });
+      const catalog = buildCatalogXpcPayload(2);
+      const collector = new ServiceCatalogCollector();
+
+      expect(
+        collector.ingestDataPayload(prelude.subarray(0, prelude.length - 4)),
+      ).to.be.null;
+      expect(
+        collector.ingestDataPayload(
+          Buffer.concat([
+            prelude.subarray(prelude.length - 4),
+            catalog,
+          ]),
+        ),
+      ).to.not.be.null;
+    });
+
     it('returns the complete catalog across many TCP-sized chunks', function () {
       const payload = buildCatalogXpcPayload(50);
       const collector = new ServiceCatalogCollector();
