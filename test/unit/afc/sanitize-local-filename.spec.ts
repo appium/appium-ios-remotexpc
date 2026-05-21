@@ -4,8 +4,28 @@ import sinon from 'sinon';
 
 import {
   EMPTY_SANITIZED_FILENAME,
+  appendUniqueSuffix,
   sanitizeLocalFilename,
 } from '../../../src/services/ios/afc/sanitize-local-filename.js';
+
+describe('appendUniqueSuffix', function () {
+  it('should preserve the suffix on long names by truncating the base first', function () {
+    const longBase = 'a'.repeat(300);
+    const result = appendUniqueSuffix(`${longBase}.txt`, 'deadbeef');
+
+    expect(result.endsWith('_deadbeef.txt')).to.equal(true);
+    expect(Buffer.byteLength(result, 'utf8')).to.be.at.most(255);
+    expect(result).to.include('deadbeef');
+  });
+
+  it('should preserve the suffix when there is no extension', function () {
+    const longBase = 'b'.repeat(300);
+    const result = appendUniqueSuffix(longBase, 'cafebabe');
+
+    expect(result.endsWith('_cafebabe')).to.equal(true);
+    expect(Buffer.byteLength(result, 'utf8')).to.be.at.most(255);
+  });
+});
 
 describe('sanitizeLocalFilename', function () {
   let platformStub: sinon.SinonStub<[], NodeJS.Platform>;

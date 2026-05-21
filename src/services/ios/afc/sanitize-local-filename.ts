@@ -53,7 +53,26 @@ export function withUniqueSuffix(filename: string, suffix: string): string {
 
 /** Sanitized name with a disambiguating suffix, still within host filename byte limits. */
 export function appendUniqueSuffix(sanitized: string, suffix: string): string {
-  const suffixed = withUniqueSuffix(sanitized, suffix);
+  const dot = sanitized.lastIndexOf('.');
+  const hasExtension = dot > 0;
+  const base = hasExtension ? sanitized.slice(0, dot) : sanitized;
+  const extension = hasExtension ? sanitized.slice(dot) : '';
+  const suffixPart = `_${suffix}`;
+
+  const reservedBytes =
+    Buffer.byteLength(suffixPart, 'utf8') +
+    Buffer.byteLength(extension, 'utf8');
+  const maxBaseBytes = MAX_FILENAME_BYTES - reservedBytes;
+
+  const truncatedBase =
+    maxBaseBytes > 0
+      ? truncateUtf8Bytes(base, maxBaseBytes)
+      : EMPTY_SANITIZED_FILENAME;
+
+  const suffixed = hasExtension
+    ? `${truncatedBase || EMPTY_SANITIZED_FILENAME}${suffixPart}${extension}`
+    : `${truncatedBase || EMPTY_SANITIZED_FILENAME}${suffixPart}`;
+
   return finalizeSegment(suffixed);
 }
 
