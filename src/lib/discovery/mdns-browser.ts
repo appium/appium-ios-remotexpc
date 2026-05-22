@@ -7,6 +7,7 @@ import {
   MDNS_MCAST_V4,
   MDNS_MCAST_V6,
   MDNS_PORT,
+  type ParsedResourceRecord,
   QTYPE_A,
   QTYPE_AAAA,
   QTYPE_PTR,
@@ -71,7 +72,14 @@ export async function browseMdnsService(
     sendQueryAll(sockets, query);
 
     await collectResponses(sockets, timeoutMs, (data) => {
-      for (const rr of parseMdnsMessage(data)) {
+      let records: ParsedResourceRecord[];
+      try {
+        records = parseMdnsMessage(data);
+      } catch (err) {
+        log.info(`Ignoring malformed mDNS packet (${data.length} octets)`, err);
+        return;
+      }
+      for (const rr of records) {
         if (
           rr.type === QTYPE_PTR &&
           rr.name === serviceTypeFqdn &&
