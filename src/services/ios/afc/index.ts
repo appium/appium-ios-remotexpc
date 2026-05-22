@@ -638,12 +638,7 @@ export class AfcService {
     },
     relativePath = '',
   ): Promise<void> {
-    const {
-      match,
-      overwrite = true,
-      callback: onPullProgress,
-      localNames,
-    } = options ?? {};
+    const { match, callback: onPullProgress, localNames } = options ?? {};
 
     if (!localNames) {
       throw new Error('PullLocalNameAllocator is required for recursive pull');
