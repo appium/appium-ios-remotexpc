@@ -33,6 +33,11 @@ interface MdnsSocketHandle {
   close(): void;
 }
 
+interface SrvEntry {
+  target?: string;
+  port?: number;
+}
+
 /**
  * Browse a DNS-SD service type on the local link (e.g. `_remotepairing._tcp`).
  *
@@ -48,7 +53,7 @@ export async function browseMdnsService(
   const sockets = await openMdnsSockets();
 
   const ptrTargets = new Set<string>();
-  const srvMap = new Map<string, Array<{ target?: string; port?: number }>>();
+  const srvMap = new Map<string, SrvEntry[]>();
   const txtMap = new Map<string, Record<string, string>>();
   const hostAddresses = new Map<string, string[]>();
 
@@ -74,9 +79,10 @@ export async function browseMdnsService(
         ) {
           ptrTargets.add(rr.ptrdname);
         } else if (rr.type === QTYPE_SRV && rr.name) {
-          const entries = srvMap.get(rr.name) ?? [];
-          entries.push({ target: rr.target, port: rr.port });
-          srvMap.set(rr.name, entries);
+          addSrvEntry(srvMap, rr.name, {
+            target: rr.target,
+            port: rr.port,
+          });
         } else if (rr.type === QTYPE_TXT && rr.name) {
           txtMap.set(rr.name, rr.txt ?? {});
         } else if (
@@ -106,7 +112,7 @@ export async function browseMdnsService(
       });
       continue;
     }
-    for (const srv of srvEntries) {
+    for (const srv of dedupeSrvEntries(srvEntries)) {
       const target = srv.target;
       const host =
         target && target.endsWith('.') ? target.slice(0, -1) : target;
@@ -215,6 +221,38 @@ function isIpv6Interface(entry: {
   internal?: boolean;
 }): boolean {
   return entry.family === 'IPv6' || entry.family === 6;
+}
+
+function srvEntryKey(entry: SrvEntry): string {
+  return `${entry.target ?? ''}:${entry.port ?? 0}`;
+}
+
+function addSrvEntry(
+  srvMap: Map<string, SrvEntry[]>,
+  instance: string,
+  entry: SrvEntry,
+): void {
+  const entries = srvMap.get(instance) ?? [];
+  const key = srvEntryKey(entry);
+  if (entries.some((existing) => srvEntryKey(existing) === key)) {
+    return;
+  }
+  entries.push(entry);
+  srvMap.set(instance, entries);
+}
+
+function dedupeSrvEntries(entries: SrvEntry[]): SrvEntry[] {
+  const seen = new Set<string>();
+  const unique: SrvEntry[] = [];
+  for (const entry of entries) {
+    const key = srvEntryKey(entry);
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    unique.push(entry);
+  }
+  return unique;
 }
 
 function sendQueryAll(handles: MdnsSocketHandle[], packet: Buffer): void {

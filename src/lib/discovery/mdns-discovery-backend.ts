@@ -54,14 +54,28 @@ export class MdnsDiscoveryBackend extends BaseDiscoveryBackend {
         instanceToDevice(instance, this.serviceType, this.domain),
       ),
     );
-    return settled
+    const devices = settled
       .filter(
         (item): item is PromiseFulfilledResult<DiscoveredDevice | null> =>
           item.status === 'fulfilled',
       )
       .map((item) => item.value)
       .filter((device): device is DiscoveredDevice => device !== null);
+    return dedupeDiscoveredDevices(devices);
   }
+}
+
+function dedupeDiscoveredDevices(
+  devices: DiscoveredDevice[],
+): DiscoveredDevice[] {
+  const seen = new Map<string, DiscoveredDevice>();
+  for (const device of devices) {
+    const key = `${device.id}:${device.hostname ?? ''}:${device.port ?? 0}`;
+    if (!seen.has(key)) {
+      seen.set(key, device);
+    }
+  }
+  return [...seen.values()];
 }
 
 async function instanceToDevice(
