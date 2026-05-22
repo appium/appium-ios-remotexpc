@@ -27,6 +27,20 @@ describe('mdns-protocol', function () {
       const { name } = decodeName(encoded, 0);
       expect(name).to.equal(fqdn);
     });
+
+    it('reports which label exceeds the 63-octet limit', function () {
+      const longLabel = 'a'.repeat(65);
+      let message = '';
+      try {
+        encodeName(`${longLabel}.local.`);
+      } catch (err) {
+        message = err instanceof Error ? err.message : String(err);
+      }
+      expect(message).to.match(/^DNS label "/);
+      expect(message).to.include('…');
+      expect(message).to.include('65 octets in UTF-8');
+      expect(message).to.include('at most 63 octets');
+    });
   });
 
   describe('buildServiceTypeFqdn', function () {

@@ -18,6 +18,32 @@ export const QTYPE_SRV = 33;
 const CLASS_IN = 0x0001;
 const CLASS_QU = 0x8000;
 
+/** Maximum octets per DNS label (RFC 1035). */
+const DNS_MAX_LABEL_OCTETS = 63;
+
+const DNS_HEADER_OCTETS = 12;
+const DNS_QUESTION_TAIL_OCTETS = 4;
+const DNS_RR_HEADER_OCTETS = 10;
+const DNS_RR_CLASS_OFFSET = 2;
+const DNS_RR_TTL_OFFSET = 4;
+const DNS_RR_RDLEN_OFFSET = 8;
+
+const DNS_SRV_HEADER_OCTETS = 6;
+const DNS_SRV_PORT_OFFSET = 4;
+
+const DNS_A_RDATA_OCTETS = 4;
+const DNS_AAAA_RDATA_OCTETS = 16;
+const DNS_AAAA_GROUP_OCTETS = 2;
+
+const DNS_NAME_POINTER_OCTETS = 2;
+const DNS_NAME_COMPRESSION_PREFIX = 0xc0;
+const DNS_NAME_POINTER_MASK = 0x3f;
+const DNS_CLASS_FLUSH_MASK = 0x7fff;
+
+const DNS_DECODE_LOOP_LIMIT = 128;
+const DNS_LABEL_PREVIEW_MAX_CHARS = 64;
+const DNS_LABEL_PREVIEW_PREFIX_CHARS = 61;
+
 export interface ParsedResourceRecord {
   name: string;
   type: number;
@@ -39,8 +65,15 @@ export function encodeName(name: string): Buffer {
   const parts: Buffer[] = [];
   for (const label of trimmed ? trimmed.split('.') : []) {
     const bytes = Buffer.from(label, 'utf8');
-    if (bytes.length > 63) {
-      throw new Error('DNS label too long');
+    if (bytes.length > DNS_MAX_LABEL_OCTETS) {
+      const preview =
+        label.length > DNS_LABEL_PREVIEW_MAX_CHARS
+          ? `${label.slice(0, DNS_LABEL_PREVIEW_PREFIX_CHARS)}…`
+          : label;
+      throw new Error(
+        `DNS label "${preview}" is ${bytes.length} octets in UTF-8; ` +
+          `each label in "${trimmed}" must be at most ${DNS_MAX_LABEL_OCTETS} octets`,
+      );
     }
     parts.push(Buffer.from([bytes.length]), bytes);
   }
@@ -57,7 +90,7 @@ export function decodeName(
   let jumped = false;
   let end = offset;
 
-  for (let guard = 0; guard < 128; guard += 1) {
+  for (let guard = 0; guard < DNS_DECODE_LOOP_LIMIT; guard += 1) {
     if (offset >= data.length) {
       break;
     }
@@ -69,29 +102,55 @@ export function decodeName(
       offset += 1;
       break;
     }
-    if ((length & 0xc0) === 0xc0) {
+    if (
+      (length & DNS_NAME_COMPRESSION_PREFIX) ===
+      DNS_NAME_COMPRESSION_PREFIX
+    ) {
       if (offset + 1 >= data.length) {
-        throw new Error('truncated DNS name pointer');
+        throw makeDnsDecodeError(
+          `compression pointer at offset ${offset} is missing its second octet`,
+          data,
+          offset,
+        );
       }
       const pointerByte = data[offset + 1];
       if (pointerByte === undefined) {
-        throw new Error('truncated DNS name pointer');
+        throw makeDnsDecodeError(
+          `compression pointer at offset ${offset} is missing its second octet`,
+          data,
+          offset,
+        );
       }
-      const pointer = ((length & 0x3f) << 8) | pointerByte;
+      const pointer = ((length & DNS_NAME_POINTER_MASK) << 8) | pointerByte;
       if (pointer >= data.length) {
-        throw new Error('bad DNS name pointer');
+        throw makeDnsDecodeError(
+          `compression pointer 0x${pointer.toString(16)} points past end of packet (length ${data.length})`,
+          data,
+          offset,
+        );
       }
       if (!jumped) {
-        end = offset + 2;
+        end = offset + DNS_NAME_POINTER_OCTETS;
       }
       offset = pointer;
       jumped = true;
       continue;
     }
+    if (length > DNS_MAX_LABEL_OCTETS) {
+      throw makeDnsDecodeError(
+        `label length ${length} at offset ${offset} exceeds maximum ${DNS_MAX_LABEL_OCTETS} octets`,
+        data,
+        offset,
+      );
+    }
     offset += 1;
     const labelEnd = offset + length;
     if (labelEnd > data.length) {
-      throw new Error('truncated DNS label');
+      throw makeDnsDecodeError(
+        `label length ${length} at offset ${offset - 1} needs ${labelEnd} octets but packet has ${data.length}`,
+        data,
+        offset - 1,
+      );
     }
     labels.push(data.subarray(offset, labelEnd).toString('utf8'));
     offset = labelEnd;
@@ -106,7 +165,7 @@ export function buildQuery(
   qtype: number,
   unicast = false,
 ): Buffer {
-  const header = Buffer.alloc(12);
+  const header = Buffer.alloc(DNS_HEADER_OCTETS);
   header.writeUInt16BE(0, 0);
   header.writeUInt16BE(0, 2);
   header.writeUInt16BE(1, 4);
@@ -114,7 +173,7 @@ export function buildQuery(
   header.writeUInt16BE(0, 8);
   header.writeUInt16BE(0, 10);
   const qclass = CLASS_IN | (unicast ? CLASS_QU : 0);
-  const questionTail = Buffer.alloc(4);
+  const questionTail = Buffer.alloc(DNS_QUESTION_TAIL_OCTETS);
   questionTail.writeUInt16BE(qtype, 0);
   questionTail.writeUInt16BE(qclass, 2);
   return Buffer.concat([header, encodeName(name), questionTail]);
@@ -122,18 +181,18 @@ export function buildQuery(
 
 /** Parse answer/authority/additional records from an mDNS response packet. */
 export function parseMdnsMessage(data: Buffer): ParsedResourceRecord[] {
-  if (data.length < 12) {
+  if (data.length < DNS_HEADER_OCTETS) {
     return [];
   }
   const qdcount = data.readUInt16BE(4);
   const ancount = data.readUInt16BE(6);
   const nscount = data.readUInt16BE(8);
   const arcount = data.readUInt16BE(10);
-  let offset = 12;
+  let offset = DNS_HEADER_OCTETS;
 
   for (let i = 0; i < qdcount; i += 1) {
     const { offset: nameEnd } = decodeName(data, offset);
-    offset = nameEnd + 4;
+    offset = nameEnd + DNS_QUESTION_TAIL_OCTETS;
   }
 
   const records: ParsedResourceRecord[] = [];
@@ -169,19 +228,29 @@ export function buildServiceTypeFqdn(
   return `${type}.${zone}.`;
 }
 
+function makeDnsDecodeError(
+  detail: string,
+  data: Buffer,
+  offset: number,
+): Error {
+  return new Error(
+    `Failed to decode DNS name at offset ${offset} in ${data.length}-octet packet: ${detail}`,
+  );
+}
+
 function parseResourceRecord(
   data: Buffer,
   offset: number,
 ): { rr: ParsedResourceRecord; offset: number } {
   const { name, offset: nameEnd } = decodeName(data, offset);
-  if (nameEnd + 10 > data.length) {
+  if (nameEnd + DNS_RR_HEADER_OCTETS > data.length) {
     throw new Error('truncated resource record header');
   }
   const rtype = data.readUInt16BE(nameEnd);
-  const rclass = data.readUInt16BE(nameEnd + 2);
-  const ttl = data.readUInt32BE(nameEnd + 4);
-  const rdlen = data.readUInt16BE(nameEnd + 8);
-  const rdataStart = nameEnd + 10;
+  const rclass = data.readUInt16BE(nameEnd + DNS_RR_CLASS_OFFSET);
+  const ttl = data.readUInt32BE(nameEnd + DNS_RR_TTL_OFFSET);
+  const rdlen = data.readUInt16BE(nameEnd + DNS_RR_RDLEN_OFFSET);
+  const rdataStart = nameEnd + DNS_RR_HEADER_OCTETS;
   const rdataEnd = rdataStart + rdlen;
   if (rdataEnd > data.length) {
     throw new Error('truncated resource record data');
@@ -192,18 +261,21 @@ function parseResourceRecord(
   const rr: ParsedResourceRecord = {
     name,
     type: rtype,
-    class: rclass & 0x7fff,
+    class: rclass & DNS_CLASS_FLUSH_MASK,
     ttl,
   };
 
   if (rtype === QTYPE_PTR) {
     const { name: ptrdname } = decodeName(data, rdataStart);
     rr.ptrdname = ptrdname;
-  } else if (rtype === QTYPE_SRV && rdlen >= 6) {
+  } else if (rtype === QTYPE_SRV && rdlen >= DNS_SRV_HEADER_OCTETS) {
     rr.priority = rdata.readUInt16BE(0);
     rr.weight = rdata.readUInt16BE(2);
-    rr.port = rdata.readUInt16BE(4);
-    const { name: target } = decodeName(data, rdataStart + 6);
+    rr.port = rdata.readUInt16BE(DNS_SRV_PORT_OFFSET);
+    const { name: target } = decodeName(
+      data,
+      rdataStart + DNS_SRV_HEADER_OCTETS,
+    );
     rr.target = target;
   } else if (rtype === QTYPE_TXT) {
     const kv: Record<string, string> = {};
@@ -229,13 +301,13 @@ function parseResourceRecord(
       }
     }
     rr.txt = kv;
-  } else if (rtype === QTYPE_A && rdlen === 4) {
+  } else if (rtype === QTYPE_A && rdlen === DNS_A_RDATA_OCTETS) {
     rr.address = Array.from(rdata)
       .map((octet) => octet.toString())
       .join('.');
-  } else if (rtype === QTYPE_AAAA && rdlen === 16) {
+  } else if (rtype === QTYPE_AAAA && rdlen === DNS_AAAA_RDATA_OCTETS) {
     const segments: string[] = [];
-    for (let i = 0; i < 16; i += 2) {
+    for (let i = 0; i < DNS_AAAA_RDATA_OCTETS; i += DNS_AAAA_GROUP_OCTETS) {
       segments.push(rdata.readUInt16BE(i).toString(16));
     }
     rr.address = segments.join(':');

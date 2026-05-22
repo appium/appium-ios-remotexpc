@@ -2,8 +2,9 @@ import { getLogger } from '../logger.js';
 import { BaseDiscoveryBackend } from './base-discovery-backend.js';
 import { DISCOVERY_DEFAULT_TIMEOUT_MS } from './constants.js';
 import { normalizeHostname, resolveIpAddress } from './discovery-utils.js';
-import { browseMdnsService } from './mdns-browser.js';
+import { type MdnsServiceInstance, browseMdnsService } from './mdns-browser.js';
 import {
+  MDNS_PORT,
   buildServiceTypeFqdn,
   decodeDnsSdInstanceName,
 } from './mdns-protocol.js';
@@ -79,7 +80,7 @@ function dedupeDiscoveredDevices(
 }
 
 async function instanceToDevice(
-  instance: Awaited<ReturnType<typeof browseMdnsService>>[number],
+  instance: MdnsServiceInstance,
   serviceType: string,
   domain: string,
 ): Promise<DiscoveredDevice | null> {
@@ -136,7 +137,7 @@ function formatMdnsBrowseError(err: unknown): string {
   const detail = err instanceof Error ? err.message : String(err);
   const base = `mDNS browse failed: ${detail}`;
   if (typeof process.getuid === 'function' && process.getuid() !== 0) {
-    return `${base}. Binding to UDP port 5353 may require elevated privileges; try running with sudo.`;
+    return `${base}. Binding to UDP port ${MDNS_PORT} may require elevated privileges; try running with sudo.`;
   }
   return base;
 }
