@@ -16,6 +16,7 @@ import {
   buildStatPayload,
   cleanupServiceSocket,
   createRawServiceSocket,
+  fatalizeAfcSocket,
   nanosecondsToMilliseconds,
   parseCStringArray,
   parseKeyValueNullList,
@@ -30,6 +31,8 @@ import {
   AFC_WRITE_THIS_LENGTH,
 } from './constants.js';
 import { AfcError, AfcFileMode, AfcOpcode } from './enums.js';
+import { AfcConnectionError } from './errors.js';
+import { PullLocalNameAllocator } from './pull-local-name-allocator.js';
 import { createAfcReadStream, createAfcWriteStream } from './stream-utils.js';
 
 const log = getLogger('AfcService');
@@ -94,6 +97,8 @@ export class AfcService {
   private socket: net.Socket | null = null;
   private packetNum: bigint = 0n;
   private silent: boolean = false;
+  /** Set when the AFC byte stream is no longer safe to reuse on this instance. */
+  private connectionError: Error | null = null;
 
   constructor(
     private readonly address: [string, number],
@@ -384,13 +389,23 @@ export class AfcService {
       throw new Error(`Remote path does not exist: ${remoteSrc}`);
     }
 
+    const localNames = new PullLocalNameAllocator(
+      (localPath) => this._localPathExists(localPath),
+      overwrite,
+    );
+
     const pullSingleFile = async (
       remoteFilePath: string,
       localFilePath: string,
+      nameAllocated = false,
     ): Promise<void> => {
       log.debug(`Pulling file from '${remoteFilePath}' to '${localFilePath}'`);
 
-      if (!overwrite && (await this._localPathExists(localFilePath))) {
+      if (
+        !nameAllocated &&
+        !overwrite &&
+        (await this._localPathExists(localFilePath))
+      ) {
         throw new Error(`Local file already exists: ${localFilePath}`);
       }
 
@@ -404,18 +419,21 @@ export class AfcService {
     const isDir = await this.isdir(remoteSrc);
 
     if (!isDir) {
-      const baseName = path.posix.basename(remoteSrc);
+      const remoteBaseName = path.posix.basename(remoteSrc);
 
-      if (match && !minimatch(baseName, match)) {
+      if (match && !minimatch(remoteBaseName, match)) {
         return;
       }
 
       const localDstIsDirectory = await this._isLocalDirectory(localDst);
       const targetPath = localDstIsDirectory
-        ? path.join(localDst, baseName)
+        ? path.join(
+            localDst,
+            await localNames.allocate(localDst, remoteBaseName),
+          )
         : localDst;
 
-      await pullSingleFile(remoteSrc, targetPath);
+      await pullSingleFile(remoteSrc, targetPath, localDstIsDirectory);
       return;
     }
 
@@ -431,6 +449,7 @@ export class AfcService {
       match,
       overwrite,
       callback: onPullProgress,
+      localNames,
     });
   }
 
@@ -563,6 +582,7 @@ export class AfcService {
     log.debug('Closing AFC service connection');
     const socket = this.socket;
     this.socket = null;
+    this.connectionError = null;
     if (!socket || socket.destroyed) {
       return;
     }
@@ -613,10 +633,21 @@ export class AfcService {
   private async _pullRecursiveInternal(
     remoteSrcDir: string,
     localDstDir: string,
-    options?: Omit<PullOptions, 'recursive'>,
+    options?: Omit<PullOptions, 'recursive'> & {
+      localNames: PullLocalNameAllocator;
+    },
     relativePath = '',
   ): Promise<void> {
-    const { match, overwrite = true, callback: onPullProgress } = options ?? {};
+    const {
+      match,
+      overwrite = true,
+      callback: onPullProgress,
+      localNames,
+    } = options ?? {};
+
+    if (!localNames) {
+      throw new Error('PullLocalNameAllocator is required for recursive pull');
+    }
 
     let localDirPath: string;
     if (!relativePath) {
@@ -638,9 +669,12 @@ export class AfcService {
         }
       }
 
-      const baseName = path.posix.basename(remoteSrcDir);
+      const remoteBaseName = path.posix.basename(remoteSrcDir);
       localDirPath = localDstIsDirectory
-        ? path.join(localDstDir, baseName)
+        ? path.join(
+            localDstDir,
+            await localNames.allocate(localDstDir, remoteBaseName),
+          )
         : localDstDir;
     } else {
       localDirPath = localDstDir;
@@ -670,11 +704,12 @@ export class AfcService {
       const entryRelativePath = relativePath
         ? path.posix.join(relativePath, entry)
         : entry;
+      const localEntryName = await localNames.allocate(localDirPath, entry);
 
       if (await this.isdir(entryPath)) {
         await this._pullRecursiveInternal(
           entryPath,
-          path.join(localDirPath, entry),
+          path.join(localDirPath, localEntryName),
           options,
           entryRelativePath,
         );
@@ -685,11 +720,7 @@ export class AfcService {
 
         await ensureLocalDir();
 
-        const targetPath = path.join(localDirPath, entry);
-        if (!overwrite && (await this._localPathExists(targetPath))) {
-          throw new Error(`Local file already exists: ${targetPath}`);
-        }
-
+        const targetPath = path.join(localDirPath, localEntryName);
         await this._pullFile(entryPath, targetPath);
 
         if (onPullProgress) {
@@ -730,7 +761,43 @@ export class AfcService {
    * Connect to RSD port and perform RSDCheckin.
    * Keeps the underlying socket for raw AFC I/O.
    */
+  private _assertConnectionAlive(): void {
+    if (this.connectionError) {
+      throw this.connectionError;
+    }
+  }
+
+  private _markConnectionDead(error: Error): void {
+    if (this.connectionError) {
+      return;
+    }
+    this.connectionError =
+      error instanceof AfcConnectionError
+        ? error
+        : new AfcConnectionError(error.message, { cause: error });
+    const sock = this.socket;
+    this.socket = null;
+    if (sock && !sock.destroyed) {
+      fatalizeAfcSocket(sock, this.connectionError);
+    } else if (sock) {
+      cleanupServiceSocket(sock, this.connectionError);
+    }
+  }
+
+  private async _withAfcConnection<T>(fn: () => Promise<T>): Promise<T> {
+    this._assertConnectionAlive();
+    try {
+      return await fn();
+    } catch (err) {
+      if (err instanceof AfcConnectionError) {
+        this._markConnectionDead(err);
+      }
+      throw err;
+    }
+  }
+
   private async _connect(): Promise<net.Socket> {
+    this._assertConnectionAlive();
     if (this.socket && !this.socket.destroyed) {
       return this.socket;
     }
@@ -779,14 +846,18 @@ export class AfcService {
     payload: Buffer = Buffer.alloc(0),
     thisLenOverride?: number,
   ): Promise<void> {
-    const sock = await this._connect();
-    await sendAfcPacket(sock, op, this.packetNum++, payload, thisLenOverride);
+    return await this._withAfcConnection(async () => {
+      const sock = await this._connect();
+      await sendAfcPacket(sock, op, this.packetNum++, payload, thisLenOverride);
+    });
   }
 
   private async _receive(): Promise<{ status: AfcError; data: Buffer }> {
-    const sock = await this._connect();
-    const res = await readAfcResponse(sock);
-    return { status: res.status, data: res.data };
+    return await this._withAfcConnection(async () => {
+      const sock = await this._connect();
+      const res = await readAfcResponse(sock);
+      return { status: res.status, data: res.data };
+    });
   }
 
   /**

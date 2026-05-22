@@ -1,3 +1,21 @@
+## [2.0.3](https://github.com/appium/appium-ios-remotexpc/compare/v2.0.2...v2.0.3) (2026-05-22)
+
+### Bug Fixes
+
+* Respect local file system limitations while pulling remote files ([#220](https://github.com/appium/appium-ios-remotexpc/issues/220)) ([4aa9491](https://github.com/appium/appium-ios-remotexpc/commit/4aa949169c6763d99aee8fa6b7c6cd4b74f39a82))
+
+## [2.0.2](https://github.com/appium/appium-ios-remotexpc/compare/v2.0.1...v2.0.2) (2026-05-21)
+
+### Bug Fixes
+
+* AFC connection desync ([#219](https://github.com/appium/appium-ios-remotexpc/issues/219)) ([ce32050](https://github.com/appium/appium-ios-remotexpc/commit/ce32050b5691f7f010105a98a273e60107c16cb8))
+
+## [2.0.1](https://github.com/appium/appium-ios-remotexpc/compare/v2.0.0...v2.0.1) (2026-05-21)
+
+### Bug Fixes
+
+* Partial XPC services discovery ([#218](https://github.com/appium/appium-ios-remotexpc/issues/218)) ([d173b70](https://github.com/appium/appium-ios-remotexpc/commit/d173b7029fc51c32c2941bcdf9886b9310cc4eef))
+
 ## [2.0.0](https://github.com/appium/appium-ios-remotexpc/compare/v1.1.13...v2.0.0) (2026-05-21)
 
 ### ⚠ BREAKING CHANGES

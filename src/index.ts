@@ -30,6 +30,7 @@ export type {
 } from './lib/port-forwarding/index.js';
 export type { RemoteXpcConnection } from './lib/remote-xpc/remote-xpc-connection.js';
 export type { AfcService } from './services/ios/afc/index.js';
+export { AfcConnectionError } from './services/ios/afc/errors.js';
 export type { InstallationProxyService } from './services/ios/installation-proxy/index.js';
 export type {
   SyslogEntry,
