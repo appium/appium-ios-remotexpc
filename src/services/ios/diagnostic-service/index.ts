@@ -4,6 +4,7 @@ import type {
   DiagnosticsService as DiagnosticsServiceInterface,
   PlistDictionary,
 } from '../../../lib/types.js';
+import type { ServiceConnection } from '../../../service-connection.js';
 import { BaseService } from '../base-service.js';
 
 const log = getLogger('DiagnosticService');
@@ -110,18 +111,12 @@ class DiagnosticsService
       log.debug('Sending IORegistry request...');
 
       const conn = await this.connectToDiagnosticService();
-      const response = await conn.sendPlistRequest(request, timeout);
-
-      log.debug(
-        `IORegistry response size: ${JSON.stringify(response).length} bytes`,
-      );
+      const response = await this.queryIORegistry(conn, request, timeout);
 
       if (options?.returnRawJson) {
-        return await this.handleMultipartIORegistryResponse(
-          conn,
-          response,
-          timeout,
-        );
+        // The query matched no entry when the device replies with a bare
+        // { Status: 'Success' } and no Diagnostics — surface an empty object.
+        return this.extractIORegistry(response) ?? {};
       }
 
       return this.processIORegistryResponse(response);
@@ -138,9 +133,15 @@ class DiagnosticsService
     };
   }
 
-  private async connectToDiagnosticService() {
-    const service = this.getServiceConfig();
-    return await this.startLockdownService(service);
+  private async connectToDiagnosticService(): Promise<ServiceConnection> {
+    const connection = await this.startLockdownService(this.getServiceConfig());
+    const startServiceResponse = await connection.receive();
+    if (startServiceResponse?.Request !== 'StartService') {
+      throw new Error(
+        `Expected StartService response, got: ${JSON.stringify(startServiceResponse)}`,
+      );
+    }
+    return connection;
   }
 
   private async sendRequest(
@@ -205,34 +206,44 @@ class DiagnosticsService
     return [{ value: response } as PlistDictionary];
   }
 
-  private async handleMultipartIORegistryResponse(
-    conn: any,
-    initialResponse: any,
+  /**
+   * Sends an IORegistry request and returns the diagnostics response.
+   * The shim's StartService greeting is drained in connectToDiagnosticService,
+   * so this is a plain single send/recv — matches pymobiledevice3.
+   */
+  private async queryIORegistry(
+    conn: ServiceConnection,
+    request: PlistDictionary,
     timeout: number,
-  ): Promise<Record<string, any>> {
-    await new Promise((resolve) => setTimeout(resolve, 500));
+  ): Promise<PlistDictionary> {
+    const response = await conn.sendPlistRequest(request, timeout);
 
-    const emptyRequest: PlistDictionary = {
-      Request: 'Status',
-    };
-
-    log.debug('Sending follow-up request for additional data');
-
-    const additionalResponse = await conn.sendPlistRequest(
-      emptyRequest,
-      timeout,
-    );
-    const hasDiagnostics =
-      'Diagnostics' in additionalResponse &&
-      typeof additionalResponse.Diagnostics === 'object' &&
-      additionalResponse.Diagnostics !== null &&
-      'IORegistry' in additionalResponse.Diagnostics;
-    if (additionalResponse.Status !== 'Success' && hasDiagnostics) {
-      throw new Error(`Error getting diagnostic data: ${additionalResponse}`);
+    if (
+      response &&
+      typeof response === 'object' &&
+      'Status' in response &&
+      response.Status !== 'Success'
+    ) {
+      throw new Error(`IORegistry query failed: ${JSON.stringify(response)}`);
     }
 
-    log.debug('Using additional response with IORegistry data');
-    return additionalResponse.Diagnostics.IORegistry as Record<string, any>;
+    return response as PlistDictionary;
+  }
+
+  /**
+   * Extracts the IORegistry payload from a diagnostics response.
+   * @returns the IORegistry object, or null when the query matched no entry
+   * (the device replies { Status: 'Success' } with no Diagnostics)
+   */
+  private extractIORegistry(response: any): Record<string, any> | null {
+    const diagnostics = response?.Diagnostics;
+    if (diagnostics && typeof diagnostics === 'object') {
+      const ioRegistry = diagnostics.IORegistry;
+      if (ioRegistry && typeof ioRegistry === 'object') {
+        return ioRegistry as Record<string, any>;
+      }
+    }
+    return null;
   }
 }
 
