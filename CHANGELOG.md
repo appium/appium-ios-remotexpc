@@ -1,3 +1,9 @@
+## [2.1.0](https://github.com/appium/appium-ios-remotexpc/compare/v2.0.3...v2.1.0) (2026-05-22)
+
+### Features
+
+* Unify dnssd discovery ([#221](https://github.com/appium/appium-ios-remotexpc/issues/221)) ([68470b9](https://github.com/appium/appium-ios-remotexpc/commit/68470b9283b58faf687ddfd4d4c08d523f88781a))
+
 ## [2.0.3](https://github.com/appium/appium-ios-remotexpc/compare/v2.0.2...v2.0.3) (2026-05-22)
 
 ### Bug Fixes
