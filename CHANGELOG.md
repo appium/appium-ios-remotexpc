@@ -1,3 +1,9 @@
+## [2.0.3](https://github.com/appium/appium-ios-remotexpc/compare/v2.0.2...v2.0.3) (2026-05-22)
+
+### Bug Fixes
+
+* Respect local file system limitations while pulling remote files ([#220](https://github.com/appium/appium-ios-remotexpc/issues/220)) ([4aa9491](https://github.com/appium/appium-ios-remotexpc/commit/4aa949169c6763d99aee8fa6b7c6cd4b74f39a82))
+
 ## [2.0.2](https://github.com/appium/appium-ios-remotexpc/compare/v2.0.1...v2.0.2) (2026-05-21)
 
 ### Bug Fixes
