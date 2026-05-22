@@ -32,6 +32,7 @@ import {
 } from './constants.js';
 import { AfcError, AfcFileMode, AfcOpcode } from './enums.js';
 import { AfcConnectionError } from './errors.js';
+import { PullLocalNameAllocator } from './pull-local-name-allocator.js';
 import { createAfcReadStream, createAfcWriteStream } from './stream-utils.js';
 
 const log = getLogger('AfcService');
@@ -388,13 +389,23 @@ export class AfcService {
       throw new Error(`Remote path does not exist: ${remoteSrc}`);
     }
 
+    const localNames = new PullLocalNameAllocator(
+      (localPath) => this._localPathExists(localPath),
+      overwrite,
+    );
+
     const pullSingleFile = async (
       remoteFilePath: string,
       localFilePath: string,
+      nameAllocated = false,
     ): Promise<void> => {
       log.debug(`Pulling file from '${remoteFilePath}' to '${localFilePath}'`);
 
-      if (!overwrite && (await this._localPathExists(localFilePath))) {
+      if (
+        !nameAllocated &&
+        !overwrite &&
+        (await this._localPathExists(localFilePath))
+      ) {
         throw new Error(`Local file already exists: ${localFilePath}`);
       }
 
@@ -408,18 +419,21 @@ export class AfcService {
     const isDir = await this.isdir(remoteSrc);
 
     if (!isDir) {
-      const baseName = path.posix.basename(remoteSrc);
+      const remoteBaseName = path.posix.basename(remoteSrc);
 
-      if (match && !minimatch(baseName, match)) {
+      if (match && !minimatch(remoteBaseName, match)) {
         return;
       }
 
       const localDstIsDirectory = await this._isLocalDirectory(localDst);
       const targetPath = localDstIsDirectory
-        ? path.join(localDst, baseName)
+        ? path.join(
+            localDst,
+            await localNames.allocate(localDst, remoteBaseName),
+          )
         : localDst;
 
-      await pullSingleFile(remoteSrc, targetPath);
+      await pullSingleFile(remoteSrc, targetPath, localDstIsDirectory);
       return;
     }
 
@@ -435,6 +449,7 @@ export class AfcService {
       match,
       overwrite,
       callback: onPullProgress,
+      localNames,
     });
   }
 
@@ -618,10 +633,21 @@ export class AfcService {
   private async _pullRecursiveInternal(
     remoteSrcDir: string,
     localDstDir: string,
-    options?: Omit<PullOptions, 'recursive'>,
+    options?: Omit<PullOptions, 'recursive'> & {
+      localNames: PullLocalNameAllocator;
+    },
     relativePath = '',
   ): Promise<void> {
-    const { match, overwrite = true, callback: onPullProgress } = options ?? {};
+    const {
+      match,
+      overwrite = true,
+      callback: onPullProgress,
+      localNames,
+    } = options ?? {};
+
+    if (!localNames) {
+      throw new Error('PullLocalNameAllocator is required for recursive pull');
+    }
 
     let localDirPath: string;
     if (!relativePath) {
@@ -643,9 +669,12 @@ export class AfcService {
         }
       }
 
-      const baseName = path.posix.basename(remoteSrcDir);
+      const remoteBaseName = path.posix.basename(remoteSrcDir);
       localDirPath = localDstIsDirectory
-        ? path.join(localDstDir, baseName)
+        ? path.join(
+            localDstDir,
+            await localNames.allocate(localDstDir, remoteBaseName),
+          )
         : localDstDir;
     } else {
       localDirPath = localDstDir;
@@ -675,11 +704,12 @@ export class AfcService {
       const entryRelativePath = relativePath
         ? path.posix.join(relativePath, entry)
         : entry;
+      const localEntryName = await localNames.allocate(localDirPath, entry);
 
       if (await this.isdir(entryPath)) {
         await this._pullRecursiveInternal(
           entryPath,
-          path.join(localDirPath, entry),
+          path.join(localDirPath, localEntryName),
           options,
           entryRelativePath,
         );
@@ -690,11 +720,7 @@ export class AfcService {
 
         await ensureLocalDir();
 
-        const targetPath = path.join(localDirPath, entry);
-        if (!overwrite && (await this._localPathExists(targetPath))) {
-          throw new Error(`Local file already exists: ${targetPath}`);
-        }
-
+        const targetPath = path.join(localDirPath, localEntryName);
         await this._pullFile(entryPath, targetPath);
 
         if (onPullProgress) {
