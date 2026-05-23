@@ -1,3 +1,9 @@
+## [2.1.1](https://github.com/appium/appium-ios-remotexpc/compare/v2.1.0...v2.1.1) (2026-05-23)
+
+### Bug Fixes
+
+* Log a warning if mDNS query sending fails ([#223](https://github.com/appium/appium-ios-remotexpc/issues/223)) ([6fcdaa9](https://github.com/appium/appium-ios-remotexpc/commit/6fcdaa9fb2a34d9464ddeb6a8de1713481eac656))
+
 ## [2.1.0](https://github.com/appium/appium-ios-remotexpc/compare/v2.0.3...v2.1.0) (2026-05-22)
 
 ### Features
