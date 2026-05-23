@@ -1,3 +1,5 @@
+import { util } from '@appium/support';
+
 import { getLogger } from '../../../lib/logger.js';
 import { PlistServiceDecoder } from '../../../lib/plist/plist-decoder.js';
 import type {
@@ -219,8 +221,7 @@ class DiagnosticsService
     const response = await conn.sendPlistRequest(request, timeout);
 
     if (
-      response &&
-      typeof response === 'object' &&
+      util.isPlainObject(response) &&
       'Status' in response &&
       response.Status !== 'Success'
     ) {
@@ -237,9 +238,9 @@ class DiagnosticsService
    */
   private extractIORegistry(response: any): Record<string, any> | null {
     const diagnostics = response?.Diagnostics;
-    if (diagnostics && typeof diagnostics === 'object') {
+    if (util.isPlainObject(diagnostics)) {
       const ioRegistry = diagnostics.IORegistry;
-      if (ioRegistry && typeof ioRegistry === 'object') {
+      if (util.isPlainObject(ioRegistry)) {
         return ioRegistry as Record<string, any>;
       }
     }
