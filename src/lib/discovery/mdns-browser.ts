@@ -263,12 +263,23 @@ function dedupeSrvEntries(entries: SrvEntry[]): SrvEntry[] {
   return unique;
 }
 
+function logMdnsQuerySendError(err: Error | null): void {
+  if (!err) {
+    return;
+  }
+  log.warn(
+    `Failed to send mDNS query to ${MDNS_MCAST_V4}:${MDNS_PORT}: ${
+      err instanceof Error ? err.message : String(err)
+    }`,
+  );
+}
+
 function sendQueryAll(handles: MdnsSocketHandle[], packet: Buffer): void {
   for (const { socket, family } of handles) {
     if (family !== 'ipv4') {
       continue;
     }
-    socket.send(packet, MDNS_PORT, MDNS_MCAST_V4);
+    socket.send(packet, MDNS_PORT, MDNS_MCAST_V4, logMdnsQuerySendError);
   }
 }
 
