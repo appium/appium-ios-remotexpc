@@ -1,3 +1,9 @@
+## [2.1.2](https://github.com/appium/appium-ios-remotexpc/compare/v2.1.1...v2.1.2) (2026-05-23)
+
+### Code Refactoring
+
+* improve IORegistry query handling in DiagnosticService ([#222](https://github.com/appium/appium-ios-remotexpc/issues/222)) ([79a8b2c](https://github.com/appium/appium-ios-remotexpc/commit/79a8b2c265338cf897ab8e563c6697f2a0b2b324))
+
 ## [2.1.1](https://github.com/appium/appium-ios-remotexpc/compare/v2.1.0...v2.1.1) (2026-05-23)
 
 ### Bug Fixes
