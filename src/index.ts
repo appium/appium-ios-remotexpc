@@ -84,8 +84,8 @@ export { NetworkMessageType } from './services/ios/dvt/instruments/network-monit
 export {
   TunnelAvailabilityError,
   getTunnelForDevice,
-  withRemoteXpcConnection,
-} from './services.js';
+} from './lib/tunnel/tunnel-availability.js';
+export { withRemoteXpcConnection } from './services.js';
 export type { TunnelEndpoint } from './lib/tunnel/tunnel-api-client.js';
 export { XCTestConfigurationEncoder } from './services/ios/testmanagerd/xctestconfiguration.js';
 export type { XCTestConfigurationParams } from './services/ios/testmanagerd/xctestconfiguration.js';

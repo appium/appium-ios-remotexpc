@@ -1,11 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { match } from 'path-to-regexp';
 
-/**
- * Base URL path for the tunnel registry HTTP API.
- */
-export const TUNNEL_REGISTRY_API_BASE_PATH = '/remotexpc/tunnels';
-
 export type RouteHandler = (
   req: IncomingMessage,
   res: ServerResponse,
