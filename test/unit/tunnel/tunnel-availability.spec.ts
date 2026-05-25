@@ -98,6 +98,15 @@ describe('tunnel-availability', function () {
     );
   });
 
+  it('throws when tunnel registry port is not a valid TCP port', async function () {
+    const mod = await loadTunnelAvailability({ tunnelRegistryPort: '70000' });
+    await expectTunnelAvailabilityError(
+      async () => await mod.getTunnelForDevice(TEST_UDID),
+      'Tunnel registry port "70000" is invalid; expected an integer between 1 and 65535',
+      mod.TunnelAvailabilityError,
+    );
+  });
+
   it('throws quickly when registry TCP port refuses connections', async function () {
     const mod = await loadTunnelAvailability({
       tunnelRegistryPort: String(REGISTRY_PORT),

@@ -9,23 +9,16 @@ import {
   TUNNEL_REGISTRY_HTTP_TIMEOUT_MS,
   TUNNEL_REGISTRY_PORT_PROBE_TIMEOUT_MS,
 } from './constants.js';
+import { TunnelAvailabilityError } from './errors.js';
 import {
   TunnelApiClient,
   type TunnelApiClientOptions,
   type TunnelEndpoint,
 } from './tunnel-api-client.js';
 
+export { TunnelAvailabilityError };
+
 const TUNNEL_REGISTRY_PORT = 'tunnelRegistryPort';
-
-export class TunnelAvailabilityError extends Error {
-  readonly code = 'ERR_TUNNEL_AVAILABILITY';
-
-  constructor(message: string, options?: { cause?: unknown }) {
-    super(message, options);
-    this.name = new.target.name;
-    Object.setPrototypeOf(this, new.target.prototype);
-  }
-}
 
 /**
  * Resolve tunnel registry metadata for a device (host, RSD port, packet stream).
@@ -36,17 +29,7 @@ export async function getTunnelForDevice(
   udid: string,
 ): Promise<TunnelEndpoint> {
   const client = await createValidatedStrictRegistryClient();
-
-  let entry: TunnelRegistryEntry | null;
-  try {
-    entry = await client.getTunnelByUdid(udid);
-  } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
-    throw new TunnelAvailabilityError(
-      `Failed to reach tunnel registry: ${detail}`,
-      { cause: err },
-    );
-  }
+  const entry = await client.getTunnelByUdid(udid);
 
   if (!entry) {
     throw new TunnelAvailabilityError(
@@ -67,20 +50,12 @@ export async function getTunnelForDevice(
  */
 export async function getAvailableDevices(): Promise<string[]> {
   const client = await createValidatedStrictRegistryClient();
-  try {
-    return await client.getAvailableDevices();
-  } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
-    throw new TunnelAvailabilityError(
-      `Failed to reach tunnel registry: ${detail}`,
-      { cause: err },
-    );
-  }
+  return await client.getAvailableDevices();
 }
 
 /**
  * Read the tunnel registry HTTP port from strongbox.
- * @throws {TunnelAvailabilityError} When the port was never stored (tunnel-creation not run).
+ * @throws {TunnelAvailabilityError} When the port was never stored or is not a valid TCP port.
  */
 async function readTunnelRegistryPort(): Promise<number> {
   const box = strongbox(TUNNEL_CONTAINER_NAME);
@@ -94,7 +69,14 @@ async function readTunnelRegistryPort(): Promise<number> {
       'Tunnel registry port not found. Please run the tunnel creation script first',
     );
   }
-  return Number.parseInt(String(tunnelRegistryPort), 10);
+  const stored = String(tunnelRegistryPort).trim();
+  const port = Number.parseInt(stored, 10);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new TunnelAvailabilityError(
+      `Tunnel registry port "${stored}" is invalid; expected an integer between 1 and 65535`,
+    );
+  }
+  return port;
 }
 
 /**

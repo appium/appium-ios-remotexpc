@@ -1,5 +1,6 @@
 import { getLogger } from '../logger.js';
 import type { TunnelRegistry, TunnelRegistryEntry } from '../types.js';
+import { TunnelAvailabilityError } from './errors.js';
 
 const log = getLogger('TunnelApiClient');
 
@@ -70,7 +71,9 @@ export class TunnelApiClient {
       const response = await this.fetchWithTimeout(this.apiBaseUrl);
 
       if (!response.ok) {
-        throw new Error(`API request failed with status: ${response.status}`);
+        throw new TunnelAvailabilityError(
+          `Failed to fetch tunnel registry from API: HTTP ${response.status}`,
+        );
       }
 
       return (await response.json()) as TunnelRegistry;
@@ -96,7 +99,9 @@ export class TunnelApiClient {
       }
 
       if (!response.ok) {
-        throw new Error(`API request failed with status: ${response.status}`);
+        throw new TunnelAvailabilityError(
+          `Failed to fetch tunnel for UDID ${udid}: HTTP ${response.status}`,
+        );
       }
 
       return (await response.json()) as TunnelRegistryEntry;
@@ -124,7 +129,9 @@ export class TunnelApiClient {
       }
 
       if (!response.ok) {
-        throw new Error(`API request failed with status: ${response.status}`);
+        throw new TunnelAvailabilityError(
+          `Failed to fetch tunnel for device ID ${deviceId}: HTTP ${response.status}`,
+        );
       }
 
       return (await response.json()) as TunnelRegistryEntry;
@@ -261,18 +268,30 @@ export class TunnelApiClient {
   }
 
   /**
-   * On strict: throws Error with message and cause. Otherwise logs and returns.
+   * On strict: throws {@link TunnelAvailabilityError} with message and cause.
+   * Otherwise logs and returns.
    */
   private handleFetchError(
     messagePrefix: string,
     error: unknown,
     logLevel: 'warn' | 'error' = 'warn',
   ): void {
+    if (error instanceof TunnelAvailabilityError) {
+      if (this.strict) {
+        throw error;
+      }
+      this.logFetchFailure(error.message, logLevel);
+      return;
+    }
     const detail = error instanceof Error ? error.message : String(error);
     const message = `${messagePrefix}: ${detail}`;
     if (this.strict) {
-      throw new Error(message, { cause: error });
+      throw new TunnelAvailabilityError(message, { cause: error });
     }
+    this.logFetchFailure(message, logLevel);
+  }
+
+  private logFetchFailure(message: string, logLevel: 'warn' | 'error'): void {
     if (logLevel === 'error') {
       log.error(message);
     } else {
@@ -293,12 +312,19 @@ export class TunnelApiClient {
       });
       return response;
     } catch (error) {
+      if (error instanceof TunnelAvailabilityError) {
+        throw error;
+      }
       if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error(
+        throw new TunnelAvailabilityError(
           `Tunnel registry request timed out after ${this.timeoutMs}ms`,
+          { cause: error },
         );
       }
-      throw error;
+      throw new TunnelAvailabilityError(
+        `Tunnel registry request failed for ${url}`,
+        { cause: error },
+      );
     } finally {
       clearTimeout(timeoutId);
     }
