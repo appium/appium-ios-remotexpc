@@ -1,3 +1,9 @@
+## [2.2.0](https://github.com/appium/appium-ios-remotexpc/compare/v2.1.2...v2.2.0) (2026-05-25)
+
+### Features
+
+* Fail fast if a tunnel registry is not running ([#224](https://github.com/appium/appium-ios-remotexpc/issues/224)) ([9c5907b](https://github.com/appium/appium-ios-remotexpc/commit/9c5907be76acfe7ef74dcab799ec0b89bc95f1ff))
+
 ## [2.1.2](https://github.com/appium/appium-ios-remotexpc/compare/v2.1.1...v2.1.2) (2026-05-23)
 
 ### Code Refactoring
