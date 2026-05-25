@@ -35,13 +35,12 @@ async function loadServices(
 async function expectTunnelAvailabilityError(
   action: () => Promise<unknown>,
   expectedMessage: string,
-  services: { TunnelAvailabilityError: new (...args: any[]) => Error },
 ) {
   try {
     await action();
     expect.fail('Expected action to throw');
   } catch (err) {
-    expect(err).to.be.instanceOf(services.TunnelAvailabilityError);
+    expect(err).to.be.instanceOf(MockTunnelAvailabilityError);
     expect((err as Error).message).to.equal(expectedMessage);
     expect((err as { code?: string }).code).to.equal('ERR_TUNNEL_AVAILABILITY');
   }
@@ -53,7 +52,6 @@ describe('TunnelAvailabilityError', function () {
     await expectTunnelAvailabilityError(
       async () => await services.getAvailableDevices(),
       'Tunnel registry port not found. Please run the tunnel creation script first',
-      services,
     );
   });
 
@@ -68,7 +66,6 @@ describe('TunnelAvailabilityError', function () {
     await expectTunnelAvailabilityError(
       async () => await services.getTunnelForDevice('test-udid'),
       'No tunnel found for device test-udid. Please run the tunnel creation script first',
-      services,
     );
   });
 });
