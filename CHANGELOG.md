@@ -1,3 +1,21 @@
+## [2.1.2](https://github.com/appium/appium-ios-remotexpc/compare/v2.1.1...v2.1.2) (2026-05-23)
+
+### Code Refactoring
+
+* improve IORegistry query handling in DiagnosticService ([#222](https://github.com/appium/appium-ios-remotexpc/issues/222)) ([79a8b2c](https://github.com/appium/appium-ios-remotexpc/commit/79a8b2c265338cf897ab8e563c6697f2a0b2b324))
+
+## [2.1.1](https://github.com/appium/appium-ios-remotexpc/compare/v2.1.0...v2.1.1) (2026-05-23)
+
+### Bug Fixes
+
+* Log a warning if mDNS query sending fails ([#223](https://github.com/appium/appium-ios-remotexpc/issues/223)) ([6fcdaa9](https://github.com/appium/appium-ios-remotexpc/commit/6fcdaa9fb2a34d9464ddeb6a8de1713481eac656))
+
+## [2.1.0](https://github.com/appium/appium-ios-remotexpc/compare/v2.0.3...v2.1.0) (2026-05-22)
+
+### Features
+
+* Unify dnssd discovery ([#221](https://github.com/appium/appium-ios-remotexpc/issues/221)) ([68470b9](https://github.com/appium/appium-ios-remotexpc/commit/68470b9283b58faf687ddfd4d4c08d523f88781a))
+
 ## [2.0.3](https://github.com/appium/appium-ios-remotexpc/compare/v2.0.2...v2.0.3) (2026-05-22)
 
 ### Bug Fixes

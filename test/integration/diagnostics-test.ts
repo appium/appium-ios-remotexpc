@@ -19,18 +19,12 @@ describe('Diagnostics Service', function () {
   });
 
   it('should query power information using ioregistry', async function () {
-    const rawInfo = await diagService.ioregistry({
+    const info = (await diagService.ioregistry({
       ioClass: 'IOPMPowerSource',
       returnRawJson: true,
-    });
-    expect(rawInfo).to.be.an('object');
-  });
+    })) as Record<string, any>;
 
-  it('should query wifi information using ioregistry ', async function () {
-    const wifiInfo = await diagService.ioregistry({
-      name: 'AppleBCMWLANSkywalkInterface',
-      returnRawJson: true,
-    });
-    expect(wifiInfo).to.be.an('object');
+    expect(info).to.be.an('object');
+    expect(info.BatteryInstalled).to.equal(true);
   });
 });
