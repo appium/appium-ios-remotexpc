@@ -1,14 +1,8 @@
-import { BaseItem, strongbox } from '@appium/strongbox';
-
-import { TUNNEL_CONTAINER_NAME } from './constants.js';
 import { getLogger } from './lib/logger.js';
 import type { RemoteXpcConnection } from './lib/remote-xpc/remote-xpc-connection.js';
 import { TunnelManager, rsdSessionLockKey } from './lib/tunnel/index.js';
-import {
-  TunnelApiClient,
-  type TunnelApiClientOptions,
-  type TunnelEndpoint,
-} from './lib/tunnel/tunnel-api-client.js';
+import type { TunnelEndpoint } from './lib/tunnel/tunnel-api-client.js';
+import { getTunnelForDevice } from './lib/tunnel/tunnel-availability.js';
 import type {
   DVTInstruments,
   SyslogService as SyslogServiceType,
@@ -40,21 +34,15 @@ import SyslogService from './services/ios/syslog-service/index.js';
 import { DvtTestmanagedProxyService } from './services/ios/testmanagerd/index.js';
 import { WebInspectorService } from './services/ios/webinspector/index.js';
 
-const TUNNEL_REGISTRY_PORT = 'tunnelRegistryPort';
 const log = getLogger('Services');
 
 /** Pause after closing discovery RSD so device `remoted` can accept the next session. */
 const RSD_RELEASE_DELAY_MS = 300;
 
-export class TunnelAvailabilityError extends Error {
-  readonly code = 'ERR_TUNNEL_AVAILABILITY';
-
-  constructor(message: string) {
-    super(message);
-    this.name = new.target.name;
-    Object.setPrototypeOf(this, new.target.prototype);
-  }
-}
+export {
+  getAvailableDevices,
+  getTunnelForDevice,
+} from './lib/tunnel/tunnel-availability.js';
 
 /**
  * Start the diagnostics service for the given device UDID.
@@ -444,45 +432,6 @@ export async function startXCTestServices(
 }
 
 /**
- * Returns the list of device UDIDs currently in the tunnel registry.
- * Used to include tunnel-only devices (e.g. Apple TV over WiFi)
- * in the "connected devices" list for session validation.
- *
- * @returns Promise resolving to an array of UDIDs. Returns [] only when the
- * registry is reachable and reports no tunnels.
- * @throws When tunnel registry port is missing or empty in strongbox.
- * @throws When registry is unreachable or response is invalid.
- */
-export async function getAvailableDevices(): Promise<string[]> {
-  const client = await getTunnelRegistryClient({ strict: true });
-  return await client.getAvailableDevices();
-}
-
-/**
- * Resolve tunnel registry metadata for a device (host, RSD port, packet stream).
- * Does not open a discovery `RemoteXpcConnection`; use {@link withRemoteXpcConnection}
- * when service ports must be looked up via RSD.
- */
-export async function getTunnelForDevice(
-  udid: string,
-): Promise<TunnelEndpoint> {
-  const tunnelApiClient = await getTunnelRegistryClient();
-  const tunnelExists = await tunnelApiClient.hasTunnel(udid);
-  if (!tunnelExists) {
-    throw new TunnelAvailabilityError(
-      `No tunnel found for device ${udid}. Please run the tunnel creation script first`,
-    );
-  }
-  const tunnelConnection = await tunnelApiClient.getTunnelConnection(udid);
-  if (!tunnelConnection) {
-    throw new TunnelAvailabilityError(
-      `Failed to get tunnel connection details for device ${udid}`,
-    );
-  }
-  return tunnelConnection;
-}
-
-/**
  * Run `fn` with a freshly opened discovery `RemoteXpcConnection` and close
  * that connection unconditionally when `fn` settles. Use this whenever a
  * `start*Service` helper only needs the RSD to discover a service port:
@@ -548,30 +497,3 @@ async function startSyslogWithServiceName(
     serviceDescriptor: remoteXPC.findService(serviceName),
   }));
 }
-
-// #region Private Functions
-
-/**
- * Build a tunnel registry API client from the stored registry port.
- */
-async function getTunnelRegistryClient(
-  options: TunnelApiClientOptions = {},
-): Promise<TunnelApiClient> {
-  const box = strongbox(TUNNEL_CONTAINER_NAME);
-  const item = new BaseItem(TUNNEL_REGISTRY_PORT, box);
-  const tunnelRegistryPort = await item.read();
-  if (
-    tunnelRegistryPort === undefined ||
-    String(tunnelRegistryPort).trim() === ''
-  ) {
-    throw new TunnelAvailabilityError(
-      'Tunnel registry port not found. Please run the tunnel creation script first',
-    );
-  }
-  return new TunnelApiClient(
-    `http://127.0.0.1:${tunnelRegistryPort}/remotexpc/tunnels`,
-    options,
-  );
-}
-
-// #endregion

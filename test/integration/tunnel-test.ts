@@ -5,9 +5,9 @@ import {
   PacketStreamClient,
   TunnelManager,
 } from '../../src/lib/tunnel/index.js';
+import { getTunnelForDevice } from '../../src/lib/tunnel/tunnel-availability.js';
 import type { SyslogService as ISyslogService } from '../../src/lib/types.js';
 import {
-  getTunnelForDevice,
   startSyslogBinaryService,
   startSyslogTextService,
 } from '../../src/services.js';

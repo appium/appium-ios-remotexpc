@@ -2,9 +2,9 @@ import * as http from 'node:http';
 
 import { getLogger } from '../logger.js';
 import type { TunnelRegistry, TunnelRegistryEntry } from '../types.js';
+import { TUNNEL_REGISTRY_API_BASE_PATH } from './constants.js';
 import {
   type RouteRecord,
-  TUNNEL_REGISTRY_API_BASE_PATH,
   createRouteDispatcher,
   getRequestPathname,
 } from './tunnel-registry-routes.js';

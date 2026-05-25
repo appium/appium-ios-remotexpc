@@ -51,14 +51,15 @@ async function loadServicesWithStubs(
         }
       },
     },
-    '../../../src/lib/tunnel/tunnel-api-client.js': {
-      TunnelApiClient: class {
-        async hasTunnel() {
-          return true;
-        }
-        async getTunnelConnection() {
-          return { host: '127.0.0.1', port: 1234 };
-        }
+    '../../../src/lib/tunnel/tunnel-availability.js': {
+      getTunnelForDevice: async () => ({
+        host: '127.0.0.1',
+        port: 1234,
+        udid: 'test-udid',
+        packetStreamPort: undefined as number | undefined,
+      }),
+      TunnelAvailabilityError: class extends Error {
+        readonly code = 'ERR_TUNNEL_AVAILABILITY';
       },
     },
     '../../../src/lib/tunnel/index.js': {
@@ -166,6 +167,71 @@ describe('start*Service — discovery RemoteXpcConnection lifecycle', function (
         findServiceStub.calledOnceWith('com.apple.os_trace_relay.shim.remote'),
         'expected findService("com.apple.os_trace_relay.shim.remote")',
       ).to.equal(true);
+    });
+  });
+
+  describe('tunnel lookup failure', function () {
+    it('does not open RSD when tunnel resolution fails', async function () {
+      const connectSpy = sinon.spy();
+      const remoteXPCStub: RemoteXpcStub = {
+        findService: sinon.stub(),
+        close: sinon.spy(),
+      };
+
+      const services = await esmock('../../../src/services.js', {
+        '@appium/strongbox': {
+          strongbox: () => ({}),
+          BaseItem: class {
+            async read() {
+              return '12345';
+            }
+          },
+        },
+        '../../../src/lib/tunnel/tunnel-availability.js': {
+          TunnelAvailabilityError: class extends Error {
+            readonly code = 'ERR_TUNNEL_AVAILABILITY';
+            constructor(message: string) {
+              super(message);
+              this.name = 'TunnelAvailabilityError';
+            }
+          },
+          getTunnelForDevice: async () => {
+            throw new (class extends Error {
+              readonly code = 'ERR_TUNNEL_AVAILABILITY';
+              constructor() {
+                super(
+                  'No tunnel found for device test-udid. Please run the tunnel creation script first',
+                );
+              }
+            })();
+          },
+        },
+        '../../../src/lib/tunnel/index.js': {
+          TunnelManager: {
+            rsdSessionLockKey: (host: string, port: number) =>
+              `${host}:${port}`,
+            runSerializedRsdSession: async (
+              _lockKey: string,
+              fn: () => Promise<unknown>,
+            ) => fn(),
+            connectRemoteXPCUnlocked: connectSpy,
+          },
+        },
+      });
+
+      let caught: Error | undefined;
+      try {
+        await services.startAfcService('test-udid');
+      } catch (err) {
+        caught = err as Error;
+      }
+
+      expect(caught, 'expected tunnel lookup to fail').to.exist;
+      expect(
+        connectSpy.called,
+        'connectRemoteXPCUnlocked must not run when tunnel lookup fails',
+      ).to.equal(false);
+      expect(remoteXPCStub.close.called).to.equal(false);
     });
   });
 
