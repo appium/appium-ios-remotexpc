@@ -1,5 +1,7 @@
+import { BaseItem, strongbox } from '@appium/strongbox';
 import * as http from 'node:http';
 
+import { TUNNEL_CONTAINER_NAME } from '../../constants.js';
 import { getLogger } from '../logger.js';
 import type { TunnelRegistry, TunnelRegistryEntry } from '../types.js';
 import { TUNNEL_REGISTRY_API_BASE_PATH } from './constants.js';
@@ -391,6 +393,9 @@ export async function startTunnelRegistryServer(
 ): Promise<TunnelRegistryServer> {
   const server = new TunnelRegistryServer(tunnelInfos, port);
   await server.start();
+  const box = strongbox(TUNNEL_CONTAINER_NAME);
+  const item = new BaseItem('tunnelRegistryPort', box);
+  await item.write(String(port));
   return server;
 }
 
