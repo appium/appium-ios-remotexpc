@@ -1,3 +1,9 @@
+## [2.2.1](https://github.com/appium/appium-ios-remotexpc/compare/v2.2.0...v2.2.1) (2026-05-26)
+
+### Miscellaneous Chores
+
+* **tunnel:** persist tunnel port to strongBox ([#225](https://github.com/appium/appium-ios-remotexpc/issues/225)) ([33e07de](https://github.com/appium/appium-ios-remotexpc/commit/33e07de3a3b83452e96f2479bef8eb5d8001e96b))
+
 ## [2.2.0](https://github.com/appium/appium-ios-remotexpc/compare/v2.1.2...v2.2.0) (2026-05-25)
 
 ### Features
