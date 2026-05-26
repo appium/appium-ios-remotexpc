@@ -393,9 +393,14 @@ export async function startTunnelRegistryServer(
 ): Promise<TunnelRegistryServer> {
   const server = new TunnelRegistryServer(tunnelInfos, port);
   await server.start();
-  const box = strongbox(TUNNEL_CONTAINER_NAME);
-  const item = new BaseItem('tunnelRegistryPort', box);
-  await item.write(String(port));
+  try {
+    const box = strongbox(TUNNEL_CONTAINER_NAME);
+    const item = new BaseItem('tunnelRegistryPort', box);
+    await item.write(String(port));
+  } catch (err) {
+    await server.stop();
+    throw err;
+  }
   return server;
 }
 
