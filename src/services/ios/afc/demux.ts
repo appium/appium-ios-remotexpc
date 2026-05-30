@@ -102,12 +102,17 @@ export class AfcPacketDemux {
     try {
       await this._readerLoop(socket);
     } catch (err) {
+      if (!this._isCurrentReader(socket)) {
+        return;
+      }
       this._failPending(
         err instanceof Error ? err : new Error(String(err)),
         true,
       );
     } finally {
-      this.readerActive = false;
+      if (this.readerSocket === socket) {
+        this.readerActive = false;
+      }
     }
   }
 
@@ -191,7 +196,7 @@ export class AfcPacketDemux {
         }
       }
     } catch (err) {
-      if (this.stopped) {
+      if (!this._isCurrentReader(socket)) {
         return;
       }
       const error =
@@ -201,6 +206,11 @@ export class AfcPacketDemux {
       }
       throw error;
     }
+  }
+
+  /** True while this socket owns the background reader task. */
+  private _isCurrentReader(socket: net.Socket): boolean {
+    return !this.stopped && this.readerSocket === socket;
   }
 
   private _failPending(err: Error, notifyService: boolean): void {

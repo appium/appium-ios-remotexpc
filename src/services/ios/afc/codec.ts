@@ -227,12 +227,22 @@ export async function writeBufferToSocket(
       cleanup();
       reject(err);
     };
+    const onClosed = () => {
+      cleanup();
+      reject(
+        new AfcConnectionError('AFC socket closed while waiting for drain'),
+      );
+    };
     const cleanup = () => {
       socket.off('drain', onDrain);
       socket.off('error', onError);
+      socket.off('close', onClosed);
+      socket.off('end', onClosed);
     };
     socket.once('drain', onDrain);
     socket.once('error', onError);
+    socket.once('close', onClosed);
+    socket.once('end', onClosed);
   });
 }
 
