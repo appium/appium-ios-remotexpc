@@ -785,10 +785,10 @@ export class DvtTestmanagedProxyService extends BaseService {
       return this.parseAuxiliaryStandard(buffer);
     }
 
-    // Alternate format used by go-ios / iOS 17+ testmanagerd callbacks:
+    // Alternate format used by iOS 17+ testmanagerd callbacks:
     // The first 16 bytes are an AuxiliaryHeader (magic + length) that does
     // not match the standard MESSAGE_AUX_MAGIC. The remaining bytes are
-    // DTX PrimitiveDictionary key-value pairs (see go-ios dtx.go).
+    // DTX PrimitiveDictionary key-value pairs.
     const result = this.parseAuxiliaryPrimitiveDictionary(buffer.subarray(16));
     if (result.length === 0) {
       log.debug(
