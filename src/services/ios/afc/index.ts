@@ -20,16 +20,10 @@ import {
   nanosecondsToMilliseconds,
   parseCStringArray,
   parseKeyValueNullList,
-  readAfcResponse,
-  sendAfcPacket,
   writeUInt64LE,
 } from './codec.js';
-import {
-  AFC_FOPEN_TEXTUAL_MODES,
-  AFC_LOCK_EX,
-  AFC_LOCK_UN,
-  AFC_WRITE_THIS_LENGTH,
-} from './constants.js';
+import { AFC_FOPEN_TEXTUAL_MODES, MAXIMUM_WRITE_SIZE } from './constants.js';
+import { AfcPacketDemux } from './demux.js';
 import { AfcError, AfcFileMode, AfcOpcode } from './enums.js';
 import { AfcConnectionError } from './errors.js';
 import { PullLocalNameAllocator } from './pull-local-name-allocator.js';
@@ -95,7 +89,7 @@ export class AfcService {
   static readonly RSD_SERVICE_NAME = 'com.apple.afc.shim.remote';
 
   private socket: net.Socket | null = null;
-  private packetNum: bigint = 0n;
+  private demux: AfcPacketDemux | null = null;
   private silent: boolean = false;
   /** Set when the AFC byte stream is no longer safe to reuse on this instance. */
   private connectionError: Error | null = null;
@@ -218,19 +212,14 @@ export class AfcService {
   }
 
   createReadStream(handle: bigint, size: bigint): Readable {
-    return createAfcReadStream(
-      handle,
-      size,
-      this._dispatch.bind(this),
-      this._receive.bind(this),
-    );
+    return createAfcReadStream(handle, size, this._sendAndWait.bind(this));
   }
 
   createWriteStream(handle: bigint, chunkSize?: number): Writable {
     return createAfcWriteStream(
       handle,
-      this._dispatch.bind(this),
-      this._receive.bind(this),
+      (handlePayload, content) =>
+        this._sendAndWait(AfcOpcode.WRITE, handlePayload, content),
       chunkSize,
     );
   }
@@ -262,12 +251,11 @@ export class AfcService {
       const chunk = data.subarray(offset, end);
       chunkCount++;
 
-      await this._dispatch(
+      const { status } = await this._sendAndWait(
         AfcOpcode.WRITE,
-        Buffer.concat([writeUInt64LE(handle), chunk]),
-        AFC_WRITE_THIS_LENGTH,
+        writeUInt64LE(handle),
+        chunk,
       );
-      const { status } = await this._receive();
       if (status !== AfcError.SUCCESS) {
         const errorName = AfcError[status] || 'UNKNOWN';
         if (!this.silent) {
@@ -312,15 +300,13 @@ export class AfcService {
   async setFileContents(filePath: string, data: Buffer): Promise<void> {
     log.debug(`Writing ${data.length} bytes to file: ${filePath}`);
     const h = await this.fopen(filePath, 'w');
-    await this._lockFile(h);
     try {
-      await this.fwrite(h, data);
+      await this.fwrite(h, data, MAXIMUM_WRITE_SIZE);
       log.debug(`Successfully wrote file: ${filePath}`);
     } catch (error) {
       await this.rmSingle(filePath, true);
       throw error;
     } finally {
-      await this._unlockFile(h);
       await this.fclose(h);
     }
   }
@@ -345,7 +331,6 @@ export class AfcService {
   async writeFromStream(filePath: string, stream: Readable): Promise<void> {
     log.debug(`Writing stream to file: ${filePath}`);
     const handle = await this.fopen(filePath, 'w');
-    await this._lockFile(handle);
     const writeStream = this.createWriteStream(handle);
     try {
       await pipeline(stream, writeStream);
@@ -354,7 +339,6 @@ export class AfcService {
       await this.rmSingle(filePath, true);
       throw error;
     } finally {
-      await this._unlockFile(handle);
       await this.fclose(handle);
     }
   }
@@ -548,7 +532,9 @@ export class AfcService {
 
   async push(localSrc: string, remoteDst: string): Promise<void> {
     log.debug(`Pushing file from '${localSrc}' to '${remoteDst}'`);
-    const readStream = fs.createReadStream(localSrc);
+    const readStream = fs.createReadStream(localSrc, {
+      highWaterMark: MAXIMUM_WRITE_SIZE,
+    });
     await this.writeFromStream(remoteDst, readStream);
     log.debug(`Successfully pushed file to '${remoteDst}'`);
   }
@@ -580,6 +566,8 @@ export class AfcService {
    */
   close(): void {
     log.debug('Closing AFC service connection');
+    this.demux?.stop();
+    this.demux = null;
     const socket = this.socket;
     this.socket = null;
     this.connectionError = null;
@@ -791,16 +779,48 @@ export class AfcService {
     }
   }
 
+  private _getDemux(): AfcPacketDemux {
+    if (!this.demux) {
+      this.demux = new AfcPacketDemux(
+        async () => await this._connect(),
+        (err) => this._markConnectionDead(err),
+      );
+    }
+    return this.demux;
+  }
+
+  private async _sendAndWait(
+    op: AfcOpcode,
+    headerPayload: Buffer = Buffer.alloc(0),
+    content: Buffer = Buffer.alloc(0),
+  ): Promise<{ status: AfcError; data: Buffer }> {
+    return await this._withAfcConnection(async () =>
+      this._getDemux().sendAndWait(op, headerPayload, content),
+    );
+  }
+
   private async _connect(): Promise<net.Socket> {
     this._assertConnectionAlive();
     if (this.socket && !this.socket.destroyed) {
       return this.socket;
     }
+
+    const previousSocket = this.socket;
+    if (previousSocket) {
+      if (!previousSocket.destroyed) {
+        cleanupServiceSocket(previousSocket);
+        previousSocket.destroy();
+      }
+      this.demux?.resetForNewSocket();
+    }
+    this.socket = null;
+
     const [host, rsdPort] = this.address;
 
     this.socket = await createRawServiceSocket(host, rsdPort, {
       timeoutMs: 30000,
     });
+    this._getDemux().ensureReaderStarted(this.socket);
     log.debug('RSD handshake complete; switching to raw AFC');
 
     return this.socket;
@@ -818,43 +838,6 @@ export class AfcService {
     return filePath;
   }
 
-  private async _lockFile(handle: bigint): Promise<void> {
-    await this._doOperation(
-      AfcOpcode.FILE_LOCK,
-      Buffer.concat([writeUInt64LE(handle), writeUInt64LE(AFC_LOCK_EX)]),
-    );
-  }
-
-  private async _unlockFile(handle: bigint): Promise<void> {
-    try {
-      await this._doOperation(
-        AfcOpcode.FILE_LOCK,
-        Buffer.concat([writeUInt64LE(handle), writeUInt64LE(AFC_LOCK_UN)]),
-      );
-    } catch (error) {
-      log.warn(`Failed to unlock file handle ${handle}:`, error);
-    }
-  }
-
-  private async _dispatch(
-    op: AfcOpcode,
-    payload: Buffer = Buffer.alloc(0),
-    thisLenOverride?: number,
-  ): Promise<void> {
-    return await this._withAfcConnection(async () => {
-      const sock = await this._connect();
-      await sendAfcPacket(sock, op, this.packetNum++, payload, thisLenOverride);
-    });
-  }
-
-  private async _receive(): Promise<{ status: AfcError; data: Buffer }> {
-    return await this._withAfcConnection(async () => {
-      const sock = await this._connect();
-      const res = await readAfcResponse(sock);
-      return { status: res.status, data: res.data };
-    });
-  }
-
   /**
    * Send a single-operation request and parse result.
    * Throws if status != SUCCESS.
@@ -863,10 +846,8 @@ export class AfcService {
   private async _doOperation(
     op: AfcOpcode,
     payload: Buffer = Buffer.alloc(0),
-    thisLenOverride?: number,
   ): Promise<Buffer> {
-    await this._dispatch(op, payload, thisLenOverride);
-    const { status, data } = await this._receive();
+    const { status, data } = await this._sendAndWait(op, payload);
 
     if (status !== AfcError.SUCCESS) {
       const errorName = AfcError[status] || 'UNKNOWN';

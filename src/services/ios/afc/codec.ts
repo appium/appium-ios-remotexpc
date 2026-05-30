@@ -6,6 +6,7 @@ import {
   AFCMAGIC,
   AFC_HEADER_SIZE,
   AFC_OPERATION_TIMEOUT_MS,
+  MAXIMUM_READ_SIZE,
   NULL_BYTE,
 } from './constants.js';
 import { AfcError, AfcFopenMode, AfcOpcode } from './enums.js';
@@ -68,30 +69,33 @@ export function cstr(str: string): Buffer {
   return Buffer.concat([s, NULL_BYTE]);
 }
 /**
- * Build an AFC packet header for the provided operation and payload length.
+ * Build an AFC packet header with explicit entire_length and this_length values.
+ */
+export function encodeHeaderExplicit(
+  op: AfcOpcode,
+  packetNum: bigint,
+  entireLen: number,
+  thisLen: number,
+): Buffer {
+  const header = Buffer.alloc(AFC_HEADER_SIZE);
+  AFCMAGIC.copy(header, 0);
+  writeUInt64LE(BigInt(entireLen)).copy(header, 8);
+  writeUInt64LE(BigInt(thisLen)).copy(header, 16);
+  writeUInt64LE(packetNum).copy(header, 24);
+  writeUInt64LE(BigInt(op)).copy(header, 32);
+  return header;
+}
+
+/**
+ * Build an AFC packet header for a single contiguous payload after the header.
  */
 export function encodeHeader(
   op: AfcOpcode,
   packetNum: bigint,
   payloadLen: number,
-  thisLenOverride?: number,
 ): Buffer {
-  const entireLen = BigInt(AFC_HEADER_SIZE + payloadLen);
-  const thisLen = BigInt(thisLenOverride ?? AFC_HEADER_SIZE + payloadLen);
-
-  const header = Buffer.alloc(AFC_HEADER_SIZE);
-  // magic
-  AFCMAGIC.copy(header, 0);
-  // entire_length
-  writeUInt64LE(entireLen).copy(header, 8);
-  // this_length
-  writeUInt64LE(thisLen).copy(header, 16);
-  // packet_num
-  writeUInt64LE(packetNum).copy(header, 24);
-  // operation
-  writeUInt64LE(BigInt(op)).copy(header, 32);
-
-  return header;
+  const entireLen = AFC_HEADER_SIZE + payloadLen;
+  return encodeHeaderExplicit(op, packetNum, entireLen, entireLen);
 }
 
 const SOCKET_STATES = new WeakMap<net.Socket, SocketState>();
@@ -201,33 +205,64 @@ export async function readAfcResponse(
 }
 
 /**
- * Send an AFC packet (header and optional payload) to the socket.
+ * Write a buffer to the socket, waiting for drain only when the kernel buffer is full.
+ */
+export async function writeBufferToSocket(
+  socket: net.Socket,
+  data: Buffer,
+): Promise<void> {
+  assertSocketReadable(socket);
+  if (!data.length) {
+    return;
+  }
+  if (socket.write(data)) {
+    return;
+  }
+  await new Promise<void>((resolve, reject) => {
+    const onDrain = () => {
+      cleanup();
+      resolve();
+    };
+    const onError = (err: Error) => {
+      cleanup();
+      reject(err);
+    };
+    const onClosed = () => {
+      cleanup();
+      reject(
+        new AfcConnectionError('AFC socket closed while waiting for drain'),
+      );
+    };
+    const cleanup = () => {
+      socket.off('drain', onDrain);
+      socket.off('error', onError);
+      socket.off('close', onClosed);
+      socket.off('end', onClosed);
+    };
+    socket.once('drain', onDrain);
+    socket.once('error', onError);
+    socket.once('close', onClosed);
+    socket.once('end', onClosed);
+  });
+}
+
+/**
+ * Send an AFC packet as three socket writes: header, optional header payload, optional body.
+ * For FILE_WRITE, headerPayload is the 8-byte handle and content is file bytes (no memcpy).
  */
 export async function sendAfcPacket(
   socket: net.Socket,
   op: AfcOpcode,
   packetNum: bigint,
-  payload: Buffer = Buffer.alloc(0),
-  thisLenOverride?: number,
+  headerPayload: Buffer = Buffer.alloc(0),
+  content: Buffer = Buffer.alloc(0),
 ): Promise<void> {
-  const header = encodeHeader(op, packetNum, payload.length, thisLenOverride);
-  await new Promise<void>((resolve, reject) => {
-    socket.write(header, (err) => {
-      if (err) {
-        return reject(err);
-      }
-      if (payload.length) {
-        socket.write(payload, (err2) => {
-          if (err2) {
-            return reject(err2);
-          }
-          resolve();
-        });
-      } else {
-        resolve();
-      }
-    });
-  });
+  const thisLen = AFC_HEADER_SIZE + headerPayload.length;
+  const entireLen = thisLen + content.length;
+  const header = encodeHeaderExplicit(op, packetNum, entireLen, thisLen);
+  await writeBufferToSocket(socket, header);
+  await writeBufferToSocket(socket, headerPayload);
+  await writeBufferToSocket(socket, content);
 }
 
 /**
@@ -391,6 +426,7 @@ export async function createRawServiceSocket(
   const socket = await new Promise<net.Socket>((resolve, reject) => {
     const conn = net.createConnection({ host, port }, () => {
       conn.setKeepAlive(true);
+      conn.setNoDelay(true);
       resolve(conn);
     });
     conn.setTimeout(timeoutMs, () => {
@@ -415,7 +451,7 @@ export async function createRawServiceSocket(
  */
 export function nextReadChunkSize(left: bigint | number): number {
   const leftNum = typeof left === 'bigint' ? Number(left) : left;
-  return leftNum;
+  return Math.min(leftNum, MAXIMUM_READ_SIZE);
 }
 
 /**

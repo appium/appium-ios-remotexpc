@@ -3,6 +3,7 @@ import { expect } from 'chai';
 import {
   cstr,
   encodeHeader,
+  encodeHeaderExplicit,
   nanosecondsToMilliseconds,
   parseCStringArray,
   parseKeyValueNullList,
@@ -13,7 +14,6 @@ import {
   AFCMAGIC,
   AFC_FOPEN_TEXTUAL_MODES,
   AFC_HEADER_SIZE,
-  AFC_WRITE_THIS_LENGTH,
 } from '../../../src/services/ios/afc/constants.js';
 import { AfcFopenMode } from '../../../src/services/ios/afc/enums.js';
 
@@ -59,10 +59,14 @@ describe('AFC Codec Utilities', function () {
     expect(Number(opcode)).to.equal(Number(op));
   });
 
-  it('should support WRITE-specific this_length override', function () {
-    const hdr = encodeHeader(0x10 /* WRITE */, 0n, 64, AFC_WRITE_THIS_LENGTH);
-    const thisLen = readUInt64LE(hdr, 16);
-    expect(Number(thisLen)).to.equal(AFC_WRITE_THIS_LENGTH);
+  it('should support WRITE-specific this_length for split payloads', function () {
+    const handleLen = 8;
+    const contentLen = 64;
+    const thisLen = AFC_HEADER_SIZE + handleLen;
+    const entireLen = thisLen + contentLen;
+    const hdr = encodeHeaderExplicit(0x10 /* WRITE */, 0n, entireLen, thisLen);
+    expect(Number(readUInt64LE(hdr, 8))).to.equal(entireLen);
+    expect(Number(readUInt64LE(hdr, 16))).to.equal(thisLen);
   });
 
   it('should encode C-string with trailing null', function () {
@@ -96,11 +100,11 @@ describe('AFC Codec Utilities', function () {
   });
 
   it('should map textual fopen modes correctly', function () {
-    expect(AFC_FOPEN_TEXTUAL_MODES['r']).to.equal(AfcFopenMode.RDONLY);
+    expect(AFC_FOPEN_TEXTUAL_MODES.r).to.equal(AfcFopenMode.RDONLY);
     expect(AFC_FOPEN_TEXTUAL_MODES['r+']).to.equal(AfcFopenMode.RW);
-    expect(AFC_FOPEN_TEXTUAL_MODES['w']).to.equal(AfcFopenMode.WRONLY);
+    expect(AFC_FOPEN_TEXTUAL_MODES.w).to.equal(AfcFopenMode.WRONLY);
     expect(AFC_FOPEN_TEXTUAL_MODES['w+']).to.equal(AfcFopenMode.WR);
-    expect(AFC_FOPEN_TEXTUAL_MODES['a']).to.equal(AfcFopenMode.APPEND);
+    expect(AFC_FOPEN_TEXTUAL_MODES.a).to.equal(AfcFopenMode.APPEND);
     expect(AFC_FOPEN_TEXTUAL_MODES['a+']).to.equal(AfcFopenMode.RDAPPEND);
   });
 
