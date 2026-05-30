@@ -47,16 +47,7 @@ export class AfcPacketDemux {
     }
     this.readerSocket = socket;
     this.readerActive = true;
-    this.readerTask = this._readerLoop(socket)
-      .catch((err) => {
-        this._failPending(
-          err instanceof Error ? err : new Error(String(err)),
-          true,
-        );
-      })
-      .finally(() => {
-        this.readerActive = false;
-      });
+    this.readerTask = this._runReaderLoop(socket);
   }
 
   /**
@@ -110,13 +101,25 @@ export class AfcPacketDemux {
     this.readerActive = false;
   }
 
+  private async _runReaderLoop(socket: net.Socket): Promise<void> {
+    try {
+      await this._readerLoop(socket);
+    } catch (err) {
+      this._failPending(
+        err instanceof Error ? err : new Error(String(err)),
+        true,
+      );
+    } finally {
+      this.readerActive = false;
+    }
+  }
+
   private async _sendLocked<T>(fn: () => Promise<T>): Promise<T> {
+    const previous = this.sendLock;
     let release!: () => void;
-    const turn = new Promise<void>((resolve) => {
+    this.sendLock = new Promise<void>((resolve) => {
       release = resolve;
     });
-    const previous = this.sendLock;
-    this.sendLock = previous.then(() => turn);
     await previous;
     try {
       return await fn();
