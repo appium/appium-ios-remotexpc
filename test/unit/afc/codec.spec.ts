@@ -100,11 +100,11 @@ describe('AFC Codec Utilities', function () {
   });
 
   it('should map textual fopen modes correctly', function () {
-    expect(AFC_FOPEN_TEXTUAL_MODES['r']).to.equal(AfcFopenMode.RDONLY);
+    expect(AFC_FOPEN_TEXTUAL_MODES.r).to.equal(AfcFopenMode.RDONLY);
     expect(AFC_FOPEN_TEXTUAL_MODES['r+']).to.equal(AfcFopenMode.RW);
-    expect(AFC_FOPEN_TEXTUAL_MODES['w']).to.equal(AfcFopenMode.WRONLY);
+    expect(AFC_FOPEN_TEXTUAL_MODES.w).to.equal(AfcFopenMode.WRONLY);
     expect(AFC_FOPEN_TEXTUAL_MODES['w+']).to.equal(AfcFopenMode.WR);
-    expect(AFC_FOPEN_TEXTUAL_MODES['a']).to.equal(AfcFopenMode.APPEND);
+    expect(AFC_FOPEN_TEXTUAL_MODES.a).to.equal(AfcFopenMode.APPEND);
     expect(AFC_FOPEN_TEXTUAL_MODES['a+']).to.equal(AfcFopenMode.RDAPPEND);
   });
 

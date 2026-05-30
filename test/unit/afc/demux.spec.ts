@@ -32,14 +32,13 @@ describe('AfcPacketDemux', function () {
       Buffer.from('/Downloads\0'),
     );
 
-    const requestHeader = await readExactFromSocket(deviceSide, AFC_HEADER_SIZE);
+    const requestHeader = await readExactFromSocket(
+      deviceSide,
+      AFC_HEADER_SIZE,
+    );
     const packetNum = readUInt64LE(requestHeader, 24);
     deviceSide.write(
-      encodeResponse(
-        AfcOpcode.DATA,
-        packetNum,
-        Buffer.from('file.txt\0\0'),
-      ),
+      encodeResponse(AfcOpcode.DATA, packetNum, Buffer.from('file.txt\0\0')),
     );
 
     const { status, data } = await responseTask;
@@ -62,11 +61,16 @@ describe('AfcPacketDemux', function () {
       Buffer.from('/missing\0'),
     );
 
-    const requestHeader = await readExactFromSocket(deviceSide, AFC_HEADER_SIZE);
+    const requestHeader = await readExactFromSocket(
+      deviceSide,
+      AFC_HEADER_SIZE,
+    );
     const packetNum = readUInt64LE(requestHeader, 24);
     const statusPayload = Buffer.alloc(8);
     statusPayload.writeBigUInt64LE(BigInt(AfcError.OBJECT_NOT_FOUND), 0);
-    deviceSide.write(encodeResponse(AfcOpcode.STATUS, packetNum, statusPayload));
+    deviceSide.write(
+      encodeResponse(AfcOpcode.STATUS, packetNum, statusPayload),
+    );
 
     const { status, data } = await responseTask;
     expect(status).to.equal(AfcError.OBJECT_NOT_FOUND);
@@ -127,10 +131,7 @@ async function createPairedSockets(): Promise<{
   };
 }
 
-function readExactFromSocket(
-  socket: net.Socket,
-  n: number,
-): Promise<Buffer> {
+function readExactFromSocket(socket: net.Socket, n: number): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     let total = 0;

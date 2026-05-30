@@ -130,30 +130,32 @@ export class AfcPacketDemux {
     timeoutMs: number,
     op: AfcOpcode,
   ): Promise<{ status: AfcError; data: Buffer }> {
-    return new Promise<{ status: AfcError; data: Buffer }>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        if (!this.pending.has(pktNum)) {
-          return;
-        }
-        this._clearPending(pktNum);
-        reject(
-          new AfcConnectionError(
-            `AFC operation ${AfcOpcode[op] ?? op} timed out after ${timeoutMs}ms (packet ${pktNum})`,
-          ),
-        );
-      }, timeoutMs);
+    return new Promise<{ status: AfcError; data: Buffer }>(
+      (resolve, reject) => {
+        const timer = setTimeout(() => {
+          if (!this.pending.has(pktNum)) {
+            return;
+          }
+          this._clearPending(pktNum);
+          reject(
+            new AfcConnectionError(
+              `AFC operation ${AfcOpcode[op] ?? op} timed out after ${timeoutMs}ms (packet ${pktNum})`,
+            ),
+          );
+        }, timeoutMs);
 
-      this.pending.set(pktNum, {
-        resolve: (value) => {
-          clearTimeout(timer);
-          resolve(value);
-        },
-        reject: (err) => {
-          clearTimeout(timer);
-          reject(err);
-        },
-      });
-    });
+        this.pending.set(pktNum, {
+          resolve: (value) => {
+            clearTimeout(timer);
+            resolve(value);
+          },
+          reject: (err) => {
+            clearTimeout(timer);
+            reject(err);
+          },
+        });
+      },
+    );
   }
 
   private _clearPending(pktNum: bigint): void {

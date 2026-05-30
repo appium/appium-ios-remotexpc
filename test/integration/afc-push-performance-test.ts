@@ -129,7 +129,10 @@ function formatMiB(bytes: number): string {
   return `${(bytes / MIB).toFixed(1)} MiB`;
 }
 
-async function writeFixedSizeFile(filePath: string, sizeBytes: number): Promise<void> {
+async function writeFixedSizeFile(
+  filePath: string,
+  sizeBytes: number,
+): Promise<void> {
   const chunk = Buffer.alloc(MIB, 0x42);
   const handle = await fs.open(filePath, 'w');
   try {
