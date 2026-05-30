@@ -1,3 +1,4 @@
+import AsyncLock from 'async-lock';
 import type net from 'node:net';
 
 import { getLogger } from '../../../lib/logger.js';
@@ -30,7 +31,7 @@ export class AfcPacketDemux {
   private readerTask: Promise<void> | null = null;
   private readerSocket: net.Socket | null = null;
   private readerActive = false;
-  private sendLock: Promise<void> = Promise.resolve();
+  private readonly sendLock = new AsyncLock();
   private stopped = false;
 
   constructor(
@@ -89,7 +90,6 @@ export class AfcPacketDemux {
     this.readerSocket = null;
     this.readerActive = false;
     this.stopped = false;
-    this.sendLock = Promise.resolve();
   }
 
   /** Graceful shutdown; does not notify the owning service. */
@@ -114,18 +114,8 @@ export class AfcPacketDemux {
     }
   }
 
-  private async _sendLocked<T>(fn: () => Promise<T>): Promise<T> {
-    const previous = this.sendLock;
-    let release!: () => void;
-    this.sendLock = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    await previous;
-    try {
-      return await fn();
-    } finally {
-      release();
-    }
+  private _sendLocked<T>(fn: () => Promise<T>): Promise<T> {
+    return this.sendLock.acquire('afc-send', fn);
   }
 
   private _registerPending(
