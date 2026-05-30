@@ -1,3 +1,9 @@
+## [2.2.2](https://github.com/appium/appium-ios-remotexpc/compare/v2.2.1...v2.2.2) (2026-05-30)
+
+### Bug Fixes
+
+* Add response demux and improve write framing for RSD AFC uploads ([#227](https://github.com/appium/appium-ios-remotexpc/issues/227)) ([0e2f163](https://github.com/appium/appium-ios-remotexpc/commit/0e2f16315c77172eb776bc463242a7414003b1aa))
+
 ## [2.2.1](https://github.com/appium/appium-ios-remotexpc/compare/v2.2.0...v2.2.1) (2026-05-26)
 
 ### Miscellaneous Chores
