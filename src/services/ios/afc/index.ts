@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import type net from 'node:net';
 import path from 'node:path';
-import { Readable, Writable } from 'node:stream';
+import type { Readable, Writable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
 import { getLogger } from '../../../lib/logger.js';
@@ -29,6 +29,7 @@ import {
   AFC_LOCK_EX,
   AFC_LOCK_UN,
   AFC_WRITE_THIS_LENGTH,
+  MAXIMUM_WRITE_SIZE,
 } from './constants.js';
 import { AfcError, AfcFileMode, AfcOpcode } from './enums.js';
 import { AfcConnectionError } from './errors.js';
@@ -226,12 +227,17 @@ export class AfcService {
     );
   }
 
-  createWriteStream(handle: bigint, chunkSize?: number): Writable {
+  createWriteStream(
+    handle: bigint,
+    chunkSize?: number,
+    onProgress?: (bytesWritten: number) => void,
+  ): Writable {
     return createAfcWriteStream(
       handle,
       this._dispatch.bind(this),
       this._receive.bind(this),
       chunkSize,
+      onProgress,
     );
   }
 
@@ -250,7 +256,7 @@ export class AfcService {
   async fwrite(
     handle: bigint,
     data: Buffer,
-    chunkSize = data.length,
+    chunkSize = MAXIMUM_WRITE_SIZE,
   ): Promise<void> {
     log.debug(`Writing ${data.length} bytes to handle ${handle}`);
     const effectiveChunkSize = chunkSize;
@@ -342,11 +348,22 @@ export class AfcService {
     return stream;
   }
 
-  async writeFromStream(filePath: string, stream: Readable): Promise<void> {
+  async writeFromStream(
+    filePath: string,
+    stream: Readable,
+    options: {
+      chunkSize?: number;
+      onProgress?: (bytesWritten: number) => void;
+    } = {},
+  ): Promise<void> {
     log.debug(`Writing stream to file: ${filePath}`);
     const handle = await this.fopen(filePath, 'w');
     await this._lockFile(handle);
-    const writeStream = this.createWriteStream(handle);
+    const writeStream = this.createWriteStream(
+      handle,
+      options.chunkSize,
+      options.onProgress,
+    );
     try {
       await pipeline(stream, writeStream);
       log.debug(`Successfully wrote file: ${filePath}`);

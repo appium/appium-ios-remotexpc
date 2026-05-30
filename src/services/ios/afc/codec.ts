@@ -8,7 +8,8 @@ import {
   AFC_OPERATION_TIMEOUT_MS,
   NULL_BYTE,
 } from './constants.js';
-import { AfcError, AfcFopenMode, AfcOpcode } from './enums.js';
+import type { AfcFopenMode } from './enums.js';
+import { AfcError, AfcOpcode } from './enums.js';
 import { AfcConnectionError } from './errors.js';
 
 export interface AfcHeader {
@@ -211,22 +212,15 @@ export async function sendAfcPacket(
   thisLenOverride?: number,
 ): Promise<void> {
   const header = encodeHeader(op, packetNum, payload.length, thisLenOverride);
+  // Write the header and payload as a single buffer. Two separate writes put the
+  // 40-byte header in its own tiny TCP segment, which (together with the peer's
+  // delayed ACK) is exactly what stalls the serial AFC transfer loop. Coalescing
+  // into one write keeps each AFC packet in a single flush and halves syscalls;
+  // the header is tiny, so prepending it to the payload is cheap relative to the
+  // round-trip it saves.
+  const packet = payload.length ? Buffer.concat([header, payload]) : header;
   await new Promise<void>((resolve, reject) => {
-    socket.write(header, (err) => {
-      if (err) {
-        return reject(err);
-      }
-      if (payload.length) {
-        socket.write(payload, (err2) => {
-          if (err2) {
-            return reject(err2);
-          }
-          resolve();
-        });
-      } else {
-        resolve();
-      }
-    });
+    socket.write(packet, (err) => (err ? reject(err) : resolve()));
   });
 }
 
@@ -391,6 +385,12 @@ export async function createRawServiceSocket(
   const socket = await new Promise<net.Socket>((resolve, reject) => {
     const conn = net.createConnection({ host, port }, () => {
       conn.setKeepAlive(true);
+      // Disable Nagle's algorithm. These are interactive request/response and
+      // bulk-transfer channels: a small packet (e.g. a 40-byte AFC header) must
+      // not be held back waiting for the previous segment's ACK. Without this,
+      // the serial AFC write loop stalls to ~1 chunk/sec on the delayed-ACK
+      // timer, which is what makes large file pushes appear to hang.
+      conn.setNoDelay(true);
       resolve(conn);
     });
     conn.setTimeout(timeoutMs, () => {

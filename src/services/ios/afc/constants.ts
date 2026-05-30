@@ -10,6 +10,22 @@ export const AFCMAGIC = Buffer.from('CFA6LPAA', 'ascii');
 // IO chunk sizes
 export const MAXIMUM_READ_SIZE = 4 * 1024 * 1024; // 4 MiB
 
+// Maximum bytes per AFC WRITE packet.
+//
+// Emitting one WRITE per 64 KiB source chunk turns a large push into hundreds of
+// serial request/response round-trips, each of which can stall on the tunnel
+// (the "app install freeze"). We coalesce the stream into WRITEs of up to this
+// size, cutting round-trips to ~fileSize/MAXIMUM_WRITE_SIZE.
+//
+// The size is bounded by two competing constraints:
+//  - large enough that round-trip count is small (unlike the old 64 KiB);
+//  - small enough that a single WRITE reliably drains + is acked within
+//    AFC_OPERATION_TIMEOUT_MS even on a slow tunnel (~0.5-1 MB/s). At 4 MiB that
+//    is ~4-8s per write, comfortably under the timeout, while still ~60x fewer
+//    round-trips than 64 KiB. (pymobiledevice3 uses 1 GiB but buffers the whole
+//    file in memory; we stream, so we keep this bounded and RAM-safe.)
+export const MAXIMUM_WRITE_SIZE = 4 * 1024 * 1024; // 4 MiB
+
 // Mapping of textual fopen modes to AFC modes
 export const AFC_FOPEN_TEXTUAL_MODES: Record<string, AfcFopenMode> = {
   r: AfcFopenMode.RDONLY,
