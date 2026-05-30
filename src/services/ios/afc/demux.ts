@@ -28,7 +28,6 @@ type PendingResponse = {
 export class AfcPacketDemux {
   private readonly pending = new Map<bigint, PendingResponse>();
   private packetNum = 0n;
-  private readerTask: Promise<void> | null = null;
   private readerSocket: net.Socket | null = null;
   private readerActive = false;
   private readonly sendLock = new AsyncLock();
@@ -48,7 +47,7 @@ export class AfcPacketDemux {
     }
     this.readerSocket = socket;
     this.readerActive = true;
-    this.readerTask = this._runReaderLoop(socket);
+    void this._runReaderLoop(socket);
   }
 
   /**
@@ -86,7 +85,6 @@ export class AfcPacketDemux {
 
   resetForNewSocket(): void {
     this._failPending(new AfcConnectionError('AFC socket replaced'), false);
-    this.readerTask = null;
     this.readerSocket = null;
     this.readerActive = false;
     this.stopped = false;
@@ -96,7 +94,6 @@ export class AfcPacketDemux {
   stop(): void {
     this.stopped = true;
     this._failPending(new AfcConnectionError('AFC demux stopped'), false);
-    this.readerTask = null;
     this.readerSocket = null;
     this.readerActive = false;
   }
