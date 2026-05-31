@@ -1,3 +1,9 @@
+## [2.2.3](https://github.com/appium/appium-ios-remotexpc/compare/v2.2.2...v2.2.3) (2026-05-31)
+
+### Miscellaneous Chores
+
+* Remove check in log line ([#228](https://github.com/appium/appium-ios-remotexpc/issues/228)) ([5a52c4b](https://github.com/appium/appium-ios-remotexpc/commit/5a52c4b9778120b450e3b281e8acb147e6aff869))
+
 ## [2.2.2](https://github.com/appium/appium-ios-remotexpc/compare/v2.2.1...v2.2.2) (2026-05-30)
 
 ### Bug Fixes

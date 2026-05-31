@@ -63,10 +63,7 @@ export class BaseService {
         Request: 'RSDCheckin',
       };
 
-      const response = await connection.sendPlistRequest(checkin);
-      log.debug(
-        `Service check-in response: ${JSON.stringify(response, null, 2)}`,
-      );
+      await connection.sendPlistRequest(checkin);
       return connection;
     } catch (error: unknown) {
       log.error('Error during check-in:', error);
