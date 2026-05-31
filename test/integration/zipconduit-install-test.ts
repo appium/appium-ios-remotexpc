@@ -3,8 +3,8 @@ import path from 'node:path';
 
 import { getLogger } from '../../src/lib/logger.js';
 import * as Services from '../../src/services.js';
-import { InstallationProxyService } from '../../src/services/ios/installation-proxy/index.js';
-import ZipConduitService from '../../src/services/ios/zipconduit/index.js';
+import type { InstallationProxyService } from '../../src/services/ios/installation-proxy/index.js';
+import type ZipConduitService from '../../src/services/ios/zipconduit/index.js';
 
 const log = getLogger('ZipConduit.Install.test');
 
@@ -51,6 +51,16 @@ describe('ZipConduit Install', function () {
 
   after(async function () {
     try {
+      if (installationProxyService) {
+        const apps = await installationProxyService.lookup([testBundleId]);
+        if (apps[testBundleId]) {
+          await installationProxyService.uninstall(testBundleId);
+        }
+      }
+    } catch (error) {
+      log.warn('Error cleaning up installed app:', error);
+    }
+    try {
       zipConduitService?.close();
     } catch (error) {
       log.warn('Error closing ZipConduit service:', error);
@@ -91,16 +101,5 @@ describe('ZipConduit Install', function () {
     expect(appsAfter[testBundleId]).to.exist;
     expect(progressUpdates.length).to.be.greaterThan(0);
     expect(path.basename(testIpaPath)).to.match(/\.ipa$/i);
-  });
-
-  after(async function () {
-    try {
-      const apps = await installationProxyService.lookup([testBundleId]);
-      if (apps[testBundleId]) {
-        await installationProxyService.uninstall(testBundleId);
-      }
-    } catch (error) {
-      log.warn('Error cleaning up installed app:', error);
-    }
   });
 });

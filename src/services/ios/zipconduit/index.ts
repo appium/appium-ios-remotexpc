@@ -21,8 +21,8 @@ import {
 } from './plists.js';
 import {
   type IpaZipEntry,
+  listZipEntries,
   openZipEntryStream,
-  readZipEntries,
   withZipFile,
 } from './zip-reader.js';
 import {
@@ -107,17 +107,17 @@ export class ZipConduitService {
       timeoutMs?: number;
     },
   ): Promise<void> {
-    const entries = await readZipEntries(ipaPath);
-    const { totalBytes, numFiles } = collectZipStats(entries);
     const init = createInitTransfer(ipaPath);
-    log.debug(`Sending InitTransfer for ${init.MediaSubdir}`);
-    await sendOnePlist(socket, init as unknown as PlistDictionary);
-
-    await transferMetaInfDirectory(socket);
-    await transferMetaInfFile(socket, numFiles, totalBytes);
-
-    const streamStart = performance.now();
     await withZipFile(ipaPath, async (zip) => {
+      const entries = await listZipEntries(zip);
+      const { totalBytes, numFiles } = collectZipStats(entries);
+      log.debug(`Sending InitTransfer for ${init.MediaSubdir}`);
+      await sendOnePlist(socket, init as unknown as PlistDictionary);
+
+      await transferMetaInfDirectory(socket);
+      await transferMetaInfFile(socket, numFiles, totalBytes);
+
+      const streamStart = performance.now();
       for (const entry of entries) {
         if (isDirectoryEntry(entry)) {
           await transferDirectory(socket, entry.name);
@@ -131,13 +131,13 @@ export class ZipConduitService {
           stream.destroy();
         }
       }
-    });
 
-    log.debug('IPA payload sent, writing central directory marker');
-    await writeBufferToSocket(socket, CENTRAL_DIRECTORY_HEADER);
-    log.info(
-      `zip_conduit stream finished in ${formatSeconds(performance.now() - streamStart)}`,
-    );
+      log.debug('IPA payload sent, writing central directory marker');
+      await writeBufferToSocket(socket, CENTRAL_DIRECTORY_HEADER);
+      log.info(
+        `zip_conduit stream finished in ${formatSeconds(performance.now() - streamStart)}`,
+      );
+    });
     await this.waitForInstallation(socket, options);
   }
 

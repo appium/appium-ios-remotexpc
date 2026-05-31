@@ -1,6 +1,7 @@
 import path from 'node:path';
 
 import type { PlistDictionary } from '../../../lib/types.js';
+import { STD_DIR_PERM, STD_FILE_PERM } from './constants.js';
 
 export const SIGNING_ERROR = 'ApplicationVerificationFailed';
 
@@ -61,8 +62,8 @@ export function createMetaInfPlist(
 ): ZipConduitMetadata {
   return {
     RecordCount: 2 + numFiles,
-    StandardDirectoryPerms: 16877,
-    StandardFilePerms: -32348,
+    StandardDirectoryPerms: STD_DIR_PERM,
+    StandardFilePerms: STD_FILE_PERM,
     TotalUncompressedBytes: totalBytes,
     Version: 2,
   };

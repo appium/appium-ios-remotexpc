@@ -25,12 +25,12 @@ export async function withZipFile<T>(
   }
 }
 
-/** Read all entries from an IPA without extracting them. */
-export async function readZipEntries(ipaPath: string): Promise<IpaZipEntry[]> {
-  return await withZipFile(ipaPath, async (zip) => {
-    const entries = await zip.entries();
-    return Object.values(entries);
-  });
+/** List all entries from an already-open IPA archive without extracting them. */
+export async function listZipEntries(
+  zip: StreamZip.StreamZipAsync,
+): Promise<IpaZipEntry[]> {
+  const entries = await zip.entries();
+  return Object.values(entries);
 }
 
 /** Open a decompressed readable stream for one zip entry. */
