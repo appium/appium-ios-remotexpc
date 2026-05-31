@@ -47,6 +47,7 @@
     "test:installation-proxy": "mocha test/integration/installation-proxy-test.ts --exit --timeout 1m",
     "test:installation-workflow": "mocha test/integration/afc-installation-workflow-test.ts --exit --timeout 5m",
     "test:zipconduit-install": "mocha test/integration/zipconduit-install-test.ts --exit --timeout 10m",
+    "test:install-perf-compare": "mocha test/integration/install-performance-comparison-test.ts --exit --timeout 25m",
     "test:power-assertion": "mocha test/integration/power-assertion-test.ts --exit --timeout 1m",
     "test:dvt": "mocha test/integration/dvt-service-test.ts --exit --timeout 1m",
     "test:dvt:graphics": "mocha test/integration/dvt_instruments/graphics-test.ts --exit --timeout 1m",
@@ -85,7 +86,6 @@
     "@types/mocha": "^10.0.10",
     "@types/node": "^25.0.2",
     "@types/sinon": "^21.0.0",
-    "@types/yauzl": "^2.10.3",
     "chai": "^6.0.1",
     "chai-as-promised": "^8.0.1",
     "conventional-changelog-conventionalcommits": "^9.1.0",
@@ -111,9 +111,9 @@
     "commander": "^14.0.1",
     "minimatch": "^10.1.1",
     "node-devicectl": "^1.2.0",
+    "node-stream-zip": "^1.15.0",
     "npm-run-all2": "^8.0.4",
-    "path-to-regexp": "^8.3.0",
-    "yauzl": "^3.3.1"
+    "path-to-regexp": "^8.3.0"
   },
   "files": [
     "src",

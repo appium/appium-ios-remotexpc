@@ -1,52 +1,42 @@
+import StreamZip from 'node-stream-zip';
 import type { Readable } from 'node:stream';
-import { promisify } from 'node:util';
-import type yauzl from 'yauzl';
-import yauzlImport from 'yauzl';
 
-const openZipFile = promisify(yauzlImport.open) as (
-  zipPath: string,
-  options?: yauzl.Options,
-) => Promise<yauzl.ZipFile>;
+import { TRANSFER_CHUNK_SIZE } from './constants.js';
+
+/** Normalized view of one IPA central-directory entry. */
+export type IpaZipEntry = StreamZip.ZipEntry;
+
+const ZIP_OPEN_OPTIONS: StreamZip.StreamZipOptions = {
+  chunkSize: TRANSFER_CHUNK_SIZE,
+};
 
 /**
  * Open an IPA archive, run `fn`, and close the handle when done.
  */
 export async function withZipFile<T>(
   ipaPath: string,
-  fn: (zipfile: yauzl.ZipFile) => Promise<T>,
+  fn: (zip: StreamZip.StreamZipAsync) => Promise<T>,
 ): Promise<T> {
-  const zipfile = await openZipFile(ipaPath, { lazyEntries: true });
+  const zip = new StreamZip.async({ file: ipaPath, ...ZIP_OPEN_OPTIONS });
   try {
-    return await fn(zipfile);
+    return await fn(zip);
   } finally {
-    zipfile.close();
+    await zip.close();
   }
 }
 
 /** Read all entries from an IPA without extracting them. */
-export async function readZipEntries(ipaPath: string): Promise<yauzl.Entry[]> {
-  return await withZipFile(ipaPath, async (zipfile) => {
-    const entries: yauzl.Entry[] = [];
-    await new Promise<void>((resolve, reject) => {
-      zipfile.on('entry', (entry) => {
-        entries.push(entry);
-        zipfile.readEntry();
-      });
-      zipfile.on('end', () => resolve());
-      zipfile.on('error', reject);
-      zipfile.readEntry();
-    });
-    return entries;
+export async function readZipEntries(ipaPath: string): Promise<IpaZipEntry[]> {
+  return await withZipFile(ipaPath, async (zip) => {
+    const entries = await zip.entries();
+    return Object.values(entries);
   });
 }
 
-/** Open a readable stream for one zip entry. */
+/** Open a decompressed readable stream for one zip entry. */
 export async function openZipEntryStream(
-  zipfile: yauzl.ZipFile,
-  entry: yauzl.Entry,
+  zip: StreamZip.StreamZipAsync,
+  entry: IpaZipEntry,
 ): Promise<Readable> {
-  const openReadStream = promisify(zipfile.openReadStream.bind(zipfile)) as (
-    zipEntry: yauzl.Entry,
-  ) => Promise<Readable>;
-  return await openReadStream(entry);
+  return (await zip.stream(entry)) as Readable;
 }

@@ -24,4 +24,7 @@ export const ZIP_HEADER_LAST_MODIFIED_DATE = 0x52ec;
 
 export const COPY_BUFFER_SIZE = 32 * 1024;
 
+/** Socket write size while streaming entry payloads (match AFC push chunking). */
+export const TRANSFER_CHUNK_SIZE = 1024 * 1024;
+
 export const DEFAULT_INSTALL_TIMEOUT_MS = 10 * 60 * 1000;

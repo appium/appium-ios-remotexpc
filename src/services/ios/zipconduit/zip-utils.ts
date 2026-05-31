@@ -8,6 +8,7 @@ import type { PlistDictionary } from '../../../lib/types.js';
 import { writeBufferToSocket } from '../afc/codec.js';
 import {
   METAINF_FILE_NAME,
+  TRANSFER_CHUNK_SIZE,
   ZIP_EXTRA_BYTES,
   ZIP_HEADER_LAST_MODIFIED_DATE,
   ZIP_HEADER_LAST_MODIFIED_TIME,
@@ -68,10 +69,38 @@ export async function transferFile(
     socket,
     newZipHeader(uncompressedSize, crc32Value, dstFilePath),
   );
+  await pipeReadableToSocket(socket, src);
+}
+
+/**
+ * Copy readable data to the socket in large chunks to reduce await/drain overhead.
+ */
+export async function pipeReadableToSocket(
+  socket: net.Socket,
+  src: Readable,
+  chunkSize = TRANSFER_CHUNK_SIZE,
+): Promise<void> {
+  const buf = Buffer.allocUnsafe(chunkSize);
+  let offset = 0;
 
   for await (const chunk of src) {
     const data = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-    await writeBufferToSocket(socket, data);
+    let dataOffset = 0;
+    while (dataOffset < data.length) {
+      const space = chunkSize - offset;
+      const toCopy = Math.min(space, data.length - dataOffset);
+      data.copy(buf, offset, dataOffset, dataOffset + toCopy);
+      offset += toCopy;
+      dataOffset += toCopy;
+      if (offset === chunkSize) {
+        await writeBufferToSocket(socket, buf.subarray(0, chunkSize));
+        offset = 0;
+      }
+    }
+  }
+
+  if (offset > 0) {
+    await writeBufferToSocket(socket, buf.subarray(0, offset));
   }
 }
 

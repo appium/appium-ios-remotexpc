@@ -1,6 +1,5 @@
 import fsp from 'node:fs/promises';
 import type net from 'node:net';
-import type yauzl from 'yauzl';
 
 import { getLogger } from '../../../lib/logger.js';
 import type { PlistDictionary } from '../../../lib/types.js';
@@ -21,6 +20,7 @@ import {
   evaluateProgress,
 } from './plists.js';
 import {
+  type IpaZipEntry,
   openZipEntryStream,
   readZipEntries,
   withZipFile,
@@ -115,10 +115,29 @@ export class ZipConduitService {
 
     await transferMetaInfDirectory(socket);
     await transferMetaInfFile(socket, numFiles, totalBytes);
-    await streamIpaEntries(socket, ipaPath, entries);
+
+    const streamStart = performance.now();
+    await withZipFile(ipaPath, async (zip) => {
+      for (const entry of entries) {
+        if (isDirectoryEntry(entry)) {
+          await transferDirectory(socket, entry.name);
+          continue;
+        }
+
+        const stream = await openZipEntryStream(zip, entry);
+        try {
+          await transferFile(socket, stream, entry.crc, entry.size, entry.name);
+        } finally {
+          stream.destroy();
+        }
+      }
+    });
 
     log.debug('IPA payload sent, writing central directory marker');
     await writeBufferToSocket(socket, CENTRAL_DIRECTORY_HEADER);
+    log.info(
+      `zip_conduit stream finished in ${formatSeconds(performance.now() - streamStart)}`,
+    );
     await this.waitForInstallation(socket, options);
   }
 
@@ -151,43 +170,20 @@ export class ZipConduitService {
   }
 }
 
-function collectZipStats(entries: yauzl.Entry[]): {
+function collectZipStats(entries: IpaZipEntry[]): {
   totalBytes: number;
   numFiles: number;
 } {
-  const totalBytes = entries.reduce(
-    (sum, entry) => sum + entry.uncompressedSize,
-    0,
-  );
+  const totalBytes = entries.reduce((sum, entry) => sum + entry.size, 0);
   return { totalBytes, numFiles: entries.length };
 }
 
-async function streamIpaEntries(
-  socket: net.Socket,
-  ipaPath: string,
-  entries: yauzl.Entry[],
-): Promise<void> {
-  await withZipFile(ipaPath, async (zipfile) => {
-    for (const entry of entries) {
-      if (/\/$/.test(entry.fileName)) {
-        await transferDirectory(socket, entry.fileName);
-        continue;
-      }
+function isDirectoryEntry(entry: IpaZipEntry): boolean {
+  return entry.isDirectory || entry.name.endsWith('/');
+}
 
-      const stream = await openZipEntryStream(zipfile, entry);
-      try {
-        await transferFile(
-          socket,
-          stream,
-          entry.crc32,
-          entry.uncompressedSize,
-          entry.fileName,
-        );
-      } finally {
-        stream.destroy();
-      }
-    }
-  });
+function formatSeconds(ms: number): string {
+  return `${(ms / 1000).toFixed(2)}s`;
 }
 
 async function recvOnePlistWithTimeout(
