@@ -154,14 +154,11 @@ export class ZipConduitService {
     while (performance.now() - startTime <= timeoutMs) {
       const remaining = timeoutMs - (performance.now() - startTime);
       const plist = await recvOnePlistWithTimeout(socket, remaining);
-      log.debug(`Install progress plist: ${JSON.stringify(plist)}`);
       const { done, percent, status } = evaluateProgress(plist);
       options.progress?.({ percent, status });
       if (done) {
-        log.info('Installation completed via zip_conduit');
         return;
       }
-      log.info(`Installing: ${percent}% (${status})`);
     }
 
     throw new Error(
