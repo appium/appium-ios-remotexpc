@@ -1,3 +1,9 @@
+## [2.2.5](https://github.com/appium/appium-ios-remotexpc/compare/v2.2.4...v2.2.5) (2026-06-01)
+
+### Miscellaneous Chores
+
+* Remove unnecessary logs from installation proxy ([#231](https://github.com/appium/appium-ios-remotexpc/issues/231)) ([b8b44f8](https://github.com/appium/appium-ios-remotexpc/commit/b8b44f8201b74e0d835eab5df68f594fcdf3c792))
+
 ## [2.2.4](https://github.com/appium/appium-ios-remotexpc/compare/v2.2.3...v2.2.4) (2026-06-01)
 
 ### Miscellaneous Chores
