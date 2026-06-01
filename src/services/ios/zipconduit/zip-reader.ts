@@ -19,6 +19,9 @@ export async function withZipFile<T>(
   const zip = new StreamZip({
     file: ipaPath,
     chunkSize: TRANSFER_CHUNK_SIZE,
+    skipLocalHeaderRead: true,
+    verifyEntryCrc: false,
+    skipEntryNameValidation: true,
   });
   try {
     return await fn(zip);

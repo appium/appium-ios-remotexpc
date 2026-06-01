@@ -38,6 +38,19 @@ export type ZipConduitProgressCallback = (
   update: ZipConduitProgressUpdate,
 ) => void;
 
+export interface ZipConduitInstallOptions {
+  progress?: ZipConduitProgressCallback;
+  timeoutMs?: number;
+  /** Stop after payload upload; skip waiting for install progress plists. */
+  streamOnly?: boolean;
+}
+
+export interface ZipConduitStreamStats {
+  streamMs: number;
+  payloadBytes: number;
+  entryCount: number;
+}
+
 /**
  * Streaming zip_conduit client for fast IPA installation over RSD.
  */
@@ -67,25 +80,26 @@ export class ZipConduitService {
    */
   async install(
     appPath: string,
-    options: {
-      progress?: ZipConduitProgressCallback;
-      timeoutMs?: number;
-    } = {},
-  ): Promise<void> {
+    options: ZipConduitInstallOptions = {},
+  ): Promise<ZipConduitStreamStats | void> {
     await this.connect();
     const socket = this.socket;
     if (!socket) {
       throw new Error('ZipConduitService is not connected');
     }
 
-    const stats = await fsp.stat(appPath);
-    if (stats.isDirectory()) {
+    const fileStats = await fsp.stat(appPath);
+    if (fileStats.isDirectory()) {
       throw new Error(
         'Directory install is not supported yet; provide a path to an .ipa file',
       );
     }
 
-    await this.sendIpaFile(socket, appPath, options);
+    const streamStats = await this.sendIpaFile(socket, appPath);
+    if (options.streamOnly) {
+      return streamStats;
+    }
+    await this.waitForInstallation(socket, options);
   }
 
   /**
@@ -102,23 +116,21 @@ export class ZipConduitService {
   private async sendIpaFile(
     socket: net.Socket,
     ipaPath: string,
-    options: {
-      progress?: ZipConduitProgressCallback;
-      timeoutMs?: number;
-    },
-  ): Promise<void> {
+  ): Promise<ZipConduitStreamStats> {
+    const streamStart = performance.now();
+    let payloadBytes = 0;
+
     const init = createInitTransfer(ipaPath);
-    await withZipFile(ipaPath, async (zip) => {
-      const entries = await listZipEntries(zip);
-      const { totalBytes, numFiles } = collectZipStats(entries);
+    const { entries } = await withZipFile(ipaPath, async (zip) => {
+      const listed = await listZipEntries(zip);
+      const { totalBytes, numFiles } = collectZipStats(listed);
       log.debug(`Sending InitTransfer for ${init.MediaSubdir}`);
       await sendOnePlist(socket, init as unknown as PlistDictionary);
 
       await transferMetaInfDirectory(socket);
       await transferMetaInfFile(socket, numFiles, totalBytes);
 
-      const streamStart = performance.now();
-      for (const entry of entries) {
+      for (const entry of listed) {
         if (isDirectoryEntry(entry)) {
           await transferDirectory(socket, entry.name);
           continue;
@@ -127,26 +139,34 @@ export class ZipConduitService {
         const stream = await openZipEntryStream(zip, entry);
         try {
           await transferFile(socket, stream, entry.crc, entry.size, entry.name);
+          payloadBytes += entry.size;
         } finally {
           stream.destroy();
         }
       }
 
-      log.debug('IPA payload sent, writing central directory marker');
-      await writeBufferToSocket(socket, CENTRAL_DIRECTORY_HEADER);
-      log.info(
-        `zip_conduit stream finished in ${formatSeconds(performance.now() - streamStart)}`,
-      );
+      return { entries: listed };
     });
-    await this.waitForInstallation(socket, options);
+
+    log.debug('IPA payload sent, writing central directory marker');
+    await writeBufferToSocket(socket, CENTRAL_DIRECTORY_HEADER);
+
+    const streamMs = performance.now() - streamStart;
+    const stats: ZipConduitStreamStats = {
+      streamMs,
+      payloadBytes,
+      entryCount: entries.length,
+    };
+    log.debug(
+      `zip_conduit stream finished in ${formatSeconds(streamMs)} ` +
+        `(${formatMiBPerSec(payloadBytes, streamMs)}, ${entries.length} entries)`,
+    );
+    return stats;
   }
 
   private async waitForInstallation(
     socket: net.Socket,
-    options: {
-      progress?: ZipConduitProgressCallback;
-      timeoutMs?: number;
-    },
+    options: Pick<ZipConduitInstallOptions, 'progress' | 'timeoutMs'>,
   ): Promise<void> {
     const timeoutMs = options.timeoutMs ?? DEFAULT_INSTALL_TIMEOUT_MS;
     const startTime = performance.now();
@@ -181,6 +201,14 @@ function isDirectoryEntry(entry: IpaZipEntry): boolean {
 
 function formatSeconds(ms: number): string {
   return `${(ms / 1000).toFixed(2)}s`;
+}
+
+function formatMiBPerSec(bytes: number, ms: number): string {
+  if (ms <= 0) {
+    return 'n/a';
+  }
+  const mibPerSec = bytes / (1024 * 1024) / (ms / 1000);
+  return `${mibPerSec.toFixed(2)} MiB/s`;
 }
 
 async function recvOnePlistWithTimeout(

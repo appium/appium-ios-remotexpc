@@ -19,6 +19,13 @@ export interface StreamZipConfig {
   storeEntries?: boolean;
   skipEntryNameValidation?: boolean;
   nameEncoding?: string;
+  /**
+   * When true, skip local header reads for STORED entries (IPAs use STORE).
+   * Deflated entries always read the local header for a correct data offset.
+   */
+  skipLocalHeaderRead?: boolean;
+  /** When false, skip CRC32 verification while streaming (faster; default verifies). */
+  verifyEntryCrc?: boolean;
 }
 
 export type StreamZipEntry = ZipEntry;
@@ -305,12 +312,14 @@ class EntryDataReaderStream extends stream.Readable {
     private readonly fd: number,
     private readonly dataOffset: number,
     private readonly length: number,
+    private readonly readChunkSize: number,
   ) {
-    super();
+    super({ highWaterMark: readChunkSize });
   }
 
-  override _read(n: number): void {
-    const buffer = Buffer.alloc(Math.min(n, this.length - this.pos));
+  override _read(): void {
+    const toRead = Math.min(this.readChunkSize, this.length - this.pos);
+    const buffer = Buffer.allocUnsafe(toRead);
     if (buffer.length) {
       fs.read(
         this.fd,
@@ -610,7 +619,15 @@ export class StreamZip extends EventEmitter {
 
   async stream(entry: ZipEntry | string): Promise<stream.Readable> {
     await this.readyPromise;
-    const openedEntry = await this.openEntry(entry);
+    const resolvedEntry = await this.resolveFileEntry(entry);
+    const openedEntry =
+      this.config.skipLocalHeaderRead === true &&
+      resolvedEntry.method === ZIP.STORED
+        ? resolvedEntry
+        : await this.openEntry(resolvedEntry);
+    if (openedEntry.encrypted) {
+      throw new Error('Entry encrypted');
+    }
     const offset = this.dataOffset(openedEntry);
     if (this.fd === null) {
       throw new Error('Archive closed');
@@ -619,6 +636,7 @@ export class StreamZip extends EventEmitter {
       this.fd,
       offset,
       openedEntry.compressedSize,
+      this.chunkSize || 1024 * 1024,
     );
     if (openedEntry.method === ZIP.STORED) {
       // stored — pass through
@@ -627,7 +645,7 @@ export class StreamZip extends EventEmitter {
     } else {
       throw new Error(`Unknown compression method: ${openedEntry.method}`);
     }
-    if (this.canVerifyCrc(openedEntry)) {
+    if (this.config.verifyEntryCrc !== false && this.canVerifyCrc(openedEntry)) {
       entryStream = entryStream.pipe(
         new EntryVerifyStream(entryStream, openedEntry.crc, openedEntry.size),
       );
@@ -693,6 +711,27 @@ export class StreamZip extends EventEmitter {
       return false;
     }
     return super.emit(event, ...args);
+  }
+
+  private async resolveFileEntry(entry: ZipEntry | string): Promise<ZipEntry> {
+    if (typeof entry === 'string') {
+      const entryMap = this.entryMap;
+      if (!entryMap) {
+        throw new Error('storeEntries disabled');
+      }
+      const resolvedEntry = entryMap[entry];
+      if (!resolvedEntry) {
+        throw new Error('Entry not found');
+      }
+      if (!resolvedEntry.isFile) {
+        throw new Error('Entry is not file');
+      }
+      return resolvedEntry;
+    }
+    if (!entry.isFile) {
+      throw new Error('Entry is not file');
+    }
+    return entry;
   }
 
   private open(): void {

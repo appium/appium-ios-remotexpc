@@ -47,6 +47,7 @@
     "test:installation-proxy": "mocha test/integration/installation-proxy-test.ts --exit --timeout 1m",
     "test:installation-workflow": "mocha test/integration/afc-installation-workflow-test.ts --exit --timeout 5m",
     "test:zipconduit-install": "mocha test/integration/zipconduit-install-test.ts --exit --timeout 10m",
+    "test:zipconduit-upload-compare": "mocha test/integration/zipconduit-upload-comparison-test.ts --exit --timeout 25m",
     "test:power-assertion": "mocha test/integration/power-assertion-test.ts --exit --timeout 1m",
     "test:dvt": "mocha test/integration/dvt-service-test.ts --exit --timeout 1m",
     "test:dvt:graphics": "mocha test/integration/dvt_instruments/graphics-test.ts --exit --timeout 1m",
