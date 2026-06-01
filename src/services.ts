@@ -33,6 +33,7 @@ import { SpringBoardService } from './services/ios/springboard-service/index.js'
 import SyslogService from './services/ios/syslog-service/index.js';
 import { DvtTestmanagedProxyService } from './services/ios/testmanagerd/index.js';
 import { WebInspectorService } from './services/ios/webinspector/index.js';
+import ZipConduitService from './services/ios/zipconduit/index.js';
 
 const log = getLogger('Services');
 
@@ -215,6 +216,24 @@ export async function startAfcService(udid: string): Promise<AfcService> {
     return new AfcService([
       tunnelConnection.host,
       parseInt(afcDescriptor.port, 10),
+    ]);
+  });
+}
+
+/**
+ * Start streaming zip_conduit service over RemoteXPC shim.
+ * Use {@link ZipConduitService.install} for fast IPA installation without AFC upload.
+ */
+export async function startZipConduitService(
+  udid: string,
+): Promise<ZipConduitService> {
+  return withRemoteXpcConnection(udid, (remoteXPC, tunnelConnection) => {
+    const descriptor = remoteXPC.findService(
+      ZipConduitService.RSD_SERVICE_NAME,
+    );
+    return new ZipConduitService([
+      tunnelConnection.host,
+      parseInt(descriptor.port, 10),
     ]);
   });
 }

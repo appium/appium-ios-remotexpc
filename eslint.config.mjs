@@ -10,6 +10,7 @@ export default [
       'src/lib/usbmux/usbmux-decoder.ts',
       'src/lib/usbmux/usbmux-encoder.ts',
       'src/services/ios/afc/stream-utils.ts',
+      'src/services/ios/zipconduit/stream-zip.ts',
     ],
     rules: {
       // These files implement Node stream APIs that require callback signatures.

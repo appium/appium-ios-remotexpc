@@ -2,6 +2,7 @@ import net from 'node:net';
 
 import { createPlist } from '../../../lib/plist/plist-creator.js';
 import { parsePlist } from '../../../lib/plist/unified-plist-parser.js';
+import type { PlistDictionary } from '../../../lib/types.js';
 import {
   AFCMAGIC,
   AFC_HEADER_SIZE,
@@ -364,6 +365,20 @@ export function buildLinkPayload(
   source: string,
 ): Buffer {
   return Buffer.concat([writeUInt64LE(type), cstr(target), cstr(source)]);
+}
+
+/**
+ * Send a single length-prefixed XML plist on the socket.
+ */
+export async function sendOnePlist(
+  socket: net.Socket,
+  request: PlistDictionary,
+): Promise<void> {
+  const xml = createPlist(request);
+  const body = Buffer.from(xml, 'utf8');
+  const header = Buffer.alloc(4);
+  header.writeUInt32BE(body.length, 0);
+  await writeBufferToSocket(socket, Buffer.concat([header, body]));
 }
 
 /**

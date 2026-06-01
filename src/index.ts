@@ -31,6 +31,12 @@ export type {
 export type { RemoteXpcConnection } from './lib/remote-xpc/remote-xpc-connection.js';
 export type { AfcService } from './services/ios/afc/index.js';
 export { AfcConnectionError } from './services/ios/afc/errors.js';
+export type {
+  ZipConduitService,
+  ZipConduitProgressCallback,
+  ZipConduitInstallOptions,
+  ZipConduitStreamStats,
+} from './services/ios/zipconduit/index.js';
 export type { InstallationProxyService } from './services/ios/installation-proxy/index.js';
 export type {
   SyslogEntry,
