@@ -50,12 +50,18 @@ describe('Upload comparison: zip_conduit stream vs AFC', function () {
     if (!skipZipConduit) {
       const zipConduit = await Services.startZipConduitService(udid);
       try {
-        const result = await zipConduit.install(testIpaPath, { streamOnly: true });
+        const result = await zipConduit.install(testIpaPath, {
+          streamOnly: true,
+        });
         if (!result) {
           throw new Error('zip_conduit streamOnly did not return stats');
         }
         zipStats = result;
-        logThroughput('zip_conduit stream', zipStats.payloadBytes, zipStats.streamMs);
+        logThroughput(
+          'zip_conduit stream',
+          zipStats.payloadBytes,
+          zipStats.streamMs,
+        );
       } finally {
         zipConduit.close();
       }
@@ -77,11 +83,14 @@ describe('Upload comparison: zip_conduit stream vs AFC', function () {
       }
     }
 
-    log.info(`IPA on disk: ${ipaMiB.toFixed(2)} MiB (${path.basename(testIpaPath)})`);
+    log.info(
+      `IPA on disk: ${ipaMiB.toFixed(2)} MiB (${path.basename(testIpaPath)})`,
+    );
 
     if (zipStats && afcMs !== undefined) {
       const zipPayloadMiB = zipStats.payloadBytes / MIB;
-      const zipMibPerSec = zipStats.payloadBytes / MIB / (zipStats.streamMs / 1000);
+      const zipMibPerSec =
+        zipStats.payloadBytes / MIB / (zipStats.streamMs / 1000);
       const afcMibPerSec = ipaStat.size / MIB / (afcMs / 1000);
       log.info(
         `Summary: zip_conduit payload ${zipPayloadMiB.toFixed(2)} MiB uncompressed ` +

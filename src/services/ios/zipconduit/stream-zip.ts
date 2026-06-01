@@ -645,7 +645,10 @@ export class StreamZip extends EventEmitter {
     } else {
       throw new Error(`Unknown compression method: ${openedEntry.method}`);
     }
-    if (this.config.verifyEntryCrc !== false && this.canVerifyCrc(openedEntry)) {
+    if (
+      this.config.verifyEntryCrc !== false &&
+      this.canVerifyCrc(openedEntry)
+    ) {
       entryStream = entryStream.pipe(
         new EntryVerifyStream(entryStream, openedEntry.crc, openedEntry.size),
       );
