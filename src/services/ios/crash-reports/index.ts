@@ -54,8 +54,6 @@ export class CrashReportsService extends BaseService {
    * @returns List of file paths listed
    */
   async ls(dirPath = '/', depth = 1): Promise<string[]> {
-    log.debug(`Listing crash reports at path: ${dirPath}, depth: ${depth}`);
-
     if (depth === 0) {
       return [];
     }
