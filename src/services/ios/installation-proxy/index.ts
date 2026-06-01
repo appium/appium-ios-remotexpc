@@ -1,5 +1,3 @@
-import { util } from '@appium/support';
-
 import { getLogger } from '../../../lib/logger.js';
 import type { PlistDictionary } from '../../../lib/types.js';
 import { ServiceConnection } from '../../../service-connection.js';
@@ -66,8 +64,6 @@ export class InstallationProxyService extends BaseService {
    * Browse installed applications
    */
   async browse(options: BrowseOptions = {}): Promise<AppInfo[]> {
-    log.debug('Browse command with options:', options);
-
     const {
       applicationType = DEFAULT_APPLICATION_TYPE,
       returnAttributes = DEFAULT_RETURN_ATTRIBUTES,
@@ -107,15 +103,9 @@ export class InstallationProxyService extends BaseService {
 
       if (response.CurrentList && response.CurrentList.length > 0) {
         result.push(...response.CurrentList);
-        log.debug(
-          `Received ${util.pluralize('app', response.CurrentList.length, true)}, total: ${util.pluralize('app', result.length, true)}`,
-        );
       }
 
       if (response.Status === 'Complete') {
-        log.debug(
-          `Browse complete. Found ${util.pluralize('application', result.length, true)}.`,
-        );
         break;
       }
     }
@@ -130,8 +120,6 @@ export class InstallationProxyService extends BaseService {
     bundleIds?: string[],
     options: Partial<LookupOptions> = {},
   ): Promise<Record<string, AppInfo>> {
-    log.debug('Lookup command for bundle IDs:', bundleIds);
-
     const clientOptions: Record<string, string | string[] | ApplicationType> = {
       ...options,
     };
@@ -158,9 +146,6 @@ export class InstallationProxyService extends BaseService {
       return {};
     }
 
-    log.debug(
-      `Lookup found ${util.pluralize('application', Object.keys(response.LookupResult).length, true)}`,
-    );
     return response.LookupResult;
   }
 
@@ -172,8 +157,6 @@ export class InstallationProxyService extends BaseService {
     calculateSizes: boolean = false,
     bundleIds?: string[],
   ): Promise<Record<string, AppInfo>> {
-    log.debug('Get apps:', { applicationType, calculateSizes, bundleIds });
-
     const options: LookupOptions = {
       applicationType,
     };
@@ -205,8 +188,6 @@ export class InstallationProxyService extends BaseService {
     options: InstallOptions = {},
     progressCallback?: ProgressCallback,
   ): Promise<void> {
-    log.debug(`Installing app from: ${packagePath}`);
-
     const { timeoutMs, ...clientOptions } = options;
 
     const request: PlistDictionary = {
@@ -216,7 +197,6 @@ export class InstallationProxyService extends BaseService {
     };
 
     await this.executeWithProgress(request, progressCallback, timeoutMs);
-    log.info('Installation complete');
   }
 
   /**
@@ -230,8 +210,6 @@ export class InstallationProxyService extends BaseService {
     options: UninstallOptions = {},
     progressCallback?: ProgressCallback,
   ): Promise<void> {
-    log.debug(`Uninstalling app: ${bundleIdentifier}`);
-
     const { timeoutMs, ...clientOptions } = options;
 
     const request: PlistDictionary = {
@@ -241,7 +219,6 @@ export class InstallationProxyService extends BaseService {
     };
 
     await this.executeWithProgress(request, progressCallback, timeoutMs);
-    log.info('Uninstallation complete');
   }
 
   /**
@@ -255,8 +232,6 @@ export class InstallationProxyService extends BaseService {
     options: InstallOptions = {},
     progressCallback?: ProgressCallback,
   ): Promise<void> {
-    log.debug(`Upgrading app from: ${packagePath}`);
-
     const { timeoutMs, ...clientOptions } = options;
 
     const request: PlistDictionary = {
@@ -266,7 +241,6 @@ export class InstallationProxyService extends BaseService {
     };
 
     await this.executeWithProgress(request, progressCallback, timeoutMs);
-    log.info('Upgrade complete');
   }
 
   /**
@@ -279,23 +253,16 @@ export class InstallationProxyService extends BaseService {
     version?: string;
     appInfo?: AppInfo;
   }> {
-    log.debug(`Checking if app ${bundleIdentifier} is installed`);
-
     try {
       const installedApps = await this.lookup([bundleIdentifier]);
       const appInfo = installedApps[bundleIdentifier];
 
       if (!appInfo) {
-        log.debug(`App ${bundleIdentifier} is not installed`);
         return { isInstalled: false };
       }
 
       const version =
         appInfo.CFBundleShortVersionString || appInfo.CFBundleVersion;
-
-      log.debug(
-        `App ${bundleIdentifier} is installed${version ? ` (version: ${version})` : ''}`,
-      );
 
       return {
         isInstalled: true,
@@ -316,7 +283,6 @@ export class InstallationProxyService extends BaseService {
     try {
       if (this.connection) {
         this.connection.close();
-        log.debug('Connection closed successfully');
       }
     } catch (error) {
       log.error('Error closing connection:', error);
@@ -341,7 +307,6 @@ export class InstallationProxyService extends BaseService {
     });
 
     const startServiceResponse = await this.connection.receive(this.timeout);
-    log.debug('StartService response:', startServiceResponse);
 
     if (!startServiceResponse) {
       throw new Error('No response received from service');
@@ -392,16 +357,10 @@ export class InstallationProxyService extends BaseService {
 
       // Report progress if available
       if (response.PercentComplete !== undefined && response.Status) {
-        const percent = response.PercentComplete;
-        const status = response.Status;
-        log.debug(`Progress: ${percent}% - ${status}`);
-
-        await progressCallback?.(percent, status);
+        await progressCallback?.(response.PercentComplete, response.Status);
       }
 
-      // Break when we receive the final "Complete" status
       if (response.Status === 'Complete') {
-        log.debug('Operation complete');
         break;
       }
     }
