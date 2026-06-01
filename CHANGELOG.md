@@ -1,3 +1,9 @@
+## [2.2.4](https://github.com/appium/appium-ios-remotexpc/compare/v2.2.3...v2.2.4) (2026-06-01)
+
+### Miscellaneous Chores
+
+* Remove too talkative debug log for crash reports list ([#230](https://github.com/appium/appium-ios-remotexpc/issues/230)) ([485d2ea](https://github.com/appium/appium-ios-remotexpc/commit/485d2eac3ad77e20890705f9f269bf70f3aa0b11))
+
 ## [2.2.3](https://github.com/appium/appium-ios-remotexpc/compare/v2.2.2...v2.2.3) (2026-05-31)
 
 ### Miscellaneous Chores
