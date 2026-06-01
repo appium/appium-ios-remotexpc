@@ -1,6 +1,10 @@
 import appiumConfig from '@appium/eslint-config-appium-ts';
 
 export default [
+  {
+    // Third-party stream-zip reader (derived from node-stream-zip); not linted.
+    ignores: ['src/lib/zip/**'],
+  },
   ...appiumConfig,
   {
     files: [
