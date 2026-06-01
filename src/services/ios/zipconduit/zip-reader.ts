@@ -19,7 +19,10 @@ export async function withZipFile<T>(
   const zip = new StreamZip({
     file: ipaPath,
     chunkSize: TRANSFER_CHUNK_SIZE,
-    skipLocalHeaderRead: true,
+    // Do NOT skip the local header read: an entry's payload offset depends on the
+    // LOCAL header's extra-field length, which the central directory does not record
+    // and which routinely differs from it. Skipping it streams misaligned bytes and
+    // the device fails extraction (ExtractionFailed).
     verifyEntryCrc: false,
     skipEntryNameValidation: true,
   });

@@ -83,6 +83,17 @@ export function evaluateProgress(progressUpdate: PlistDictionary): {
     return { done: true, percent: 100, status: topStatus };
   }
 
+  // The device can report a failure as a top-level Error (e.g. ExtractionFailed)
+  // with no InstallProgressDict; surface the real reason instead of a generic
+  // "missing InstallProgressDict".
+  const topError = asString(progressUpdate.Error);
+  if (topError) {
+    const topDescription = asString(progressUpdate.ErrorDescription) ?? '';
+    throw new Error(
+      `Failed installing: '${topError}'${topDescription ? ` errorDescription:'${topDescription}'` : ''}`,
+    );
+  }
+
   const installProgressDict = progressUpdate.InstallProgressDict;
   if (!installProgressDict || typeof installProgressDict !== 'object') {
     throw new Error(
