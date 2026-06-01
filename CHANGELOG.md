@@ -1,3 +1,9 @@
+## [2.3.0](https://github.com/appium/appium-ios-remotexpc/compare/v2.2.5...v2.3.0) (2026-06-01)
+
+### Features
+
+* Zipconduit service support ([#229](https://github.com/appium/appium-ios-remotexpc/issues/229)) ([ea79fa1](https://github.com/appium/appium-ios-remotexpc/commit/ea79fa1f9b0e315302bde9c77b21787425ef9880))
+
 ## [2.2.5](https://github.com/appium/appium-ios-remotexpc/compare/v2.2.4...v2.2.5) (2026-06-01)
 
 ### Miscellaneous Chores
