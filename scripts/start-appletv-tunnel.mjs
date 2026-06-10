@@ -186,17 +186,18 @@ async function establishOneTunnel(startResult, packetStreamBaseRef) {
   try {
     packetStreamPort = packetStreamBaseRef.value++;
     const pss = new PacketStreamServer(packetStreamPort);
+    if (tunnel.addPacketConsumer && tunnel.removePacketConsumer) {
+      pss.bindTunnel(tunnel);
+    } else {
+      log.warn(
+        `Tunnel for ${device.identifier} does not support packet consumers`,
+      );
+    }
     await pss.start();
 
-    const consumer = pss.getPacketConsumer();
-    if (consumer && tunnel.addPacketConsumer) {
-      tunnel.addPacketConsumer(consumer);
-      log.info(
-        `Packet stream server for ${device.identifier} on port ${packetStreamPort}`,
-      );
-    } else {
-      log.warn(`Failed to attach packet consumer for ${device.identifier}`);
-    }
+    log.info(
+      `Packet stream server for ${device.identifier} on port ${packetStreamPort}`,
+    );
     packetStreamServers.set(device.identifier, pss);
   } catch (err) {
     log.warn(`Failed to start packet stream server for ${device.identifier}: ${err}`);

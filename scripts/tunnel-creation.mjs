@@ -357,12 +357,8 @@ async function createTunnelForDevice(device, tlsOptions, packetStreamBaseRef) {
     try {
       packetStreamPort = packetStreamBaseRef.value++;
       const packetStreamServer = new PacketStreamServer(packetStreamPort);
+      packetStreamServer.bindTunnel(tunnel);
       await packetStreamServer.start();
-
-      const consumer = packetStreamServer.getPacketConsumer();
-      if (consumer) {
-        tunnel.addPacketConsumer(consumer);
-      }
 
       packetStreamServers.set(udid, packetStreamServer);
 
