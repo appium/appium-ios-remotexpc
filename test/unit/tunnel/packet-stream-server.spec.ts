@@ -119,12 +119,11 @@ describe('PacketStreamServer', function () {
 
     const client1 = await connectClient(port);
     const client2 = await connectClient(port);
+    await waitFor(() => added.length === 1);
 
     expect(added).to.have.lengthOf(1);
 
     await closeClient(client1);
-    await waitFor(() => removed.length === 0);
-
     expect(removed).to.have.lengthOf(0);
 
     await closeClient(client2);
