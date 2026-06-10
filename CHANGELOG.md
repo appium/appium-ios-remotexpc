@@ -1,3 +1,9 @@
+## [2.4.0](https://github.com/appium/appium-ios-remotexpc/compare/v2.3.0...v2.4.0) (2026-06-10)
+
+### Features
+
+* Only perform packet tap lazily ([#234](https://github.com/appium/appium-ios-remotexpc/issues/234)) ([d11c61d](https://github.com/appium/appium-ios-remotexpc/commit/d11c61d5cf13df3d7510a3cde91673f5b86e4871))
+
 ## [2.3.0](https://github.com/appium/appium-ios-remotexpc/compare/v2.2.5...v2.3.0) (2026-06-01)
 
 ### Features
