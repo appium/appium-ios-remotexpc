@@ -48,8 +48,8 @@ export class WebInspectorService extends BaseService {
   private readonly connectionId: string;
   private receivePromise: Promise<void> | null = null;
 
-  constructor(address: [string, number]) {
-    super(address);
+  constructor(udid: string) {
+    super(udid);
     this.connectionId = randomUUID().toUpperCase();
   }
 
@@ -347,13 +347,10 @@ export class WebInspectorService extends BaseService {
    * subsequent callers should await the cached connectionPromise.
    */
   private async _doConnect(): Promise<ServiceConnection> {
-    const service = {
-      serviceName: WebInspectorService.RSD_SERVICE_NAME,
-      port: this.address[1].toString(),
-    };
-
     try {
-      const connection = await this.startLockdownService(service);
+      const connection = await this.startLockdownService(
+        WebInspectorService.RSD_SERVICE_NAME,
+      );
       this.connection = connection;
 
       // Consume the StartService response from RSDCheckin so it does not reach the message

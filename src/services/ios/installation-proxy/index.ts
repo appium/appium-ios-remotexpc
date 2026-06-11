@@ -55,8 +55,8 @@ export class InstallationProxyService extends BaseService {
   private readonly timeout: number;
   private connection: ServiceConnection | null = null;
 
-  constructor(address: [string, number], timeout: number = 30000) {
-    super(address);
+  constructor(udid: string, timeout: number = 30000) {
+    super(udid);
     this.timeout = timeout;
   }
 
@@ -297,14 +297,12 @@ export class InstallationProxyService extends BaseService {
       return this.connection;
     }
 
-    const service = {
-      serviceName: InstallationProxyService.RSD_SERVICE_NAME,
-      port: this.address[1].toString(),
-    };
-
-    this.connection = await this.startLockdownService(service, {
-      createConnectionTimeout: this.timeout,
-    });
+    this.connection = await this.startLockdownService(
+      InstallationProxyService.RSD_SERVICE_NAME,
+      {
+        createConnectionTimeout: this.timeout,
+      },
+    );
 
     const startServiceResponse = await this.connection.receive(this.timeout);
 

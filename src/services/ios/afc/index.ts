@@ -8,6 +8,10 @@ import { pipeline } from 'node:stream/promises';
 
 import { getLogger } from '../../../lib/logger.js';
 import {
+  DEFAULT_TUNNEL_SERVICE_WAIT_MS,
+  resolveTunnelService,
+} from '../../../lib/tunnel/tunnel-service-resolver.js';
+import {
   buildClosePayload,
   buildFopenPayload,
   buildMkdirPayload,
@@ -88,32 +92,29 @@ export interface StatInfo {
 export class AfcService {
   static readonly RSD_SERVICE_NAME = 'com.apple.afc.shim.remote';
 
+  private readonly udid?: string;
   private socket: net.Socket | null = null;
   private demux: AfcPacketDemux | null = null;
   private silent: boolean = false;
   /** Set when the AFC byte stream is no longer safe to reuse on this instance. */
   private connectionError: Error | null = null;
 
-  constructor(
-    private readonly address: [string, number],
-    silent?: boolean,
-  ) {
+  constructor(udid: string, silent?: boolean);
+  constructor(socket: net.Socket, silent?: boolean);
+  constructor(udidOrSocket: string | net.Socket, silent?: boolean) {
+    if (typeof udidOrSocket === 'string') {
+      this.udid = udidOrSocket;
+    } else {
+      this.socket = udidOrSocket;
+    }
     this.silent = silent ?? process.env.NODE_ENV !== 'test';
   }
 
   /**
-   * Create an AfcService from an existing connected socket.
-   *
-   * @param socket - An already connected socket in AFC mode
-   * @param silent - If true, suppress error logging
-   * @returns A new AfcService instance using the provided socket
+   * Create an AfcService from an existing connected socket in AFC mode.
    */
   static fromSocket(socket: net.Socket, silent?: boolean): AfcService {
-    const remoteAddress = socket.remoteAddress || 'localhost';
-    const remotePort = socket.remotePort || 0;
-    const service = new AfcService([remoteAddress, remotePort], silent);
-    service.socket = socket;
-    return service;
+    return new AfcService(socket, silent);
   }
 
   /**
@@ -815,9 +816,21 @@ export class AfcService {
     }
     this.socket = null;
 
-    const [host, rsdPort] = this.address;
+    if (!this.udid) {
+      throw new AfcConnectionError(
+        'Pre-connected AFC socket is no longer usable',
+      );
+    }
 
-    this.socket = await createRawServiceSocket(host, rsdPort, {
+    const resolved = await resolveTunnelService(
+      this.udid,
+      AfcService.RSD_SERVICE_NAME,
+      { waitMs: DEFAULT_TUNNEL_SERVICE_WAIT_MS },
+    );
+    const host = resolved.host;
+    const servicePort = resolved.port;
+
+    this.socket = await createRawServiceSocket(host, servicePort, {
       timeoutMs: 30000,
     });
     this._getDemux().ensureReaderStarted(this.socket);

@@ -7,15 +7,15 @@ import {
 
 describe('PowerAssertionService', function () {
   describe('PowerAssertionService instantiation', function () {
-    it('should create a service with valid address', function () {
-      const service = new PowerAssertionService(['127.0.0.1', 12345]);
+    it('should create a service with valid udid', function () {
+      const service = new PowerAssertionService('test-udid');
       expect(service).to.be.instanceOf(PowerAssertionService);
     });
   });
 
   describe('buildCreateAssertionRequest', function () {
     it('should build request without details', function () {
-      const service = new PowerAssertionService(['127.0.0.1', 12345]);
+      const service = new PowerAssertionService('test-udid');
       const request = (service as any).buildCreateAssertionRequest({
         type: PowerAssertionType.PREVENT_USER_IDLE_SYSTEM_SLEEP,
         name: 'TestAssertion',
@@ -31,7 +31,7 @@ describe('PowerAssertionService', function () {
     });
 
     it('should build request with details', function () {
-      const service = new PowerAssertionService(['127.0.0.1', 12345]);
+      const service = new PowerAssertionService('test-udid');
       const request = (service as any).buildCreateAssertionRequest({
         type: PowerAssertionType.PREVENT_SYSTEM_SLEEP,
         name: 'TestAssertion',

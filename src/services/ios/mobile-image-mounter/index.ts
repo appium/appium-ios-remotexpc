@@ -57,10 +57,6 @@ class MobileImageMounterService
   // Connection cache
   private connection: ServiceConnection | null = null;
 
-  constructor(address: [string, number]) {
-    super(address);
-  }
-
   /**
    * Clean up resources when service is no longer needed
    */
@@ -468,10 +464,9 @@ class MobileImageMounterService
       return this.connection;
     }
 
-    const newConnection = await this.startLockdownService({
-      serviceName: MobileImageMounterService.RSD_SERVICE_NAME,
-      port: this.address[1].toString(),
-    });
+    const newConnection = await this.startLockdownService(
+      MobileImageMounterService.RSD_SERVICE_NAME,
+    );
 
     this.connection = newConnection;
     return newConnection;

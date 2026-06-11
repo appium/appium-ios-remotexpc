@@ -59,6 +59,7 @@
     "test:dvt:network-monitor": "mocha test/integration/dvt_instruments/network-monitor-test.ts --exit --timeout 1m",
     "test:dvt:process-control": "mocha test/integration/process-control-test.ts --exit --timeout 1m",
     "test:testmanagerd": "mocha test/integration/testmanagerd-test.ts --exit --timeout 2m",
+    "test:rsd-repro": "mocha test/local/rsd-tunnel-repro-test.ts --exit --timeout 15m",
     "test:tunnel-creation": "sudo node scripts/tunnel-creation.mjs",
     "test:tunnel-creation:lsof": "sudo node scripts/tunnel-creation.mjs --keep-open"
   },

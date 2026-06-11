@@ -226,6 +226,9 @@ export interface XPCDictionary {
  */
 export type ResponseCallback<T> = (data: T) => void;
 
+/** RSD service catalog published by tunnel-creation after discover-and-close. */
+export type TunnelServiceCatalog = Record<string, { port: string }>;
+
 export interface TunnelRegistryEntry {
   /** Unique device identifier */
   udid: string;
@@ -235,6 +238,10 @@ export interface TunnelRegistryEntry {
   address: string;
   /** Remote Service Discovery (RSD) port number */
   rsdPort: number;
+  /** RSD service name → port map (required once tunnel is ready) */
+  services: TunnelServiceCatalog;
+  /** Epoch ms when the service catalog was last refreshed */
+  catalogUpdatedAt?: number;
   /** Packet stream port number (omitted when no packet stream server) */
   packetStreamPort?: number;
   /** Type of connection (e.g., 'USB', 'Network') */
@@ -449,9 +456,9 @@ export interface DiagnosticsServiceConstructor {
   readonly RSD_SERVICE_NAME: string;
   /**
    * Creates a new DiagnosticsService instance
-   * @param address Tuple containing [host, port]
+   * @param udid Device UDID
    */
-  new (address: [string, number]): DiagnosticsService;
+  new (udid: string): DiagnosticsService;
 }
 
 /**
@@ -1373,9 +1380,9 @@ export interface SyslogService extends EventEmitter {
 export interface SyslogServiceConstructor {
   /**
    * Creates a new SyslogService instance
-   * @param address Tuple containing [host, port]
+   * @param udid Device UDID
    */
-  new (address: [string, number]): SyslogService;
+  new (udid: string): SyslogService;
 }
 
 /**
@@ -1493,9 +1500,9 @@ export interface MobileImageMounterServiceConstructor {
 
   /**
    * Creates a new MobileImageMounterService instance
-   * @param address Tuple containing [host, port]
+   * @param udid Device UDID
    */
-  new (address: [string, number]): MobileImageMounterService;
+  new (udid: string): MobileImageMounterService;
 }
 
 /**
@@ -1709,7 +1716,7 @@ export interface CrashReportsPullOptions {
 /**
  * CrashReportsService provides an API to manage crash reports on iOS devices
  */
-export interface CrashReportsService extends BaseService {
+export interface CrashReportsService {
   /**
    * List files and folders in the crash report's directory
    *

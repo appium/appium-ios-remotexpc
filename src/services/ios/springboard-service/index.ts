@@ -17,10 +17,6 @@ class SpringBoardService extends BaseService implements SpringboardInterface {
     'com.apple.springboardservices.shim.remote';
   private _conn: ServiceConnection | null = null;
 
-  constructor(address: [string, number]) {
-    super(address);
-  }
-
   async getIconState(): Promise<PlistDictionary> {
     try {
       const req = {
@@ -167,8 +163,9 @@ class SpringBoardService extends BaseService implements SpringboardInterface {
     if (this._conn) {
       return this._conn;
     }
-    const service = this.getServiceConfig();
-    this._conn = await this.startLockdownService(service);
+    this._conn = await this.startLockdownService(
+      SpringBoardService.RSD_SERVICE_NAME,
+    );
     return this._conn;
   }
 
@@ -181,16 +178,6 @@ class SpringBoardService extends BaseService implements SpringboardInterface {
     // Skip StartService response
     await this._conn.sendAndReceive(request);
     return await this._conn.sendPlistRequest(request);
-  }
-
-  private getServiceConfig(): {
-    serviceName: string;
-    port: string;
-  } {
-    return {
-      serviceName: SpringBoardService.RSD_SERVICE_NAME,
-      port: this.address[1].toString(),
-    };
   }
 }
 

@@ -2,10 +2,13 @@ import fs from 'node:fs/promises';
 import posixpath from 'node:path/posix';
 
 import { getLogger } from '../../../lib/logger.js';
+import {
+  DEFAULT_TUNNEL_SERVICE_WAIT_MS,
+  resolveTunnelService,
+} from '../../../lib/tunnel/tunnel-service-resolver.js';
 import type { CrashReportsPullOptions } from '../../../lib/types.js';
 import { createRawServiceSocket, readExact } from '../afc/codec.js';
 import { AfcService } from '../afc/index.js';
-import { BaseService } from '../base-service.js';
 
 const log = getLogger('CrashReportsService');
 
@@ -24,27 +27,16 @@ const APPSTORED_PATH = '/com.apple.appstored';
  * This service uses the com.apple.crashreportcopymobile.shim.remote for AFC operations
  * and com.apple.crashreportmover.shim.remote for flush operations.
  */
-export class CrashReportsService extends BaseService {
+export class CrashReportsService {
   static readonly RSD_COPY_MOBILE_NAME =
     'com.apple.crashreportcopymobile.shim.remote';
   static readonly RSD_CRASH_MOVER_NAME =
     'com.apple.crashreportmover.shim.remote';
 
   private readonly afc: AfcService;
-  private readonly crashMoverAddress: [string, number];
 
-  /**
-   * Creates a new CrashReportsService instance
-   * @param afcAddress Tuple containing [host, port] for the AFC service
-   * @param crashMoverAddress Tuple containing [host, port] for the crash mover service
-   */
-  constructor(
-    afcAddress: [string, number],
-    crashMoverAddress: [string, number],
-  ) {
-    super(afcAddress);
-    this.afc = new AfcService(afcAddress, true);
-    this.crashMoverAddress = crashMoverAddress;
+  constructor(private readonly udid: string) {
+    this.afc = new AfcService(udid, true);
   }
 
   /**
@@ -146,10 +138,13 @@ export class CrashReportsService extends BaseService {
   async flush(): Promise<void> {
     log.debug('Flushing crash reports');
 
-    const socket = await createRawServiceSocket(
-      this.crashMoverAddress[0],
-      this.crashMoverAddress[1],
+    const { host, port } = await resolveTunnelService(
+      this.udid,
+      CrashReportsService.RSD_CRASH_MOVER_NAME,
+      { waitMs: DEFAULT_TUNNEL_SERVICE_WAIT_MS },
     );
+
+    const socket = await createRawServiceSocket(host, port);
     try {
       const ack = await readExact(socket, 5, 10000);
       const expectedAck = Buffer.from('ping\0', 'utf8');

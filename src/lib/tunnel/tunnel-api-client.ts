@@ -13,6 +13,12 @@ const EMPTY_REGISTRY: TunnelRegistry = {
   },
 };
 const DEFAULT_TIMEOUT_MS = 10_000;
+const WAIT_REQUEST_BUFFER_MS = 5_000;
+
+export interface GetTunnelByUdidOptions {
+  /** Long-poll budget for GET /tunnels/:udid?waitMs= (0 or omitted = immediate). */
+  waitMs?: number;
+}
 
 export interface TunnelApiClientOptions {
   /** When true, methods throw on fetch/API errors instead of returning fallback values. Default false. */
@@ -71,9 +77,7 @@ export class TunnelApiClient {
       const response = await this.fetchWithTimeout(this.apiBaseUrl);
 
       if (!response.ok) {
-        throw new TunnelAvailabilityError(
-          `Failed to fetch tunnel registry from API: HTTP ${response.status}`,
-        );
+        throw new TunnelAvailabilityError(`HTTP ${response.status}`);
       }
 
       return (await response.json()) as TunnelRegistry;
@@ -84,14 +88,51 @@ export class TunnelApiClient {
   }
 
   /**
-   * Get a specific tunnel by UDID
+   * Get a specific tunnel by UDID.
    * @param udid - Device UDID
-   * @returns Tunnel registry entry or null if not found
+   * @param options.waitMs - When > 0, long-poll until the tunnel is ready or timeout (408).
    */
-  async getTunnelByUdid(udid: string): Promise<TunnelRegistryEntry | null> {
+  async getTunnelByUdid(
+    udid: string,
+    options: GetTunnelByUdidOptions = {},
+  ): Promise<TunnelRegistryEntry | null> {
+    const waitMs = options.waitMs ?? 0;
+    const url =
+      waitMs > 0
+        ? `${this.apiBaseUrl}/${udid}?waitMs=${waitMs}`
+        : `${this.apiBaseUrl}/${udid}`;
+    const timeoutMs =
+      waitMs > 0 ? waitMs + WAIT_REQUEST_BUFFER_MS : this.timeoutMs;
+
+    try {
+      const response = await this.fetchWithTimeout(url, undefined, timeoutMs);
+
+      if (response.status === 404 || response.status === 408) {
+        return null;
+      }
+
+      if (!response.ok) {
+        throw new TunnelAvailabilityError(`HTTP ${response.status}`);
+      }
+
+      return (await response.json()) as TunnelRegistryEntry;
+    } catch (error) {
+      this.handleFetchError(`Failed to fetch tunnel for UDID ${udid}`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Ask tunnel-creation to re-run RSD discover-and-close and return the updated entry.
+   */
+  async refreshServiceCatalog(
+    udid: string,
+  ): Promise<TunnelRegistryEntry | null> {
     try {
       const response = await this.fetchWithTimeout(
-        `${this.apiBaseUrl}/${udid}`,
+        `${this.apiBaseUrl}/${udid}/refresh-services`,
+        { method: 'POST' },
+        this.timeoutMs + DEFAULT_TIMEOUT_MS,
       );
 
       if (response.status === 404) {
@@ -99,14 +140,15 @@ export class TunnelApiClient {
       }
 
       if (!response.ok) {
-        throw new TunnelAvailabilityError(
-          `Failed to fetch tunnel for UDID ${udid}: HTTP ${response.status}`,
-        );
+        throw new TunnelAvailabilityError(`HTTP ${response.status}`);
       }
 
       return (await response.json()) as TunnelRegistryEntry;
     } catch (error) {
-      this.handleFetchError(`Failed to fetch tunnel for UDID ${udid}`, error);
+      this.handleFetchError(
+        `Failed to refresh service catalog for UDID ${udid}`,
+        error,
+      );
       return null;
     }
   }
@@ -129,9 +171,7 @@ export class TunnelApiClient {
       }
 
       if (!response.ok) {
-        throw new TunnelAvailabilityError(
-          `Failed to fetch tunnel for device ID ${deviceId}: HTTP ${response.status}`,
-        );
+        throw new TunnelAvailabilityError(`HTTP ${response.status}`);
       }
 
       return (await response.json()) as TunnelRegistryEntry;
@@ -276,15 +316,12 @@ export class TunnelApiClient {
     error: unknown,
     logLevel: 'warn' | 'error' = 'warn',
   ): void {
-    if (error instanceof TunnelAvailabilityError) {
-      if (this.strict) {
-        throw error;
-      }
-      this.logFetchFailure(error.message, logLevel);
-      return;
-    }
     const detail = error instanceof Error ? error.message : String(error);
-    const message = `${messagePrefix}: ${detail}`;
+    const prefixed = `${messagePrefix}: ${detail}`;
+    const message =
+      detail === messagePrefix || detail.startsWith(`${messagePrefix}:`)
+        ? detail
+        : prefixed;
     if (this.strict) {
       throw new TunnelAvailabilityError(message, { cause: error });
     }
@@ -302,9 +339,10 @@ export class TunnelApiClient {
   private async fetchWithTimeout(
     url: string,
     init?: RequestInit,
+    timeoutMs: number = this.timeoutMs,
   ): Promise<Response> {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.timeoutMs);
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const response = await fetch(url, {
         ...init,
@@ -317,7 +355,7 @@ export class TunnelApiClient {
       }
       if (error instanceof Error && error.name === 'AbortError') {
         throw new TunnelAvailabilityError(
-          `Tunnel registry request timed out after ${this.timeoutMs}ms`,
+          `Tunnel registry request timed out after ${timeoutMs}ms`,
           { cause: error },
         );
       }

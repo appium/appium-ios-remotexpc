@@ -18,8 +18,9 @@ class MisagentService extends BaseService implements MisagentServiceInterface {
       return this._conn;
     }
 
-    const service = this.getServiceConfig();
-    this._conn = await this.startLockdownService(service);
+    this._conn = await this.startLockdownService(
+      MisagentService.RSD_SERVICE_NAME,
+    );
     return this._conn;
   }
 
@@ -97,13 +98,6 @@ class MisagentService extends BaseService implements MisagentServiceInterface {
       }
       throw error;
     }
-  }
-
-  private getServiceConfig(): { serviceName: string; port: string } {
-    return {
-      serviceName: MisagentService.RSD_SERVICE_NAME,
-      port: this.address[1].toString(),
-    };
   }
 }
 

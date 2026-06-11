@@ -2,6 +2,10 @@ import fsp from 'node:fs/promises';
 import type net from 'node:net';
 
 import { getLogger } from '../../../lib/logger.js';
+import {
+  DEFAULT_TUNNEL_SERVICE_WAIT_MS,
+  resolveTunnelService,
+} from '../../../lib/tunnel/tunnel-service-resolver.js';
 import type { PlistDictionary } from '../../../lib/types.js';
 import {
   cleanupServiceSocket,
@@ -60,7 +64,7 @@ export class ZipConduitService {
 
   private socket: net.Socket | null = null;
 
-  constructor(private readonly address: [string, number]) {}
+  constructor(private readonly udid: string) {}
 
   /**
    * Connect to the zip_conduit service and complete the RSD handshake.
@@ -69,10 +73,12 @@ export class ZipConduitService {
     if (this.socket) {
       return;
     }
-    this.socket = await createRawServiceSocket(
-      this.address[0],
-      this.address[1],
+    const { host, port } = await resolveTunnelService(
+      this.udid,
+      ZipConduitService.RSD_SERVICE_NAME,
+      { waitMs: DEFAULT_TUNNEL_SERVICE_WAIT_MS },
     );
+    this.socket = await createRawServiceSocket(host, port);
   }
 
   /**

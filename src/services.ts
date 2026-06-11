@@ -1,8 +1,8 @@
-import { getLogger } from './lib/logger.js';
-import type { RemoteXpcConnection } from './lib/remote-xpc/remote-xpc-connection.js';
-import { TunnelManager, rsdSessionLockKey } from './lib/tunnel/index.js';
-import type { TunnelEndpoint } from './lib/tunnel/tunnel-api-client.js';
-import { getTunnelForDevice } from './lib/tunnel/tunnel-availability.js';
+import {
+  DEFAULT_TUNNEL_SERVICE_WAIT_MS,
+  resolveTunnelService,
+  resolveTunnelServicePorts,
+} from './lib/tunnel/tunnel-service-resolver.js';
 import type {
   DVTInstruments,
   SyslogService as SyslogServiceType,
@@ -35,15 +35,12 @@ import { DvtTestmanagedProxyService } from './services/ios/testmanagerd/index.js
 import { WebInspectorService } from './services/ios/webinspector/index.js';
 import ZipConduitService from './services/ios/zipconduit/index.js';
 
-const log = getLogger('Services');
-
-/** Pause after closing discovery RSD so device `remoted` can accept the next session. */
-const RSD_RELEASE_DELAY_MS = 300;
-
 export {
   getAvailableDevices,
   getTunnelForDevice,
 } from './lib/tunnel/tunnel-availability.js';
+
+const SERVICE_WAIT_MS = DEFAULT_TUNNEL_SERVICE_WAIT_MS;
 
 /**
  * Start the diagnostics service for the given device UDID.
@@ -51,15 +48,8 @@ export {
 export async function startDiagnosticsService(
   udid: string,
 ): Promise<DiagnosticsService> {
-  return withRemoteXpcConnection(udid, (remoteXPC, tunnelConnection) => {
-    const descriptor = remoteXPC.findService(
-      DiagnosticsService.RSD_SERVICE_NAME,
-    );
-    return new DiagnosticsService([
-      tunnelConnection.host,
-      parseInt(descriptor.port, 10),
-    ]);
-  });
+  await requireCatalogService(udid, DiagnosticsService.RSD_SERVICE_NAME);
+  return new DiagnosticsService(udid);
 }
 
 /**
@@ -68,15 +58,8 @@ export async function startDiagnosticsService(
 export async function startNotificationProxyService(
   udid: string,
 ): Promise<NotificationProxyService> {
-  return withRemoteXpcConnection(udid, (remoteXPC, tunnelConnection) => {
-    const descriptor = remoteXPC.findService(
-      NotificationProxyService.RSD_SERVICE_NAME,
-    );
-    return new NotificationProxyService([
-      tunnelConnection.host,
-      parseInt(descriptor.port, 10),
-    ]);
-  });
+  await requireCatalogService(udid, NotificationProxyService.RSD_SERVICE_NAME);
+  return new NotificationProxyService(udid);
 }
 
 /**
@@ -85,15 +68,8 @@ export async function startNotificationProxyService(
 export async function startMobileConfigService(
   udid: string,
 ): Promise<MobileConfigService> {
-  return withRemoteXpcConnection(udid, (remoteXPC, tunnelConnection) => {
-    const descriptor = remoteXPC.findService(
-      MobileConfigService.RSD_SERVICE_NAME,
-    );
-    return new MobileConfigService([
-      tunnelConnection.host,
-      parseInt(descriptor.port, 10),
-    ]);
-  });
+  await requireCatalogService(udid, MobileConfigService.RSD_SERVICE_NAME);
+  return new MobileConfigService(udid);
 }
 
 /**
@@ -102,15 +78,8 @@ export async function startMobileConfigService(
 export async function startMobileImageMounterService(
   udid: string,
 ): Promise<MobileImageMounterService> {
-  return withRemoteXpcConnection(udid, (remoteXPC, tunnelConnection) => {
-    const descriptor = remoteXPC.findService(
-      MobileImageMounterService.RSD_SERVICE_NAME,
-    );
-    return new MobileImageMounterService([
-      tunnelConnection.host,
-      parseInt(descriptor.port, 10),
-    ]);
-  });
+  await requireCatalogService(udid, MobileImageMounterService.RSD_SERVICE_NAME);
+  return new MobileImageMounterService(udid);
 }
 
 /**
@@ -119,15 +88,8 @@ export async function startMobileImageMounterService(
 export async function startSpringboardService(
   udid: string,
 ): Promise<SpringBoardService> {
-  return withRemoteXpcConnection(udid, (remoteXPC, tunnelConnection) => {
-    const descriptor = remoteXPC.findService(
-      SpringBoardService.RSD_SERVICE_NAME,
-    );
-    return new SpringBoardService([
-      tunnelConnection.host,
-      parseInt(descriptor.port, 10),
-    ]);
-  });
+  await requireCatalogService(udid, SpringBoardService.RSD_SERVICE_NAME);
+  return new SpringBoardService(udid);
 }
 
 /**
@@ -136,13 +98,8 @@ export async function startSpringboardService(
 export async function startMisagentService(
   udid: string,
 ): Promise<MisagentService> {
-  return withRemoteXpcConnection(udid, (remoteXPC, tunnelConnection) => {
-    const descriptor = remoteXPC.findService(MisagentService.RSD_SERVICE_NAME);
-    return new MisagentService([
-      tunnelConnection.host,
-      parseInt(descriptor.port, 10),
-    ]);
-  });
+  await requireCatalogService(udid, MisagentService.RSD_SERVICE_NAME);
+  return new MisagentService(udid);
 }
 
 /**
@@ -151,28 +108,8 @@ export async function startMisagentService(
 export async function startPowerAssertionService(
   udid: string,
 ): Promise<PowerAssertionService> {
-  return withRemoteXpcConnection(udid, (remoteXPC, tunnelConnection) => {
-    const descriptor = remoteXPC.findService(
-      PowerAssertionService.RSD_SERVICE_NAME,
-    );
-    return new PowerAssertionService([
-      tunnelConnection.host,
-      parseInt(descriptor.port, 10),
-    ]);
-  });
-}
-
-/**
- * Start the syslog service for the given device UDID.
- */
-export async function startSyslogService(
-  udid: string,
-): Promise<SyslogServiceType> {
-  return withRemoteXpcConnection(
-    udid,
-    (_, tunnelConnection) =>
-      new SyslogService([tunnelConnection.host, tunnelConnection.port]),
-  );
+  await requireCatalogService(udid, PowerAssertionService.RSD_SERVICE_NAME);
+  return new PowerAssertionService(udid);
 }
 
 const RSD_SYSLOG_BINARY_SERVICE_NAME = 'com.apple.os_trace_relay.shim.remote';
@@ -185,9 +122,18 @@ export interface StartXCTestServicesOptions {
 }
 
 /**
+ * Start the syslog service for the given device UDID.
+ * Validates the os_trace_relay shim is present in the tunnel catalog.
+ */
+export async function startSyslogService(
+  udid: string,
+): Promise<SyslogServiceType> {
+  await requireCatalogService(udid, RSD_SYSLOG_BINARY_SERVICE_NAME);
+  return new SyslogService(udid);
+}
+
+/**
  * Resolve the syslog binary service (os_trace_relay RemoteXPC shim).
- * Returns an unstarted SyslogService and its service descriptor using a single
- * RemoteXPC connection. Call syslogService.start(serviceDescriptor, packetSource, { pid }).
  */
 export async function startSyslogBinaryService(
   udid: string,
@@ -197,8 +143,6 @@ export async function startSyslogBinaryService(
 
 /**
  * Resolve the syslog text-relay service (iOS 18+ RemoteXPC shim).
- * Returns an unstarted SyslogService and its service descriptor using a single
- * RemoteXPC connection. Call syslogService.start(serviceDescriptor, ..., { textMode: true }).
  */
 export async function startSyslogTextService(
   udid: string,
@@ -208,55 +152,33 @@ export async function startSyslogTextService(
 
 /**
  * Start AFC service over RemoteXPC shim.
- * Resolves the AFC service port via RemoteXPC and returns a ready-to-use AfcService instance.
  */
 export async function startAfcService(udid: string): Promise<AfcService> {
-  return withRemoteXpcConnection(udid, (remoteXPC, tunnelConnection) => {
-    const afcDescriptor = remoteXPC.findService(AfcService.RSD_SERVICE_NAME);
-    return new AfcService([
-      tunnelConnection.host,
-      parseInt(afcDescriptor.port, 10),
-    ]);
-  });
+  await requireCatalogService(udid, AfcService.RSD_SERVICE_NAME);
+  return new AfcService(udid);
 }
 
 /**
  * Start streaming zip_conduit service over RemoteXPC shim.
- * Use {@link ZipConduitService.install} for fast IPA installation without AFC upload.
  */
 export async function startZipConduitService(
   udid: string,
 ): Promise<ZipConduitService> {
-  return withRemoteXpcConnection(udid, (remoteXPC, tunnelConnection) => {
-    const descriptor = remoteXPC.findService(
-      ZipConduitService.RSD_SERVICE_NAME,
-    );
-    return new ZipConduitService([
-      tunnelConnection.host,
-      parseInt(descriptor.port, 10),
-    ]);
-  });
+  await requireCatalogService(udid, ZipConduitService.RSD_SERVICE_NAME);
+  return new ZipConduitService(udid);
 }
 
 /**
  * Start CrashReportsService over RemoteXPC shim.
- * Resolves the crash report copy mobile and crash mover service ports via RemoteXPC.
  */
 export async function startCrashReportsService(
   udid: string,
 ): Promise<CrashReportsService> {
-  return withRemoteXpcConnection(udid, (remoteXPC, tunnelConnection) => {
-    const copyMobileDescriptor = remoteXPC.findService(
-      CrashReportsService.RSD_COPY_MOBILE_NAME,
-    );
-    const crashMoverDescriptor = remoteXPC.findService(
-      CrashReportsService.RSD_CRASH_MOVER_NAME,
-    );
-    return new CrashReportsService(
-      [tunnelConnection.host, parseInt(copyMobileDescriptor.port, 10)],
-      [tunnelConnection.host, parseInt(crashMoverDescriptor.port, 10)],
-    );
-  });
+  await requireCatalogServices(udid, [
+    CrashReportsService.RSD_COPY_MOBILE_NAME,
+    CrashReportsService.RSD_CRASH_MOVER_NAME,
+  ]);
+  return new CrashReportsService(udid);
 }
 
 /**
@@ -265,15 +187,8 @@ export async function startCrashReportsService(
 export async function startHouseArrestService(
   udid: string,
 ): Promise<HouseArrestService> {
-  return withRemoteXpcConnection(udid, (remoteXPC, tunnelConnection) => {
-    const descriptor = remoteXPC.findService(
-      HouseArrestService.RSD_SERVICE_NAME,
-    );
-    return new HouseArrestService([
-      tunnelConnection.host,
-      parseInt(descriptor.port, 10),
-    ]);
-  });
+  await requireCatalogService(udid, HouseArrestService.RSD_SERVICE_NAME);
+  return new HouseArrestService(udid);
 }
 
 /**
@@ -282,15 +197,8 @@ export async function startHouseArrestService(
 export async function startInstallationProxyService(
   udid: string,
 ): Promise<InstallationProxyService> {
-  return withRemoteXpcConnection(udid, (remoteXPC, tunnelConnection) => {
-    const descriptor = remoteXPC.findService(
-      InstallationProxyService.RSD_SERVICE_NAME,
-    );
-    return new InstallationProxyService([
-      tunnelConnection.host,
-      parseInt(descriptor.port, 10),
-    ]);
-  });
+  await requireCatalogService(udid, InstallationProxyService.RSD_SERVICE_NAME);
+  return new InstallationProxyService(udid);
 }
 
 /**
@@ -299,35 +207,20 @@ export async function startInstallationProxyService(
 export async function startWebInspectorService(
   udid: string,
 ): Promise<WebInspectorService> {
-  return withRemoteXpcConnection(udid, (remoteXPC, tunnelConnection) => {
-    const descriptor = remoteXPC.findService(
-      WebInspectorService.RSD_SERVICE_NAME,
-    );
-    return new WebInspectorService([
-      tunnelConnection.host,
-      parseInt(descriptor.port, 10),
-    ]);
-  });
+  await requireCatalogService(udid, WebInspectorService.RSD_SERVICE_NAME);
+  return new WebInspectorService(udid);
 }
 
 /**
  * Start the DVT secure socket proxy service and instrument clients.
  */
 export async function startDVTService(udid: string): Promise<DVTInstruments> {
-  const { host, port } = await withRemoteXpcConnection(
+  await requireCatalogService(
     udid,
-    (remoteXPC, tunnelConnection) => {
-      const dvtServiceDescriptor = remoteXPC.findService(
-        DVTSecureSocketProxyService.RSD_SERVICE_NAME,
-      );
-      return {
-        host: tunnelConnection.host,
-        port: parseInt(dvtServiceDescriptor.port, 10),
-      };
-    },
+    DVTSecureSocketProxyService.RSD_SERVICE_NAME,
   );
 
-  const dvtService = new DVTSecureSocketProxyService([host, port]);
+  const dvtService = new DVTSecureSocketProxyService(udid);
   await dvtService.connect();
 
   return {
@@ -350,86 +243,48 @@ export async function startDVTService(udid: string): Promise<DVTInstruments> {
 export async function startTestmanagerdService(
   udid: string,
 ): Promise<DvtTestmanagedProxyService> {
-  const { host, port } = await withRemoteXpcConnection(
+  await requireCatalogService(
     udid,
-    (remoteXPC, tunnelConnection) => {
-      const testmanagerdDescriptor = remoteXPC.findService(
-        DvtTestmanagedProxyService.RSD_SERVICE_NAME,
-      );
-      return {
-        host: tunnelConnection.host,
-        port: parseInt(testmanagerdDescriptor.port, 10),
-      };
-    },
+    DvtTestmanagedProxyService.RSD_SERVICE_NAME,
   );
 
-  const testmanagerdService = new DvtTestmanagedProxyService([host, port]);
+  const testmanagerdService = new DvtTestmanagedProxyService(udid);
   await testmanagerdService.connect();
   return testmanagerdService;
 }
 
 /**
- * Start all services needed for an XCTest session using a single RemoteXPC
- * connection for service discovery. This avoids ECONNRESET errors caused by
- * opening multiple RemoteXPC connections simultaneously through the tunnel.
- *
- * The RemoteXPC connection is closed internally after port discovery.
- * Callers are responsible for closing execTestmanagerd, controlTestmanagerd,
- * and dvtService when done.
+ * Start all services needed for an XCTest session using one registry catalog read.
  */
 export async function startXCTestServices(
   udid: string,
   options?: StartXCTestServicesOptions,
 ): Promise<XCTestServices> {
-  const { testmanagerdPort, dvtPort, installationProxyPort, host } =
-    await withRemoteXpcConnection(udid, (remoteXPC, tunnelConnection) => {
-      const testmanagerd = parseInt(
-        remoteXPC.findService(DvtTestmanagedProxyService.RSD_SERVICE_NAME).port,
-        10,
-      );
-      const dvt = parseInt(
-        remoteXPC.findService(DVTSecureSocketProxyService.RSD_SERVICE_NAME)
-          .port,
-        10,
-      );
-      const installationProxy = options?.includeInstallationProxy
-        ? parseInt(
-            remoteXPC.findService(InstallationProxyService.RSD_SERVICE_NAME)
-              .port,
-            10,
-          )
-        : undefined;
-      return {
-        host: tunnelConnection.host,
-        testmanagerdPort: testmanagerd,
-        dvtPort: dvt,
-        installationProxyPort: installationProxy,
-      };
-    });
+  const serviceNames = [
+    DvtTestmanagedProxyService.RSD_SERVICE_NAME,
+    DVTSecureSocketProxyService.RSD_SERVICE_NAME,
+  ];
+  if (options?.includeInstallationProxy) {
+    serviceNames.push(InstallationProxyService.RSD_SERVICE_NAME);
+  }
+  await requireCatalogServices(udid, serviceNames);
 
-  // Create individual service connections with cleanup on partial failure
   let execTestmanagerd: DvtTestmanagedProxyService | null = null;
   let controlTestmanagerd: DvtTestmanagedProxyService | null = null;
   let dvtService: DVTSecureSocketProxyService | null = null;
   let installationProxy: InstallationProxyService | undefined;
   try {
-    execTestmanagerd = new DvtTestmanagedProxyService([host, testmanagerdPort]);
+    execTestmanagerd = new DvtTestmanagedProxyService(udid);
     await execTestmanagerd.connect();
 
-    controlTestmanagerd = new DvtTestmanagedProxyService([
-      host,
-      testmanagerdPort,
-    ]);
+    controlTestmanagerd = new DvtTestmanagedProxyService(udid);
     await controlTestmanagerd.connect();
 
-    dvtService = new DVTSecureSocketProxyService([host, dvtPort]);
+    dvtService = new DVTSecureSocketProxyService(udid);
     await dvtService.connect();
 
-    if (installationProxyPort !== undefined) {
-      installationProxy = new InstallationProxyService([
-        host,
-        installationProxyPort,
-      ]);
+    if (options?.includeInstallationProxy) {
+      installationProxy = new InstallationProxyService(udid);
     }
   } catch (err) {
     installationProxy?.close();
@@ -450,69 +305,31 @@ export async function startXCTestServices(
   };
 }
 
-/**
- * Run `fn` with a freshly opened discovery `RemoteXpcConnection` and close
- * that connection unconditionally when `fn` settles. Use this whenever a
- * `start*Service` helper only needs the RSD to discover a service port:
- * the discovery RSD is single-use, so leaking it would race with `remoted`.
- */
-export async function withRemoteXpcConnection<T>(
+async function requireCatalogService(
   udid: string,
-  fn: (
-    remoteXPC: RemoteXpcConnection,
-    tunnelConnection: TunnelEndpoint,
-  ) => T | Promise<T>,
-): Promise<T> {
-  const tunnelConnection = await getTunnelForDevice(udid);
-  const lockKey = rsdSessionLockKey(
-    tunnelConnection.host,
-    tunnelConnection.port,
-  );
+  serviceName: string,
+): Promise<void> {
+  await resolveTunnelService(udid, serviceName, { waitMs: SERVICE_WAIT_MS });
+}
 
-  return TunnelManager.runSerializedRsdSession(lockKey, async () => {
-    const remoteXPC = await TunnelManager.connectRemoteXPCUnlocked(
-      tunnelConnection.host,
-      tunnelConnection.port,
-    );
-    let fnError: unknown;
-    let result: T | undefined;
-    try {
-      result = await fn(remoteXPC, tunnelConnection);
-    } catch (err) {
-      fnError = err;
-    } finally {
-      try {
-        await remoteXPC.close();
-      } catch (err) {
-        log.warn(
-          `Discovery RemoteXpcConnection close failed: ${err instanceof Error ? err.message : String(err)}`,
-        );
-      }
-      if (RSD_RELEASE_DELAY_MS > 0) {
-        await new Promise<void>((resolve) =>
-          setTimeout(resolve, RSD_RELEASE_DELAY_MS),
-        );
-      }
-    }
-    if (fnError !== undefined) {
-      throw fnError;
-    }
-    return result as T;
+async function requireCatalogServices(
+  udid: string,
+  serviceNames: string[],
+): Promise<void> {
+  await resolveTunnelServicePorts(udid, serviceNames, {
+    waitMs: SERVICE_WAIT_MS,
   });
 }
 
-/**
- * Resolve syslog service descriptor by RemoteXPC service name.
- */
 async function startSyslogWithServiceName(
   udid: string,
   serviceName: string,
 ): Promise<{ syslogService: SyslogServiceType; serviceDescriptor: Service }> {
-  return withRemoteXpcConnection(udid, (remoteXPC, tunnelConnection) => ({
-    syslogService: new SyslogService([
-      tunnelConnection.host,
-      tunnelConnection.port,
-    ]),
-    serviceDescriptor: remoteXPC.findService(serviceName),
-  }));
+  const { port } = await resolveTunnelService(udid, serviceName, {
+    waitMs: SERVICE_WAIT_MS,
+  });
+  return {
+    syslogService: new SyslogService(udid),
+    serviceDescriptor: { serviceName, port: String(port) },
+  };
 }

@@ -249,7 +249,7 @@ describe('SpringBoardService', function () {
         // Test with a service that has invalid configuration
         const invalidService = new (
           await import('../../src/services/ios/springboard-service/index.js')
-        ).SpringBoardService(['127.0.0.1', 99999]);
+        ).SpringBoardService('invalid-udid');
         await invalidService.getIconState();
 
         expect.fail('Expected method to throw an error');

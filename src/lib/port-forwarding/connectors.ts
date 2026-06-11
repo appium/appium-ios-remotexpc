@@ -1,5 +1,7 @@
 import { Socket, createConnection } from 'node:net';
+import { performance } from 'node:perf_hooks';
 
+import { getTunnelForDevice } from '../tunnel/tunnel-availability.js';
 import { createUsbmux } from '../usbmux/index.js';
 import type { PortForwardingConnector } from './types.js';
 
@@ -35,13 +37,13 @@ const connectViaUsbmuxImpl = async (
 export const connectViaUsbmux =
   connectViaUsbmuxImpl satisfies PortForwardingConnector;
 
-const connectViaTunnelImpl = async (
-  hostOrIdentifier: string,
+const connectToTunnelHost = async (
+  host: string,
   port: number,
   connectTimeoutMs = 5000,
 ): Promise<Socket> =>
   await new Promise<Socket>((resolve, reject) => {
-    const socket = createConnection({ host: hostOrIdentifier, port });
+    const socket = createConnection({ host, port });
 
     const onError = (err: Error): void => {
       cleanup();
@@ -52,7 +54,7 @@ const connectViaTunnelImpl = async (
       socket.destroy();
       reject(
         new Error(
-          `Connection timed out to ${hostOrIdentifier}:${port} after ${connectTimeoutMs}ms`,
+          `Connection timed out to ${host}:${port} after ${connectTimeoutMs}ms`,
         ),
       );
     };
@@ -73,9 +75,22 @@ const connectViaTunnelImpl = async (
     socket.once('connect', onConnect);
   });
 
+const connectViaTunnelImpl = async (
+  udid: string,
+  devicePort: number,
+  connectTimeoutMs = 5000,
+): Promise<Socket> => {
+  const deadline = performance.now() + connectTimeoutMs;
+  const remainingMs = (): number =>
+    Math.max(0, Math.ceil(deadline - performance.now()));
+
+  const endpoint = await getTunnelForDevice(udid, { waitMs: remainingMs() });
+  const tcpTimeoutMs = Math.max(remainingMs(), 1000);
+  return connectToTunnelHost(endpoint.host, devicePort, tcpTimeoutMs);
+};
+
 /**
- * Connector for tunnel endpoints.
- * The first parameter is treated as tunnel host/address.
+ * Resolve the current tunnel host from the registry, then connect to `devicePort`.
  */
 export const connectViaTunnel =
   connectViaTunnelImpl satisfies PortForwardingConnector;

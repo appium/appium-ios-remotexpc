@@ -57,9 +57,6 @@ class MobileConfigService
   static readonly RSD_SERVICE_NAME = 'com.apple.mobile.MCInstall.shim.remote';
   private _conn: ServiceConnection | null = null;
 
-  constructor(address: [string, number]) {
-    super(address);
-  }
   /**
    * Connect to the mobile config service
    * @returns Promise resolving to the ServiceConnection instance
@@ -69,8 +66,9 @@ class MobileConfigService
       return this._conn;
     }
 
-    const service = this.getServiceConfig();
-    this._conn = await this.startLockdownService(service);
+    this._conn = await this.startLockdownService(
+      MobileConfigService.RSD_SERVICE_NAME,
+    );
     return this._conn;
   }
 
@@ -217,16 +215,6 @@ class MobileConfigService
       throw new Error(`Invalid response: ${JSON.stringify(res)}`);
     }
     return res;
-  }
-
-  private getServiceConfig(): {
-    serviceName: string;
-    port: string;
-  } {
-    return {
-      serviceName: MobileConfigService.RSD_SERVICE_NAME,
-      port: this.address[1].toString(),
-    };
   }
 }
 

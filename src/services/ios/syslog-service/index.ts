@@ -52,11 +52,11 @@ class SyslogService extends EventEmitter implements SyslogServiceInterface {
 
   /**
    * Creates a new syslog-service instance
-   * @param address Tuple containing [host, port]
+   * @param udid Device UDID
    */
-  constructor(address: [string, number]) {
+  constructor(private readonly udid: string) {
     super();
-    this.baseService = new BaseService(address);
+    this.baseService = new BaseService(udid);
     this.syslogParser = new SyslogProtocolParser(
       (entry: SyslogEntry) => this.handleSyslogEntry(entry),
       (error: Error) => log.debug(`Syslog parse error: ${error.message}`),
@@ -91,7 +91,9 @@ class SyslogService extends EventEmitter implements SyslogServiceInterface {
     this.isCapturing = true;
 
     try {
-      this.connection = await this.baseService.startLockdownService(service);
+      this.connection = await this.baseService.startLockdownService(
+        service.serviceName,
+      );
 
       if (textMode) {
         // syslog_relay.shim.remote: after RSDCheckin the device immediately
@@ -167,7 +169,9 @@ class SyslogService extends EventEmitter implements SyslogServiceInterface {
    */
   async restart(service: Service): Promise<void> {
     try {
-      const conn = await this.baseService.startLockdownService(service);
+      const conn = await this.baseService.startLockdownService(
+        service.serviceName,
+      );
       const request = { Request: 'Restart' };
       const res = await conn.sendPlistRequest(request);
       log.info(`Restart response: ${res}`);

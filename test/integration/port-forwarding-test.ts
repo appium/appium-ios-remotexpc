@@ -9,9 +9,9 @@ import {
 } from '../../src/index.js';
 
 /**
- * Integration tests for {@link DevicePortForwarder} with usbmux and a plain-TCP
- * upstream via {@link connectViaTunnel} (no TLS or Apple framing — only TCP connect
- * must succeed for the tunnel case).
+ * Integration tests for {@link DevicePortForwarder} with usbmux and tunnel registry
+ * upstream via {@link connectViaTunnel} (no TLS or Apple framing — only TCP
+ * connect must succeed for the tunnel case).
  *
  * Environment variables:
  *
@@ -26,28 +26,17 @@ import {
  *
  * **Tunnel suite** (`describe('Port forwarding (tunnel)')`)
  *
- * Upstream is `connectViaTunnel(PORT_FORWARD_TUNNEL_HOST, port)`. Pick host/port so a
- * raw TCP connection to that endpoint succeeds while this process runs.
+ * Requires the tunnel registry (`scripts/tunnel-creation.mjs`) for the device UDID.
+ * Upstream is `connectViaTunnel(udid, port)` — host is resolved from the registry
+ * on each upstream connect.
  *
- * - `PORT_FORWARD_TUNNEL_HOST` — **required** (unless skipped).
+ * - `UDID` — optional; defaults to the first device from usbmux.
  * - `PORT_FORWARD_TUNNEL_DEVICE_PORT` or `PORT_FORWARD_DEVICE_PORT` — **required** (unless
- *   skipped): TCP port on that host.
+ *   skipped): TCP port reachable on the tunnel interface (e.g. registry `rsdPort` or a
+ *   device service port like `62078`).
  * - `PORT_FORWARD_TUNNEL_LOCAL_PORT` or `PORT_FORWARD_LOCAL_PORT` — local listen port
  *   (defaults: tunnel suite uses `18101` when both are unset; otherwise
  *   `PORT_FORWARD_LOCAL_PORT` applies when `PORT_FORWARD_TUNNEL_LOCAL_PORT` is unset).
- *
- * **Smoke test (no device)** — bind something on loopback, e.g. `nc -l 127.0.0.1 23456`,
- * then set `PORT_FORWARD_TUNNEL_HOST=127.0.0.1` and
- * `PORT_FORWARD_TUNNEL_DEVICE_PORT=23456`.
- *
- * **With `scripts/tunnel-creation.mjs`** — after tunnels are up, read
- * `GET …/remotexpc/tunnels/:udid` (or the script logs). Use registry **`address`** as
- * `PORT_FORWARD_TUNNEL_HOST` (often not `127.0.0.1`; may be IPv6). For the port:
- * - **`rsdPort`** — usually enough for this test (RSD accepts TCP on the tunnel iface).
- * - **Device service port** (e.g. `62078` lockdownd) — use when you want the same
- *   service you’d hit over the tunnel in real use.
- * - Do **not** use **`packetStreamPort`** here: that is the local packet-stream helper
- *   for the tunnel stack, not a generic “forward to device service” target.
  */
 
 /**
@@ -176,7 +165,6 @@ describe('Port forwarding (usbmux)', function () {
 describe('Port forwarding (tunnel)', function () {
   this.timeout(30000);
 
-  const tunnelHost = process.env.PORT_FORWARD_TUNNEL_HOST ?? '';
   const localHost = process.env.PORT_FORWARD_HOST ?? '127.0.0.1';
   const localPort = Number.parseInt(
     process.env.PORT_FORWARD_TUNNEL_LOCAL_PORT ??
@@ -190,17 +178,20 @@ describe('Port forwarding (tunnel)', function () {
       '',
     10,
   );
+  const requestedUdid = process.env.UDID;
 
   let forwarder: DevicePortForwarder | undefined;
 
   before(async function () {
-    if (!tunnelHost || !Number.isFinite(devicePort) || devicePort <= 0) {
+    if (!Number.isFinite(devicePort) || devicePort <= 0) {
       this.skip();
     }
 
+    const udid = await resolveUdid(requestedUdid);
+
     forwarder = new DevicePortForwarder(localPort, devicePort, {
       host: localHost,
-      primaryConnector: () => connectViaTunnel(tunnelHost, devicePort),
+      primaryConnector: () => connectViaTunnel(udid, devicePort),
     });
 
     await forwarder.start();

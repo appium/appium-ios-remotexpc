@@ -11,7 +11,9 @@ import {
   PacketStreamClient,
   PacketStreamServer,
   TunnelManager,
-  rsdSessionLockKey,
+  TunnelReadinessCoordinator,
+  discoverServices,
+  servicesToCatalog,
   watchTunnelRegistrySockets,
 } from './lib/tunnel/index.js';
 import {
@@ -91,7 +93,11 @@ export {
   TunnelAvailabilityError,
   getTunnelForDevice,
 } from './lib/tunnel/tunnel-availability.js';
-export { withRemoteXpcConnection } from './services.js';
+export {
+  resolveTunnelService,
+  resolveTunnelServicePorts,
+  DEFAULT_TUNNEL_SERVICE_WAIT_MS,
+} from './lib/tunnel/tunnel-service-resolver.js';
 export type { TunnelEndpoint } from './lib/tunnel/tunnel-api-client.js';
 export { XCTestConfigurationEncoder } from './services/ios/testmanagerd/xctestconfiguration.js';
 export type { XCTestConfigurationParams } from './services/ios/testmanagerd/xctestconfiguration.js';
@@ -142,7 +148,9 @@ export {
   Usbmux,
   DevicePortForwarder,
   TunnelManager,
-  rsdSessionLockKey,
+  discoverServices,
+  servicesToCatalog,
+  TunnelReadinessCoordinator,
   PacketStreamServer,
   PacketStreamClient,
   createLockdownServiceForTunnel,

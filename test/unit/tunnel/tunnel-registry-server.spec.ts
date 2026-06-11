@@ -22,6 +22,10 @@ describe('TunnelRegistryServer', function () {
         address: '127.0.0.1',
         packetStreamPort: 12345,
         rsdPort: 58783,
+        services: {
+          'com.apple.afc.shim.remote': { port: '49374' },
+        },
+        catalogUpdatedAt: Date.now(),
         connectionType: 'USB',
         productId: 12345,
         createdAt: Date.now(),
@@ -98,6 +102,89 @@ describe('TunnelRegistryServer', function () {
       expect(response.status).to.equal(404);
       expect(data).to.have.property('error');
       expect(data.error).to.include('Tunnel not found');
+    });
+
+    it('should return 404 for a pending tunnel when waitMs=0', async function () {
+      const pendingPort = testPort + 1;
+      const pendingRegistry = {
+        tunnels: {
+          'pending-udid': {
+            udid: 'pending-udid',
+            deviceId: 2,
+            address: '127.0.0.2',
+            rsdPort: 1,
+            services: {},
+            connectionType: 'USB',
+            productId: 0,
+            createdAt: Date.now(),
+            lastUpdated: Date.now(),
+          },
+        },
+        metadata: testRegistry.metadata,
+      };
+      const pendingServer = await startTunnelRegistryServer(
+        pendingRegistry,
+        pendingPort,
+      );
+
+      try {
+        const response = await fetch(
+          `http://localhost:${pendingPort}/remotexpc/tunnels/pending-udid?waitMs=0`,
+        );
+        const data = (await response.json()) as { error: string };
+
+        expect(response.status).to.equal(404);
+        expect(data.error).to.include('Tunnel not found');
+      } finally {
+        await pendingServer.stop();
+      }
+    });
+  });
+
+  describe('POST /remotexpc/tunnels/:udid/refresh-services', function () {
+    it('should refresh and return the updated catalog', async function () {
+      const refreshPort = testPort + 2;
+      const refreshRegistry = {
+        tunnels: {
+          'refresh-udid': {
+            ...testRegistry.tunnels['test-udid-123'],
+            udid: 'refresh-udid',
+          },
+        },
+        metadata: testRegistry.metadata,
+      };
+
+      const refreshServices = async (
+        udid: string,
+        entry: TunnelRegistryEntry,
+      ) => ({
+        ...entry,
+        services: {
+          'com.apple.dvt.shim.remote': { port: '62078' },
+        },
+        catalogUpdatedAt: Date.now(),
+      });
+
+      const refreshServer = await startTunnelRegistryServer(
+        refreshRegistry,
+        refreshPort,
+        { refreshServices },
+      );
+
+      try {
+        const response = await fetch(
+          `http://localhost:${refreshPort}/remotexpc/tunnels/refresh-udid/refresh-services`,
+          { method: 'POST' },
+        );
+        const data = (await response.json()) as TunnelRegistryEntry;
+
+        expect(response.status).to.equal(200);
+        expect(data.services['com.apple.dvt.shim.remote']?.port).to.equal(
+          '62078',
+        );
+      } finally {
+        await refreshServer.stop();
+      }
     });
   });
 

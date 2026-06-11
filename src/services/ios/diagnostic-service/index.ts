@@ -24,10 +24,6 @@ class DiagnosticsService
   static readonly RSD_SERVICE_NAME =
     'com.apple.mobile.diagnostics_relay.shim.remote';
 
-  constructor(address: [string, number]) {
-    super(address);
-  }
-
   /**
    * Restart the device
    * @returns Promise that resolves when the restart request is sent
@@ -128,15 +124,10 @@ class DiagnosticsService
     }
   }
 
-  private getServiceConfig() {
-    return {
-      serviceName: DiagnosticsService.RSD_SERVICE_NAME,
-      port: this.address[1].toString(),
-    };
-  }
-
   private async connectToDiagnosticService(): Promise<ServiceConnection> {
-    const connection = await this.startLockdownService(this.getServiceConfig());
+    const connection = await this.startLockdownService(
+      DiagnosticsService.RSD_SERVICE_NAME,
+    );
     const startServiceResponse = await connection.receive();
     if (startServiceResponse?.Request !== 'StartService') {
       throw new Error(

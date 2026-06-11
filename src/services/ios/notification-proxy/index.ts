@@ -35,8 +35,8 @@ class NotificationProxyService
   private _conn: ServiceConnection | null = null;
   private _pendingNotificationsObservationSet: Set<string> = new Set();
 
-  constructor(address: [string, number], timeout: number = 10000) {
-    super(address);
+  constructor(udid: string, timeout: number = 10000) {
+    super(udid);
     this.timeout = timeout;
   }
 
@@ -142,8 +142,10 @@ class NotificationProxyService
     if (this._conn) {
       return this._conn;
     }
-    const service = this.getServiceConfig();
-    this._conn = await this.startLockdownService(service);
+    this._conn = await this.startLockdownService(
+      NotificationProxyService.RSD_SERVICE_NAME,
+      { createConnectionTimeout: this.timeout },
+    );
     return this._conn;
   }
 
@@ -165,17 +167,6 @@ class NotificationProxyService
     };
   }
 
-  private getServiceConfig(): {
-    serviceName: string;
-    port: string;
-    options: { createConnectionTimeout: number };
-  } {
-    return {
-      serviceName: NotificationProxyService.RSD_SERVICE_NAME,
-      port: this.address[1].toString(),
-      options: { createConnectionTimeout: this.timeout },
-    };
-  }
   private async sendPlistDictionary(
     request: PlistDictionary,
   ): Promise<PlistDictionary> {
