@@ -24,7 +24,6 @@
     "format:check": "prettier --check \"{src,test}/**/*.{ts,tsx}\"",
     "lint:fix": "eslint src scripts --fix",
     "test": "mocha test/integration/**/*.ts",
-    "test:integration:one-by-one": "node scripts/run-integration-one-by-one.mjs",
     "test:all": "mocha -r tsx/cjs test/run-integration-tests.ts",
     "test:tunnel": "mocha test/integration/tunnel-test.ts --exit --timeout 1m",
     "test:pair-record": "mocha test/integration/read-pair-record-test.ts --exit --timeout 1m",
