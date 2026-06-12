@@ -10,7 +10,7 @@ import {
   sendAfcPacket,
 } from './codec.js';
 import { AFC_HEADER_SIZE, AFC_OPERATION_TIMEOUT_MS } from './constants.js';
-import { AfcError, AfcOpcode } from './enums.js';
+import { AfcError, AfcOpcode, isAfcPayloadResponse } from './enums.js';
 import { AfcConnectionError } from './errors.js';
 
 const log = getLogger('AfcService');
@@ -88,6 +88,8 @@ export class AfcPacketDemux {
     this.readerSocket = null;
     this.readerActive = false;
     this.stopped = false;
+    // Each new RSD/AFC socket is a fresh session; packet numbers start at 0.
+    this.packetNum = 0n;
   }
 
   /** Graceful shutdown; does not notify the owning service. */
@@ -179,9 +181,9 @@ export class AfcPacketDemux {
           }
           status = Number(readUInt64LE(payload.subarray(0, 8))) as AfcError;
           data = Buffer.alloc(0);
-        } else if (op !== AfcOpcode.DATA) {
+        } else if (!isAfcPayloadResponse(op)) {
           log.debug(
-            `Unexpected AFC response opcode ${op} for packet ${header.packetNum}`,
+            `Unexpected AFC response opcode ${AfcOpcode[op] ?? op} (${op}) for packet ${header.packetNum}`,
           );
         }
 

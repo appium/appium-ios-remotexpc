@@ -6,17 +6,41 @@ export enum AfcOpcode {
   STATUS = 0x00000001,
   DATA = 0x00000002,
   READ_DIR = 0x00000003,
+  READ_FILE = 0x00000004,
+  WRITE_FILE = 0x00000005,
+  WRITE_PART = 0x00000006,
+  TRUNCATE = 0x00000007,
   REMOVE_PATH = 0x00000008,
   MAKE_DIR = 0x00000009,
   GET_FILE_INFO = 0x0000000a,
   GET_DEVINFO = 0x0000000b,
+  WRITE_FILE_ATOM = 0x0000000c,
   FILE_OPEN = 0x0000000d,
+  FILE_OPEN_RES = 0x0000000e,
   READ = 0x0000000f,
   WRITE = 0x00000010,
+  FILE_SEEK = 0x00000011,
+  FILE_TELL = 0x00000012,
+  FILE_TELL_RES = 0x00000013,
   FILE_CLOSE = 0x00000014,
+  FILE_SET_SIZE = 0x00000015,
+  GET_CON_INFO = 0x00000016,
+  SET_CON_OPTIONS = 0x00000017,
   RENAME_PATH = 0x00000018,
+  SET_FS_BS = 0x00000019,
+  SET_SOCKET_BS = 0x0000001a,
   FILE_LOCK = 0x0000001b,
   MAKE_LINK = 0x0000001c,
+  SET_FILE_TIME = 0x0000001e,
+}
+
+/** AFC response opcodes whose payload is operation result data (not a STATUS code). */
+export function isAfcPayloadResponse(op: AfcOpcode): boolean {
+  return (
+    op === AfcOpcode.DATA ||
+    op === AfcOpcode.FILE_OPEN_RES ||
+    op === AfcOpcode.FILE_TELL_RES
+  );
 }
 
 export enum AfcError {

@@ -81,6 +81,62 @@ describe('AfcPacketDemux', function () {
     client.destroy();
     deviceSide.destroy();
   });
+
+  it('parses FILE_OPEN_RES responses with file handle payload', async function () {
+    const { server, client, deviceSide, getSocket } =
+      await createPairedSockets();
+    const demux = new AfcPacketDemux(getSocket, () => {});
+
+    const responseTask = demux.sendAndWait(
+      AfcOpcode.FILE_OPEN,
+      Buffer.from('file\0'),
+    );
+
+    const requestHeader = await readExactFromSocket(
+      deviceSide,
+      AFC_HEADER_SIZE,
+    );
+    const packetNum = readUInt64LE(requestHeader, 24);
+    const handlePayload = Buffer.alloc(8);
+    handlePayload.writeBigUInt64LE(1n, 0);
+    deviceSide.write(
+      encodeResponse(AfcOpcode.FILE_OPEN_RES, packetNum, handlePayload),
+    );
+
+    const { status, data } = await responseTask;
+    expect(status).to.equal(AfcError.SUCCESS);
+    expect(data.readBigUInt64LE(0)).to.equal(1n);
+
+    demux.stop();
+    server.close();
+    client.destroy();
+    deviceSide.destroy();
+  });
+
+  it('resets packet_num when the socket is replaced', async function () {
+    const { server, client, deviceSide, getSocket } =
+      await createPairedSockets();
+    const demux = new AfcPacketDemux(getSocket, () => {});
+
+    const firstTask = demux.sendAndWait(AfcOpcode.GET_DEVINFO);
+    const firstHeader = await readExactFromSocket(deviceSide, AFC_HEADER_SIZE);
+    expect(readUInt64LE(firstHeader, 24)).to.equal(0n);
+    deviceSide.write(encodeResponse(AfcOpcode.DATA, 0n, Buffer.from('ok\0\0')));
+    await firstTask;
+
+    demux.resetForNewSocket();
+
+    const secondTask = demux.sendAndWait(AfcOpcode.GET_DEVINFO);
+    const secondHeader = await readExactFromSocket(deviceSide, AFC_HEADER_SIZE);
+    expect(readUInt64LE(secondHeader, 24)).to.equal(0n);
+    deviceSide.write(encodeResponse(AfcOpcode.DATA, 0n, Buffer.from('ok\0\0')));
+    await secondTask;
+
+    demux.stop();
+    server.close();
+    client.destroy();
+    deviceSide.destroy();
+  });
 });
 
 async function createPairedSockets(): Promise<{
