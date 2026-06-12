@@ -1,8 +1,8 @@
 import { getLogger } from '../../../../lib/logger.js';
 import { parseBinaryPlist } from '../../../../lib/plist/index.js';
 import type { ProcessInfo } from '../../../../lib/types.js';
-import { hasNSErrorIndicators } from '../utils.js';
 import { MessageAux } from '../dtx-message.js';
+import { hasNSErrorIndicators } from '../utils.js';
 import { BaseInstrument } from './base-instrument.js';
 
 const log = getLogger('DeviceInfo');
