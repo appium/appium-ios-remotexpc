@@ -227,9 +227,9 @@ describe('SpringBoardService', function () {
         const metrics = await springboardService.getHomescreenIconMetrics();
         const iconState2 = await springboardService.getIconState();
 
-        expect(iconState1).to.be.an('object');
+        expect(iconState1).to.be.an('array');
         expect(metrics).to.be.an('object');
-        expect(iconState2).to.be.an('object');
+        expect(iconState2).to.be.an('array');
 
         // Verify that we get consistent results
         expect(iconState1).to.deep.equal(iconState2);

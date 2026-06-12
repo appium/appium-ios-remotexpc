@@ -1,6 +1,7 @@
 import { getLogger } from '../../../../lib/logger.js';
 import { parseBinaryPlist } from '../../../../lib/plist/index.js';
 import type { ProcessInfo } from '../../../../lib/types.js';
+import { hasNSErrorIndicators } from '../utils.js';
 import { MessageAux } from '../dtx-message.js';
 import { BaseInstrument } from './base-instrument.js';
 
@@ -169,16 +170,40 @@ export class DeviceInfo extends BaseInstrument {
    * @returns The username string
    */
   async nameForUid(uid: number): Promise<string> {
-    return this.requestInformation('nameForUID_', uid);
+    return this.expectStringResult(
+      await this.requestInformation('nameForUID_', uid),
+      `nameForUid(${uid})`,
+    );
   }
 
   /**
    * Get the group name for a given group ID (GID).
    * @param gid - The group identifier
    * @returns The group name string
+   * @throws {Error} When the selector is unavailable or lookup fails
    */
   async nameForGid(gid: number): Promise<string> {
-    return this.requestInformation('nameForGID_', gid);
+    return this.expectStringResult(
+      await this.requestInformation('nameForGID_', gid),
+      `nameForGid(${gid})`,
+    );
+  }
+
+  private expectStringResult(result: unknown, context: string): string {
+    if (typeof result === 'string') {
+      return result;
+    }
+
+    if (hasNSErrorIndicators(result)) {
+      const description =
+        (result as { NSUserInfo?: { NSLocalizedDescription?: string } })
+          .NSUserInfo?.NSLocalizedDescription ?? JSON.stringify(result);
+      throw new Error(`${context}: ${description}`);
+    }
+
+    throw new Error(
+      `${context}: expected string, got ${typeof result} (${JSON.stringify(result)})`,
+    );
   }
 
   /**
