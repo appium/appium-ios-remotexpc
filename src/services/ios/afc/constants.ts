@@ -7,9 +7,8 @@ import { AfcFopenMode } from './enums.js';
 // Magic bytes at start of every AFC header
 export const AFCMAGIC = Buffer.from('CFA6LPAA', 'ascii');
 
-// IO chunk sizes (split writes avoid memcpy)
-export const MAXIMUM_READ_SIZE = 1024 * 1024;
-export const MAXIMUM_WRITE_SIZE = 1024 * 1024;
+export const MAXIMUM_READ_SIZE = 4 * 1024 * 1024;
+export const MAXIMUM_WRITE_SIZE = 4 * 1024 * 1024;
 
 // Mapping of textual fopen modes to AFC modes
 export const AFC_FOPEN_TEXTUAL_MODES: Record<string, AfcFopenMode> = {

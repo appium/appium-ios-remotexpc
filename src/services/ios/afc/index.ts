@@ -93,19 +93,26 @@ export class AfcService {
   static readonly RSD_SERVICE_NAME = 'com.apple.afc.shim.remote';
 
   private readonly udid?: string;
+  private readonly rsdServiceName: string;
   private socket: net.Socket | null = null;
   private demux: AfcPacketDemux | null = null;
   private silent: boolean = false;
   /** Set when the AFC byte stream is no longer safe to reuse on this instance. */
   private connectionError: Error | null = null;
 
-  constructor(udid: string, silent?: boolean);
+  constructor(udid: string, silent?: boolean, rsdServiceName?: string);
   constructor(socket: net.Socket, silent?: boolean);
-  constructor(udidOrSocket: string | net.Socket, silent?: boolean) {
+  constructor(
+    udidOrSocket: string | net.Socket,
+    silent?: boolean,
+    rsdServiceName?: string,
+  ) {
     if (typeof udidOrSocket === 'string') {
       this.udid = udidOrSocket;
+      this.rsdServiceName = rsdServiceName ?? AfcService.RSD_SERVICE_NAME;
     } else {
       this.socket = udidOrSocket;
+      this.rsdServiceName = AfcService.RSD_SERVICE_NAME;
     }
     this.silent = silent ?? process.env.NODE_ENV !== 'test';
   }
@@ -824,13 +831,11 @@ export class AfcService {
 
     const resolved = await resolveTunnelService(
       this.udid,
-      AfcService.RSD_SERVICE_NAME,
+      this.rsdServiceName,
       { waitMs: DEFAULT_TUNNEL_SERVICE_WAIT_MS },
     );
-    const host = resolved.host;
-    const servicePort = resolved.port;
 
-    this.socket = await createRawServiceSocket(host, servicePort, {
+    this.socket = await createRawServiceSocket(resolved.host, resolved.port, {
       timeoutMs: 30000,
     });
     this._getDemux().ensureReaderStarted(this.socket);

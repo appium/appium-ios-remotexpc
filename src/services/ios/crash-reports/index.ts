@@ -36,7 +36,11 @@ export class CrashReportsService {
   private readonly afc: AfcService;
 
   constructor(private readonly udid: string) {
-    this.afc = new AfcService(udid, true);
+    this.afc = new AfcService(
+      udid,
+      true,
+      CrashReportsService.RSD_COPY_MOBILE_NAME,
+    );
   }
 
   /**

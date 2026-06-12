@@ -24,39 +24,55 @@ export function createAfcReadStream(
   sendAndWait: AfcSendAndWait,
 ): Readable {
   let left = size;
+  let pumping = false;
 
-  return new Readable({
-    async read() {
-      try {
-        if (left <= 0n) {
-          this.push(null);
-          return;
-        }
-
-        const toRead = nextReadChunkSize(left);
-        const { status, data } = await sendAndWait(
-          AfcOpcode.READ,
-          buildReadPayload(handle, toRead),
-        );
-
-        if (status !== AfcError.SUCCESS) {
-          const errorName = AfcError[status] || 'UNKNOWN';
-          this.destroy(new Error(`fread error: ${errorName} (${status})`));
-          return;
-        }
-
-        left -= BigInt(data.length);
-
-        this.push(data);
-
-        if (BigInt(data.length) < toRead) {
-          this.push(null);
-        }
-      } catch (error) {
-        this.destroy(error as Error);
+  const stream = new Readable({
+    read() {
+      if (pumping) {
+        return;
       }
+      pumping = true;
+
+      void (async () => {
+        try {
+          while (left > 0n) {
+            const toRead = nextReadChunkSize(left);
+            const { status, data } = await sendAndWait(
+              AfcOpcode.READ,
+              buildReadPayload(handle, toRead),
+            );
+
+            if (status !== AfcError.SUCCESS) {
+              const errorName = AfcError[status] || 'UNKNOWN';
+              stream.destroy(
+                new Error(`fread error: ${errorName} (${status})`),
+              );
+              return;
+            }
+
+            left -= BigInt(data.length);
+
+            const canContinue = stream.push(data);
+            if (BigInt(data.length) < toRead) {
+              stream.push(null);
+              return;
+            }
+            if (!canContinue) {
+              return;
+            }
+          }
+
+          stream.push(null);
+        } catch (error) {
+          stream.destroy(error as Error);
+        } finally {
+          pumping = false;
+        }
+      })();
     },
   });
+
+  return stream;
 }
 
 /**

@@ -34,15 +34,6 @@ export enum AfcOpcode {
   SET_FILE_TIME = 0x0000001e,
 }
 
-/** AFC response opcodes whose payload is operation result data (not a STATUS code). */
-export function isAfcPayloadResponse(op: AfcOpcode): boolean {
-  return (
-    op === AfcOpcode.DATA ||
-    op === AfcOpcode.FILE_OPEN_RES ||
-    op === AfcOpcode.FILE_TELL_RES
-  );
-}
-
 export enum AfcError {
   SUCCESS = 0,
   UNKNOWN_ERROR = 1,
