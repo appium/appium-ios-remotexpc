@@ -41,6 +41,7 @@
     "test:misagent": "mocha test/integration/misagent-service-test.ts --exit --timeout 1m",
     "test:afc": "mocha test/integration/afc-test.ts --exit --timeout 1m",
     "test:afc-push-perf": "mocha test/integration/afc-push-performance-test.ts --exit --timeout 3m",
+    "test:afc-tunnel-stability": "mocha test/integration/afc-tunnel-stability-test.ts --exit --timeout 30m",
     "test:lockdown-tunnel": "mocha test/integration/lockdown-tunnel-test.ts --exit --timeout 1m",
     "test:crash-reports": "mocha test/integration/crash-reports-test.ts --exit --timeout 1m",
     "test:house-arrest": "mocha test/integration/house-arrest-test.ts --exit --timeout 1m",
@@ -59,7 +60,6 @@
     "test:dvt:network-monitor": "mocha test/integration/dvt_instruments/network-monitor-test.ts --exit --timeout 1m",
     "test:dvt:process-control": "mocha test/integration/process-control-test.ts --exit --timeout 1m",
     "test:testmanagerd": "mocha test/integration/testmanagerd-test.ts --exit --timeout 2m",
-    "test:rsd-repro": "mocha test/local/rsd-tunnel-repro-test.ts --exit --timeout 15m",
     "test:tunnel-creation": "sudo node scripts/tunnel-creation.mjs",
     "test:tunnel-creation:lsof": "sudo node scripts/tunnel-creation.mjs --keep-open"
   },
