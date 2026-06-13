@@ -13,7 +13,7 @@ const EMPTY_REGISTRY: TunnelRegistry = {
   },
 };
 const DEFAULT_TIMEOUT_MS = 10_000;
-const WAIT_REQUEST_BUFFER_MS = 5_000;
+const WAIT_REQUEST_BUFFER_MS = 1_000;
 
 export interface GetTunnelByUdidOptions {
   /** Long-poll budget for GET /tunnels/:udid?waitMs= (0 or omitted = immediate). */
