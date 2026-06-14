@@ -1,3 +1,17 @@
+## [3.0.0](https://github.com/appium/appium-ios-remotexpc/compare/v2.4.0...v3.0.0) (2026-06-14)
+
+### ⚠ BREAKING CHANGES
+
+* RSD service discovery is owned by tunnel-creation; clients must not open long-lived RSD sessions. Use the tunnel registry catalog and resolveTunnelService(udid, serviceName) (or start*Service(udid)) instead of withRemoteXpcConnection, which has been removed.
+* rsdSessionLockKey and rsd-session-lock are removed. Per-UDID RSD discovery is serialized inside tunnel-creation via discoverServices singleflight.
+* TunnelRegistryEntry now requires a services catalog (Record<serviceName, { port }>). Tunnels created with older tunnel-creation scripts without services are incompatible; recreate the tunnel after upgrading.
+* AfcService no longer accepts [host, port] address tuples. Use new AfcService(udid, silent?, rsdServiceName?) for RSD tunnel AFC, or AfcService.fromSocket(socket) for pre-connected sockets (e.g. house-arrest vend).
+* iOS service factories and BaseService subclasses are UDID-only; tunnel host/port tuples are no longer passed into service constructors. Address resolution happens at connect time through the registry.
+
+### Features
+
+* Isolate RSD discovery ([#235](https://github.com/appium/appium-ios-remotexpc/issues/235)) ([e3a5d02](https://github.com/appium/appium-ios-remotexpc/commit/e3a5d02d0a865e753b13e95e3193a2110eaabc1f))
+
 ## [2.4.0](https://github.com/appium/appium-ios-remotexpc/compare/v2.3.0...v2.4.0) (2026-06-10)
 
 ### Features
