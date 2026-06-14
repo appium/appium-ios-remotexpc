@@ -8,8 +8,6 @@ import {
 } from './lib/lockdown/index.js';
 import { DevicePortForwarder } from './lib/port-forwarding/index.js';
 import {
-  PacketStreamClient,
-  PacketStreamServer,
   TunnelManager,
   TunnelReadinessCoordinator,
   discoverServices,
@@ -151,8 +149,6 @@ export {
   discoverServices,
   servicesToCatalog,
   TunnelReadinessCoordinator,
-  PacketStreamServer,
-  PacketStreamClient,
   createLockdownServiceForTunnel,
   createLockdownServiceByUDID,
   startCoreDeviceProxy,

@@ -9,7 +9,6 @@ import { logger, util } from '@appium/support';
 import { Command } from 'commander';
 import {
   AppleTVTunnelService,
-  PacketStreamServer,
   TunnelManager,
   TunnelReadinessCoordinator,
   discoverServices,
@@ -24,8 +23,6 @@ const log = logger.getLogger('WiFiTunnel');
 /** @type {import('appium-ios-remotexpc').TunnelRegistryServer | null} */
 let registryServer = null;
 
-const packetStreamServers = new Map();
-/** @type {(() => void)[]} */
 const registryWatcherStops = [];
 /** @type {Map<string, Promise<void>>} */
 const reconnectingByUdid = new Map();
@@ -77,19 +74,6 @@ function attachAppleTvTunnelRegistryLifecycleWatch(registry, successfulResults, 
     watches,
     onRemove: async (udid) => {
       registryServer?.removeTunnelEntry(udid);
-
-      const server = packetStreamServers.get(udid);
-      if (server) {
-        try {
-          await server.stop();
-          log.info(`Stopped packet stream server after tunnel loss: ${udid}`);
-        } catch (err) {
-          log.warn(
-            `Failed to stop packet stream server for ${udid}: ${err}`,
-          );
-        }
-        packetStreamServers.delete(udid);
-      }
     },
     onTunnelDead: async ({ udid, address }) => {
       await TunnelManager.closeTunnelByAddress(address).catch(() => {});
@@ -114,18 +98,6 @@ function setupCleanupHandlers() {
         try {
           stop?.();
         } catch {}
-      }
-
-      if (packetStreamServers.size > 0) {
-        for (const [udid, server] of packetStreamServers) {
-          try {
-            await server.stop();
-            log.info(`Closed packet stream server for ${udid}`);
-          } catch (err) {
-            log.warn(`Failed to close packet stream server for ${udid}: ${err}`);
-          }
-        }
-        packetStreamServers.clear();
       }
 
       for (const { tunnel, tlsSocket } of establishedTunnels) {
@@ -180,48 +152,22 @@ function setupCleanupHandlers() {
 
 /**
  * @param {{ socket: import('tls').TLSSocket; device: { identifier: string; name?: string } }} startResult
- * @param {{ value: number }} packetStreamBaseRef
  * @returns {Promise<AppleTvEstablishedTunnel>}
  */
-async function establishOneTunnel(startResult, packetStreamBaseRef) {
+async function establishOneTunnel(startResult) {
   const tlsSocket = startResult.socket;
   const device = startResult.device;
 
   log.info('Creating tunnel with TunnelManager...');
   const tunnel = await TunnelManager.getTunnel(tlsSocket);
 
-  let packetStreamPort = 0;
-  try {
-    packetStreamPort = packetStreamBaseRef.value++;
-    const pss = new PacketStreamServer(packetStreamPort);
-    if (tunnel.addPacketConsumer && tunnel.removePacketConsumer) {
-      pss.bindTunnel(tunnel);
-    } else {
-      log.warn(
-        `Tunnel for ${device.identifier} does not support packet consumers`,
-      );
-    }
-    await pss.start();
-
-    log.info(
-      `Packet stream server for ${device.identifier} on port ${packetStreamPort}`,
-    );
-    packetStreamServers.set(device.identifier, pss);
-  } catch (err) {
-    log.warn(`Failed to start packet stream server for ${device.identifier}: ${err}`);
-  }
-
   establishedTunnels.push({ tunnel, tlsSocket, device });
 
-  const out = {
+  return {
     device,
     tunnel,
     tlsSocket,
   };
-  if (packetStreamPort > 0) {
-    out.packetStreamPort = packetStreamPort;
-  }
-  return out;
 }
 
 
@@ -251,10 +197,6 @@ function buildAppleTvTunnelEntryBase(result, existing) {
     createdAt: existing?.createdAt ?? now,
     lastUpdated: now,
   };
-  const { packetStreamPort } = result;
-  if (typeof packetStreamPort === 'number' && packetStreamPort > 0) {
-    entry.packetStreamPort = packetStreamPort;
-  }
   return entry;
 }
 
@@ -303,7 +245,6 @@ async function runAppleTvReconnectAttempts({
   udid,
   maxRetries,
   tunnelService,
-  packetStreamBaseRef,
   reconnectTunnelByUdid,
 }) {
   let attempt = 0;
@@ -319,7 +260,7 @@ async function runAppleTvReconnectAttempts({
       if (!result.socket) {
         throw new Error('TLS-PSK socket not established');
       }
-      const reconnected = await establishOneTunnel(result, packetStreamBaseRef);
+      const reconnected = await establishOneTunnel(result);
       const ok = await publishDiscoveredTunnelEntry(reconnected);
       if (ok && registryServer) {
         attachAppleTvTunnelRegistryLifecycleWatch(
@@ -345,7 +286,6 @@ async function runAppleTvReconnectAttempts({
 function createAppleTvReconnectTunnelByUdid({
   reconnectRetries,
   tunnelService,
-  packetStreamBaseRef,
 }) {
   return async function reconnectTunnelByUdid(udid) {
     if (typeof reconnectRetries !== 'number') {
@@ -359,7 +299,6 @@ function createAppleTvReconnectTunnelByUdid({
       udid,
       maxRetries: reconnectRetries,
       tunnelService,
-      packetStreamBaseRef,
       reconnectTunnelByUdid,
     });
 
@@ -392,11 +331,6 @@ async function main() {
       parsePort,
     )
     .option(
-      '--packet-stream-base-port <port>',
-      'Base port for packet stream servers (incremented per device; default: 50100)',
-      parsePort,
-    )
-    .option(
       '--reconnect-retries <count>',
       'Reconnect retries after unexpected tunnel drop (0 = unlimited)',
       parseNonNegativeInteger,
@@ -407,9 +341,6 @@ async function main() {
   const deviceIdentifier = program.args[0];
   const registryPort =
     options.tunnelRegistryPort ?? DEFAULT_TUNNEL_REGISTRY_PORT;
-  const packetStreamBaseRef = {
-    value: options.packetStreamBasePort ?? 50100,
-  };
 
   if (deviceIdentifier) {
     log.info(`Targeting a single Apple TV: ${deviceIdentifier}`);
@@ -431,7 +362,7 @@ async function main() {
       if (!result.socket) {
         throw new Error('TLS-PSK socket not established');
       }
-      successfulResults.push(await establishOneTunnel(result, packetStreamBaseRef));
+      successfulResults.push(await establishOneTunnel(result));
     } else {
       const devices = await tunnelService.discoverDevices();
       log.info(
@@ -447,7 +378,7 @@ async function main() {
             throw new Error('TLS-PSK socket not established');
           }
           successfulResults.push(
-            await establishOneTunnel(result, packetStreamBaseRef),
+            await establishOneTunnel(result),
           );
           log.info(`Tunnel established for ${d.identifier}`);
         } catch (err) {
@@ -489,7 +420,6 @@ async function main() {
     const reconnectTunnelByUdid = createAppleTvReconnectTunnelByUdid({
       reconnectRetries: options.reconnectRetries,
       tunnelService,
-      packetStreamBaseRef,
     });
 
     for (const r of registryPublished) {
@@ -509,7 +439,7 @@ async function main() {
     );
     for (const r of registryPublished) {
       log.info(
-        `${r.device.identifier}: ${r.tunnel.Address}:${r.tunnel.RsdPort} (packet stream ${r.packetStreamPort && r.packetStreamPort > 0 ? r.packetStreamPort : 'off'})`,
+        `${r.device.identifier}: ${r.tunnel.Address}:${r.tunnel.RsdPort}`,
       );
     }
     log.info('=============================');
@@ -538,11 +468,10 @@ async function main() {
 await main();
 
 /**
- * One fully established Apple TV tunnel (Remote XPC + optional packet stream port).
+ * One fully established Apple TV tunnel (Remote XPC).
  *
  * @typedef {object} AppleTvEstablishedTunnel
  * @property {{ identifier: string, name?: string }} device
  * @property {{ Address: string, RsdPort?: number }} tunnel
  * @property {import('tls').TLSSocket} tlsSocket
- * @property {number} [packetStreamPort]
  */

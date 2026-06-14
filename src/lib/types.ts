@@ -1,7 +1,6 @@
 /**
  * Common type definitions for the appium-ios-remotexpc library
  */
-import type { PacketData } from 'appium-ios-tuntap';
 import { type EventEmitter } from 'node:events';
 
 import type { ServiceConnection } from '../service-connection.js';
@@ -242,8 +241,6 @@ export interface TunnelRegistryEntry {
   services: TunnelServiceCatalog;
   /** Epoch ms when the service catalog was last refreshed */
   catalogUpdatedAt?: number;
-  /** Packet stream port number (omitted when no packet stream server) */
-  packetStreamPort?: number;
   /** Type of connection (e.g., 'USB', 'Network') */
   connectionType: string;
   /** Product identifier of the device */
@@ -294,8 +291,6 @@ export interface TunnelResult {
     /** Optional Remote Service Discovery (RSD) port number */
     RsdPort?: number;
   };
-  /** Optional packet stream port number */
-  packetStreamPort?: number;
   /** Indicates whether the tunnel creation was successful */
   success: boolean;
   /** Error message if tunnel creation failed */
@@ -1291,39 +1286,15 @@ export interface SyslogOptions {
 }
 
 /**
- * Interface for a packet source that can provide packet data
- */
-export interface PacketSource {
-  /** Add a packet consumer to receive packets */
-  addPacketConsumer: (consumer: PacketConsumer) => void;
-  /** Remove a packet consumer */
-  removePacketConsumer: (consumer: PacketConsumer) => void;
-}
-
-/**
- * Interface for a packet consumer that can process packets
- */
-export interface PacketConsumer {
-  /** Handler for received packets */
-  onPacket: (packet: PacketData) => void;
-}
-
-/**
  * Represents the instance side of SyslogService
  */
 export interface SyslogService extends EventEmitter {
   /**
    * Starts capturing syslog data from the device
    * @param service Service information
-   * @param packetSource Source of packet data (can be PacketConsumer or AsyncIterable)
    * @param options Configuration options for syslog capture
-   * @returns Promise resolving to the initial response from the service
    */
-  start(
-    service: Service,
-    packetSource: PacketSource | AsyncIterable<PacketData>,
-    options?: SyslogOptions,
-  ): Promise<void>;
+  start(service: Service, options?: SyslogOptions): Promise<void>;
 
   /**
    * Stops capturing syslog data

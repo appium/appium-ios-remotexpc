@@ -179,9 +179,6 @@ class TunnelManagerService {
 export const TunnelManager = new TunnelManagerService();
 export { discoverServices, servicesToCatalog } from './tunnel-rsd-discovery.js';
 export { TunnelReadinessCoordinator } from './tunnel-readiness.js';
-// Export packet streaming IPC functionality
-export { PacketStreamClient } from './packet-stream-client.js';
-export { PacketStreamServer } from './packet-stream-server.js';
 export {
   watchTunnelRegistrySockets,
   type TunnelRegistrySocketWatch,

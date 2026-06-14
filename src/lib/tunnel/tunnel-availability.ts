@@ -26,7 +26,7 @@ export interface GetTunnelForDeviceOptions {
 }
 
 /**
- * Resolve tunnel registry metadata for a device (host, RSD port, packet stream).
+ * Resolve tunnel registry metadata for a device (host, RSD port).
  * @throws {TunnelAvailabilityError} When registry or tunnel for the UDID is unavailable.
  */
 export async function getTunnelForDevice(
@@ -73,7 +73,6 @@ export function mapEntryToEndpoint(entry: TunnelRegistryEntry): TunnelEndpoint {
     host: entry.address,
     port: entry.rsdPort,
     udid: entry.udid,
-    packetStreamPort: entry.packetStreamPort,
   };
 }
 

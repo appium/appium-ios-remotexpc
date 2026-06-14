@@ -25,7 +25,6 @@ async function loadServices(
         host: '127.0.0.1',
         port: 1234,
         udid: 'test-udid',
-        packetStreamPort: undefined as number | undefined,
       }),
       ...tunnelAvailabilityOverrides,
     },
