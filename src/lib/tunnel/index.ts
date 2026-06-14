@@ -55,8 +55,13 @@ class TunnelManagerService {
   async getTunnel(
     tcpSocket: Socket,
     credentials: TunnelLockdownTlsCredentials,
+    options?: { onDead?: (reason: string) => void },
   ): Promise<TunnelConnection> {
-    const tunnel = await connectToTunnelLockdown(tcpSocket, credentials);
+    const tunnel = await connectToTunnelLockdown(
+      tcpSocket,
+      credentials,
+      options,
+    );
 
     const existingTunnel = this.tunnelRegistry.get(tunnel.Address);
     if (existingTunnel?.isActive) {

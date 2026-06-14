@@ -26,8 +26,26 @@ let registryServer = null;
 const registryWatcherStops = [];
 /** @type {Map<string, Promise<void>>} */
 const reconnectingByUdid = new Map();
-/** @type {AppleTvEstablishedTunnel[]} */
-const establishedTunnels = [];
+/** @type {Map<string, AppleTvEstablishedTunnel>} */
+const establishedTunnelsByUdid = new Map();
+
+function registerEstablishedTunnel(result) {
+  const udid = result.device.identifier;
+  const previous = establishedTunnelsByUdid.get(udid);
+  if (
+    previous?.tunnelConnection &&
+    previous.tunnelConnection !== result.tunnelConnection
+  ) {
+    void (async () => {
+      try {
+        await previous.tunnelConnection.closer();
+      } catch {
+        // superseded tunnel may already be stopped
+      }
+    })();
+  }
+  establishedTunnelsByUdid.set(udid, result);
+}
 let tunnelService = null;
 
 function parsePort(value) {
@@ -91,7 +109,7 @@ function setupCleanupHandlers() {
         } catch {}
       }
 
-      for (const { tunnelConnection } of establishedTunnels) {
+      for (const { tunnelConnection } of establishedTunnelsByUdid.values()) {
         try {
           if (tunnelConnection && typeof tunnelConnection.closer === 'function') {
             log.info('Closing tunnel...');
@@ -101,7 +119,7 @@ function setupCleanupHandlers() {
           log.warn(`Error closing tunnel: ${err}`);
         }
       }
-      establishedTunnels.length = 0;
+      establishedTunnelsByUdid.clear();
 
       if (tunnelService) {
         tunnelService.disconnect();
@@ -165,7 +183,7 @@ async function establishOneTunnel(startResult) {
     },
   };
 
-  establishedTunnels.push(result);
+  registerEstablishedTunnel(result);
   return result;
 }
 

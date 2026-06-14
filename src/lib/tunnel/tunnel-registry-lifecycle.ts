@@ -122,7 +122,7 @@ export function watchTunnelRegistrySockets(
 }
 
 /**
- * Removes a tunnel from the registry when its native forwarder dies (Apple TV PSK path).
+ * Removes a tunnel from the registry when its native forwarder dies (lockdown or TLS-PSK).
  */
 export function watchTunnelRegistryOnDead(
   options: WatchTunnelRegistryOnDeadOptions,

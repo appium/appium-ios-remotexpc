@@ -2,7 +2,10 @@ import { expect } from 'chai';
 import { once } from 'node:events';
 import { type AddressInfo, createConnection, createServer } from 'node:net';
 
-import { watchTunnelRegistrySockets } from '../../../src/lib/tunnel/tunnel-registry-lifecycle.js';
+import {
+  watchTunnelRegistryOnDead,
+  watchTunnelRegistrySockets,
+} from '../../../src/lib/tunnel/tunnel-registry-lifecycle.js';
 import type { TunnelRegistry } from '../../../src/lib/types.js';
 
 function makeRegistry(udid: string): TunnelRegistry {
@@ -95,5 +98,58 @@ describe('watchTunnelRegistrySockets', function () {
 
     client.destroy();
     await new Promise<void>((resolve) => server.close(() => resolve()));
+  });
+});
+
+describe('watchTunnelRegistryOnDead', function () {
+  it('removes registry entry when registerOnDead handler is invoked', async function () {
+    const registry = makeRegistry('dev-3');
+    let onDeadHandler = (_reason: string) => {};
+
+    let removedUdid: string | undefined;
+    const { stop } = watchTunnelRegistryOnDead({
+      registry,
+      watches: [
+        {
+          udid: 'dev-3',
+          registerOnDead: (handler) => {
+            onDeadHandler = handler;
+          },
+        },
+      ],
+      onRemove: (udid) => {
+        removedUdid = udid;
+      },
+    });
+
+    onDeadHandler('SSL read failed');
+    await new Promise<void>((resolve) => setImmediate(resolve));
+
+    expect(registry.tunnels['dev-3']).to.equal(undefined);
+    expect(removedUdid).to.equal('dev-3');
+
+    stop();
+  });
+
+  it('stop() ignores subsequent onDead notifications', async function () {
+    const registry = makeRegistry('dev-4');
+    let onDeadHandler = (_reason: string) => {};
+
+    const { stop } = watchTunnelRegistryOnDead({
+      registry,
+      watches: [
+        {
+          udid: 'dev-4',
+          registerOnDead: (handler) => {
+            onDeadHandler = handler;
+          },
+        },
+      ],
+    });
+
+    stop();
+    onDeadHandler('should be ignored');
+
+    expect(Object.keys(registry.tunnels)).to.have.lengthOf(1);
   });
 });

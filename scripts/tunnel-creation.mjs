@@ -15,7 +15,7 @@ import {
   servicesToCatalog,
   startCoreDeviceProxyTcp,
   startTunnelRegistryServer,
-  watchTunnelRegistrySockets,
+  watchTunnelRegistryOnDead,
 } from 'appium-ios-remotexpc';
 import { DEFAULT_TUNNEL_REGISTRY_PORT } from '../build/src/lib/tunnel/tunnel-registry-server.js';
 
@@ -23,6 +23,27 @@ const log = logger.getLogger('TunnelCreation');
 
 /** @type {import('appium-ios-remotexpc').TunnelRegistryServer | null} */
 let registryServer = null;
+
+/** @type {Map<string, TunnelCreationSuccessResult>} */
+const establishedTunnelsByUdid = new Map();
+
+function registerEstablishedTunnel(result) {
+  const udid = result.device.Properties.SerialNumber;
+  const previous = establishedTunnelsByUdid.get(udid);
+  if (
+    previous?.tunnelConnection &&
+    previous.tunnelConnection !== result.tunnelConnection
+  ) {
+    void (async () => {
+      try {
+        await previous.tunnelConnection.closer();
+      } catch {
+        // superseded tunnel may already be stopped
+      }
+    })();
+  }
+  establishedTunnelsByUdid.set(udid, result);
+}
 
 function parsePort(value) {
   const port = Number.parseInt(value, 10);
@@ -115,28 +136,18 @@ const registryWatcherStops = [];
 const reconnectingByUdid = new Map();
 
 /**
- * When CoreDeviceProxy upstream sockets go away, drop the UDID from the HTTP registry
- * and tear down TunnelManager state.
+ * When the native forwarder exits, drop the UDID from the HTTP registry and tear down state.
  *
  * @param {object} registry
  * @param {TunnelCreationSuccessResult[]} successful
  */
 function attachTunnelRegistryLifecycleWatch(registry, successful, callbacks = {}) {
-  const watches = successful
-    .filter((r) => r.socket)
-    .map((r) => {
-      const watch = {
-        udid: r.device.Properties.SerialNumber,
-        socket: r.socket,
-      };
-      return watch;
-    });
+  const watches = successful.map((r) => ({
+    udid: r.device.Properties.SerialNumber,
+    registerOnDead: r.registerOnDead,
+  }));
 
-  if (watches.length === 0) {
-    return;
-  }
-
-  const { stop } = watchTunnelRegistrySockets({
+  const { stop } = watchTunnelRegistryOnDead({
     registry,
     watches,
     onRemove: async (udid) => {
@@ -151,7 +162,7 @@ function attachTunnelRegistryLifecycleWatch(registry, successful, callbacks = {}
   });
   registryWatcherStops.push(stop);
   log.info(
-    'Tunnel registry will update automatically if a tunnel upstream socket goes away.',
+    'Tunnel registry will update automatically if a native forwarder exits unexpectedly.',
   );
 }
 
@@ -163,7 +174,6 @@ async function runReconnectAttempts({
   udid,
   maxRetries,
   device,
-  tlsOptions,
   reconnectTunnelByUdid,
 }) {
   let attempt = 0;
@@ -175,19 +185,19 @@ async function runReconnectAttempts({
 
     registryServer?.markTunnelPending(udid);
 
-    const result = await createTunnelForDevice(device, tlsOptions);
+    const result = await createTunnelForDevice(device);
     if (result.success) {
-      const ok = await publishDiscoveredTunnelEntry(result);
-      if (ok && registryServer) {
-        attachTunnelRegistryLifecycleWatch(
-          registryServer.getRegistry(),
-          [result],
-          {
-            onTunnelDead: async ({ udid: droppedUdid }) => {
-              await reconnectTunnelByUdid(droppedUdid);
-            },
+      attachTunnelRegistryLifecycleWatch(
+        registryServer.getRegistry(),
+        [result],
+        {
+          onTunnelDead: async ({ udid: droppedUdid }) => {
+            await reconnectTunnelByUdid(droppedUdid);
           },
-        );
+        },
+      );
+      const ok = await publishDiscoveredTunnelEntry(result);
+      if (ok) {
         log.info(`Reconnected tunnel for ${udid}`);
       }
       return;
@@ -202,7 +212,6 @@ async function runReconnectAttempts({
 function createReconnectTunnelByUdid({
   reconnectRetries,
   devicesByUdid,
-  tlsOptions,
 }) {
   return async function reconnectTunnelByUdid(udid) {
     if (typeof reconnectRetries !== 'number') {
@@ -222,7 +231,6 @@ function createReconnectTunnelByUdid({
       udid,
       maxRetries: reconnectRetries,
       device,
-      tlsOptions,
       reconnectTunnelByUdid,
     });
 
@@ -245,6 +253,18 @@ function setupCleanupHandlers() {
         stop?.();
       } catch {}
     }
+
+    for (const { tunnelConnection } of establishedTunnelsByUdid.values()) {
+      try {
+        if (tunnelConnection && typeof tunnelConnection.closer === 'function') {
+          log.info('Closing tunnel...');
+          await tunnelConnection.closer();
+        }
+      } catch (err) {
+        log.warn(`Error closing tunnel: ${err}`);
+      }
+    }
+    establishedTunnelsByUdid.clear();
 
     log.info('Cleanup completed.');
   };
@@ -273,7 +293,7 @@ function setupCleanupHandlers() {
   });
 }
 
-async function createTunnelForDevice(device, tlsOptions) {
+async function createTunnelForDevice(device) {
   const udid = device.Properties.SerialNumber;
 
   try {
@@ -298,42 +318,37 @@ async function createTunnelForDevice(device, tlsOptions) {
     log.info('CoreDeviceProxy started successfully');
 
     log.info(`Creating tunnel...`);
-    const tunnel = await TunnelManager.getTunnel(socket, { cert, key });
+    const lifecycle = { notify: null };
+    const tunnelConnection = await TunnelManager.getTunnel(
+      socket,
+      { cert, key },
+      {
+        onDead: (reason) => lifecycle.notify?.(reason),
+      },
+    );
     log.info(
-      `Tunnel created for address: ${tunnel.Address} with RsdPort: ${tunnel.RsdPort}`,
+      `Tunnel created for address: ${tunnelConnection.Address} with RsdPort: ${tunnelConnection.RsdPort}`,
     );
 
     log.info(`✅ Tunnel creation completed successfully for device: ${udid}`);
-    log.info(`   Tunnel Address: ${tunnel.Address}`);
-    log.info(`   Tunnel RsdPort: ${tunnel.RsdPort}`);
+    log.info(`   Tunnel Address: ${tunnelConnection.Address}`);
+    log.info(`   Tunnel RsdPort: ${tunnelConnection.RsdPort}`);
 
-    try {
-      if (socket && typeof socket === 'object' && socket.setNoDelay) {
-        socket.setNoDelay(true);
-      }
+    const result = {
+      device,
+      tunnel: {
+        Address: tunnelConnection.Address,
+        RsdPort: tunnelConnection.RsdPort,
+      },
+      success: true,
+      tunnelConnection,
+      registerOnDead: (handler) => {
+        lifecycle.notify = handler;
+      },
+    };
 
-      return {
-        device,
-        tunnel: {
-          Address: tunnel.Address,
-          RsdPort: tunnel.RsdPort,
-        },
-        success: true,
-        socket,
-      };
-    } catch (err) {
-      log.warn(`Could not add device to info server: ${err}`);
-
-      return {
-        device,
-        tunnel: {
-          Address: tunnel.Address,
-          RsdPort: tunnel.RsdPort,
-        },
-        success: true,
-        socket,
-      };
-    }
+    registerEstablishedTunnel(result);
+    return result;
   } catch (error) {
     const errorMessage = `Failed to create tunnel for device ${udid}: ${error}`;
     log.error(`❌ ${errorMessage}`);
@@ -384,11 +399,6 @@ async function main() {
   if (options.keepOpen) {
     log.info('Running in "keep connections open" mode for lsof inspection');
   }
-
-  const tlsOptions = {
-    rejectUnauthorized: false,
-    minVersion: 'TLSv1.2',
-  };
 
   const registryPort =
     options.tunnelRegistryPort ?? DEFAULT_TUNNEL_REGISTRY_PORT;
@@ -459,29 +469,28 @@ async function main() {
     const reconnectTunnelByUdid = createReconnectTunnelByUdid({
       reconnectRetries,
       devicesByUdid,
-      tlsOptions,
     });
 
     const results = [];
     const successful = [];
 
     for (const device of devicesToProcess) {
-      const result = await createTunnelForDevice(device, tlsOptions);
+      const result = await createTunnelForDevice(device);
       results.push(result);
 
       if (result.success) {
+        attachTunnelRegistryLifecycleWatch(
+          registryServer.getRegistry(),
+          [result],
+          {
+            onTunnelDead: async ({ udid }) => {
+              await reconnectTunnelByUdid(udid);
+            },
+          },
+        );
         const published = await publishDiscoveredTunnelEntry(result);
         if (published) {
           successful.push(result);
-          attachTunnelRegistryLifecycleWatch(
-            registryServer.getRegistry(),
-            [result],
-            {
-              onTunnelDead: async ({ udid }) => {
-                await reconnectTunnelByUdid(udid);
-              },
-            },
-          );
         }
       }
 
@@ -538,5 +547,6 @@ await main();
  * @typedef {object} TunnelCreationSuccessResult
  * @property {{ Properties: { SerialNumber: string }, DeviceID: number }} device
  * @property {{ Address: string, RsdPort?: number }} tunnel
- * @property {import('tls').TLSSocket} [socket]
+ * @property {import('appium-ios-tuntap').TunnelConnection} tunnelConnection
+ * @property {(handler: (reason: string) => void) => void} registerOnDead
  */
