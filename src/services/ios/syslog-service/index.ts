@@ -5,7 +5,7 @@ import type {
   SyslogOptions,
   SyslogService as SyslogServiceInterface,
 } from '../../../lib/types.js';
-import { ServiceConnection } from '../../../service-connection.js';
+import { type ServiceConnection } from '../../../service-connection.js';
 import { BaseService, type Service } from '../base-service.js';
 import {
   type SyslogEntry,

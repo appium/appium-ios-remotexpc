@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 
 import {
-  TunnelRegistryServer,
+  type TunnelRegistryServer,
   startTunnelRegistryServer,
 } from '../../../src/lib/tunnel/tunnel-registry-server.js';
 import type {
