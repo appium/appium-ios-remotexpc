@@ -29,20 +29,35 @@ const reconnectingByUdid = new Map();
 /** @type {Map<string, AppleTvEstablishedTunnel>} */
 const establishedTunnelsByUdid = new Map();
 
+/** @type {Map<string, () => void>} */
+const lifecycleWatchStopByUdid = new Map();
+
+async function closeTunnelQuietly(tunnelConnection) {
+  try {
+    await tunnelConnection.closer();
+  } catch {
+    // superseded tunnel may already be stopped
+  }
+}
+
+function stopLifecycleWatch(udid) {
+  const stop = lifecycleWatchStopByUdid.get(udid);
+  if (stop) {
+    stop();
+    lifecycleWatchStopByUdid.delete(udid);
+  }
+}
+
 function registerEstablishedTunnel(result) {
   const udid = result.device.identifier;
+  stopLifecycleWatch(udid);
+
   const previous = establishedTunnelsByUdid.get(udid);
   if (
     previous?.tunnelConnection &&
     previous.tunnelConnection !== result.tunnelConnection
   ) {
-    void (async () => {
-      try {
-        await previous.tunnelConnection.closer();
-      } catch {
-        // superseded tunnel may already be stopped
-      }
-    })();
+    void closeTunnelQuietly(previous.tunnelConnection);
   }
   establishedTunnelsByUdid.set(udid, result);
 }
@@ -73,25 +88,32 @@ function parseNonNegativeInteger(value) {
  * @param {AppleTvEstablishedTunnel[]} successfulResults
  */
 function attachAppleTvTunnelRegistryLifecycleWatch(registry, successfulResults, callbacks = {}) {
-  const watches = successfulResults.map((r) => ({
-    udid: r.device.identifier,
-    registerOnDead: r.registerOnDead,
-  }));
+  for (const result of successfulResults) {
+    const udid = result.device.identifier;
+    stopLifecycleWatch(udid);
 
-  const { stop } = watchTunnelRegistryOnDead({
-    registry,
-    watches,
-    onRemove: async (udid) => {
-      registryServer?.removeTunnelEntry(udid);
-    },
-    onTunnelDead: async ({ udid, address }) => {
-      await TunnelManager.closeTunnelByAddress(address).catch(() => {});
-      if (callbacks.onTunnelDead) {
-        await callbacks.onTunnelDead({ udid, address });
-      }
-    },
-  });
-  registryWatcherStops.push(stop);
+    const { stop } = watchTunnelRegistryOnDead({
+      registry,
+      watches: [
+        {
+          udid,
+          registerOnDead: result.registerOnDead,
+        },
+      ],
+      onRemove: async (removedUdid) => {
+        registryServer?.removeTunnelEntry(removedUdid);
+      },
+      onTunnelDead: async ({ udid: droppedUdid, address }) => {
+        await TunnelManager.closeTunnelByAddress(address).catch(() => {});
+        if (callbacks.onTunnelDead) {
+          await callbacks.onTunnelDead({ udid: droppedUdid, address });
+        }
+      },
+    });
+    registryWatcherStops.push(stop);
+    lifecycleWatchStopByUdid.set(udid, stop);
+  }
+
   log.info(
     'Tunnel registry will update automatically if a native forwarder exits unexpectedly.',
   );
@@ -108,6 +130,7 @@ function setupCleanupHandlers() {
           stop?.();
         } catch {}
       }
+      lifecycleWatchStopByUdid.clear();
 
       for (const { tunnelConnection } of establishedTunnelsByUdid.values()) {
         try {

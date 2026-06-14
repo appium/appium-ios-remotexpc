@@ -27,22 +27,71 @@ let registryServer = null;
 /** @type {Map<string, TunnelCreationSuccessResult>} */
 const establishedTunnelsByUdid = new Map();
 
+/** @type {Map<string, () => void>} */
+const lifecycleWatchStopByUdid = new Map();
+
+async function closeTunnelQuietly(tunnelConnection) {
+  try {
+    await tunnelConnection.closer();
+  } catch {
+    // superseded tunnel may already be stopped
+  }
+}
+
+function stopLifecycleWatch(udid) {
+  const stop = lifecycleWatchStopByUdid.get(udid);
+  if (stop) {
+    stop();
+    lifecycleWatchStopByUdid.delete(udid);
+  }
+}
+
 function registerEstablishedTunnel(result) {
   const udid = result.device.Properties.SerialNumber;
+  stopLifecycleWatch(udid);
+
   const previous = establishedTunnelsByUdid.get(udid);
   if (
     previous?.tunnelConnection &&
     previous.tunnelConnection !== result.tunnelConnection
   ) {
-    void (async () => {
-      try {
-        await previous.tunnelConnection.closer();
-      } catch {
-        // superseded tunnel may already be stopped
-      }
-    })();
+    void closeTunnelQuietly(previous.tunnelConnection);
   }
   establishedTunnelsByUdid.set(udid, result);
+}
+
+function connectionTypeRank(connectionType) {
+  if (connectionType === 'USB') {
+    return 0;
+  }
+  if (connectionType === 'Network') {
+    return 1;
+  }
+  return 2;
+}
+
+/**
+ * usbmux may list the same UDID twice (USB + Network). Prefer USB for tunneling.
+ *
+ * @param {import('appium-ios-remotexpc').UsbmuxDevice[]} devices
+ */
+function dedupeDevicesByUdid(devices) {
+  const byUdid = new Map();
+  for (const device of devices) {
+    const udid = device.Properties.SerialNumber;
+    const existing = byUdid.get(udid);
+    if (!existing) {
+      byUdid.set(udid, device);
+      continue;
+    }
+    if (
+      connectionTypeRank(device.Properties.ConnectionType) <
+      connectionTypeRank(existing.Properties.ConnectionType)
+    ) {
+      byUdid.set(udid, device);
+    }
+  }
+  return [...byUdid.values()];
 }
 
 function parsePort(value) {
@@ -142,25 +191,32 @@ const reconnectingByUdid = new Map();
  * @param {TunnelCreationSuccessResult[]} successful
  */
 function attachTunnelRegistryLifecycleWatch(registry, successful, callbacks = {}) {
-  const watches = successful.map((r) => ({
-    udid: r.device.Properties.SerialNumber,
-    registerOnDead: r.registerOnDead,
-  }));
+  for (const result of successful) {
+    const udid = result.device.Properties.SerialNumber;
+    stopLifecycleWatch(udid);
 
-  const { stop } = watchTunnelRegistryOnDead({
-    registry,
-    watches,
-    onRemove: async (udid) => {
-      registryServer?.removeTunnelEntry(udid);
-    },
-    onTunnelDead: async ({ udid, address }) => {
-      await TunnelManager.closeTunnelByAddress(address).catch(() => {});
-      if (callbacks.onTunnelDead) {
-        await callbacks.onTunnelDead({ udid, address });
-      }
-    },
-  });
-  registryWatcherStops.push(stop);
+    const { stop } = watchTunnelRegistryOnDead({
+      registry,
+      watches: [
+        {
+          udid,
+          registerOnDead: result.registerOnDead,
+        },
+      ],
+      onRemove: async (removedUdid) => {
+        registryServer?.removeTunnelEntry(removedUdid);
+      },
+      onTunnelDead: async ({ udid: droppedUdid, address }) => {
+        await TunnelManager.closeTunnelByAddress(address).catch(() => {});
+        if (callbacks.onTunnelDead) {
+          await callbacks.onTunnelDead({ udid: droppedUdid, address });
+        }
+      },
+    });
+    registryWatcherStops.push(stop);
+    lifecycleWatchStopByUdid.set(udid, stop);
+  }
+
   log.info(
     'Tunnel registry will update automatically if a native forwarder exits unexpectedly.',
   );
@@ -253,6 +309,7 @@ function setupCleanupHandlers() {
         stop?.();
       } catch {}
     }
+    lifecycleWatchStopByUdid.clear();
 
     for (const { tunnelConnection } of establishedTunnelsByUdid.values()) {
       try {
@@ -443,6 +500,14 @@ async function main() {
         });
         process.exit(1);
       }
+    }
+
+    const beforeDedupe = devicesToProcess.length;
+    devicesToProcess = dedupeDevicesByUdid(devicesToProcess);
+    if (devicesToProcess.length < beforeDedupe) {
+      log.info(
+        `Deduped ${beforeDedupe} usbmux entries to ${devicesToProcess.length} device(s) (USB preferred over Network)`,
+      );
     }
 
     log.info(`\nProcessing ${devicesToProcess.length} device(s)...`);
