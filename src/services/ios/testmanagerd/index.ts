@@ -9,8 +9,8 @@ import type {
   PlistDictionary,
   SendMessageOptions,
 } from '../../../lib/types.js';
-import { ServiceConnection } from '../../../service-connection.js';
-import { BaseService, type Service, stripSSL } from '../base-service.js';
+import { type ServiceConnection } from '../../../service-connection.js';
+import { BaseService, stripSSL } from '../base-service.js';
 import { ChannelFragmenter } from '../dvt/channel-fragmenter.js';
 import { Channel } from '../dvt/channel.js';
 import { DTXMessage, DTX_CONSTANTS, MessageAux } from '../dvt/dtx-message.js';
@@ -69,8 +69,8 @@ export class DvtTestmanagedProxyService extends BaseService {
   /** Captures socket death between reads so readExact() can fail immediately. */
   private _socketError: Error | null = null;
 
-  constructor(address: [string, number]) {
-    super(address);
+  constructor(udid: string) {
+    super(udid);
     this.channelMessages.set(
       DvtTestmanagedProxyService.BROADCAST_CHANNEL,
       new ChannelFragmenter(),
@@ -85,13 +85,10 @@ export class DvtTestmanagedProxyService extends BaseService {
       return;
     }
 
-    const service: Service = {
-      serviceName: DvtTestmanagedProxyService.RSD_SERVICE_NAME,
-      port: this.address[1].toString(),
-    };
-
     // testmanagerd uses DTX binary protocol, connect without plist-based RSDCheckin
-    this.connection = await this.startLockdownWithoutCheckin(service);
+    this.connection = await this.startLockdownWithoutCheckin(
+      DvtTestmanagedProxyService.RSD_SERVICE_NAME,
+    );
     this.socket = this.connection.getSocket();
     stripSSL(this.socket);
 

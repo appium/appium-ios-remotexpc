@@ -1,5 +1,5 @@
-import { Socket } from 'node:net';
-import { TLSSocket } from 'node:tls';
+import { type Socket } from 'node:net';
+import { type TLSSocket } from 'node:tls';
 
 import { getLogger } from '../logger.js';
 import type { PlistDictionary } from '../types.js';

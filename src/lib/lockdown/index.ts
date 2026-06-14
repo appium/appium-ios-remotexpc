@@ -3,10 +3,10 @@ import tls, { type ConnectionOptions, type TLSSocket } from 'node:tls';
 
 import { BasePlistService } from '../../base-plist-service.js';
 import { ServiceConnection } from '../../service-connection.js';
-import { withRemoteXpcConnection } from '../../services.js';
 import { getLogger } from '../logger.js';
 import { type PairRecord } from '../pair-record/index.js';
 import { PlistService } from '../plist/plist-service.js';
+import { resolveTunnelService } from '../tunnel/tunnel-service-resolver.js';
 import type { LockdownDeviceInfo, PlistMessage, PlistValue } from '../types.js';
 import { RelayService, createUsbmux } from '../usbmux/index.js';
 
@@ -612,23 +612,15 @@ export class LockdownServiceFactory {
 export async function createLockdownServiceForTunnel(
   udid: string,
 ): Promise<LockdownService> {
-  const { host, lockdownPort } = await withRemoteXpcConnection(
+  const { host, port: lockdownPort } = await resolveTunnelService(
     udid,
-    (remoteXpc) => {
-      let port: string | undefined;
-      try {
-        port = remoteXpc.findService(LOCKDOWN_REMOTE_UNTRUSTED).port;
-      } catch {}
-      if (!port) {
-        throw new LockdownError(
-          `RSD has no remote lockdown service (${LOCKDOWN_REMOTE_UNTRUSTED}) for ${udid}`,
-        );
-      }
-      return { host: remoteXpc.address[0], lockdownPort: port };
-    },
+    LOCKDOWN_REMOTE_UNTRUSTED,
   );
 
-  const conn = await ServiceConnection.createUsingTCP(host, lockdownPort);
+  const conn = await ServiceConnection.createUsingTCP(
+    host,
+    String(lockdownPort),
+  );
   await rsdHandshakeLockdownPlistService(conn);
   return new LockdownService(conn.getSocket(), udid, false);
 }

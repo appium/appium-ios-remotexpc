@@ -251,7 +251,7 @@ describe('DvtTestmanagedProxyService auxiliary helpers', function () {
   let service: TestableDvtTestmanagedProxyService;
 
   beforeEach(function () {
-    service = new TestableDvtTestmanagedProxyService(['::1', 0]);
+    service = new TestableDvtTestmanagedProxyService('test-udid');
   });
 
   describe('parseAuxiliaryData', function () {

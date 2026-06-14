@@ -1,6 +1,10 @@
 import type net from 'node:net';
 
 import { getLogger } from '../../lib/logger.js';
+import {
+  DEFAULT_TUNNEL_SERVICE_WAIT_MS,
+  resolveTunnelService,
+} from '../../lib/tunnel/tunnel-service-resolver.js';
 import { ServiceConnection } from '../../service-connection.js';
 
 const log = getLogger('BaseService');
@@ -17,44 +21,37 @@ export interface Service {
  * Base class for iOS services that provides common functionality
  */
 export class BaseService {
-  protected readonly address: [string, number];
+  protected readonly udid: string;
 
   /**
    * Creates a new BaseService instance
-   * @param address Tuple containing [host, port]
+   * @param udid Device UDID
    */
-  constructor(address: [string, number]) {
-    this.address = address;
+  constructor(udid: string) {
+    this.udid = udid;
   }
 
   /**
    * Starts a lockdown service without sending a check-in message
-   * @param service Service information
-   * @param options Additional options for the connection
-   * @returns Promise resolving to a ServiceConnection
    */
   public async startLockdownWithoutCheckin(
-    service: Service,
+    serviceName: string,
     options: Record<string, any> = {},
   ): Promise<ServiceConnection> {
-    // Get the port for the requested service
-    const port = service.port;
-    return ServiceConnection.createUsingTCP(this.address[0], port, options);
+    const [host, port] = await this.resolveServiceAddress(serviceName);
+    return ServiceConnection.createUsingTCP(host, String(port), options);
   }
 
   /**
    * Starts a lockdown service with proper check-in
-   * @param service Service information
-   * @param options Additional options for the connection
-   * @returns Promise resolving to a ServiceConnection
    */
   public async startLockdownService(
-    service: Service,
+    serviceName: string,
     options: Record<string, any> = {},
   ): Promise<ServiceConnection> {
     try {
       const connection = await this.startLockdownWithoutCheckin(
-        service,
+        serviceName,
         options,
       );
       const checkin = {
@@ -73,6 +70,16 @@ export class BaseService {
       }
       throw error;
     }
+  }
+
+  protected async resolveServiceAddress(
+    serviceName: string,
+    waitMs: number = DEFAULT_TUNNEL_SERVICE_WAIT_MS,
+  ): Promise<[string, number]> {
+    const { host, port } = await resolveTunnelService(this.udid, serviceName, {
+      waitMs,
+    });
+    return [host, port];
   }
 }
 

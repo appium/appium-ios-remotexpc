@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { Socket } from 'node:net';
-import { Readable } from 'node:stream';
+import { type Readable } from 'node:stream';
 
 class BaseSocketService extends EventEmitter {
   protected _socketClient: Socket;

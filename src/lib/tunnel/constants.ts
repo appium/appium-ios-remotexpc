@@ -9,3 +9,6 @@ export const TUNNEL_REGISTRY_HTTP_TIMEOUT_MS = 500;
 
 /** Timeout for TCP probe that the registry HTTP server is listening. */
 export const TUNNEL_REGISTRY_PORT_PROBE_TIMEOUT_MS = 300;
+
+/** Max `waitMs` query value for GET /tunnels/:udid long-poll. */
+export const MAX_TUNNEL_REGISTRY_WAIT_MS = 60_000;

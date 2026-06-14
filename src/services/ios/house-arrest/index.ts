@@ -47,8 +47,9 @@ export class HouseArrestService extends BaseService {
   private async _vend(bundleId: string, command: string): Promise<AfcService> {
     log.debug(`Vending into ${bundleId} with command: ${command}`);
 
-    const service = this.getServiceConfig();
-    const connection = await this.startLockdownService(service);
+    const connection = await this.startLockdownService(
+      HouseArrestService.RSD_SERVICE_NAME,
+    );
 
     try {
       // receive StartService response
@@ -90,13 +91,6 @@ export class HouseArrestService extends BaseService {
       } catch {}
       throw error;
     }
-  }
-
-  private getServiceConfig(): { serviceName: string; port: string } {
-    return {
-      serviceName: HouseArrestService.RSD_SERVICE_NAME,
-      port: this.address[1].toString(),
-    };
   }
 }
 

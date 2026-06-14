@@ -88,6 +88,7 @@ export class AfcPacketDemux {
     this.readerSocket = null;
     this.readerActive = false;
     this.stopped = false;
+    this.packetNum = 0n;
   }
 
   /** Graceful shutdown; does not notify the owning service. */

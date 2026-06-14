@@ -4,7 +4,12 @@ import * as http from 'node:http';
 import { TUNNEL_CONTAINER_NAME } from '../../constants.js';
 import { getLogger } from '../logger.js';
 import type { TunnelRegistry, TunnelRegistryEntry } from '../types.js';
-import { TUNNEL_REGISTRY_API_BASE_PATH } from './constants.js';
+import {
+  MAX_TUNNEL_REGISTRY_WAIT_MS,
+  TUNNEL_REGISTRY_API_BASE_PATH,
+} from './constants.js';
+import { isTunnelEntryReady } from './tunnel-availability.js';
+import { TunnelReadinessCoordinator } from './tunnel-readiness.js';
 import {
   type RouteRecord,
   createRouteDispatcher,
@@ -16,6 +21,18 @@ export const DEFAULT_TUNNEL_REGISTRY_PORT = 42314;
 
 /** Path segments that must not bind to `:udid` (reserved static routes). */
 const RESERVED_TUNNEL_UDID_SEGMENTS = new Set(['metadata']);
+
+export interface TunnelRegistryServerOptions {
+  readiness?: TunnelReadinessCoordinator;
+  /**
+   * Re-run RSD discover-and-close for `udid` and return the updated registry entry.
+   * Wired by tunnel-creation; required for POST refresh-services.
+   */
+  refreshServices?: (
+    udid: string,
+    entry: TunnelRegistryEntry,
+  ) => Promise<TunnelRegistryEntry>;
+}
 
 // Logger instance
 const log = getLogger('TunnelRegistryServer');
@@ -45,9 +62,42 @@ export class TunnelRegistryServer {
     this.tunnelRegistryRouteTable(),
   );
 
-  constructor(tunnelsInfo: TunnelRegistry | undefined, port: number) {
+  private readonly readiness: TunnelReadinessCoordinator;
+  private readonly refreshServices?: TunnelRegistryServerOptions['refreshServices'];
+
+  constructor(
+    tunnelsInfo: TunnelRegistry | undefined,
+    port: number,
+    options: TunnelRegistryServerOptions = {},
+  ) {
     this.port = port;
     this.tunnelsInfo = tunnelsInfo;
+    this.readiness = options.readiness ?? new TunnelReadinessCoordinator();
+    this.refreshServices = options.refreshServices;
+  }
+
+  /** Live registry object (mutated in place by tunnel-creation). */
+  getRegistry(): TunnelRegistry {
+    return this.registry;
+  }
+
+  /** Publish a fully discovered tunnel entry and unblock long-poll waiters. */
+  upsertReadyEntry(udid: string, entry: TunnelRegistryEntry): void {
+    this.registry.tunnels[udid] = {
+      ...entry,
+      lastUpdated: Date.now(),
+    };
+    this.readiness.resolveReady(udid, this.registry.tunnels[udid]);
+  }
+
+  /** Remove a tunnel and mark readiness pending (e.g. upstream TLS death). */
+  removeTunnelEntry(udid: string): void {
+    delete this.registry.tunnels[udid];
+    this.readiness.markPending(udid);
+  }
+
+  markTunnelPending(udid: string): void {
+    this.readiness.markPending(udid);
   }
 
   /**
@@ -196,28 +246,76 @@ export class TunnelRegistryServer {
   }
 
   /**
-   * Handler for getting a tunnel by UDID
+   * Handler for getting a tunnel by UDID (optional ?waitMs= long-poll).
    */
   private async getTunnelByUdid(
+    req: http.IncomingMessage,
     res: http.ServerResponse,
     udid: string,
   ): Promise<void> {
     try {
       await this.loadRegistry();
-      const tunnel = this.tunnels[udid];
+      const waitMs = parseWaitMsQuery(req);
+      if (waitMs === null) {
+        sendJSON(res, 400, { error: 'Invalid waitMs query parameter' });
+        return;
+      }
 
-      if (!tunnel) {
+      let tunnel = this.tunnels[udid];
+      if (tunnel && isTunnelEntryReady(tunnel)) {
+        sendJSON(res, 200, tunnel);
+        return;
+      }
+
+      if (waitMs <= 0) {
         sendJSON(res, 404, {
           error: `Tunnel not found for UDID: ${udid}`,
         });
         return;
       }
 
-      sendJSON(res, 200, tunnel);
+      try {
+        tunnel = await this.readiness.waitForReady(udid, waitMs);
+        sendJSON(res, 200, tunnel);
+      } catch {
+        sendJSON(res, 408, { status: 'NOT_READY' });
+      }
     } catch (error) {
       log.error(`Error getting tunnel by UDID: ${error}`);
       sendJSON(res, 500, {
         error: 'Failed to get tunnel',
+      });
+    }
+  }
+
+  private async refreshTunnelServices(
+    res: http.ServerResponse,
+    udid: string,
+  ): Promise<void> {
+    try {
+      await this.loadRegistry();
+      const entry = this.tunnels[udid];
+      if (!entry) {
+        sendJSON(res, 404, {
+          error: `Tunnel not found for UDID: ${udid}`,
+        });
+        return;
+      }
+
+      if (!this.refreshServices) {
+        sendJSON(res, 503, {
+          error: 'Service catalog refresh is not configured',
+        });
+        return;
+      }
+
+      const updated = await this.refreshServices(udid, entry);
+      this.upsertReadyEntry(udid, updated);
+      sendJSON(res, 200, this.tunnels[udid]);
+    } catch (error) {
+      log.error(`Error refreshing services for ${udid}: ${error}`);
+      sendJSON(res, 500, {
+        error: 'Failed to refresh service catalog',
       });
     }
   }
@@ -362,12 +460,20 @@ export class TunnelRegistryServer {
           this.getTunnelByDeviceId(res, parseInt(params.deviceId, 10)),
       },
       {
+        method: 'POST',
+        path: `${base}/:udid/refresh-services`,
+        name: 'refresh-services',
+        guard: (params) => !RESERVED_TUNNEL_UDID_SEGMENTS.has(params.udid),
+        handler: async (_req, res, params) =>
+          this.refreshTunnelServices(res, params.udid),
+      },
+      {
         method: 'GET',
         path: `${base}/:udid`,
         name: 'get-by-udid',
         guard: (params) => !RESERVED_TUNNEL_UDID_SEGMENTS.has(params.udid),
-        handler: async (_req, res, params) =>
-          this.getTunnelByUdid(res, params.udid),
+        handler: async (req, res, params) =>
+          this.getTunnelByUdid(req, res, params.udid),
       },
       {
         method: 'PUT',
@@ -390,8 +496,9 @@ export class TunnelRegistryServer {
 export async function startTunnelRegistryServer(
   tunnelInfos: TunnelRegistry | undefined,
   port: number = DEFAULT_TUNNEL_REGISTRY_PORT,
+  options: TunnelRegistryServerOptions = {},
 ): Promise<TunnelRegistryServer> {
-  const server = new TunnelRegistryServer(tunnelInfos, port);
+  const server = new TunnelRegistryServer(tunnelInfos, port, options);
   await server.start();
   try {
     const box = strongbox(TUNNEL_CONTAINER_NAME);
@@ -432,6 +539,22 @@ async function parseJSONBody<T = unknown>(
 /**
  * Send JSON response
  */
+function parseWaitMsQuery(req: http.IncomingMessage): number | null {
+  const url = new URL(req.url || '/', 'http://localhost');
+  const raw = url.searchParams.get('waitMs');
+  if (raw === null || raw === '') {
+    return 0;
+  }
+  const waitMs = Number.parseInt(raw, 10);
+  if (!Number.isInteger(waitMs) || waitMs < 0) {
+    return null;
+  }
+  if (waitMs > MAX_TUNNEL_REGISTRY_WAIT_MS) {
+    return null;
+  }
+  return waitMs;
+}
+
 function sendJSON(
   res: http.ServerResponse,
   statusCode: number,

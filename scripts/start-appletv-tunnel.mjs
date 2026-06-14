@@ -11,12 +11,18 @@ import {
   AppleTVTunnelService,
   PacketStreamServer,
   TunnelManager,
+  TunnelReadinessCoordinator,
+  discoverServices,
+  servicesToCatalog,
   startTunnelRegistryServer,
   watchTunnelRegistrySockets,
 } from 'appium-ios-remotexpc';
 import { DEFAULT_TUNNEL_REGISTRY_PORT } from '../build/src/lib/tunnel/tunnel-registry-server.js';
 
 const log = logger.getLogger('WiFiTunnel');
+
+/** @type {import('appium-ios-remotexpc').TunnelRegistryServer | null} */
+let registryServer = null;
 
 const packetStreamServers = new Map();
 /** @type {(() => void)[]} */
@@ -70,6 +76,8 @@ function attachAppleTvTunnelRegistryLifecycleWatch(registry, successfulResults, 
     registry,
     watches,
     onRemove: async (udid) => {
+      registryServer?.removeTunnelEntry(udid);
+
       const server = packetStreamServers.get(udid);
       if (server) {
         try {
@@ -217,21 +225,27 @@ async function establishOneTunnel(startResult, packetStreamBaseRef) {
 }
 
 
-function upsertRegistryEntry(registry, result) {
-  const rsdPort = result.tunnel.RsdPort;
-  if (typeof rsdPort !== 'number' || rsdPort <= 0) {
-    log.warn(
-      `Skipping registry entry for ${result.device.identifier}: no valid RSD port (got ${String(rsdPort)})`,
-    );
-    return false;
-  }
+async function refreshServiceCatalog(udid, entry) {
+  log.info(`Refreshing RSD service catalog for ${udid}...`);
+  const services = await discoverServices(udid, entry.address, entry.rsdPort);
   const now = Date.now();
-  const existing = registry.tunnels[result.device.identifier];
+  return {
+    ...entry,
+    services: servicesToCatalog(services),
+    catalogUpdatedAt: now,
+    lastUpdated: now,
+  };
+}
+
+function buildAppleTvTunnelEntryBase(result, existing) {
+  const udid = result.device.identifier;
+  const now = Date.now();
   const entry = {
-    udid: result.device.identifier,
+    udid,
     deviceId: 0,
     address: result.tunnel.Address,
-    rsdPort,
+    rsdPort: result.tunnel.RsdPort,
+    services: {},
     connectionType: 'WiFi',
     productId: 0,
     createdAt: existing?.createdAt ?? now,
@@ -241,12 +255,43 @@ function upsertRegistryEntry(registry, result) {
   if (typeof packetStreamPort === 'number' && packetStreamPort > 0) {
     entry.packetStreamPort = packetStreamPort;
   }
-  registry.tunnels[result.device.identifier] = entry;
-  registry.metadata = {
-    lastUpdated: new Date().toISOString(),
-    totalTunnels: Object.keys(registry.tunnels).length,
-    activeTunnels: Object.keys(registry.tunnels).length,
-  };
+  return entry;
+}
+
+async function publishDiscoveredTunnelEntry(result) {
+  if (!registryServer) {
+    throw new Error('Registry server is not started');
+  }
+
+  const udid = result.device.identifier;
+  const rsdPort = result.tunnel.RsdPort;
+  if (typeof rsdPort !== 'number' || rsdPort <= 0) {
+    log.warn(
+      `Skipping registry entry for ${udid}: no valid RSD port (got ${String(rsdPort)})`,
+    );
+    return false;
+  }
+
+  registryServer.markTunnelPending(udid);
+  log.info(
+    `Discovering RSD services for ${udid} at ${result.tunnel.Address}:${rsdPort}...`,
+  );
+
+  const services = await discoverServices(
+    udid,
+    result.tunnel.Address,
+    rsdPort,
+  );
+  const now = Date.now();
+  const registry = registryServer.getRegistry();
+  const entry = buildAppleTvTunnelEntryBase(result, registry.tunnels[udid]);
+  entry.services = servicesToCatalog(services);
+  entry.catalogUpdatedAt = now;
+
+  registryServer.upsertReadyEntry(udid, entry);
+  log.info(
+    `Published tunnel catalog for ${udid} (${Object.keys(entry.services).length} services)`,
+  );
   return true;
 }
 
@@ -259,7 +304,6 @@ async function runAppleTvReconnectAttempts({
   maxRetries,
   tunnelService,
   packetStreamBaseRef,
-  registry,
   reconnectTunnelByUdid,
 }) {
   let attempt = 0;
@@ -268,19 +312,25 @@ async function runAppleTvReconnectAttempts({
     log.warn(
       `Reconnecting dropped tunnel for ${udid} (attempt ${attempt}${maxRetries === 0 ? ', unlimited mode' : `/${maxRetries}`})...`,
     );
+    registryServer?.markTunnelPending(udid);
+
     try {
       const result = await tunnelService.startTunnel(undefined, udid);
       if (!result.socket) {
         throw new Error('TLS-PSK socket not established');
       }
       const reconnected = await establishOneTunnel(result, packetStreamBaseRef);
-      const ok = upsertRegistryEntry(registry, reconnected);
-      if (ok) {
-        attachAppleTvTunnelRegistryLifecycleWatch(registry, [reconnected], {
-          onTunnelDead: async ({ udid: droppedUdid }) => {
-            await reconnectTunnelByUdid(droppedUdid);
+      const ok = await publishDiscoveredTunnelEntry(reconnected);
+      if (ok && registryServer) {
+        attachAppleTvTunnelRegistryLifecycleWatch(
+          registryServer.getRegistry(),
+          [reconnected],
+          {
+            onTunnelDead: async ({ udid: droppedUdid }) => {
+              await reconnectTunnelByUdid(droppedUdid);
+            },
           },
-        });
+        );
         log.info(`Reconnected tunnel for ${udid}`);
       }
       return;
@@ -296,7 +346,6 @@ function createAppleTvReconnectTunnelByUdid({
   reconnectRetries,
   tunnelService,
   packetStreamBaseRef,
-  registry,
 }) {
   return async function reconnectTunnelByUdid(udid) {
     if (typeof reconnectRetries !== 'number') {
@@ -311,7 +360,6 @@ function createAppleTvReconnectTunnelByUdid({
       maxRetries: reconnectRetries,
       tunnelService,
       packetStreamBaseRef,
-      registry,
       reconnectTunnelByUdid,
     });
 
@@ -415,45 +463,46 @@ async function main() {
       throw new Error('No tunnel could be established');
     }
 
-    const nowISOString = new Date().toISOString();
-
+    const readiness = new TunnelReadinessCoordinator();
     const registry = {
       tunnels: {},
       metadata: {
-        lastUpdated: nowISOString,
+        lastUpdated: new Date().toISOString(),
         totalTunnels: 0,
         activeTunnels: 0,
       },
     };
 
+    registryServer = await startTunnelRegistryServer(registry, registryPort, {
+      readiness,
+      refreshServices: refreshServiceCatalog,
+    });
+
     const registryPublished = [];
     for (const r of successfulResults) {
-      const ok = upsertRegistryEntry(registry, r);
+      const ok = await publishDiscoveredTunnelEntry(r);
       if (ok) {
         registryPublished.push(r);
       }
     }
 
-    registry.metadata = {
-      lastUpdated: nowISOString,
-      totalTunnels: Object.keys(registry.tunnels).length,
-      activeTunnels: Object.keys(registry.tunnels).length,
-    };
-
-    await startTunnelRegistryServer(registry, registryPort);
-
     const reconnectTunnelByUdid = createAppleTvReconnectTunnelByUdid({
       reconnectRetries: options.reconnectRetries,
       tunnelService,
       packetStreamBaseRef,
-      registry,
     });
 
-    attachAppleTvTunnelRegistryLifecycleWatch(registry, successfulResults, {
-      onTunnelDead: async ({ udid }) => {
-        await reconnectTunnelByUdid(udid);
-      },
-    });
+    for (const r of registryPublished) {
+      attachAppleTvTunnelRegistryLifecycleWatch(
+        registryServer.getRegistry(),
+        [r],
+        {
+          onTunnelDead: async ({ udid }) => {
+            await reconnectTunnelByUdid(udid);
+          },
+        },
+      );
+    }
 
     log.info(
       `\n=== ${util.pluralize('tunnel', registryPublished.length, true).toUpperCase()} IN REGISTRY ===`,

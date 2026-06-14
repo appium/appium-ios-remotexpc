@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { Stats, promises as fs } from 'node:fs';
+import { type Stats, promises as fs } from 'node:fs';
 import { performance } from 'node:perf_hooks';
 import { Readable } from 'node:stream';
 
@@ -10,7 +10,7 @@ import type {
   MobileImageMounterService as MobileImageMounterServiceInterface,
   PlistDictionary,
 } from '../../../lib/types.js';
-import { ServiceConnection } from '../../../service-connection.js';
+import { type ServiceConnection } from '../../../service-connection.js';
 import { BaseService } from '../base-service.js';
 
 const log = getLogger('MobileImageMounterService');
@@ -56,10 +56,6 @@ class MobileImageMounterService
 
   // Connection cache
   private connection: ServiceConnection | null = null;
-
-  constructor(address: [string, number]) {
-    super(address);
-  }
 
   /**
    * Clean up resources when service is no longer needed
@@ -468,10 +464,9 @@ class MobileImageMounterService
       return this.connection;
     }
 
-    const newConnection = await this.startLockdownService({
-      serviceName: MobileImageMounterService.RSD_SERVICE_NAME,
-      port: this.address[1].toString(),
-    });
+    const newConnection = await this.startLockdownService(
+      MobileImageMounterService.RSD_SERVICE_NAME,
+    );
 
     this.connection = newConnection;
     return newConnection;

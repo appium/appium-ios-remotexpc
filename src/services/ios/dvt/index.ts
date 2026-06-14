@@ -9,8 +9,8 @@ import type {
   PlistDictionary,
   SendMessageOptions,
 } from '../../../lib/types.js';
-import { ServiceConnection } from '../../../service-connection.js';
-import { BaseService, type Service, stripSSL } from '../base-service.js';
+import { type ServiceConnection } from '../../../service-connection.js';
+import { BaseService, stripSSL } from '../base-service.js';
 import { ChannelFragmenter } from './channel-fragmenter.js';
 import { Channel } from './channel.js';
 import { DTXMessage, DTX_CONSTANTS, MessageAux } from './dtx-message.js';
@@ -46,8 +46,8 @@ export class DVTSecureSocketProxyService extends BaseService {
   private isHandshakeComplete: boolean = false;
   private readBuffer: Buffer = Buffer.alloc(0);
 
-  constructor(address: [string, number]) {
-    super(address);
+  constructor(udid: string) {
+    super(udid);
     this.channelMessages.set(
       DVTSecureSocketProxyService.BROADCAST_CHANNEL,
       new ChannelFragmenter(),
@@ -62,13 +62,10 @@ export class DVTSecureSocketProxyService extends BaseService {
       return;
     }
 
-    const service: Service = {
-      serviceName: DVTSecureSocketProxyService.RSD_SERVICE_NAME,
-      port: this.address[1].toString(),
-    };
-
     // DVT uses DTX binary protocol, connect without plist-based RSDCheckin
-    this.connection = await this.startLockdownWithoutCheckin(service);
+    this.connection = await this.startLockdownWithoutCheckin(
+      DVTSecureSocketProxyService.RSD_SERVICE_NAME,
+    );
     this.socket = this.connection.getSocket();
     stripSSL(this.socket);
 

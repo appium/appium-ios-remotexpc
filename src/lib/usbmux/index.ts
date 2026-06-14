@@ -1,5 +1,10 @@
 import { access } from 'node:fs/promises';
-import { Server, Socket, createConnection, createServer } from 'node:net';
+import {
+  type Server,
+  type Socket,
+  createConnection,
+  createServer,
+} from 'node:net';
 import { release } from 'node:os';
 
 import { BaseSocketService } from '../../base-socket-service.js';

@@ -3,7 +3,7 @@ import type {
   PlistDictionary,
   PowerAssertionService as PowerAssertionServiceInterface,
 } from '../../../lib/types.js';
-import { ServiceConnection } from '../../../service-connection.js';
+import { type ServiceConnection } from '../../../service-connection.js';
 import { BaseService } from '../base-service.js';
 
 const log = getLogger('PowerAssertionService');
@@ -68,14 +68,10 @@ class PowerAssertionService
   }
 
   private async connectToPowerAssertionService(): Promise<ServiceConnection> {
-    const service = {
-      serviceName: PowerAssertionService.RSD_SERVICE_NAME,
-      port: this.address[1].toString(),
-    };
-    log.debug(
-      `Connecting to power assertion service at ${this.address[0]}:${this.address[1]}`,
+    log.debug('Connecting to power assertion service');
+    return await this.startLockdownService(
+      PowerAssertionService.RSD_SERVICE_NAME,
     );
-    return await this.startLockdownService(service);
   }
 
   private buildCreateAssertionRequest(

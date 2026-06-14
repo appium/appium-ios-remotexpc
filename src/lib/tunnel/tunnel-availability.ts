@@ -20,16 +20,22 @@ export { TunnelAvailabilityError };
 
 const TUNNEL_REGISTRY_PORT = 'tunnelRegistryPort';
 
+export interface GetTunnelForDeviceOptions {
+  /** Long-poll budget passed to GET /tunnels/:udid?waitMs= (0 = immediate). */
+  waitMs?: number;
+}
+
 /**
  * Resolve tunnel registry metadata for a device (host, RSD port, packet stream).
- * Strongbox port, TCP probe, then a single `GET /remotexpc/tunnels/{udid}`.
  * @throws {TunnelAvailabilityError} When registry or tunnel for the UDID is unavailable.
  */
 export async function getTunnelForDevice(
   udid: string,
+  options: GetTunnelForDeviceOptions = {},
 ): Promise<TunnelEndpoint> {
   const client = await createValidatedStrictRegistryClient();
-  const entry = await client.getTunnelByUdid(udid);
+  const waitMs = options.waitMs ?? 0;
+  const entry = await client.getTunnelByUdid(udid, { waitMs });
 
   if (!entry) {
     throw new TunnelAvailabilityError(
@@ -42,10 +48,6 @@ export async function getTunnelForDevice(
 
 /**
  * Returns the list of device UDIDs currently in the tunnel registry.
- * Used to include tunnel-only devices (e.g. Apple TV over WiFi)
- * in the "connected devices" list for session validation.
- *
- * @returns UDIDs when the registry is reachable (possibly empty).
  * @throws {TunnelAvailabilityError} When the registry port is missing or unreachable.
  */
 export async function getAvailableDevices(): Promise<string[]> {
@@ -54,9 +56,36 @@ export async function getAvailableDevices(): Promise<string[]> {
 }
 
 /**
- * Read the tunnel registry HTTP port from strongbox.
- * @throws {TunnelAvailabilityError} When the port was never stored or is not a valid TCP port.
+ * Strict registry client for internal catalog resolution (service resolver).
  */
+export async function createValidatedStrictRegistryClient(): Promise<TunnelApiClient> {
+  const port = await readTunnelRegistryPort();
+  await assertRegistryPortAcceptingConnections(port);
+  return createTunnelRegistryClient(port, {
+    strict: true,
+    timeoutMs: TUNNEL_REGISTRY_HTTP_TIMEOUT_MS,
+  });
+}
+
+/** Map a registry entry to a flat tunnel endpoint. */
+export function mapEntryToEndpoint(entry: TunnelRegistryEntry): TunnelEndpoint {
+  return {
+    host: entry.address,
+    port: entry.rsdPort,
+    udid: entry.udid,
+    packetStreamPort: entry.packetStreamPort,
+  };
+}
+
+/** Whether a registry entry has a non-empty discovered RSD service catalog. */
+export function isTunnelEntryReady(entry: TunnelRegistryEntry): boolean {
+  return (
+    entry.services !== undefined &&
+    typeof entry.services === 'object' &&
+    Object.keys(entry.services).length > 0
+  );
+}
+
 async function readTunnelRegistryPort(): Promise<number> {
   const box = strongbox(TUNNEL_CONTAINER_NAME);
   const item = new BaseItem(TUNNEL_REGISTRY_PORT, box);
@@ -79,10 +108,6 @@ async function readTunnelRegistryPort(): Promise<number> {
   return port;
 }
 
-/**
- * Verify the registry HTTP server is accepting TCP connections on localhost.
- * @throws {TunnelAvailabilityError} When the port is closed or the probe times out.
- */
 async function assertRegistryPortAcceptingConnections(
   port: number,
 ): Promise<void> {
@@ -125,19 +150,6 @@ async function assertRegistryPortAcceptingConnections(
   });
 }
 
-/** Map a registry entry to a flat tunnel endpoint for RSD connect. */
-function mapEntryToEndpoint(entry: TunnelRegistryEntry): TunnelEndpoint {
-  return {
-    host: entry.address,
-    port: entry.rsdPort,
-    udid: entry.udid,
-    packetStreamPort: entry.packetStreamPort,
-  };
-}
-
-/**
- * Build a strict tunnel registry API client (caller supplies port via base URL).
- */
 function createTunnelRegistryClient(
   port: number,
   options: TunnelApiClientOptions = {},
@@ -146,14 +158,4 @@ function createTunnelRegistryClient(
     `http://${TUNNEL_REGISTRY_HOST}:${port}${TUNNEL_REGISTRY_API_BASE_PATH}`,
     options,
   );
-}
-
-/** Strongbox port, TCP probe, then a strict registry client with the lookup timeout. */
-async function createValidatedStrictRegistryClient(): Promise<TunnelApiClient> {
-  const port = await readTunnelRegistryPort();
-  await assertRegistryPortAcceptingConnections(port);
-  return createTunnelRegistryClient(port, {
-    strict: true,
-    timeoutMs: TUNNEL_REGISTRY_HTTP_TIMEOUT_MS,
-  });
 }

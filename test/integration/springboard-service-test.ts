@@ -227,9 +227,9 @@ describe('SpringBoardService', function () {
         const metrics = await springboardService.getHomescreenIconMetrics();
         const iconState2 = await springboardService.getIconState();
 
-        expect(iconState1).to.be.an('object');
+        expect(iconState1).to.be.an('array');
         expect(metrics).to.be.an('object');
-        expect(iconState2).to.be.an('object');
+        expect(iconState2).to.be.an('array');
 
         // Verify that we get consistent results
         expect(iconState1).to.deep.equal(iconState2);
@@ -249,7 +249,7 @@ describe('SpringBoardService', function () {
         // Test with a service that has invalid configuration
         const invalidService = new (
           await import('../../src/services/ios/springboard-service/index.js')
-        ).SpringBoardService(['127.0.0.1', 99999]);
+        ).SpringBoardService('invalid-udid');
         await invalidService.getIconState();
 
         expect.fail('Expected method to throw an error');
