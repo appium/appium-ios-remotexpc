@@ -12,6 +12,7 @@ import {
   TunnelReadinessCoordinator,
   discoverServices,
   servicesToCatalog,
+  watchTunnelRegistryOnDead,
   watchTunnelRegistrySockets,
 } from './lib/tunnel/index.js';
 import {
@@ -20,7 +21,10 @@ import {
 } from './lib/tunnel/tunnel-registry-server.js';
 import { Usbmux, createUsbmux } from './lib/usbmux/index.js';
 import * as Services from './services.js';
-import { startCoreDeviceProxy } from './services/ios/tunnel-service/index.js';
+import {
+  startCoreDeviceProxy,
+  startCoreDeviceProxyTcp,
+} from './services/ios/tunnel-service/index.js';
 
 export type { Device as UsbmuxDevice } from './lib/usbmux/index.js';
 export type {
@@ -152,7 +156,9 @@ export {
   createLockdownServiceForTunnel,
   createLockdownServiceByUDID,
   startCoreDeviceProxy,
+  startCoreDeviceProxyTcp,
   TunnelRegistryServer,
   startTunnelRegistryServer,
   watchTunnelRegistrySockets,
+  watchTunnelRegistryOnDead,
 };

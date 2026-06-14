@@ -27,6 +27,22 @@ export interface WatchTunnelRegistryOptions {
   }) => void | Promise<void>;
 }
 
+export interface TunnelRegistryOnDeadWatch {
+  udid: string;
+  /** Register a handler invoked when the native forwarder exits unexpectedly. */
+  registerOnDead: (handler: (reason: string) => void) => void;
+}
+
+export interface WatchTunnelRegistryOnDeadOptions {
+  registry: TunnelRegistry;
+  watches: TunnelRegistryOnDeadWatch[];
+  onRemove?: (udid: string) => void | Promise<void>;
+  onTunnelDead?: (ctx: {
+    udid: string;
+    address: string;
+  }) => void | Promise<void>;
+}
+
 /**
  * Removes a tunnel from the registry when its upstream CoreDeviceProxy socket dies.
  *
@@ -99,6 +115,78 @@ export function watchTunnelRegistrySockets(
     teardownFns.push(() => {
       socket.off('close', onSocketEnd);
       socket.off('error', onSocketEnd);
+    });
+  }
+
+  return { stop };
+}
+
+/**
+ * Removes a tunnel from the registry when its native forwarder dies (Apple TV PSK path).
+ */
+export function watchTunnelRegistryOnDead(
+  options: WatchTunnelRegistryOnDeadOptions,
+): { stop: () => void } {
+  const { registry, watches, onRemove, onTunnelDead } = options;
+
+  const stopped = { value: false };
+  const teardownFns: Array<() => void> = [];
+
+  const stop = (): void => {
+    if (stopped.value) {
+      return;
+    }
+    stopped.value = true;
+    for (const fn of teardownFns) {
+      try {
+        fn();
+      } catch {
+        /* ignore */
+      }
+    }
+    teardownFns.length = 0;
+  };
+
+  for (const watch of watches) {
+    const { udid } = watch;
+    let finalized = false;
+
+    const finalize = async (reason: string): Promise<void> => {
+      if (finalized || stopped.value) {
+        return;
+      }
+      finalized = true;
+
+      if (!registry.tunnels[udid]) {
+        return;
+      }
+
+      const address = registry.tunnels[udid].address;
+
+      delete registry.tunnels[udid];
+      log.info(
+        `Tunnel registry: removed ${udid} (${reason}). Remaining: ${Object.keys(registry.tunnels).length}`,
+      );
+
+      try {
+        await onRemove?.(udid);
+      } catch (err) {
+        log.warn(`onRemove failed for ${udid}: ${err}`);
+      }
+
+      try {
+        await onTunnelDead?.({ udid, address });
+      } catch (err) {
+        log.warn(`onTunnelDead failed for ${udid}: ${err}`);
+      }
+    };
+
+    watch.registerOnDead((reason) => {
+      void finalize(`native forwarder died: ${reason}`);
+    });
+
+    teardownFns.push(() => {
+      watch.registerOnDead(() => {});
     });
   }
 

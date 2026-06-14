@@ -13,7 +13,7 @@ import {
   createUsbmux,
   discoverServices,
   servicesToCatalog,
-  startCoreDeviceProxy,
+  startCoreDeviceProxyTcp,
   startTunnelRegistryServer,
   watchTunnelRegistrySockets,
 } from 'appium-ios-remotexpc';
@@ -289,17 +289,16 @@ async function createTunnelForDevice(device, tlsOptions) {
       `Lockdown service created for device: ${lockdownDevice.Properties.SerialNumber}`,
     );
 
-    log.info('Starting CoreDeviceProxy...');
-    const { socket } = await startCoreDeviceProxy(
+    log.info('Starting CoreDeviceProxy (raw TCP, native OpenSSL forwarder)...');
+    const { socket, cert, key } = await startCoreDeviceProxyTcp(
       lockdownService,
       lockdownDevice.DeviceID,
       lockdownDevice.Properties.SerialNumber,
-      tlsOptions,
     );
     log.info('CoreDeviceProxy started successfully');
 
     log.info(`Creating tunnel...`);
-    const tunnel = await TunnelManager.getTunnel(socket);
+    const tunnel = await TunnelManager.getTunnel(socket, { cert, key });
     log.info(
       `Tunnel created for address: ${tunnel.Address} with RsdPort: ${tunnel.RsdPort}`,
     );

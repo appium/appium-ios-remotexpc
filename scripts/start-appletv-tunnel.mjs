@@ -14,7 +14,7 @@ import {
   discoverServices,
   servicesToCatalog,
   startTunnelRegistryServer,
-  watchTunnelRegistrySockets,
+  watchTunnelRegistryOnDead,
 } from 'appium-ios-remotexpc';
 import { DEFAULT_TUNNEL_REGISTRY_PORT } from '../build/src/lib/tunnel/tunnel-registry-server.js';
 
@@ -55,21 +55,12 @@ function parseNonNegativeInteger(value) {
  * @param {AppleTvEstablishedTunnel[]} successfulResults
  */
 function attachAppleTvTunnelRegistryLifecycleWatch(registry, successfulResults, callbacks = {}) {
-  const watches = successfulResults
-    .filter((r) => r.tlsSocket)
-    .map((r) => {
-      const watch = {
-        udid: r.device.identifier,
-        socket: r.tlsSocket,
-      };
-      return watch;
-    });
+  const watches = successfulResults.map((r) => ({
+    udid: r.device.identifier,
+    registerOnDead: r.registerOnDead,
+  }));
 
-  if (watches.length === 0) {
-    return;
-  }
-
-  const { stop } = watchTunnelRegistrySockets({
+  const { stop } = watchTunnelRegistryOnDead({
     registry,
     watches,
     onRemove: async (udid) => {
@@ -84,7 +75,7 @@ function attachAppleTvTunnelRegistryLifecycleWatch(registry, successfulResults, 
   });
   registryWatcherStops.push(stop);
   log.info(
-    'Tunnel registry will update automatically if a tunnel upstream socket goes away.',
+    'Tunnel registry will update automatically if a native forwarder exits unexpectedly.',
   );
 }
 
@@ -100,18 +91,14 @@ function setupCleanupHandlers() {
         } catch {}
       }
 
-      for (const { tunnel, tlsSocket } of establishedTunnels) {
+      for (const { tunnelConnection } of establishedTunnels) {
         try {
-          if (tunnel && typeof tunnel.closer === 'function') {
+          if (tunnelConnection && typeof tunnelConnection.closer === 'function') {
             log.info('Closing tunnel...');
-            await tunnel.closer();
+            await tunnelConnection.closer();
           }
         } catch (err) {
           log.warn(`Error closing tunnel: ${err}`);
-        }
-        if (tlsSocket && !tlsSocket.destroyed) {
-          log.info('Closing TLS-PSK connection...');
-          tlsSocket.destroy();
         }
       }
       establishedTunnels.length = 0;
@@ -151,25 +138,36 @@ function setupCleanupHandlers() {
 }
 
 /**
- * @param {{ socket: import('tls').TLSSocket; device: { identifier: string; name?: string } }} startResult
+ * @param {{ tcpSocket: import('net').Socket; psk: Buffer; device: { identifier: string; name?: string } }} startResult
  * @returns {Promise<AppleTvEstablishedTunnel>}
  */
 async function establishOneTunnel(startResult) {
-  const tlsSocket = startResult.socket;
-  const device = startResult.device;
+  const { tcpSocket, psk, device } = startResult;
+  const lifecycle = { notify: null };
 
-  log.info('Creating tunnel with TunnelManager...');
-  const tunnel = await TunnelManager.getTunnel(tlsSocket);
+  const tunnelConnection = await TunnelManager.getTunnelPsk(
+    tcpSocket,
+    { psk },
+    {
+      onDead: (reason) => lifecycle.notify?.(reason),
+    },
+  );
 
-  establishedTunnels.push({ tunnel, tlsSocket, device });
-
-  return {
+  const result = {
     device,
-    tunnel,
-    tlsSocket,
+    tunnel: {
+      Address: tunnelConnection.Address,
+      RsdPort: tunnelConnection.RsdPort,
+    },
+    tunnelConnection,
+    registerOnDead: (handler) => {
+      lifecycle.notify = handler;
+    },
   };
-}
 
+  establishedTunnels.push(result);
+  return result;
+}
 
 async function refreshServiceCatalog(udid, entry) {
   log.info(`Refreshing RSD service catalog for ${udid}...`);
@@ -257,8 +255,8 @@ async function runAppleTvReconnectAttempts({
 
     try {
       const result = await tunnelService.startTunnel(undefined, udid);
-      if (!result.socket) {
-        throw new Error('TLS-PSK socket not established');
+      if (!result.tcpSocket) {
+        throw new Error('TCP socket to listener port not established');
       }
       const reconnected = await establishOneTunnel(result);
       const ok = await publishDiscoveredTunnelEntry(reconnected);
@@ -353,47 +351,6 @@ async function main() {
   tunnelService = new AppleTVTunnelService();
 
   try {
-    /** @type {AppleTvEstablishedTunnel[]} */
-    const successfulResults = [];
-
-    if (deviceIdentifier) {
-      log.info('Starting Apple TV tunnel...');
-      const result = await tunnelService.startTunnel(undefined, deviceIdentifier);
-      if (!result.socket) {
-        throw new Error('TLS-PSK socket not established');
-      }
-      successfulResults.push(await establishOneTunnel(result));
-    } else {
-      const devices = await tunnelService.discoverDevices();
-      log.info(
-        `Discovered ${devices.length} Apple TV device(s); establishing tunnels...`,
-      );
-
-      for (let i = 0; i < devices.length; i++) {
-        const d = devices[i];
-        try {
-          log.info(`\n--- ${d.identifier} (${d.name ?? 'Apple TV'}) ---`);
-          const result = await tunnelService.startTunnel(undefined, d.identifier);
-          if (!result.socket) {
-            throw new Error('TLS-PSK socket not established');
-          }
-          successfulResults.push(
-            await establishOneTunnel(result),
-          );
-          log.info(`Tunnel established for ${d.identifier}`);
-        } catch (err) {
-          log.warn(`Skipping ${d.identifier}: ${err}`);
-        }
-        if (i < devices.length - 1) {
-          await sleep(1000);
-        }
-      }
-    }
-
-    if (successfulResults.length === 0) {
-      throw new Error('No tunnel could be established');
-    }
-
     const readiness = new TunnelReadinessCoordinator();
     const registry = {
       tunnels: {},
@@ -409,29 +366,76 @@ async function main() {
       refreshServices: refreshServiceCatalog,
     });
 
-    const registryPublished = [];
-    for (const r of successfulResults) {
-      const ok = await publishDiscoveredTunnelEntry(r);
-      if (ok) {
-        registryPublished.push(r);
-      }
-    }
-
     const reconnectTunnelByUdid = createAppleTvReconnectTunnelByUdid({
       reconnectRetries: options.reconnectRetries,
       tunnelService,
     });
 
-    for (const r of registryPublished) {
+    /** @type {AppleTvEstablishedTunnel[]} */
+    const successfulResults = [];
+
+    if (deviceIdentifier) {
+      log.info('Starting Apple TV tunnel...');
+      const result = await tunnelService.startTunnel(undefined, deviceIdentifier);
+      if (!result.tcpSocket) {
+        throw new Error('TCP socket to listener port not established');
+      }
+      const established = await establishOneTunnel(result);
+      successfulResults.push(established);
       attachAppleTvTunnelRegistryLifecycleWatch(
         registryServer.getRegistry(),
-        [r],
+        [established],
         {
           onTunnelDead: async ({ udid }) => {
             await reconnectTunnelByUdid(udid);
           },
         },
       );
+    } else {
+      const devices = await tunnelService.discoverDevices();
+      log.info(
+        `Discovered ${devices.length} Apple TV device(s); establishing tunnels...`,
+      );
+
+      for (let i = 0; i < devices.length; i++) {
+        const d = devices[i];
+        try {
+          log.info(`\n--- ${d.identifier} (${d.name ?? 'Apple TV'}) ---`);
+          const result = await tunnelService.startTunnel(undefined, d.identifier);
+          if (!result.tcpSocket) {
+            throw new Error('TCP socket to listener port not established');
+          }
+          const established = await establishOneTunnel(result);
+          successfulResults.push(established);
+          attachAppleTvTunnelRegistryLifecycleWatch(
+            registryServer.getRegistry(),
+            [established],
+            {
+              onTunnelDead: async ({ udid }) => {
+                await reconnectTunnelByUdid(udid);
+              },
+            },
+          );
+          log.info(`Tunnel established for ${d.identifier}`);
+        } catch (err) {
+          log.warn(`Skipping ${d.identifier}: ${err}`);
+        }
+        if (i < devices.length - 1) {
+          await sleep(1000);
+        }
+      }
+    }
+
+    if (successfulResults.length === 0) {
+      throw new Error('No tunnel could be established');
+    }
+
+    const registryPublished = [];
+    for (const r of successfulResults) {
+      const ok = await publishDiscoveredTunnelEntry(r);
+      if (ok) {
+        registryPublished.push(r);
+      }
     }
 
     log.info(
@@ -473,5 +477,6 @@ await main();
  * @typedef {object} AppleTvEstablishedTunnel
  * @property {{ identifier: string, name?: string }} device
  * @property {{ Address: string, RsdPort?: number }} tunnel
- * @property {import('tls').TLSSocket} tlsSocket
+ * @property {import('appium-ios-tuntap').TunnelConnection} tunnelConnection
+ * @property {(handler: (reason: string) => void) => void} registerOnDead
  */
