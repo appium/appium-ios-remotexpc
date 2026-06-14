@@ -1,3 +1,15 @@
+## [4.0.0](https://github.com/appium/appium-ios-remotexpc/compare/v3.0.0...v4.0.0) (2026-06-14)
+
+### ⚠ BREAKING CHANGES
+
+* SyslogService.start() no longer accepts a packetSource argument. Call syslogService.start(descriptor, options) instead; binary syslog reads from the RSD service socket after StartActivity.
+* Tunnel registry entries and TunnelEndpoint no longer expose packetStreamPort.
+* PacketStreamServer and PacketStreamClient are removed from the public API.
+
+### Features
+
+* Drop tunnel packets tap ([#237](https://github.com/appium/appium-ios-remotexpc/issues/237)) ([c9b0cb9](https://github.com/appium/appium-ios-remotexpc/commit/c9b0cb952633ab6315992f054b5c16ce211134fc))
+
 ## [3.0.0](https://github.com/appium/appium-ios-remotexpc/compare/v2.4.0...v3.0.0) (2026-06-14)
 
 ### ⚠ BREAKING CHANGES
