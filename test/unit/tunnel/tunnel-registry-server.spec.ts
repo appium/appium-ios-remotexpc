@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 
 import {
-  TunnelRegistryServer,
+  type TunnelRegistryServer,
   startTunnelRegistryServer,
 } from '../../../src/lib/tunnel/tunnel-registry-server.js';
 import type {
@@ -20,7 +20,6 @@ describe('TunnelRegistryServer', function () {
         udid: 'test-udid-123',
         deviceId: 1,
         address: '127.0.0.1',
-        packetStreamPort: 12345,
         rsdPort: 58783,
         services: {
           'com.apple.afc.shim.remote': { port: '49374' },

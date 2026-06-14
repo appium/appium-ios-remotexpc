@@ -7,7 +7,6 @@ import { logger } from '@appium/support';
 import { Command } from 'commander';
 
 import {
-  PacketStreamServer,
   TunnelManager,
   TunnelReadinessCoordinator,
   createLockdownServiceByUDID,
@@ -71,10 +70,6 @@ function buildTunnelEntryBase(result, existing) {
     createdAt: existing?.createdAt ?? now,
     lastUpdated: now,
   };
-  const packetStreamPort = result.packetStreamPort;
-  if (typeof packetStreamPort === 'number' && packetStreamPort > 0) {
-    entry.packetStreamPort = packetStreamPort;
-  }
   return entry;
 }
 
@@ -115,15 +110,13 @@ async function publishDiscoveredTunnelEntry(result) {
   return true;
 }
 
-const packetStreamServers = new Map();
-/** @type {(() => void)[]} */
 const registryWatcherStops = [];
 /** @type {Map<string, Promise<void>>} */
 const reconnectingByUdid = new Map();
 
 /**
  * When CoreDeviceProxy upstream sockets go away, drop the UDID from the HTTP registry
- * and tear down packet streams / TunnelManager state.
+ * and tear down TunnelManager state.
  *
  * @param {object} registry
  * @param {TunnelCreationSuccessResult[]} successful
@@ -148,19 +141,6 @@ function attachTunnelRegistryLifecycleWatch(registry, successful, callbacks = {}
     watches,
     onRemove: async (udid) => {
       registryServer?.removeTunnelEntry(udid);
-
-      const server = packetStreamServers.get(udid);
-      if (server) {
-        try {
-          await server.stop();
-          log.info(`Stopped packet stream server after tunnel loss: ${udid}`);
-        } catch (err) {
-          log.warn(
-            `Failed to stop packet stream server for ${udid}: ${err}`,
-          );
-        }
-        packetStreamServers.delete(udid);
-      }
     },
     onTunnelDead: async ({ udid, address }) => {
       await TunnelManager.closeTunnelByAddress(address).catch(() => {});
@@ -184,7 +164,6 @@ async function runReconnectAttempts({
   maxRetries,
   device,
   tlsOptions,
-  packetStreamBaseRef,
   reconnectTunnelByUdid,
 }) {
   let attempt = 0;
@@ -196,11 +175,7 @@ async function runReconnectAttempts({
 
     registryServer?.markTunnelPending(udid);
 
-    const result = await createTunnelForDevice(
-      device,
-      tlsOptions,
-      packetStreamBaseRef,
-    );
+    const result = await createTunnelForDevice(device, tlsOptions);
     if (result.success) {
       const ok = await publishDiscoveredTunnelEntry(result);
       if (ok && registryServer) {
@@ -228,7 +203,6 @@ function createReconnectTunnelByUdid({
   reconnectRetries,
   devicesByUdid,
   tlsOptions,
-  packetStreamBaseRef,
 }) {
   return async function reconnectTunnelByUdid(udid) {
     if (typeof reconnectRetries !== 'number') {
@@ -249,7 +223,6 @@ function createReconnectTunnelByUdid({
       maxRetries: reconnectRetries,
       device,
       tlsOptions,
-      packetStreamBaseRef,
       reconnectTunnelByUdid,
     });
 
@@ -271,23 +244,6 @@ function setupCleanupHandlers() {
       try {
         stop?.();
       } catch {}
-    }
-
-    if (packetStreamServers.size > 0) {
-      log.info(
-        `Closing ${packetStreamServers.size} packet stream server(s)...`,
-      );
-      for (const [udid, server] of packetStreamServers) {
-        try {
-          await server.stop();
-          log.info(`Closed packet stream server for device ${udid}`);
-        } catch (err) {
-          log.warn(
-            `Failed to close packet stream server for device ${udid}: ${err}`,
-          );
-        }
-      }
-      packetStreamServers.clear();
     }
 
     log.info('Cleanup completed.');
@@ -317,7 +273,7 @@ function setupCleanupHandlers() {
   });
 }
 
-async function createTunnelForDevice(device, tlsOptions, packetStreamBaseRef) {
+async function createTunnelForDevice(device, tlsOptions) {
   const udid = device.Properties.SerialNumber;
 
   try {
@@ -342,32 +298,15 @@ async function createTunnelForDevice(device, tlsOptions, packetStreamBaseRef) {
     );
     log.info('CoreDeviceProxy started successfully');
 
-    log.info('Creating tunnel...');
+    log.info(`Creating tunnel...`);
     const tunnel = await TunnelManager.getTunnel(socket);
     log.info(
       `Tunnel created for address: ${tunnel.Address} with RsdPort: ${tunnel.RsdPort}`,
     );
 
-    let packetStreamPort;
-    try {
-      packetStreamPort = packetStreamBaseRef.value++;
-      const packetStreamServer = new PacketStreamServer(packetStreamPort);
-      packetStreamServer.bindTunnel(tunnel);
-      await packetStreamServer.start();
-
-      packetStreamServers.set(udid, packetStreamServer);
-
-      log.info(`Packet stream server started on port ${packetStreamPort}`);
-    } catch (err) {
-      log.warn(`Failed to start packet stream server: ${err}`);
-    }
-
     log.info(`✅ Tunnel creation completed successfully for device: ${udid}`);
     log.info(`   Tunnel Address: ${tunnel.Address}`);
     log.info(`   Tunnel RsdPort: ${tunnel.RsdPort}`);
-    if (packetStreamPort) {
-      log.info(`   Packet Stream Port: ${packetStreamPort}`);
-    }
 
     try {
       if (socket && typeof socket === 'object' && socket.setNoDelay) {
@@ -380,7 +319,6 @@ async function createTunnelForDevice(device, tlsOptions, packetStreamBaseRef) {
           Address: tunnel.Address,
           RsdPort: tunnel.RsdPort,
         },
-        packetStreamPort,
         success: true,
         socket,
       };
@@ -393,7 +331,6 @@ async function createTunnelForDevice(device, tlsOptions, packetStreamBaseRef) {
           Address: tunnel.Address,
           RsdPort: tunnel.RsdPort,
         },
-        packetStreamPort,
         success: true,
         socket,
       };
@@ -422,11 +359,6 @@ async function main() {
     .argument('[udid]', 'Optional device UDID (omit for all devices)')
     .option('--udid <udid>', 'UDID of the device to create tunnel for')
     .option('-k, --keep-open', 'Keep connections open for lsof inspection')
-    .option(
-      '--packet-stream-base-port <port>',
-      'Base port for packet stream servers (1-65535)',
-      parsePort,
-    )
     .option(
       '--tunnel-registry-port <port>',
       `Port for tunnel registry API (default: ${DEFAULT_TUNNEL_REGISTRY_PORT})`,
@@ -459,9 +391,6 @@ async function main() {
     minVersion: 'TLSv1.2',
   };
 
-  const packetStreamBaseRef = {
-    value: options.packetStreamBasePort ?? 50000,
-  };
   const registryPort =
     options.tunnelRegistryPort ?? DEFAULT_TUNNEL_REGISTRY_PORT;
 
@@ -532,18 +461,13 @@ async function main() {
       reconnectRetries,
       devicesByUdid,
       tlsOptions,
-      packetStreamBaseRef,
     });
 
     const results = [];
     const successful = [];
 
     for (const device of devicesToProcess) {
-      const result = await createTunnelForDevice(
-        device,
-        tlsOptions,
-        packetStreamBaseRef,
-      );
+      const result = await createTunnelForDevice(device, tlsOptions);
       results.push(result);
 
       if (result.success) {
@@ -615,6 +539,5 @@ await main();
  * @typedef {object} TunnelCreationSuccessResult
  * @property {{ Properties: { SerialNumber: string }, DeviceID: number }} device
  * @property {{ Address: string, RsdPort?: number }} tunnel
- * @property {number} [packetStreamPort]
  * @property {import('tls').TLSSocket} [socket]
  */

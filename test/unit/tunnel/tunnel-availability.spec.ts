@@ -141,7 +141,6 @@ describe('tunnel-availability', function () {
           udid: TEST_UDID,
           address: 'fe80::1',
           rsdPort: 62078,
-          packetStreamPort: 9100,
         }),
       },
     });
@@ -151,7 +150,6 @@ describe('tunnel-availability', function () {
       host: 'fe80::1',
       port: 62078,
       udid: TEST_UDID,
-      packetStreamPort: 9100,
     });
   });
 });

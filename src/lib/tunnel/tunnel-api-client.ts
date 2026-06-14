@@ -37,7 +37,6 @@ export interface TunnelEndpoint {
   host: string;
   port: number;
   udid: string;
-  packetStreamPort: number | undefined;
 }
 
 /**
@@ -237,7 +236,6 @@ export class TunnelApiClient {
       host: tunnel.address,
       port: tunnel.rsdPort,
       udid: tunnel.udid,
-      packetStreamPort: tunnel.packetStreamPort,
     };
   }
 
