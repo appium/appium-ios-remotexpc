@@ -2,7 +2,7 @@ import {
   type PlistDictionary,
   type SpringboardService as SpringboardInterface,
 } from '../../../lib/types.js';
-import { ServiceConnection } from '../../../service-connection.js';
+import { type ServiceConnection } from '../../../service-connection.js';
 import { BaseService } from '../base-service.js';
 
 enum InterfaceOrientation {

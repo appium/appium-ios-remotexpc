@@ -8,7 +8,7 @@ import {
   type MobileConfigService as MobileConfigServiceInterface,
   type PlistDictionary,
 } from '../../../lib/types.js';
-import { ServiceConnection } from '../../../service-connection.js';
+import { type ServiceConnection } from '../../../service-connection.js';
 import { BaseService } from '../base-service.js';
 
 const ERROR_CLOUD_CONFIGURATION_ALREADY_PRESENT = 14002;

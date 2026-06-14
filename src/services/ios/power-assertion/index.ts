@@ -3,7 +3,7 @@ import type {
   PlistDictionary,
   PowerAssertionService as PowerAssertionServiceInterface,
 } from '../../../lib/types.js';
-import { ServiceConnection } from '../../../service-connection.js';
+import { type ServiceConnection } from '../../../service-connection.js';
 import { BaseService } from '../base-service.js';
 
 const log = getLogger('PowerAssertionService');

@@ -10,7 +10,7 @@ import {
   MAXIMUM_READ_SIZE,
   NULL_BYTE,
 } from './constants.js';
-import { AfcError, AfcFopenMode, AfcOpcode } from './enums.js';
+import { AfcError, type AfcFopenMode, AfcOpcode } from './enums.js';
 import { AfcConnectionError } from './errors.js';
 
 export interface AfcHeader {

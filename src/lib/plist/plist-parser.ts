@@ -1,4 +1,4 @@
-import { DOMParser, Element, Node } from '@xmldom/xmldom';
+import { DOMParser, type Element, Node } from '@xmldom/xmldom';
 
 import { getLogger } from '../logger.js';
 import type { PlistArray, PlistDictionary, PlistValue } from '../types.js';

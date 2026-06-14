@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import type net from 'node:net';
 import path from 'node:path';
-import { Readable, Writable } from 'node:stream';
+import { type Readable, type Writable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
 import { getLogger } from '../../../lib/logger.js';

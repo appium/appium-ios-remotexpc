@@ -4,7 +4,7 @@ import type {
   PlistDictionary,
   PlistMessage,
 } from '../../../lib/types.js';
-import { ServiceConnection } from '../../../service-connection.js';
+import { type ServiceConnection } from '../../../service-connection.js';
 import { BaseService } from '../base-service.js';
 
 const log = getLogger('NotificationProxyService');

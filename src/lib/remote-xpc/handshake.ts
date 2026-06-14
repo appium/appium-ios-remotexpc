@@ -1,4 +1,4 @@
-import { Socket } from 'node:net';
+import { type Socket } from 'node:net';
 
 import { type XPCDictionary } from '../types.js';
 import { Http2Constants, XpcConstants } from './constants.js';

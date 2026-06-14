@@ -1,4 +1,4 @@
-import { Socket, createConnection } from 'node:net';
+import { type Socket, createConnection } from 'node:net';
 import { performance } from 'node:perf_hooks';
 
 import { getTunnelForDevice } from '../tunnel/tunnel-availability.js';

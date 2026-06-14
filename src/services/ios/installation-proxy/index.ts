@@ -1,6 +1,6 @@
 import { getLogger } from '../../../lib/logger.js';
 import type { PlistDictionary } from '../../../lib/types.js';
-import { ServiceConnection } from '../../../service-connection.js';
+import { type ServiceConnection } from '../../../service-connection.js';
 import { BaseService } from '../base-service.js';
 import type {
   AppInfo,

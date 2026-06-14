@@ -5,7 +5,7 @@ import {
   type MisagentService as MisagentServiceInterface,
   type PlistDictionary,
 } from '../../../lib/types.js';
-import { ServiceConnection } from '../../../service-connection.js';
+import { type ServiceConnection } from '../../../service-connection.js';
 import { BaseService } from '../base-service.js';
 import { ProvisioningProfile } from './provisioning-profile.js';
 

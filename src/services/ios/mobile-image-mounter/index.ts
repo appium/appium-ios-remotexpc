@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { Stats, promises as fs } from 'node:fs';
+import { type Stats, promises as fs } from 'node:fs';
 import { performance } from 'node:perf_hooks';
 import { Readable } from 'node:stream';
 
@@ -10,7 +10,7 @@ import type {
   MobileImageMounterService as MobileImageMounterServiceInterface,
   PlistDictionary,
 } from '../../../lib/types.js';
-import { ServiceConnection } from '../../../service-connection.js';
+import { type ServiceConnection } from '../../../service-connection.js';
 import { BaseService } from '../base-service.js';
 
 const log = getLogger('MobileImageMounterService');

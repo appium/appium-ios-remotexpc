@@ -2,16 +2,16 @@
  * Common type definitions for the appium-ios-remotexpc library
  */
 import type { PacketData } from 'appium-ios-tuntap';
-import { EventEmitter } from 'node:events';
+import { type EventEmitter } from 'node:events';
 
 import type { ServiceConnection } from '../service-connection.js';
-import AfcService from '../services/ios/afc/index.js';
+import type AfcService from '../services/ios/afc/index.js';
 import type { BaseService, Service } from '../services/ios/base-service.js';
 import type { iOSApplication } from '../services/ios/dvt/instruments/application-listing.js';
 import type { LocationCoordinates } from '../services/ios/dvt/instruments/location-simulation.js';
 import type { NotificationMessage } from '../services/ios/dvt/instruments/notifications.js';
-import { InstallationProxyService } from '../services/ios/installation-proxy/index.js';
-import { ProvisioningProfile } from '../services/ios/misagent/provisioning-profile.js';
+import { type InstallationProxyService } from '../services/ios/installation-proxy/index.js';
+import { type ProvisioningProfile } from '../services/ios/misagent/provisioning-profile.js';
 import type { ProfileList } from '../services/ios/mobile-config/index.js';
 import type { PowerAssertionOptions } from '../services/ios/power-assertion/index.js';
 import { PowerAssertionType } from '../services/ios/power-assertion/index.js';

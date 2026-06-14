@@ -9,7 +9,7 @@ import type {
   PlistDictionary,
   SendMessageOptions,
 } from '../../../lib/types.js';
-import { ServiceConnection } from '../../../service-connection.js';
+import { type ServiceConnection } from '../../../service-connection.js';
 import { BaseService, stripSSL } from '../base-service.js';
 import { ChannelFragmenter } from './channel-fragmenter.js';
 import { Channel } from './channel.js';

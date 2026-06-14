@@ -10,7 +10,7 @@ import type {
 } from '../../../lib/types.js';
 import * as Services from '../../../services.js';
 import { MessageAux } from '../dvt/dtx-message.js';
-import { InstallationProxyService } from '../installation-proxy/index.js';
+import { type InstallationProxyService } from '../installation-proxy/index.js';
 import {
   DEFAULT_EXEC_CAPABILITIES,
   DEFAULT_LAUNCH_ENV,

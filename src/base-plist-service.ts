@@ -1,4 +1,4 @@
-import { Socket } from 'node:net';
+import { type Socket } from 'node:net';
 
 import {
   PlistService,
