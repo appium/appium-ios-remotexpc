@@ -1,3 +1,15 @@
+## [5.0.0](https://github.com/appium/appium-ios-remotexpc/compare/v4.0.0...v5.0.0) (2026-06-15)
+
+### ⚠ BREAKING CHANGES
+
+* TunnelManager.getTunnel now requires (tcpSocket, { cert, key }). Pass plain TCP from startCoreDeviceProxyTcp; do not upgrade to Node TLSSocket first.
+* startCoreDeviceProxy removed. Use startCoreDeviceProxyTcp + TunnelManager.getTunnel(socket, { cert, key }).
+* AppleTVTunnelService.startTunnel() returns { tcpSocket, psk, device } instead of { socket: TLSSocket, device }. Use TunnelManager.getTunnelPsk(tcpSocket, { psk }).
+
+### Features
+
+* Bump appium-ios-tuntap to ^1.0.0 ([#238](https://github.com/appium/appium-ios-remotexpc/issues/238)) ([e8fc72f](https://github.com/appium/appium-ios-remotexpc/commit/e8fc72fdd4ba7bcc8f37bd347b278d911d8cf32b))
+
 ## [4.0.0](https://github.com/appium/appium-ios-remotexpc/compare/v3.0.0...v4.0.0) (2026-06-14)
 
 ### ⚠ BREAKING CHANGES
