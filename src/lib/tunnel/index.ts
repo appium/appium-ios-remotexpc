@@ -62,36 +62,7 @@ class TunnelManagerService {
       credentials,
       options,
     );
-
-    const existingTunnel = this.tunnelRegistry.get(tunnel.Address);
-    if (existingTunnel?.isActive) {
-      log.info(`Reusing existing tunnel for address: ${tunnel.Address}`);
-      try {
-        if (tunnel.tunnelManager) {
-          try {
-            await tunnel.closer();
-          } catch (error) {
-            log.warn(`Error closing redundant tunnel: ${error}`);
-          }
-          existingTunnel.lastUsed = Date.now();
-          return existingTunnel.tunnel;
-        }
-      } catch (error) {
-        log.warn(
-          `Error checking tunnel functionality: ${error}, creating a new one`,
-        );
-        existingTunnel.isActive = false;
-      }
-    }
-
-    log.info(`Creating new tunnel for address: ${tunnel.Address}`);
-    this.tunnelRegistry.set(tunnel.Address, {
-      tunnel,
-      lastUsed: Date.now(),
-      isActive: true,
-    });
-
-    return tunnel;
+    return this.registerTunnel(tunnel, 'tunnel');
   }
 
   /**
@@ -103,36 +74,7 @@ class TunnelManagerService {
     options?: { onDead?: (reason: string) => void },
   ): Promise<TunnelConnection> {
     const tunnel = await connectToTunnelPsk(tcpSocket, credentials, options);
-
-    const existingTunnel = this.tunnelRegistry.get(tunnel.Address);
-    if (existingTunnel?.isActive) {
-      log.info(`Reusing existing tunnel for address: ${tunnel.Address}`);
-      try {
-        if (tunnel.tunnelManager) {
-          try {
-            await tunnel.closer();
-          } catch (error) {
-            log.warn(`Error closing redundant tunnel: ${error}`);
-          }
-          existingTunnel.lastUsed = Date.now();
-          return existingTunnel.tunnel;
-        }
-      } catch (error) {
-        log.warn(
-          `Error checking tunnel functionality: ${error}, creating a new one`,
-        );
-        existingTunnel.isActive = false;
-      }
-    }
-
-    log.info(`Creating new Apple TV tunnel for address: ${tunnel.Address}`);
-    this.tunnelRegistry.set(tunnel.Address, {
-      tunnel,
-      lastUsed: Date.now(),
-      isActive: true,
-    });
-
-    return tunnel;
+    return this.registerTunnel(tunnel, 'Apple TV tunnel');
   }
 
   /**
@@ -203,6 +145,41 @@ class TunnelManagerService {
    */
   async closeTunnel(): Promise<void> {
     return this.closeAllTunnels();
+  }
+
+  private async registerTunnel(
+    tunnel: TunnelConnection,
+    kindLabel: string,
+  ): Promise<TunnelConnection> {
+    const existingTunnel = this.tunnelRegistry.get(tunnel.Address);
+    if (existingTunnel?.isActive) {
+      log.info(`Reusing existing tunnel for address: ${tunnel.Address}`);
+      try {
+        if (tunnel.tunnelManager) {
+          try {
+            await tunnel.closer();
+          } catch (error) {
+            log.warn(`Error closing redundant tunnel: ${error}`);
+          }
+          existingTunnel.lastUsed = Date.now();
+          return existingTunnel.tunnel;
+        }
+      } catch (error) {
+        log.warn(
+          `Error checking tunnel functionality: ${error}, creating a new one`,
+        );
+        existingTunnel.isActive = false;
+      }
+    }
+
+    log.info(`Creating new ${kindLabel} for address: ${tunnel.Address}`);
+    this.tunnelRegistry.set(tunnel.Address, {
+      tunnel,
+      lastUsed: Date.now(),
+      isActive: true,
+    });
+
+    return tunnel;
   }
 }
 
