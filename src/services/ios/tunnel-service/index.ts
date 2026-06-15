@@ -1,30 +1,27 @@
-import type { ConnectionOptions, TLSSocket } from 'node:tls';
+import type { Socket } from 'node:net';
 
-import { upgradeSocketToTLS } from '../../../lib/lockdown/index.js';
 import type { LockdownService } from '../../../lib/lockdown/index.js';
 import { getLogger } from '../../../lib/logger.js';
-import { PlistService } from '../../../lib/plist/plist-service.js';
 import { createUsbmux } from '../../../lib/usbmux/index.js';
 
 const log = getLogger('TunnelService');
 const LABEL = 'appium-internal';
 
+export interface CoreDeviceProxyTcpSession {
+  socket: Socket;
+  cert: string;
+  key: string;
+}
+
 /**
- * Starts a CoreDeviceProxy session over an existing TLS-upgraded lockdown connection.
- *
- * @param lockdownClient - The TLS-upgraded lockdown client used to send the StartService request.
- * @param deviceID - The device identifier to be used in the Connect request.
- * @param udid - The device UDID used to retrieve the pair record.
- * @param tlsOptions - TLS options for upgrading the usbmuxd socket.
- * @returns A promise that resolves with a TLS-upgraded socket and PlistService for communication with CoreDeviceProxy.
+ * Starts CoreDeviceProxy over plain TCP (no Node TLS). Use with
+ * {@link connectToTunnelLockdown} in appium-ios-tuntap.
  */
-export async function startCoreDeviceProxy(
+export async function startCoreDeviceProxyTcp(
   lockdownClient: LockdownService,
   deviceID: number | string,
   udid: string,
-  tlsOptions: Partial<ConnectionOptions> = {},
-): Promise<{ socket: TLSSocket; plistService: PlistService }> {
-  // Wait for TLS upgrade to complete if in progress
+): Promise<CoreDeviceProxyTcpSession> {
   await lockdownClient.waitForTLSUpgrade();
 
   const response = await lockdownClient.sendAndReceive({
@@ -60,24 +57,16 @@ export async function startCoreDeviceProxy(
       Number(response.Port),
     );
 
-    log.debug('Socket connected to CoreDeviceProxy, upgrading to TLS...');
+    log.debug(
+      'Socket connected to CoreDeviceProxy (raw TCP, native TLS in tuntap)',
+    );
 
-    const fullTlsOptions = {
-      ...tlsOptions,
+    return {
+      socket: coreDeviceSocket,
       cert: pairRecord.HostCertificate,
       key: pairRecord.HostPrivateKey,
     };
-
-    const tlsSocket = await upgradeSocketToTLS(
-      coreDeviceSocket,
-      fullTlsOptions,
-    );
-
-    const plistService = new PlistService(tlsSocket);
-
-    return { socket: tlsSocket, plistService };
   } catch (err) {
-    // If we haven't connected yet, we can safely close the usbmux
     await usbmux
       .close()
       .catch((closeErr) => log.error(`Error closing usbmux: ${closeErr}`));

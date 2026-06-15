@@ -106,23 +106,22 @@ The `appium-ios-tuntap (previously tuntap-bridge)` module plays a crucial role i
 import {
   createLockdownServiceByUDID,
   rsdSessionLockKey,
-  startCoreDeviceProxy,
+  startCoreDeviceProxyTcp,
   TunnelManager,
 } from 'appium-ios-remotexpc';
 
 // Create lockdown service
 const { lockdownService, device } = await createLockdownServiceByUDID(udid);
 
-// Start CoreDeviceProxy
-const { socket } = await startCoreDeviceProxy(
+// Start CoreDeviceProxy (raw TCP; TLS handled in native forwarder)
+const { socket, cert, key } = await startCoreDeviceProxyTcp(
   lockdownService,
   device.DeviceID,
   device.Properties.SerialNumber,
-  { rejectUnauthorized: false }
 );
 
 // Create tunnel using tuntap
-const tunnel = await TunnelManager.getTunnel(socket);
+const tunnel = await TunnelManager.getTunnel(socket, { cert, key });
 console.log(`Tunnel created at ${tunnel.Address} with RSD port ${tunnel.RsdPort}`);
 
 // Discover RSD services (serialized per tunnel; closed before return)

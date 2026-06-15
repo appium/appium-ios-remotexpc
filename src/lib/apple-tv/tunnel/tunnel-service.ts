@@ -1,5 +1,5 @@
 import { util } from '@appium/support';
-import * as tls from 'node:tls';
+import * as net from 'node:net';
 
 import { createDiscoveryBackend } from '../../discovery/discovery-backend-factory.js';
 import { getLogger } from '../../logger.js';
@@ -23,7 +23,7 @@ import { PairingStorage } from '../storage/pairing-storage.js';
 import type { PairRecord } from '../storage/types.js';
 import type { AppleTVDevice } from '../types.js';
 import { RemotedController } from './remoted-controller.js';
-import type { TcpListenerInfo, TlsPskConnectionOptions } from './types.js';
+import type { TcpListenerInfo } from './types.js';
 
 const log = getLogger('TunnelService');
 const appleTVLog = getLogger('AppleTVTunnelService');
@@ -121,69 +121,6 @@ export class TunnelService {
     return createListenerResponse;
   }
 
-  async createTlsPskConnection(
-    hostname: string,
-    port: number,
-  ): Promise<tls.TLSSocket> {
-    log.debug(`Creating TLS-PSK connection to ${hostname}:${port}`);
-
-    return new Promise((resolve, reject) => {
-      const options: TlsPskConnectionOptions = {
-        host: hostname,
-        port,
-        pskCallback: (hint: string | null) => {
-          log.debug(`PSK callback invoked with hint: ${hint}`);
-          return {
-            psk: this.keys.encryptionKey,
-            identity: '',
-          };
-        },
-        ciphers:
-          'PSK-AES256-CBC-SHA:PSK-AES128-CBC-SHA:PSK-3DES-EDE-CBC-SHA:PSK-RC4-SHA:PSK',
-        secureProtocol: 'TLSv1_2_method',
-        // SECURITY NOTE: Disabling certificate validation is intentional and safe in this context.
-        // This connection uses TLS-PSK (Pre-Shared Key) authentication, where the pre-shared key
-        // itself provides mutual authentication between client and server. Traditional X.509
-        // certificate validation is not used in PSK-based TLS connections. The encryption key
-        // was securely established during the pairing process (which involves PIN verification),
-        // and this key authenticates both parties. This is the standard approach for Apple TV's
-        // RemoteXPC protocol and should NOT be changed to use certificate validation.
-        rejectUnauthorized: false,
-        checkServerIdentity: () => undefined,
-      };
-
-      const socket = tls.connect(options, () => {
-        log.debug('TLS-PSK connection established');
-        resolve(socket);
-      });
-
-      socket.on('error', (error: Error & { code?: string }) => {
-        log.error('TLS-PSK connection error:', error);
-
-        if (
-          error.message?.includes('no shared cipher') ||
-          error.code === 'ECONNRESET'
-        ) {
-          log.error('PSK ciphers may not be available in your Node.js build');
-          log.error('You may need to:');
-          log.error('1. Use Node.js compiled with PSK-enabled OpenSSL');
-          log.error('2. Use a Python subprocess for the TLS-PSK connection');
-          log.error('3. Use a native module like node-openssl');
-        }
-
-        reject(error);
-      });
-
-      socket.on('secureConnect', () => {
-        log.debug('Secure connection event fired');
-      });
-
-      socket.on('tlsClientError', (error) => {
-        log.error('TLS client error:', error);
-      });
-    });
-  }
-
   getSequenceNumber(): number {
     return this.sequenceNumber;
   }
@@ -242,7 +179,11 @@ export class AppleTVTunnelService {
   async startTunnel(
     deviceId?: string,
     specificDeviceIdentifier?: string,
-  ): Promise<{ socket: tls.TLSSocket; device: AppleTVDevice }> {
+  ): Promise<{
+    tcpSocket: net.Socket;
+    psk: Buffer;
+    device: AppleTVDevice;
+  }> {
     const devices = await this.discoverDevices();
     this.logDiscoveredDevices(devices);
 
@@ -383,7 +324,11 @@ export class AppleTVTunnelService {
     identifier: string,
     pairRecord: PairRecord,
     failedAttempts: { identifier: string; error: string }[],
-  ): Promise<{ socket: tls.TLSSocket; device: AppleTVDevice } | null> {
+  ): Promise<{
+    tcpSocket: net.Socket;
+    psk: Buffer;
+    device: AppleTVDevice;
+  } | null> {
     const connectionTarget = device.ip ?? device.hostname;
     if (!connectionTarget) {
       failedAttempts.push({
@@ -408,10 +353,9 @@ export class AppleTVTunnelService {
         const listenerInfo = await this.createTcpListener(keys);
         this.networkClient.disconnect();
 
-        const tlsSocket = await this.createTlsPskConnection(
+        const tcpSocket = await connectToListenerPort(
           connectionTarget,
           listenerInfo.port,
-          keys,
         );
 
         appleTVLog.debug('Step 6: Tunnel Establishment success');
@@ -421,7 +365,7 @@ export class AppleTVTunnelService {
         );
         appleTVLog.info(`   Target: ${connectionTarget}:${device.port}`);
 
-        return { socket: tlsSocket, device };
+        return { tcpSocket, psk: keys.encryptionKey, device };
       } catch (error: any) {
         const errorMessage = error.message || String(error);
         appleTVLog.debug(
@@ -523,17 +467,16 @@ export class AppleTVTunnelService {
 
     return listenerInfo;
   }
+}
 
-  private async createTlsPskConnection(
-    hostname: string,
-    port: number,
-    keys: VerificationKeys,
-  ): Promise<tls.TLSSocket> {
-    const tunnelService = new TunnelService(
-      this.networkClient,
-      keys,
-      this.sequenceNumber,
-    );
-    return tunnelService.createTlsPskConnection(hostname, port);
-  }
+function connectToListenerPort(
+  hostname: string,
+  port: number,
+): Promise<net.Socket> {
+  return new Promise((resolve, reject) => {
+    const socket = net.connect({ host: hostname, port }, () => {
+      resolve(socket);
+    });
+    socket.once('error', reject);
+  });
 }

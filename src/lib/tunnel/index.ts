@@ -1,8 +1,11 @@
 import {
   type TunnelConnection,
+  type TunnelLockdownTlsCredentials,
+  type TunnelPskTlsCredentials,
   connectToTunnelLockdown,
+  connectToTunnelPsk,
 } from 'appium-ios-tuntap';
-import type { TLSSocket } from 'node:tls';
+import type { Socket } from 'node:net';
 
 import { getLogger } from '../logger.js';
 
@@ -47,61 +50,31 @@ class TunnelManagerService {
   }
 
   /**
-   * Establishes a tunnel connection if not already connected.
-   * If a tunnel is already open for the same address, it will be reused.
-   *
-   * @param secureServiceSocket - The secure service socket used to create the tunnel.
-   * @returns A promise that resolves to the tunnel connection instance.
+   * Establishes a tunnel via native OpenSSL forwarding (raw TCP + pair-record PEM).
    */
-  async getTunnel(secureServiceSocket: TLSSocket): Promise<TunnelConnection> {
-    // Create a new tunnel
-    const tunnel = await connectToTunnelLockdown(secureServiceSocket);
+  async getTunnel(
+    tcpSocket: Socket,
+    credentials: TunnelLockdownTlsCredentials,
+    options?: { onDead?: (reason: string) => void },
+  ): Promise<TunnelConnection> {
+    const tunnel = await connectToTunnelLockdown(
+      tcpSocket,
+      credentials,
+      options,
+    );
+    return this.registerTunnel(tunnel, 'tunnel');
+  }
 
-    // Check if we already have an active tunnel for this address
-    const existingTunnel = this.tunnelRegistry.get(tunnel.Address);
-
-    if (existingTunnel?.isActive) {
-      log.info(`Reusing existing tunnel for address: ${tunnel.Address}`);
-
-      // Verify the tunnel is still functional
-      try {
-        // A simple check to see if the tunnel is still functional
-        if (tunnel.tunnelManager?.emit instanceof Function) {
-          // Close the new tunnel since we're reusing an existing one
-          try {
-            await tunnel.closer();
-          } catch (error) {
-            log.warn(`Error closing redundant tunnel: ${error}`);
-          }
-
-          // Update the last used timestamp
-          existingTunnel.lastUsed = Date.now();
-          return existingTunnel.tunnel;
-        } else {
-          log.warn(
-            'Existing tunnel appears to be non-functional, creating a new one',
-          );
-          // Mark the existing tunnel as inactive
-          existingTunnel.isActive = false;
-        }
-      } catch (error) {
-        log.warn(
-          `Error checking tunnel functionality: ${error}, creating a new one`,
-        );
-        // Mark the existing tunnel as inactive
-        existingTunnel.isActive = false;
-      }
-    }
-
-    // Register the new tunnel
-    log.info(`Creating new tunnel for address: ${tunnel.Address}`);
-    this.tunnelRegistry.set(tunnel.Address, {
-      tunnel,
-      lastUsed: Date.now(),
-      isActive: true,
-    });
-
-    return tunnel;
+  /**
+   * Establishes an Apple TV tunnel via native OpenSSL TLS-PSK forwarding.
+   */
+  async getTunnelPsk(
+    tcpSocket: Socket,
+    credentials: TunnelPskTlsCredentials,
+    options?: { onDead?: (reason: string) => void },
+  ): Promise<TunnelConnection> {
+    const tunnel = await connectToTunnelPsk(tcpSocket, credentials, options);
+    return this.registerTunnel(tunnel, 'Apple TV tunnel');
   }
 
   /**
@@ -173,6 +146,41 @@ class TunnelManagerService {
   async closeTunnel(): Promise<void> {
     return this.closeAllTunnels();
   }
+
+  private async registerTunnel(
+    tunnel: TunnelConnection,
+    kindLabel: string,
+  ): Promise<TunnelConnection> {
+    const existingTunnel = this.tunnelRegistry.get(tunnel.Address);
+    if (existingTunnel?.isActive) {
+      log.info(`Reusing existing tunnel for address: ${tunnel.Address}`);
+      try {
+        if (tunnel.tunnelManager) {
+          try {
+            await tunnel.closer();
+          } catch (error) {
+            log.warn(`Error closing redundant tunnel: ${error}`);
+          }
+          existingTunnel.lastUsed = Date.now();
+          return existingTunnel.tunnel;
+        }
+      } catch (error) {
+        log.warn(
+          `Error checking tunnel functionality: ${error}, creating a new one`,
+        );
+        existingTunnel.isActive = false;
+      }
+    }
+
+    log.info(`Creating new ${kindLabel} for address: ${tunnel.Address}`);
+    this.tunnelRegistry.set(tunnel.Address, {
+      tunnel,
+      lastUsed: Date.now(),
+      isActive: true,
+    });
+
+    return tunnel;
+  }
 }
 
 // Create and export the singleton instance
@@ -181,8 +189,11 @@ export { discoverServices, servicesToCatalog } from './tunnel-rsd-discovery.js';
 export { TunnelReadinessCoordinator } from './tunnel-readiness.js';
 export {
   watchTunnelRegistrySockets,
+  watchTunnelRegistryOnDead,
   type TunnelRegistrySocketWatch,
+  type TunnelRegistryOnDeadWatch,
   type WatchTunnelRegistryOptions,
+  type WatchTunnelRegistryOnDeadOptions,
 } from './tunnel-registry-lifecycle.js';
 // Re-export TunnelConnection type from appium-ios-tuntap
 export type { TunnelConnection };
