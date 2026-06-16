@@ -109,15 +109,19 @@ class DiagnosticsService
       log.debug('Sending IORegistry request...');
 
       const conn = await this.connectToDiagnosticService();
-      const response = await this.queryIORegistry(conn, request, timeout);
+      try {
+        const response = await this.queryIORegistry(conn, request, timeout);
 
-      if (options?.returnRawJson) {
-        // The query matched no entry when the device replies with a bare
-        // { Status: 'Success' } and no Diagnostics — surface an empty object.
-        return this.extractIORegistry(response) ?? {};
+        if (options?.returnRawJson) {
+          // The query matched no entry when the device replies with a bare
+          // { Status: 'Success' } and no Diagnostics — surface an empty object.
+          return this.extractIORegistry(response) ?? {};
+        }
+
+        return this.processIORegistryResponse(response);
+      } finally {
+        conn.close();
       }
-
-      return this.processIORegistryResponse(response);
     } catch (error) {
       log.error(`Error querying IORegistry: ${error}`);
       throw error;
@@ -142,19 +146,23 @@ class DiagnosticsService
     timeout?: number,
   ): Promise<PlistDictionary> {
     const conn = await this.connectToDiagnosticService();
-    const response = await conn.sendPlistRequest(request, timeout);
+    try {
+      const response = await conn.sendPlistRequest(request, timeout);
 
-    log.debug(`${request.Request} response received`);
+      log.debug(`${request.Request} response received`);
 
-    if (!response) {
-      return {};
+      if (!response) {
+        return {};
+      }
+
+      if (Array.isArray(response)) {
+        return response.length > 0 ? (response[0] as PlistDictionary) : {};
+      }
+
+      return response as PlistDictionary;
+    } finally {
+      conn.close();
     }
-
-    if (Array.isArray(response)) {
-      return response.length > 0 ? (response[0] as PlistDictionary) : {};
-    }
-
-    return response as PlistDictionary;
   }
 
   private processIORegistryResponse(
