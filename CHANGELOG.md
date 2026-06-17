@@ -1,3 +1,9 @@
+## [5.0.1](https://github.com/appium/appium-ios-remotexpc/compare/v5.0.0...v5.0.1) (2026-06-17)
+
+### Bug Fixes
+
+* **diagnostics:** ensure connection closure after querying IORegistry ([#239](https://github.com/appium/appium-ios-remotexpc/issues/239)) ([8d3b5b5](https://github.com/appium/appium-ios-remotexpc/commit/8d3b5b5b7f77c57211a0c180988df0e2b144ac1e))
+
 ## [5.0.0](https://github.com/appium/appium-ios-remotexpc/compare/v4.0.0...v5.0.0) (2026-06-15)
 
 ### ⚠ BREAKING CHANGES
