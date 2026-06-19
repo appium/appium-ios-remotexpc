@@ -149,6 +149,7 @@ class Handshake {
         error instanceof Error
           ? `Handshake failed at step: ${error.message}`
           : 'Unknown handshake error',
+        { cause: error },
       );
     }
   }

@@ -171,7 +171,7 @@ export function parseSyslogEntry(data: Buffer): SyslogEntry {
       categorySize > 1
         ? decodeUtf8(data.subarray(offset, offset + categorySize - 1))
         : '';
-    offset += categorySize;
+    // offset += categorySize;
     label = { subsystem, category };
   }
 

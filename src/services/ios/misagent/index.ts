@@ -94,7 +94,9 @@ class MisagentService extends BaseService implements MisagentServiceInterface {
       return res;
     } catch (error) {
       if (error instanceof Error) {
-        throw new Error(`${errorMessage}: ${error.message}`);
+        throw new Error(`${errorMessage}: ${error.message}`, {
+          cause: error,
+        });
       }
       throw error;
     }

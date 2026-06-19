@@ -292,6 +292,7 @@ class MobileImageMounterService
       }
       throw new Error(
         'MissingManifestError: Personalization manifest not found on device',
+        { cause: error },
       );
     }
   }
@@ -501,7 +502,9 @@ class MobileImageMounterService
       return fileStat;
     } catch (error: any) {
       if (error.code === 'ENOENT') {
-        throw new Error(`${fileType} file not found: ${filePath}`);
+        throw new Error(`${fileType} file not found: ${filePath}`, {
+          cause: error,
+        });
       }
       throw error;
     }
