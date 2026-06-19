@@ -28,6 +28,15 @@ import type { TcpListenerInfo } from './types.js';
 const log = getLogger('TunnelService');
 const appleTVLog = getLogger('AppleTVTunnelService');
 
+export interface AppleTVTunnelOptions {
+  discoveryTimeoutMs?: number;
+  devices?: AppleTVDevice[];
+}
+
+export interface AppleTVDiscoveryOptions {
+  timeoutMs?: number;
+}
+
 export class TunnelService {
   private encryptedSequenceNumber = 0;
 
@@ -153,7 +162,12 @@ export class AppleTVTunnelService {
   /**
    * Discovers Apple TV devices advertising Remote Pairing on the local network.
    */
-  async discoverDevices(): Promise<AppleTVDevice[]> {
+  async discoverDevices(
+    options: AppleTVDiscoveryOptions = {},
+  ): Promise<AppleTVDevice[]> {
+    const timeoutMs =
+      options.timeoutMs ?? DEFAULT_PAIRING_CONFIG.discoveryTimeout;
+
     // The tunnel flow must use the trusted `_remotepairing._tcp` service.
     // The PIN-setup `_remotepairing-manual-pairing._tcp` service does not
     // expose a tunnel listener creator and rejects createListener with
@@ -163,9 +177,7 @@ export class AppleTVTunnelService {
       serviceType: REMOTE_PAIRING_VERIFIED_DISCOVERY_SERVICE_TYPE,
       domain: REMOTE_PAIRING_DISCOVERY_DOMAIN,
     });
-    const discoveredDevices = await backend.discoverDevices(
-      DEFAULT_PAIRING_CONFIG.discoveryTimeout,
-    );
+    const discoveredDevices = await backend.discoverDevices(timeoutMs);
     const enrichedDevices =
       await enrichDiscoveredDevicesWithDevicectl(discoveredDevices);
     const devices = toAppleTVDevices(enrichedDevices);
@@ -179,13 +191,19 @@ export class AppleTVTunnelService {
   async startTunnel(
     deviceId?: string,
     specificDeviceIdentifier?: string,
+    options: AppleTVTunnelOptions = {},
   ): Promise<{
     tcpSocket: net.Socket;
     psk: Buffer;
     device: AppleTVDevice;
   }> {
-    const devices = await this.discoverDevices();
-    this.logDiscoveredDevices(devices);
+    let devices = options.devices;
+    if (!devices) {
+      devices = await this.discoverDevices({
+        timeoutMs: options.discoveryTimeoutMs,
+      });
+      this.logDiscoveredDevices(devices);
+    }
 
     const devicesToProcess = this.selectDevicesToProcess(
       devices,
