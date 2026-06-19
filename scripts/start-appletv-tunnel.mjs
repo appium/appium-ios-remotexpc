@@ -83,6 +83,16 @@ function parseNonNegativeInteger(value) {
   return count;
 }
 
+function parsePositiveInteger(value) {
+  const count = Number.parseInt(value, 10);
+  if (!Number.isFinite(count) || count <= 0) {
+    throw new Error(
+      `Invalid timeout: ${value}. Expected a positive integer in milliseconds.`,
+    );
+  }
+  return count;
+}
+
 /**
  * @param {object} registry
  * @param {AppleTvEstablishedTunnel[]} successfulResults
@@ -285,6 +295,7 @@ async function runAppleTvReconnectAttempts({
   maxRetries,
   tunnelService,
   reconnectTunnelByUdid,
+  discoveryTimeoutMs,
 }) {
   let attempt = 0;
   while (maxRetries === 0 || attempt < maxRetries) {
@@ -295,7 +306,9 @@ async function runAppleTvReconnectAttempts({
     registryServer?.markTunnelPending(udid);
 
     try {
-      const result = await tunnelService.startTunnel(undefined, udid);
+      const result = await tunnelService.startTunnel(undefined, udid, {
+        discoveryTimeoutMs,
+      });
       if (!result.tcpSocket) {
         throw new Error('TCP socket to listener port not established');
       }
@@ -325,6 +338,7 @@ async function runAppleTvReconnectAttempts({
 function createAppleTvReconnectTunnelByUdid({
   reconnectRetries,
   tunnelService,
+  discoveryTimeoutMs,
 }) {
   return async function reconnectTunnelByUdid(udid) {
     if (typeof reconnectRetries !== 'number') {
@@ -339,6 +353,7 @@ function createAppleTvReconnectTunnelByUdid({
       maxRetries: reconnectRetries,
       tunnelService,
       reconnectTunnelByUdid,
+      discoveryTimeoutMs,
     });
 
     reconnectingByUdid.set(udid, run);
@@ -373,6 +388,11 @@ async function main() {
       '--reconnect-retries <count>',
       'Reconnect retries after unexpected tunnel drop (0 = unlimited)',
       parseNonNegativeInteger,
+    )
+    .option(
+      '--discovery-timeout <ms>',
+      'Apple TV discovery timeout in milliseconds',
+      parsePositiveInteger,
     );
 
   program.parse(process.argv);
@@ -410,6 +430,7 @@ async function main() {
     const reconnectTunnelByUdid = createAppleTvReconnectTunnelByUdid({
       reconnectRetries: options.reconnectRetries,
       tunnelService,
+      discoveryTimeoutMs: options.discoveryTimeout,
     });
 
     /** @type {AppleTvEstablishedTunnel[]} */
@@ -417,7 +438,13 @@ async function main() {
 
     if (deviceIdentifier) {
       log.info('Starting Apple TV tunnel...');
-      const result = await tunnelService.startTunnel(undefined, deviceIdentifier);
+      const result = await tunnelService.startTunnel(
+        undefined,
+        deviceIdentifier,
+        {
+          discoveryTimeoutMs: options.discoveryTimeout,
+        },
+      );
       if (!result.tcpSocket) {
         throw new Error('TCP socket to listener port not established');
       }
@@ -433,7 +460,9 @@ async function main() {
         },
       );
     } else {
-      const devices = await tunnelService.discoverDevices();
+      const devices = await tunnelService.discoverDevices({
+        timeoutMs: options.discoveryTimeout,
+      });
       log.info(
         `Discovered ${devices.length} Apple TV device(s); establishing tunnels...`,
       );
@@ -442,7 +471,13 @@ async function main() {
         const d = devices[i];
         try {
           log.info(`\n--- ${d.identifier} (${d.name ?? 'Apple TV'}) ---`);
-          const result = await tunnelService.startTunnel(undefined, d.identifier);
+          const result = await tunnelService.startTunnel(
+            undefined,
+            d.identifier,
+            {
+              discoveryTimeoutMs: options.discoveryTimeout,
+            },
+          );
           if (!result.tcpSocket) {
             throw new Error('TCP socket to listener port not established');
           }
