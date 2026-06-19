@@ -26,7 +26,9 @@ class SpringBoardService extends BaseService implements SpringboardInterface {
       return await this.sendRequestAndReceive(req);
     } catch (error) {
       if (error instanceof Error) {
-        throw new Error(`Failed to get Icon state: ${error.message}`);
+        throw new Error(`Failed to get Icon state: ${error.message}`, {
+          cause: error,
+        });
       }
       throw error;
     }
@@ -46,7 +48,9 @@ class SpringBoardService extends BaseService implements SpringboardInterface {
       await this.sendRequestAndReceive(req);
     } catch (error) {
       if (error instanceof Error) {
-        throw new Error(`Failed to set icon state: ${error.message}`);
+        throw new Error(`Failed to set icon state: ${error.message}`, {
+          cause: error,
+        });
       }
       throw error;
     }
@@ -62,7 +66,9 @@ class SpringBoardService extends BaseService implements SpringboardInterface {
       return res.pngData as Buffer;
     } catch (error) {
       if (error instanceof Error) {
-        throw new Error(`Failed to get Icon PNG data: ${error.message}`);
+        throw new Error(`Failed to get Icon PNG data: ${error.message}`, {
+          cause: error,
+        });
       }
       throw error;
     }
@@ -81,7 +87,9 @@ class SpringBoardService extends BaseService implements SpringboardInterface {
       return await this.sendRequestAndReceive(req);
     } catch (error) {
       if (error instanceof Error) {
-        throw new Error(`Failed to get wallpaper info: ${error.message}`);
+        throw new Error(`Failed to get wallpaper info: ${error.message}`, {
+          cause: error,
+        });
       }
       throw error;
     }
@@ -101,6 +109,7 @@ class SpringBoardService extends BaseService implements SpringboardInterface {
       if (error instanceof Error) {
         throw new Error(
           `Failed to get wallpaper preview image: ${error.message}`,
+          { cause: error },
         );
       }
       throw error;
@@ -117,6 +126,7 @@ class SpringBoardService extends BaseService implements SpringboardInterface {
       if (error instanceof Error) {
         throw new Error(
           `Failed to get homescreen icon metrics: ${error.message}`,
+          { cause: error },
         );
       }
       throw error;
@@ -134,6 +144,7 @@ class SpringBoardService extends BaseService implements SpringboardInterface {
       if (error instanceof Error) {
         throw new Error(
           `Failed to get interface orientation: ${error.message}`,
+          { cause: error },
         );
       }
       throw error;
@@ -153,7 +164,9 @@ class SpringBoardService extends BaseService implements SpringboardInterface {
       return res.pngData as Buffer;
     } catch (error) {
       if (error instanceof Error) {
-        throw new Error(`Failed to get wallpaper PNG data: ${error.message}`);
+        throw new Error(`Failed to get wallpaper PNG data: ${error.message}`, {
+          cause: error,
+        });
       }
       throw error;
     }

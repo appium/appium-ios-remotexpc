@@ -178,7 +178,6 @@ export class ProcessControl extends BaseInstrument {
             const timestampRaw = auxiliaries[2];
 
             let timestamp: bigint | undefined;
-            let date: Date | undefined;
 
             // Handle timestamp parsing (Mach absolute time format)
             if (typeof timestampRaw === 'bigint') {
@@ -198,7 +197,6 @@ export class ProcessControl extends BaseInstrument {
               pid,
               message,
               timestamp,
-              date,
             };
           }
         }

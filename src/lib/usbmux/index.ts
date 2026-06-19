@@ -161,7 +161,9 @@ export class Usbmux extends BaseSocketService {
             ) as unknown as RawPairRecordResponse,
           );
         } catch (e) {
-          throw new Error(`Failed to parse pair record data: ${e}`);
+          throw new Error(`Failed to parse pair record data: ${e}`, {
+            cause: e,
+          });
         }
       });
 
