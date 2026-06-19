@@ -1,3 +1,9 @@
+## [5.1.2](https://github.com/appium/appium-ios-remotexpc/compare/v5.1.1...v5.1.2) (2026-06-19)
+
+### Bug Fixes
+
+* lint warnings ([#241](https://github.com/appium/appium-ios-remotexpc/issues/241)) ([ec2eb30](https://github.com/appium/appium-ios-remotexpc/commit/ec2eb3036e56dcf65310178f8ca27cc3f3356933))
+
 ## [5.1.1](https://github.com/appium/appium-ios-remotexpc/compare/v5.1.0...v5.1.1) (2026-06-19)
 
 ### Miscellaneous Chores
