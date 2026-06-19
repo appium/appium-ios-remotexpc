@@ -30,6 +30,7 @@ const appleTVLog = getLogger('AppleTVTunnelService');
 
 export interface AppleTVTunnelOptions {
   discoveryTimeoutMs?: number;
+  devices?: AppleTVDevice[];
 }
 
 export interface AppleTVDiscoveryOptions {
@@ -196,10 +197,13 @@ export class AppleTVTunnelService {
     psk: Buffer;
     device: AppleTVDevice;
   }> {
-    const devices = await this.discoverDevices({
-      timeoutMs: options.discoveryTimeoutMs,
-    });
-    this.logDiscoveredDevices(devices);
+    let devices = options.devices;
+    if (!devices) {
+      devices = await this.discoverDevices({
+        timeoutMs: options.discoveryTimeoutMs,
+      });
+      this.logDiscoveredDevices(devices);
+    }
 
     const devicesToProcess = this.selectDevicesToProcess(
       devices,
