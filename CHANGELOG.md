@@ -1,3 +1,9 @@
+## [5.1.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.0.1...v5.1.0) (2026-06-19)
+
+### Features
+
+* Make AppleTV device discovery timeout configurable ([#240](https://github.com/appium/appium-ios-remotexpc/issues/240)) ([0380446](https://github.com/appium/appium-ios-remotexpc/commit/03804468cf58d09500bf213c1510359bdeafba04))
+
 ## [5.0.1](https://github.com/appium/appium-ios-remotexpc/compare/v5.0.0...v5.0.1) (2026-06-17)
 
 ### Bug Fixes
