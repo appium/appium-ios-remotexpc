@@ -6,7 +6,7 @@ import {
   DEFAULT_PAIRING_CONFIG,
   PairingDataComponentType,
 } from '../constants.js';
-import { encodeAppleTVDeviceInfo } from '../deviceInfo/index.js';
+import { encodeAppleTVDeviceInfo } from '../device-info/index.js';
 import {
   createEd25519Signature,
   decryptChaCha20Poly1305,
