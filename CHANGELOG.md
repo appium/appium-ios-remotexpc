@@ -1,3 +1,9 @@
+## [5.1.1](https://github.com/appium/appium-ios-remotexpc/compare/v5.1.0...v5.1.1) (2026-06-19)
+
+### Miscellaneous Chores
+
+* bump @appium/tsconfig ([#242](https://github.com/appium/appium-ios-remotexpc/issues/242)) ([5ca97b4](https://github.com/appium/appium-ios-remotexpc/commit/5ca97b47615bcabaf1575a332e30802b7618b8d8))
+
 ## [5.1.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.0.1...v5.1.0) (2026-06-19)
 
 ### Features
