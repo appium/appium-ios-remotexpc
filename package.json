@@ -102,7 +102,7 @@
     "typescript": "^6.0.2"
   },
   "dependencies": {
-    "@appium/strongbox": "^1.0.0-rc.1",
+    "@appium/strongbox": "^1.1.2",
     "@appium/support": "^7.2.2",
     "@xmldom/xmldom": "^0.x",
     "appium-ios-tuntap": "^1.0.0",
