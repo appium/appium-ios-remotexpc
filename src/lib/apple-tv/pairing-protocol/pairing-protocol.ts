@@ -36,6 +36,12 @@ import type {
 } from './types.js';
 
 const log = getLogger('PairingProtocol');
+const pairingDataComponentNames = new Map<number, string>(
+  Object.entries(PairingDataComponentType).map(([name, value]) => [
+    value,
+    name,
+  ]),
+);
 
 /**
  * Implements the HomeKit Accessory Protocol (HAP) Pair-Setup process for Apple TV.
@@ -621,8 +627,58 @@ export class PairingProtocol implements PairingProtocolInterface {
         nonce,
       });
       const decryptedTLV = decodeTLV8ToDict(decrypted);
-      log.debug('M6 decrypted content types:', Object.keys(decryptedTLV));
+      log.debug(
+        'M6 decrypted TLV record:',
+        JSON.stringify(this.formatTLVRecordForDebug(decryptedTLV), null, 2),
+      );
+      this.logM6SerialNumber(decryptedTLV);
     }
+  }
+
+  private formatTLVRecordForDebug(
+    tlvRecord: Record<number, Buffer | undefined>,
+  ): Record<string, unknown>[] {
+    return Object.entries(tlvRecord)
+      .filter(([, data]) => data !== undefined)
+      .map(([type, data]) => {
+        const numericType = Number(type);
+        const value = data as Buffer;
+        return {
+          type: `0x${numericType.toString(16).padStart(2, '0')}`,
+          name: pairingDataComponentNames.get(numericType) ?? 'UNKNOWN',
+          length: value.length,
+          utf8: this.toPrintableUtf8(value),
+          hex: value.toString('hex'),
+        };
+      });
+  }
+
+  private logM6SerialNumber(
+    decryptedTLV: Record<number, Buffer | undefined>,
+  ): void {
+    const serialNumber = decryptedTLV[PairingDataComponentType.SERIAL_NUMBER];
+    if (!serialNumber) {
+      log.debug('M6 decrypted TLV does not include SERIAL_NUMBER (0x17)');
+      return;
+    }
+
+    log.debug(
+      `M6 decrypted SERIAL_NUMBER (0x17): ${this.toPrintableUtf8(serialNumber) ?? serialNumber.toString('hex')}`,
+    );
+  }
+
+  private toPrintableUtf8(data: Buffer): string | undefined {
+    const text = data.toString('utf8');
+    if (text.includes('\uFFFD')) {
+      return;
+    }
+    for (const char of text) {
+      const code = char.charCodeAt(0);
+      if (code !== 9 && code !== 10 && code !== 13 && (code < 32 || code > 126)) {
+        return;
+      }
+    }
+    return text;
   }
 
   /**
