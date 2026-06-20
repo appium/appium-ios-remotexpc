@@ -674,7 +674,12 @@ export class PairingProtocol implements PairingProtocolInterface {
     }
     for (const char of text) {
       const code = char.charCodeAt(0);
-      if (code !== 9 && code !== 10 && code !== 13 && (code < 32 || code > 126)) {
+      if (
+        code !== 9 &&
+        code !== 10 &&
+        code !== 13 &&
+        (code < 32 || code > 126)
+      ) {
         return;
       }
     }
