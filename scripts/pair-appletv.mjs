@@ -48,6 +48,44 @@ async function waitForAppleTVPairingDiscovery(discovery, timeoutMs) {
   }
 }
 
+async function discoverAndPairWithProgress(
+  pairingService,
+  deviceSelector,
+  discoveryTimeoutMs,
+) {
+  const discovery = discoverAppleTVPairingDevices(
+    pairingService,
+    discoveryTimeoutMs,
+  );
+  const devices = await waitForAppleTVPairingDiscovery(
+    discovery,
+    discoveryTimeoutMs,
+  );
+  return await pairingService.discoverAndPair(deviceSelector, {
+    devices,
+    discoveryTimeoutMs,
+  });
+}
+
+/**
+ * @param {unknown} err
+ * @returns {boolean}
+ */
+function isNoAppleTVPairingDevicesFoundError(err) {
+  return (
+    err instanceof Error &&
+    (err.message === getNoAppleTVPairingDevicesMessage() ||
+      ('code' in err && err.code === 'NO_DEVICES'))
+  );
+}
+
+/**
+ * @returns {string}
+ */
+function getNoAppleTVPairingDevicesMessage() {
+  return 'No Apple TV pairing devices found. Please ensure your Apple TV is on the same network and in pairing mode.';
+}
+
 async function main() {
   const program = new Command();
   program
@@ -86,41 +124,3 @@ async function main() {
 }
 
 await main();
-
-async function discoverAndPairWithProgress(
-  pairingService,
-  deviceSelector,
-  discoveryTimeoutMs,
-) {
-  const discovery = discoverAppleTVPairingDevices(
-    pairingService,
-    discoveryTimeoutMs,
-  );
-  const devices = await waitForAppleTVPairingDiscovery(
-    discovery,
-    discoveryTimeoutMs,
-  );
-  return await pairingService.discoverAndPair(deviceSelector, {
-    devices,
-    discoveryTimeoutMs,
-  });
-}
-
-/**
- * @param {unknown} err
- * @returns {boolean}
- */
-function isNoAppleTVPairingDevicesFoundError(err) {
-  return (
-    err instanceof Error &&
-    (err.message === getNoAppleTVPairingDevicesMessage() ||
-      ('code' in err && err.code === 'NO_DEVICES'))
-  );
-}
-
-/**
- * @returns {string}
- */
-function getNoAppleTVPairingDevicesMessage() {
-  return 'No Apple TV pairing devices found. Please ensure your Apple TV is on the same network and in pairing mode.';
-}
