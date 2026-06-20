@@ -1,5 +1,5 @@
 import { getLogger } from '../logger.js';
-import { RemoteXpcConnection } from '../remote-xpc/remote-xpc-connection.js';
+import { RsdServiceCatalogClient } from '../remote-xpc/rsd-service-catalog-client.js';
 import type { Service } from '../remote-xpc/service-catalog.js';
 import type { TunnelServiceCatalog } from '../types.js';
 
@@ -43,7 +43,7 @@ async function discoverServicesOnce(
   address: string,
   rsdPort: number,
 ): Promise<Service[]> {
-  const remoteXPC = new RemoteXpcConnection([address, rsdPort]);
+  const remoteXPC = new RsdServiceCatalogClient([address, rsdPort]);
   try {
     await remoteXPC.connect();
     return remoteXPC.getServices();

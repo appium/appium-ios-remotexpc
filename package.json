@@ -29,6 +29,7 @@
     "test:pair-record": "mocha test/integration/read-pair-record-test.ts --exit --timeout 1m",
     "test:diagnostics": "mocha test/integration/diagnostics-test.ts --exit --timeout 1m",
     "test:notification": "mocha test/integration/notification-proxy-test.ts --exit --timeout 1m",
+    "test:hid-indigo": "mocha test/integration/hid-indigo-test.ts --exit --timeout 1m",
     "test:image-mounter": "mocha test/integration/mobile-image-mounter-test.ts --exit --timeout 1m",
     "test:mobile-config": "mocha test/integration/mobile-config-test.ts --exit --timeout 1m",
     "test:springboard": "mocha test/integration/springboard-service-test.ts --exit --timeout 1m",

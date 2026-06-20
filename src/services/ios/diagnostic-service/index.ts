@@ -210,7 +210,7 @@ class DiagnosticsService
   /**
    * Sends an IORegistry request and returns the diagnostics response.
    * The shim's StartService greeting is drained in connectToDiagnosticService,
-   * so this is a plain single send/recv — matches pymobiledevice3.
+   * so this is a plain single send/recv.
    */
   private async queryIORegistry(
     conn: ServiceConnection,

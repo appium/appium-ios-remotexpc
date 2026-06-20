@@ -5,6 +5,7 @@ import {
 import * as afc from './ios/afc/index.js';
 import * as crashReports from './ios/crash-reports/index.js';
 import * as diagnostics from './ios/diagnostic-service/index.js';
+import * as hidIndigo from './ios/hid-indigo/index.js';
 import * as houseArrest from './ios/house-arrest/index.js';
 import * as installationProxy from './ios/installation-proxy/index.js';
 import * as mobileImageMounter from './ios/mobile-image-mounter/index.js';
@@ -16,6 +17,7 @@ import * as webinspector from './ios/webinspector/index.js';
 export {
   crashReports,
   diagnostics,
+  hidIndigo,
   houseArrest,
   installationProxy,
   mobileImageMounter,

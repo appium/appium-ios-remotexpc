@@ -13,8 +13,8 @@ describe('tunnel-rsd-discovery', function () {
     const { discoverServices, servicesToCatalog } = await esmock(
       '../../../src/lib/tunnel/tunnel-rsd-discovery.js',
       {
-        '../../../src/lib/remote-xpc/remote-xpc-connection.js': {
-          RemoteXpcConnection: class {
+        '../../../src/lib/remote-xpc/rsd-service-catalog-client.js': {
+          RsdServiceCatalogClient: class {
             connect = connect;
             getServices = getServices;
             close = closeSpy;
@@ -39,8 +39,8 @@ describe('tunnel-rsd-discovery', function () {
     const { discoverServices } = await esmock(
       '../../../src/lib/tunnel/tunnel-rsd-discovery.js',
       {
-        '../../../src/lib/remote-xpc/remote-xpc-connection.js': {
-          RemoteXpcConnection: class {
+        '../../../src/lib/remote-xpc/rsd-service-catalog-client.js': {
+          RsdServiceCatalogClient: class {
             async connect() {
               connectCount += 1;
               await new Promise((resolve) => setTimeout(resolve, 30));

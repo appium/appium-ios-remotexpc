@@ -22,6 +22,7 @@ import { NetworkMonitor } from './services/ios/dvt/instruments/network-monitor.j
 import { Notifications } from './services/ios/dvt/instruments/notifications.js';
 import { ProcessControl } from './services/ios/dvt/instruments/process-control.js';
 import { Screenshot } from './services/ios/dvt/instruments/screenshot.js';
+import { HidIndigoService } from './services/ios/hid-indigo/index.js';
 import { HouseArrestService } from './services/ios/house-arrest/index.js';
 import { InstallationProxyService } from './services/ios/installation-proxy/index.js';
 import { MisagentService } from './services/ios/misagent/index.js';
@@ -110,6 +111,16 @@ export async function startPowerAssertionService(
 ): Promise<PowerAssertionService> {
   await requireCatalogService(udid, PowerAssertionService.RSD_SERVICE_NAME);
   return new PowerAssertionService(udid);
+}
+
+/**
+ * Start the CoreDevice HID Indigo service for the given device UDID.
+ */
+export async function startHidIndigoService(
+  udid: string,
+): Promise<HidIndigoService> {
+  await requireCatalogService(udid, HidIndigoService.RSD_SERVICE_NAME);
+  return new HidIndigoService(udid);
 }
 
 const RSD_SYSLOG_BINARY_SERVICE_NAME = 'com.apple.os_trace_relay.shim.remote';
