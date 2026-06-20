@@ -2,9 +2,9 @@ import { BaseService } from '../base-service.js';
 import { DVTSecureSocketProxyService } from '../dvt/index.js';
 import { Screenshot } from '../dvt/instruments/screenshot.js';
 import {
-  ScreenCaptureStreamer,
   type CaptureScreenshotOptions,
   type CaptureScreenshotResult,
+  ScreenCaptureStreamer,
   type ScreenCaptureStreamerOptions,
 } from './streamer.js';
 
