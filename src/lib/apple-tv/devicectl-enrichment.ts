@@ -12,7 +12,12 @@ export async function enrichDiscoveredDevicesWithDevicectl(
     return devices;
   }
 
-  const records = await listDevicectlDeviceRecords();
+  let records: DevicectlDeviceRecord[];
+  try {
+    records = await listDevicectlDeviceRecords();
+  } catch {
+    return devices;
+  }
   if (records.length === 0) {
     return devices;
   }
@@ -81,6 +86,7 @@ function mergeMetadata(
   return {
     ...base,
     identifier: extra.identifier || base.identifier,
+    identifierSource: extra.identifier ? 'devicectl' : base.identifierSource,
     model: extra.model || base.model,
     version: extra.version || base.version,
     deviceType: extra.deviceType || base.deviceType,

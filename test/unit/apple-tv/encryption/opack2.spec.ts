@@ -5,6 +5,43 @@ import { Opack2 } from '../../../../src/lib/apple-tv/encryption/opack2.js';
 import { AppleTVError } from '../../../../src/lib/apple-tv/errors.js';
 
 describe('Apple TV Encryption - Opack2', () => {
+  describe('loads', () => {
+    it('should decode primitive types', () => {
+      expect(Opack2.loads(Buffer.from([0x03]))).to.equal(null);
+      expect(Opack2.loads(Buffer.from([0x01]))).to.equal(true);
+      expect(Opack2.loads(Buffer.from([0x02]))).to.equal(false);
+      expect(Opack2.loads(Buffer.from([0x0a]))).to.equal(2);
+    });
+
+    it('should decode an Apple TV M6 INFO-shaped payload', () => {
+      const info = Opack2.dumps({
+        remotepairing_serial_number: 'SYNTHETIC123',
+        remotepairing_udid: 'synthetic-remote-pairing-udid',
+        model: 'AppleTV-Test',
+        name: 'Test Apple TV',
+      });
+
+      const decoded = Opack2.loads(info) as Record<string, unknown>;
+
+      expect(decoded.remotepairing_udid).to.equal(
+        'synthetic-remote-pairing-udid',
+      );
+      expect(decoded.remotepairing_serial_number).to.equal('SYNTHETIC123');
+      expect(decoded.model).to.equal('AppleTV-Test');
+      expect(decoded.name).to.equal('Test Apple TV');
+    });
+
+    it('should round-trip objects encoded with dumps', () => {
+      const value = {
+        name: 'Apple TV',
+        identifier: 'synthetic-remote-pairing-udid',
+        data: Buffer.from([1, 2, 3]),
+      };
+
+      expect(Opack2.loads(Opack2.dumps(value))).to.deep.equal(value);
+    });
+  });
+
   describe('dumps - primitive types', () => {
     it('should encode null', () => {
       const result = Opack2.dumps(null);
