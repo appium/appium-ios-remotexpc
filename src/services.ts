@@ -114,7 +114,7 @@ export async function startPowerAssertionService(
 }
 
 /**
- * Start the CoreDevice screen capture service for the given device UDID.
+ * Start the DVT Instruments screen capture service for the given device UDID.
  */
 export async function startScreenCaptureService(
   udid: string,

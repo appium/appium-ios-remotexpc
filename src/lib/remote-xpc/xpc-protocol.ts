@@ -165,7 +165,7 @@ export function encodeMessage(message: XPCMessage): Buffer {
   encodeDictionary(bodyWriter, body);
   const bodyBuffer = bodyWriter.concat();
 
-  // Write header: flags, BodyLen (payload length + 8 for the body header), msg id.
+  // Write header: flags, payload length + 8 for the body header, msg id.
   writer.writeUInt32LE(message.flags);
   writer.writeBigUInt64LE(BigInt(bodyBuffer.length + 8));
   writer.writeBigUInt64LE(messageId);
@@ -347,13 +347,13 @@ function encodeObject(writer: Writer, value: XPCValue): void {
   }
   if (Array.isArray(value)) {
     const inner = new Writer();
+    inner.writeUInt32LE(value.length);
     for (let i = 0; i < value.length; i++) {
       encodeObject(inner, value[i]);
     }
     const payload = inner.concat();
     writer.writeUInt32LE(XPC_TYPES.array);
     writer.writeUInt32LE(payload.length); // payload length.
-    writer.writeUInt32LE(value.length); // number of objects.
     writer.writeBuffer(payload);
     return;
   }

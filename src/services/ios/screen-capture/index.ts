@@ -1,13 +1,12 @@
-import type { XPCDictionary } from '../../../lib/types.js';
-import { CoreDeviceService } from '../core-device/base.js';
+import { BaseService } from '../base-service.js';
+import { DVTSecureSocketProxyService } from '../dvt/index.js';
+import { Screenshot } from '../dvt/instruments/screenshot.js';
 
 export interface CaptureScreenshotOptions {
-  /** Optional display identifier; omitted/null captures the primary display. */
+  /** DVT screenshot captures the primary display; this is returned as metadata only. */
   displayUniqueId?: string | null;
-  /** Image format requested from the device. CoreDevice currently supports png. */
+  /** Image format requested from the device. DVT screenshot returns PNG data. */
   requestedFormat?: 'png' | string;
-  /** Response timeout in milliseconds. */
-  timeout?: number;
 }
 
 export interface CaptureScreenshotResult {
@@ -17,46 +16,54 @@ export interface CaptureScreenshotResult {
   [key: string]: unknown;
 }
 
-export class ScreenCaptureService extends CoreDeviceService {
+export class ScreenCaptureService extends BaseService {
   static readonly RSD_SERVICE_NAME =
-    'com.apple.coredevice.screencaptureservice';
+    DVTSecureSocketProxyService.RSD_SERVICE_NAME;
+
+  private dvtService: DVTSecureSocketProxyService | null = null;
+  private screenshot: Screenshot | null = null;
 
   constructor(udid: string) {
-    super(udid, ScreenCaptureService.RSD_SERVICE_NAME);
+    super(udid);
   }
 
   /**
-   * Capture a screenshot via com.apple.coredevice.screencaptureservice.
+   * Capture a screenshot via the DVT Instruments screenshot service.
    */
   async captureScreenshot(
     options: CaptureScreenshotOptions = {},
   ): Promise<CaptureScreenshotResult> {
-    const output = await this.invoke(
-      'com.apple.coredevice.feature.capturescreenshot',
-      {
-        displayUniqueID: options.displayUniqueId ?? null,
-        requestedFormat: options.requestedFormat ?? 'png',
-      },
-      {
-        actionIdentifier: 'com.apple.coredevice.action.capturescreenshot',
-        timeout: options.timeout,
-      },
-    );
-
-    if (!isScreenshotResult(output)) {
-      throw new Error(
-        `Unexpected screenshot response: ${JSON.stringify(output)}`,
-      );
+    if (options.requestedFormat && options.requestedFormat !== 'png') {
+      throw new Error('DVT screenshot service only supports PNG output');
     }
 
-    return output;
+    const screenshot = await this.getScreenshotInstrument();
+    const image = await screenshot.getScreenshot();
+    return {
+      image,
+      displayUniqueID: options.displayUniqueId ?? null,
+      imageFormat: 'png',
+    };
   }
-}
 
-function isScreenshotResult(value: unknown): value is CaptureScreenshotResult {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return false;
+  async close(): Promise<void> {
+    if (!this.dvtService) {
+      return;
+    }
+    await this.dvtService.close();
+    this.dvtService = null;
+    this.screenshot = null;
   }
-  const image = (value as XPCDictionary).image;
-  return Buffer.isBuffer(image) || image instanceof Uint8Array;
+
+  protected async getScreenshotInstrument(): Promise<Screenshot> {
+    if (this.screenshot) {
+      return this.screenshot;
+    }
+
+    const dvtService = new DVTSecureSocketProxyService(this.udid);
+    await dvtService.connect();
+    this.dvtService = dvtService;
+    this.screenshot = new Screenshot(dvtService);
+    return this.screenshot;
+  }
 }

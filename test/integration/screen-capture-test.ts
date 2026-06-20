@@ -9,7 +9,7 @@ log.level = 'debug';
 
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
-describe('CoreDevice ScreenCaptureService', function () {
+describe('DVT ScreenCaptureService', function () {
   this.timeout(60000);
 
   let screenCaptureService: ScreenCaptureService | null = null;
@@ -35,7 +35,7 @@ describe('CoreDevice ScreenCaptureService', function () {
     expect(result.imageFormat).to.equal('png');
 
     log.debug(
-      `Captured CoreDevice screenshot (${result.image.length} bytes)` +
+      `Captured DVT screenshot (${result.image.length} bytes)` +
         (result.displayUniqueID
           ? ` from display ${result.displayUniqueID}`
           : ''),
