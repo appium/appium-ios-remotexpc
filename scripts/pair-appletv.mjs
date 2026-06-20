@@ -6,73 +6,19 @@
  *   npm run pair-appletv -- [options]
  */
 
-import { logger } from '@appium/support';
+import { logger, util } from '@appium/support';
 import { Command } from 'commander';
 import {
   AppleTVPairingService,
   UserInputService,
 } from 'appium-ios-remotexpc';
-import { DEFAULT_PAIRING_CONFIG } from '../build/src/lib/apple-tv/constants.js';
+import { DEFAULT_APPLETV_PAIRING_DISCOVERY_TIMEOUT_MS } from './lib/constants.mjs';
+import { parsePositiveIntegerOption } from './lib/options.mjs';
+import { startTimeoutProgressLogger } from './lib/progress.mjs';
 
 const log = logger.getLogger('AppleTVPairing');
 const APPLETV_PAIRING_DISCOVERY_PROGRESS_INTERVAL_MS = 1000;
 const APPLETV_PAIRING_DISCOVERY_PROGRESS_BAR_WIDTH = 24;
-
-function parsePositiveInteger(value) {
-  const count = Number.parseInt(value, 10);
-  if (!Number.isFinite(count) || count <= 0) {
-    throw new Error(
-      `Invalid timeout: ${value}. Expected a positive integer in milliseconds.`,
-    );
-  }
-  return count;
-}
-
-function startTimeoutProgressLogger({
-  label,
-  startedAt,
-  timeoutMs,
-  barWidth,
-  intervalMs,
-}) {
-  let timer = null;
-  let isStopped = false;
-
-  const logProgress = (status, isComplete = false) => {
-    const elapsedMs = performance.now() - startedAt;
-    const boundedElapsedMs = Math.min(elapsedMs, timeoutMs);
-    const progress = isComplete ? 1 : boundedElapsedMs / timeoutMs;
-    const filledWidth = Math.round(progress * barWidth);
-    const emptyWidth = barWidth - filledWidth;
-    const bar = `${'#'.repeat(filledWidth)}${'-'.repeat(emptyWidth)}`;
-    log.info(
-      `${label}: [${bar}]${status && status !== 'waiting' ? ` - ${status}` : ''}`,
-    );
-  };
-
-  const stop = (status, isComplete = false) => {
-    if (isStopped) {
-      return;
-    }
-    isStopped = true;
-    if (timer) {
-      clearInterval(timer);
-      timer = null;
-    }
-    logProgress(status, isComplete);
-  };
-
-  logProgress('waiting');
-  timer = setInterval(() => {
-    logProgress('waiting');
-  }, intervalMs);
-  timer.unref?.();
-
-  return {
-    succeed: (message = 'done') => stop(message, true),
-    fail: (message = 'failed') => stop(message),
-  };
-}
 
 function discoverAppleTVPairingDevices(pairingService, timeoutMs) {
   const startedAt = performance.now();
@@ -82,6 +28,7 @@ function discoverAppleTVPairingDevices(pairingService, timeoutMs) {
 
 async function waitForAppleTVPairingDiscovery(discovery, timeoutMs) {
   const progress = startTimeoutProgressLogger({
+    log,
     label: 'Waiting for Apple TV pairing discovery',
     startedAt: discovery.startedAt,
     timeoutMs,
@@ -92,7 +39,7 @@ async function waitForAppleTVPairingDiscovery(discovery, timeoutMs) {
   try {
     const devices = await discovery.promise;
     progress.succeed(
-      `Apple TV pairing discovery completed: ${devices.length} device(s) found`,
+      `Apple TV pairing discovery completed: ${util.pluralize('device', devices.length, true)} found`,
     );
     return devices;
   } catch (err) {
@@ -113,16 +60,38 @@ async function main() {
     .option(
       '--discovery-timeout <ms>',
       'Apple TV pairing discovery timeout in milliseconds',
-      parsePositiveInteger,
+      (value) => parsePositiveIntegerOption(value, 'discovery timeout'),
     );
 
   program.parse(process.argv);
   const options = program.opts();
   const discoveryTimeoutMs =
-    options.discoveryTimeout ?? DEFAULT_PAIRING_CONFIG.discoveryTimeout;
+    options.discoveryTimeout ?? DEFAULT_APPLETV_PAIRING_DISCOVERY_TIMEOUT_MS;
 
   const userInput = new UserInputService();
   const pairingService = new AppleTVPairingService(userInput);
+  const result = await discoverAndPairWithProgress(
+    pairingService,
+    options.device,
+    discoveryTimeoutMs,
+  );
+
+  if (result.success) {
+    log.info(`Pairing successful! Record saved to: ${result.pairingFile}`);
+  } else if (isNoAppleTVPairingDevicesFoundError(result.error)) {
+    log.info(getNoAppleTVPairingDevicesMessage());
+  } else {
+    throw result.error ?? new Error('Pairing failed');
+  }
+}
+
+await main();
+
+async function discoverAndPairWithProgress(
+  pairingService,
+  deviceSelector,
+  discoveryTimeoutMs,
+) {
   const discovery = discoverAppleTVPairingDevices(
     pairingService,
     discoveryTimeoutMs,
@@ -131,16 +100,27 @@ async function main() {
     discovery,
     discoveryTimeoutMs,
   );
-  const result = await pairingService.discoverAndPair(options.device, {
+  return await pairingService.discoverAndPair(deviceSelector, {
     devices,
     discoveryTimeoutMs,
   });
-
-  if (result.success) {
-    log.info(`Pairing successful! Record saved to: ${result.pairingFile}`);
-  } else {
-    throw result.error ?? new Error('Pairing failed');
-  }
 }
 
-await main();
+/**
+ * @param {unknown} err
+ * @returns {boolean}
+ */
+function isNoAppleTVPairingDevicesFoundError(err) {
+  return (
+    err instanceof Error &&
+    (err.message === getNoAppleTVPairingDevicesMessage() ||
+      ('code' in err && err.code === 'NO_DEVICES'))
+  );
+}
+
+/**
+ * @returns {string}
+ */
+function getNoAppleTVPairingDevicesMessage() {
+  return 'No Apple TV pairing devices found. Please ensure your Apple TV is on the same network and in pairing mode.';
+}
