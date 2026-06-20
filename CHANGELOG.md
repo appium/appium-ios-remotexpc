@@ -1,3 +1,9 @@
+## [5.1.6](https://github.com/appium/appium-ios-remotexpc/compare/v5.1.5...v5.1.6) (2026-06-20)
+
+### Bug Fixes
+
+* Fetch AppleTV device udid from M6 pairing record ([#246](https://github.com/appium/appium-ios-remotexpc/issues/246)) ([bf8a338](https://github.com/appium/appium-ios-remotexpc/commit/bf8a3380da9eaa78456d6287115d67f5e2b1790a))
+
 ## [5.1.5](https://github.com/appium/appium-ios-remotexpc/compare/v5.1.4...v5.1.5) (2026-06-20)
 
 ### Miscellaneous Chores
