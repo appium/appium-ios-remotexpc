@@ -17,7 +17,8 @@ class TestScreenCaptureService extends ScreenCaptureService {
 
   protected async getScreenshotInstrument(): Promise<any> {
     return {
-      getScreenshot: async (): Promise<Buffer> => {
+      initialize: async (): Promise<void> => {},
+      takeScreenshot: async (): Promise<Buffer> => {
         this.requestedImages.push(this.image);
         return this.image;
       },
@@ -46,21 +47,6 @@ describe('ScreenCaptureService', function () {
       imageFormat: 'png',
     });
     expect(requestedImages).to.deep.equal([image]);
-  });
-
-  it('rejects non-PNG formats', async function () {
-    const service = new TestScreenCaptureService(Buffer.alloc(0));
-
-    let caught: Error | undefined;
-    try {
-      await service.captureScreenshot({ requestedFormat: 'jpeg' });
-    } catch (err) {
-      caught = err as Error;
-    }
-
-    expect(caught?.message).to.equal(
-      'DVT screenshot service only supports PNG output',
-    );
   });
 
   it('streams screenshots until aborted', async function () {

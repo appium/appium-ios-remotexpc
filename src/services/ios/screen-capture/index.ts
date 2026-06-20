@@ -9,8 +9,6 @@ import {
 export interface CaptureScreenshotOptions {
   /** DVT screenshot captures the primary display; this is returned as metadata only. */
   displayUniqueId?: string | null;
-  /** Image format requested from the device. DVT screenshot returns PNG data. */
-  requestedFormat?: 'png' | string;
 }
 
 export interface CaptureScreenshotResult {
@@ -38,17 +36,8 @@ export class ScreenCaptureService extends BaseService {
   async captureScreenshot(
     options: CaptureScreenshotOptions = {},
   ): Promise<CaptureScreenshotResult> {
-    if (options.requestedFormat && options.requestedFormat !== 'png') {
-      throw new Error('DVT screenshot service only supports PNG output');
-    }
-
     const screenshot = await this.getScreenshotInstrument();
-    const image = await screenshot.getScreenshot();
-    return {
-      image,
-      displayUniqueID: options.displayUniqueId ?? null,
-      imageFormat: 'png',
-    };
+    return await this.captureWithInstrument(screenshot, options);
   }
 
   createStreamer(options: ScreenCaptureStreamerOptions): ScreenCaptureStreamer {
@@ -57,8 +46,8 @@ export class ScreenCaptureService extends BaseService {
     }
 
     this.activeStreamer = new ScreenCaptureStreamer(
-      this,
       options,
+      this.createFrameCapture(options),
       (streamer) => {
         if (this.activeStreamer === streamer) {
           this.activeStreamer = null;
@@ -92,7 +81,34 @@ export class ScreenCaptureService extends BaseService {
     await dvtService.connect();
     this.dvtService = dvtService;
     this.screenshot = new Screenshot(dvtService);
+    await this.screenshot.initialize();
     return this.screenshot;
+  }
+
+  private createFrameCapture(
+    options: CaptureScreenshotOptions,
+  ): () => Promise<CaptureScreenshotResult> {
+    const captureOptions = {
+      displayUniqueId: options.displayUniqueId,
+    };
+    let screenshot: Screenshot | null = null;
+
+    return async () => {
+      screenshot ??= await this.getScreenshotInstrument();
+      return await this.captureWithInstrument(screenshot, captureOptions);
+    };
+  }
+
+  private async captureWithInstrument(
+    screenshot: Screenshot,
+    options: CaptureScreenshotOptions,
+  ): Promise<CaptureScreenshotResult> {
+    const image = await screenshot.takeScreenshot();
+    return {
+      image,
+      displayUniqueID: options.displayUniqueId ?? null,
+      imageFormat: 'png',
+    };
   }
 }
 

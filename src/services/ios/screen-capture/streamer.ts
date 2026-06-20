@@ -3,7 +3,6 @@ import { performance } from 'node:perf_hooks';
 import type {
   CaptureScreenshotOptions,
   CaptureScreenshotResult,
-  ScreenCaptureService,
 } from './index.js';
 
 export const MAX_SCREEN_CAPTURE_FPS = 240;
@@ -18,22 +17,17 @@ export class ScreenCaptureStreamer {
   private frameRate: number;
   private stopped = false;
   private paused = false;
-  private readonly captureOptions: CaptureScreenshotOptions;
   private readonly abortController = new AbortController();
   private readonly frameTimestamps: number[] = [];
   private waiters: Array<() => void> = [];
 
   constructor(
-    private readonly service: ScreenCaptureService,
     options: ScreenCaptureStreamerOptions,
+    private readonly captureFrame: () => Promise<CaptureScreenshotResult>,
     private readonly onStop: (streamer: ScreenCaptureStreamer) => void,
   ) {
     validateFps(options.fps);
     this.frameRate = options.fps;
-    this.captureOptions = {
-      displayUniqueId: options.displayUniqueId,
-      requestedFormat: options.requestedFormat,
-    };
   }
 
   get fps(): number {
@@ -105,7 +99,7 @@ export class ScreenCaptureStreamer {
         }
 
         const startedAt = performance.now();
-        const frame = await this.service.captureScreenshot(this.captureOptions);
+        const frame = await this.captureFrame();
         this.recordFrame(performance.now());
         yield frame;
 
