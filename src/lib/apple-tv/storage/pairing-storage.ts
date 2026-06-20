@@ -1,6 +1,6 @@
 import { BaseItem, strongbox } from '@appium/strongbox';
-import { readdir } from 'node:fs/promises';
-import { dirname } from 'node:path';
+import { util } from '@appium/support';
+import { basename } from 'node:path';
 
 import {
   APPLETV_PAIRING_PREFIX,
@@ -17,7 +17,6 @@ const log = getLogger('PairingStorage');
 /** Manages persistent storage of pairing credentials as plist files */
 export class PairingStorage implements PairingStorageInterface {
   private readonly box;
-  private strongboxDir?: string;
 
   constructor(private readonly config: PairingConfig) {
     this.box = strongbox(STRONGBOX_CONTAINER_NAME);
@@ -92,22 +91,23 @@ export class PairingStorage implements PairingStorageInterface {
 
   async getAvailableDeviceIds(): Promise<string[]> {
     try {
-      if (!this.strongboxDir) {
-        const dummyItem = await this.box.createItem('_temp');
-        this.strongboxDir = dirname(dummyItem.id);
-        // Clean up the temporary item after extracting the directory path
-        await dummyItem.clear();
+      const deviceIds = new Set<string>();
+      const slugPrefix = this.getStrongboxSlugPrefix();
+
+      for (const item of await this.box.listItems()) {
+        for (const itemName of [item.name, basename(item.id)]) {
+          if (itemName.startsWith(APPLETV_PAIRING_PREFIX)) {
+            deviceIds.add(itemName.slice(APPLETV_PAIRING_PREFIX.length));
+          } else if (itemName.startsWith(slugPrefix)) {
+            deviceIds.add(itemName.slice(slugPrefix.length));
+          }
+        }
       }
 
-      const files = await readdir(this.strongboxDir);
-      const deviceIds = files
-        .filter((file: string) => file.startsWith(APPLETV_PAIRING_PREFIX))
-        .map((file: string) => file.replace(APPLETV_PAIRING_PREFIX, ''));
-
       log.debug(
-        `Found ${deviceIds.length} pair record(s): ${deviceIds.join(', ')}`,
+        `Found ${util.pluralize('pair record', deviceIds.size, true)}: ${[...deviceIds].join(', ')}`,
       );
-      return deviceIds;
+      return [...deviceIds];
     } catch (error) {
       log.debug('Error getting available device IDs:', error);
       return [];
@@ -124,5 +124,11 @@ export class PairingStorage implements PairingStorageInterface {
       public_key: publicKey,
       remote_unlock_host_key: remoteUnlockHostKey,
     });
+  }
+
+  private getStrongboxSlugPrefix(): string {
+    const sentinel = 'x';
+    const item = new BaseItem(`${APPLETV_PAIRING_PREFIX}${sentinel}`, this.box);
+    return basename(item.id).slice(0, -sentinel.length);
   }
 }
