@@ -146,7 +146,9 @@ class MobileConfigService
       await this._sendPlistAndReceive(req);
     } catch (error) {
       if (error instanceof Error) {
-        throw new Error(`Failed to install profile: ${error.message}`);
+        throw new Error(`Failed to install profile: ${error.message}`, {
+          cause: error,
+        });
       }
       throw error;
     }

@@ -20,6 +20,7 @@ export function parsePlist(data: string | Buffer): PlistValue {
   } catch (error) {
     throw new Error(
       `Failed to parse plist: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
     );
   }
 }
