@@ -1,3 +1,9 @@
+## [5.1.3](https://github.com/appium/appium-ios-remotexpc/compare/v5.1.2...v5.1.3) (2026-06-20)
+
+### Bug Fixes
+
+* reuse discovered devices when starting Apple TV tunnels ([c2ff387](https://github.com/appium/appium-ios-remotexpc/commit/c2ff38731e3eb16c994b337fd277f3fde2a3309d))
+
 ## [5.1.2](https://github.com/appium/appium-ios-remotexpc/compare/v5.1.1...v5.1.2) (2026-06-19)
 
 ### Bug Fixes
