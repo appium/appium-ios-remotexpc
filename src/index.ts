@@ -132,10 +132,17 @@ export {
 } from './lib/apple-tv/pairing/index.js';
 export { AppleTVTunnelService } from './lib/apple-tv/tunnel/index.js';
 export type {
+  AppleTVPairingDiscoveryOptions,
+  AppleTVPairingOptions,
+} from './lib/apple-tv/pairing/index.js';
+export type {
   AppleTVDiscoveryOptions,
   AppleTVTunnelOptions,
 } from './lib/apple-tv/tunnel/index.js';
-export type { AppleTVPairingResult } from './lib/apple-tv/types.js';
+export type {
+  AppleTVDevice,
+  AppleTVPairingResult,
+} from './lib/apple-tv/types.js';
 export type { LockdownService } from './lib/lockdown/index.js';
 
 export {
