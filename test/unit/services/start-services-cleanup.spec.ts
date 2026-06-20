@@ -148,7 +148,6 @@ describe('start*Service — registry catalog resolution', function () {
         'startNotificationProxyService',
         'com.apple.mobile.notification_proxy.shim.remote',
       ],
-      ['startScreenCaptureService', 'com.apple.instruments.dtservicehub'],
     ] as const) {
       it(`${fn} resolves ${serviceName} from the catalog`, async function () {
         const { services, resolveTunnelService } =
