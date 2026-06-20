@@ -475,6 +475,7 @@ async function main() {
             undefined,
             d.identifier,
             {
+              devices,
               discoveryTimeoutMs: options.discoveryTimeout,
             },
           );
