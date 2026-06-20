@@ -1,4 +1,4 @@
-import type { AppleTVDevice } from '../types.js';
+import type { AppleTVDevice, AppleTVPairingFlowResult } from '../types.js';
 
 /** Encryption keys derived from SRP session key for secure communication */
 export interface EncryptionKeys {
@@ -56,5 +56,5 @@ export interface UserInputInterface {
 
 /** Interface for executing the Apple TV pairing protocol flow */
 export interface PairingProtocolInterface {
-  executePairingFlow(device: AppleTVDevice): Promise<string>;
+  executePairingFlow(device: AppleTVDevice): Promise<AppleTVPairingFlowResult>;
 }

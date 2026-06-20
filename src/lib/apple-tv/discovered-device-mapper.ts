@@ -24,6 +24,7 @@ export function toAppleTVDevice(
   return {
     name: device.name,
     identifier,
+    identifierSource: device.metadata.identifierSource,
     hostname,
     ip: device.ip,
     port,

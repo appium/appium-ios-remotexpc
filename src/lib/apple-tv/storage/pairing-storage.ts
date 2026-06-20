@@ -27,6 +27,7 @@ export class PairingStorage implements PairingStorageInterface {
     ltpk: Buffer,
     ltsk: Buffer,
     remoteUnlockHostKey = '',
+    remotePairingUdid = '',
   ): Promise<string> {
     try {
       const itemName = `${APPLETV_PAIRING_PREFIX}${deviceId}`;
@@ -34,6 +35,7 @@ export class PairingStorage implements PairingStorageInterface {
         ltpk,
         ltsk,
         remoteUnlockHostKey,
+        remotePairingUdid,
       );
 
       const item = await this.box.createItemWithValue(itemName, plistContent);
@@ -82,6 +84,10 @@ export class PairingStorage implements PairingStorageInterface {
         privateKey,
         publicKey,
         remoteUnlockHostKey: (parsed.remote_unlock_host_key as string) || '',
+        remotePairingUdid:
+          typeof parsed.remote_pairing_udid === 'string'
+            ? parsed.remote_pairing_udid.toUpperCase()
+            : undefined,
       };
     } catch (error) {
       log.error(`Failed to load pair record for ${deviceId}:`, error);
@@ -118,11 +124,13 @@ export class PairingStorage implements PairingStorageInterface {
     publicKey: Buffer,
     privateKey: Buffer,
     remoteUnlockHostKey: string,
+    remotePairingUdid: string,
   ): string {
     return createXmlPlist({
       private_key: privateKey,
       public_key: publicKey,
       remote_unlock_host_key: remoteUnlockHostKey,
+      remote_pairing_udid: remotePairingUdid.toUpperCase(),
     });
   }
 

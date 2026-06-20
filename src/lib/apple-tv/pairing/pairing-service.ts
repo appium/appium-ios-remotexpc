@@ -13,6 +13,7 @@ import { PairingProtocol } from '../pairing-protocol/index.js';
 import type { UserInputInterface } from '../pairing-protocol/types.js';
 import type {
   AppleTVDevice,
+  AppleTVPairingFlowResult,
   AppleTVPairingResult,
   PairingConfig,
 } from '../types.js';
@@ -53,12 +54,12 @@ export class AppleTVPairingService {
       }
 
       const device = await this.selectDevice(devices, deviceSelector);
-      const pairingFile = await this.pairWithDevice(device);
+      const pairingResult = await this.pairWithDevice(device);
 
       return {
         success: true,
-        deviceId: device.identifier,
-        pairingFile,
+        deviceId: pairingResult.deviceId,
+        pairingFile: pairingResult.pairingFile,
       };
     } catch (error) {
       log.error('Pairing failed:', error);
@@ -70,7 +71,9 @@ export class AppleTVPairingService {
     }
   }
 
-  async pairWithDevice(device: AppleTVDevice): Promise<string> {
+  async pairWithDevice(
+    device: AppleTVDevice,
+  ): Promise<AppleTVPairingFlowResult> {
     try {
       // Use IP if available, otherwise fall back to hostname
       const connectionTarget = device.ip ?? device.hostname;

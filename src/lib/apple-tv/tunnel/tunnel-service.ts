@@ -205,11 +205,19 @@ export class AppleTVTunnelService {
       this.logDiscoveredDevices(devices);
     }
 
+    let identifiersToTry = await this.validateAndGetPairRecords(deviceId);
+    if (
+      !deviceId &&
+      specificDeviceIdentifier &&
+      identifiersToTry.includes(specificDeviceIdentifier)
+    ) {
+      identifiersToTry = [specificDeviceIdentifier];
+    }
     const devicesToProcess = this.selectDevicesToProcess(
       devices,
       specificDeviceIdentifier,
+      identifiersToTry,
     );
-    const identifiersToTry = await this.validateAndGetPairRecords(deviceId);
 
     const failedAttempts: { identifier: string; error: string }[] = [];
 
@@ -286,6 +294,7 @@ export class AppleTVTunnelService {
   private selectDevicesToProcess(
     devices: AppleTVDevice[],
     specificDeviceIdentifier?: string,
+    pairRecordIds: string[] = [],
   ): AppleTVDevice[] {
     if (!specificDeviceIdentifier) {
       return devices;
@@ -296,6 +305,13 @@ export class AppleTVTunnelService {
     );
 
     if (filteredDevices.length === 0) {
+      if (pairRecordIds.includes(specificDeviceIdentifier)) {
+        appleTVLog.info(
+          `\nNo discovered device identifier matched ${specificDeviceIdentifier}; trying all discovered devices with the matching pair record.`,
+        );
+        return devices;
+      }
+
       appleTVLog.error(
         `\nDevice with identifier ${specificDeviceIdentifier} not found in discovered devices.`,
       );
@@ -375,15 +391,20 @@ export class AppleTVTunnelService {
           connectionTarget,
           listenerInfo.port,
         );
+        const tunnelDevice = this.withTunnelIdentifier(device, pairRecord);
 
         appleTVLog.debug('Step 6: Tunnel Establishment success');
         appleTVLog.info(`🔑 Using pair record: ${identifier}`);
         appleTVLog.info(
-          `📱 Connected to device: ${device.identifier} (${device.name})`,
+          `📱 Connected to device: ${tunnelDevice.identifier} (${tunnelDevice.name})`,
         );
         appleTVLog.info(`   Target: ${connectionTarget}:${device.port}`);
 
-        return { tcpSocket, psk: keys.encryptionKey, device };
+        return {
+          tcpSocket,
+          psk: keys.encryptionKey,
+          device: tunnelDevice,
+        };
       } catch (error: any) {
         const errorMessage = error.message || String(error);
         appleTVLog.debug(
@@ -420,6 +441,40 @@ export class AppleTVTunnelService {
       appleTVLog.error(`  - ${identifier}: ${error}`);
     });
     appleTVLog.error('=======================================\n');
+  }
+
+  private resolveTunnelIdentifier(
+    pairRecord: PairRecord,
+    device: AppleTVDevice,
+  ): string {
+    if (pairRecord.remotePairingUdid) {
+      return pairRecord.remotePairingUdid.toUpperCase();
+    }
+
+    if (
+      process.platform === 'darwin' &&
+      device.identifierSource === 'devicectl' &&
+      device.identifier
+    ) {
+      appleTVLog.warn(
+        'Pair record does not include remote_pairing_udid; falling back to devicectl identifier',
+      );
+      return device.identifier.toUpperCase();
+    }
+
+    throw new Error(
+      'Pair record does not include remote_pairing_udid and no macOS devicectl fallback is available',
+    );
+  }
+
+  private withTunnelIdentifier(
+    device: AppleTVDevice,
+    pairRecord: PairRecord,
+  ): AppleTVDevice {
+    return {
+      ...device,
+      identifier: this.resolveTunnelIdentifier(pairRecord, device),
+    };
   }
 
   private async performHandshake(): Promise<void> {

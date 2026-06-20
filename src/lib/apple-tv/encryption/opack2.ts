@@ -20,6 +20,23 @@ type SerializableValue =
  */
 export class Opack2 {
   /**
+   * Deserializes an OPACK2 buffer into a JavaScript value.
+   *
+   * @param data - Buffer containing one OPACK2 value
+   * @returns The decoded JavaScript value
+   * @throws AppleTVError if the buffer is malformed or contains unsupported markers
+   */
+  static loads(data: Buffer): SerializableValue {
+    const { value, offset } = this.decode(data, 0);
+    if (offset !== data.length) {
+      throw new AppleTVError(
+        `Trailing bytes after OPACK2 payload: ${data.length - offset}`,
+      );
+    }
+    return value;
+  }
+
+  /**
    * Serializes a JavaScript object to OPACK2 binary format
    * @param obj - The object to serialize (supports primitives, arrays, objects, and Buffers)
    * @returns Buffer containing the serialized data
@@ -73,6 +90,272 @@ export class Opack2 {
     throw new AppleTVError(
       `Unsupported type for OPACK2 serialization: ${typeof obj}`,
     );
+  }
+
+  private static decode(
+    data: Buffer,
+    offset: number,
+  ): { value: SerializableValue; offset: number } {
+    this.ensureAvailable(data, offset, 1);
+    const marker = data[offset++];
+
+    if (marker === constants.OPACK2_NULL) {
+      return { value: null, offset };
+    }
+    if (marker === constants.OPACK2_TRUE) {
+      return { value: true, offset };
+    }
+    if (marker === constants.OPACK2_FALSE) {
+      return { value: false, offset };
+    }
+
+    if (
+      marker >= constants.OPACK2_SMALL_INT_OFFSET &&
+      marker <=
+        constants.OPACK2_SMALL_INT_OFFSET + constants.OPACK2_SMALL_INT_MAX
+    ) {
+      return { value: marker - constants.OPACK2_SMALL_INT_OFFSET, offset };
+    }
+
+    if (marker === constants.OPACK2_INT8_MARKER) {
+      this.ensureAvailable(data, offset, 1);
+      return { value: data[offset], offset: offset + 1 };
+    }
+    if (marker === constants.OPACK2_INT32_MARKER) {
+      this.ensureAvailable(data, offset, 4);
+      return { value: data.readUInt32LE(offset), offset: offset + 4 };
+    }
+    if (marker === constants.OPACK2_INT64_MARKER) {
+      this.ensureAvailable(data, offset, 8);
+      const value = data.readBigUInt64LE(offset);
+      if (value > BigInt(Number.MAX_SAFE_INTEGER)) {
+        throw new AppleTVError(
+          `OPACK2 integer exceeds JavaScript safe integer range: ${value}`,
+        );
+      }
+      return { value: Number(value), offset: offset + 8 };
+    }
+    if (marker === constants.OPACK2_FLOAT_MARKER) {
+      this.ensureAvailable(data, offset, 4);
+      return { value: data.readFloatLE(offset), offset: offset + 4 };
+    }
+
+    if (
+      marker >= constants.OPACK2_SMALL_STRING_BASE &&
+      marker <=
+        constants.OPACK2_SMALL_STRING_BASE + constants.OPACK2_SMALL_STRING_MAX
+    ) {
+      const length = marker - constants.OPACK2_SMALL_STRING_BASE;
+      return this.decodeString(data, offset, length);
+    }
+    if (marker === constants.OPACK2_STRING_8BIT_LEN_MARKER) {
+      const { length, offset: valueOffset } = this.decodeLength(
+        data,
+        offset,
+        1,
+      );
+      return this.decodeString(data, valueOffset, length);
+    }
+    if (marker === constants.OPACK2_STRING_16BIT_LEN_MARKER) {
+      const { length, offset: valueOffset } = this.decodeLength(
+        data,
+        offset,
+        2,
+      );
+      return this.decodeString(data, valueOffset, length);
+    }
+    if (marker === constants.OPACK2_STRING_32BIT_LEN_MARKER) {
+      const { length, offset: valueOffset } = this.decodeLength(
+        data,
+        offset,
+        4,
+      );
+      return this.decodeString(data, valueOffset, length);
+    }
+
+    if (
+      marker >= constants.OPACK2_SMALL_BYTES_BASE &&
+      marker <=
+        constants.OPACK2_SMALL_BYTES_BASE + constants.OPACK2_SMALL_BYTES_MAX
+    ) {
+      const length = marker - constants.OPACK2_SMALL_BYTES_BASE;
+      return this.decodeBytes(data, offset, length);
+    }
+    if (marker === constants.OPACK2_BYTES_8BIT_LEN_MARKER) {
+      const { length, offset: valueOffset } = this.decodeLength(
+        data,
+        offset,
+        1,
+      );
+      return this.decodeBytes(data, valueOffset, length);
+    }
+    if (marker === constants.OPACK2_BYTES_16BIT_LEN_MARKER) {
+      const { length, offset: valueOffset } = this.decodeLength(
+        data,
+        offset,
+        2,
+      );
+      return this.decodeBytes(data, valueOffset, length);
+    }
+    if (marker === constants.OPACK2_BYTES_32BIT_LEN_MARKER) {
+      const { length, offset: valueOffset } = this.decodeLength(
+        data,
+        offset,
+        4,
+      );
+      return this.decodeBytes(data, valueOffset, length);
+    }
+
+    if (
+      marker >= constants.OPACK2_SMALL_ARRAY_BASE &&
+      marker < constants.OPACK2_VARIABLE_ARRAY_MARKER
+    ) {
+      return this.decodeFixedArray(
+        data,
+        offset,
+        marker - constants.OPACK2_SMALL_ARRAY_BASE,
+      );
+    }
+    if (marker === constants.OPACK2_VARIABLE_ARRAY_MARKER) {
+      return this.decodeVariableArray(data, offset);
+    }
+
+    if (
+      marker >= constants.OPACK2_SMALL_DICT_BASE &&
+      marker < constants.OPACK2_VARIABLE_DICT_MARKER
+    ) {
+      return this.decodeFixedDict(
+        data,
+        offset,
+        marker - constants.OPACK2_SMALL_DICT_BASE,
+      );
+    }
+    if (marker === constants.OPACK2_VARIABLE_DICT_MARKER) {
+      return this.decodeVariableDict(data, offset);
+    }
+
+    throw new AppleTVError(
+      `Unsupported OPACK2 marker: 0x${marker.toString(16)}`,
+    );
+  }
+
+  private static decodeBytes(
+    data: Buffer,
+    offset: number,
+    length: number,
+  ): { value: Buffer; offset: number } {
+    this.ensureAvailable(data, offset, length);
+    return {
+      value: data.subarray(offset, offset + length),
+      offset: offset + length,
+    };
+  }
+
+  private static decodeFixedArray(
+    data: Buffer,
+    offset: number,
+    length: number,
+  ): { value: SerializableArray; offset: number } {
+    const result: SerializableArray = [];
+    let currentOffset = offset;
+    for (let i = 0; i < length; i++) {
+      const decoded = this.decode(data, currentOffset);
+      result.push(decoded.value);
+      currentOffset = decoded.offset;
+    }
+    return { value: result, offset: currentOffset };
+  }
+
+  private static decodeFixedDict(
+    data: Buffer,
+    offset: number,
+    length: number,
+  ): { value: SerializableObject; offset: number } {
+    const result: SerializableObject = {};
+    let currentOffset = offset;
+    for (let i = 0; i < length; i++) {
+      const key = this.decode(data, currentOffset);
+      if (typeof key.value !== 'string') {
+        throw new AppleTVError('OPACK2 dictionary key is not a string');
+      }
+      const value = this.decode(data, key.offset);
+      result[key.value] = value.value;
+      currentOffset = value.offset;
+    }
+    return { value: result, offset: currentOffset };
+  }
+
+  private static decodeLength(
+    data: Buffer,
+    offset: number,
+    byteLength: 1 | 2 | 4,
+  ): { length: number; offset: number } {
+    this.ensureAvailable(data, offset, byteLength);
+    if (byteLength === 1) {
+      return { length: data[offset], offset: offset + 1 };
+    }
+    if (byteLength === 2) {
+      return { length: data.readUInt16BE(offset), offset: offset + 2 };
+    }
+    return { length: data.readUInt32BE(offset), offset: offset + 4 };
+  }
+
+  private static decodeString(
+    data: Buffer,
+    offset: number,
+    length: number,
+  ): { value: string; offset: number } {
+    this.ensureAvailable(data, offset, length);
+    return {
+      value: data.subarray(offset, offset + length).toString('utf8'),
+      offset: offset + length,
+    };
+  }
+
+  private static decodeVariableArray(
+    data: Buffer,
+    offset: number,
+  ): { value: SerializableArray; offset: number } {
+    const result: SerializableArray = [];
+    let currentOffset = offset;
+    while (true) {
+      const decoded = this.decode(data, currentOffset);
+      currentOffset = decoded.offset;
+      if (decoded.value === null) {
+        return { value: result, offset: currentOffset };
+      }
+      result.push(decoded.value);
+    }
+  }
+
+  private static decodeVariableDict(
+    data: Buffer,
+    offset: number,
+  ): { value: SerializableObject; offset: number } {
+    const result: SerializableObject = {};
+    let currentOffset = offset;
+    while (true) {
+      const key = this.decode(data, currentOffset);
+      const value = this.decode(data, key.offset);
+      currentOffset = value.offset;
+      if (key.value === null && value.value === null) {
+        return { value: result, offset: currentOffset };
+      }
+      if (typeof key.value !== 'string') {
+        throw new AppleTVError('OPACK2 dictionary key is not a string');
+      }
+      result[key.value] = value.value;
+    }
+  }
+
+  private static ensureAvailable(
+    data: Buffer,
+    offset: number,
+    length: number,
+  ): void {
+    if (offset + length > data.length) {
+      throw new AppleTVError('Unexpected end of OPACK2 payload');
+    }
   }
 
   /**

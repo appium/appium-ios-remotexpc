@@ -8,6 +8,7 @@ import {
 } from '../constants.js';
 import { encodeAppleTVDeviceInfo } from '../device-info/index.js';
 import {
+  Opack2,
   createEd25519Signature,
   decryptChaCha20Poly1305,
   encryptChaCha20Poly1305,
@@ -25,7 +26,12 @@ import {
   decodeTLV8ToDict,
   encodeTLV8,
 } from '../tlv/index.js';
-import type { AppleTVDevice, TLV8Item } from '../types.js';
+import type {
+  AppleTVDevice,
+  AppleTVPairingFlowResult,
+  Opack2Dictionary,
+  TLV8Item,
+} from '../types.js';
 import { generateHostId } from '../utils/uuid-generator.js';
 import { INFO_TYPE, PAIRING_MESSAGES, PAIRING_STATES } from './constants.js';
 import type {
@@ -80,7 +86,9 @@ export class PairingProtocol implements PairingProtocolInterface {
     private readonly userInput: UserInputInterface,
   ) {}
 
-  async executePairingFlow(device: AppleTVDevice): Promise<string> {
+  async executePairingFlow(
+    device: AppleTVDevice,
+  ): Promise<AppleTVPairingFlowResult> {
     this._sequenceNumber = 1;
 
     try {
@@ -111,9 +119,11 @@ export class PairingProtocol implements PairingProtocolInterface {
       );
 
       // Step 6: Receive M6 completion
-      await this.receiveM6Completion(encryptionKeys.decryptKey);
+      const remotePairingUdid = await this.receiveM6Completion(
+        encryptionKeys.decryptKey,
+      );
 
-      return this.createPairingResult(device, ltpk, ltsk);
+      return this.createPairingResult(device, ltpk, ltsk, remotePairingUdid);
     } catch (error) {
       log.error('Pairing flow failed:', error);
       throw error;
@@ -244,18 +254,21 @@ export class PairingProtocol implements PairingProtocolInterface {
    * Attempts to decrypt and validate final pairing state
    * @param decryptKey Decryption key for M6 encrypted data
    */
-  private async receiveM6Completion(decryptKey: Buffer): Promise<void> {
+  private async receiveM6Completion(
+    decryptKey: Buffer,
+  ): Promise<string | undefined> {
     const m6Response = await this.networkClient.receiveResponse();
     log.info('M6 Response received');
 
     try {
-      this.processM6Response(m6Response, decryptKey);
+      return this.processM6Response(m6Response, decryptKey);
     } catch (error) {
       log.warn(
         'M6 decryption failed - but pairing may still be successful:',
         (error as Error).message,
       );
     }
+    return undefined;
   }
 
   /**
@@ -592,9 +605,12 @@ export class PairingProtocol implements PairingProtocolInterface {
    * @param m6Response Network response containing M6 completion message
    * @param decryptKey Decryption key for M6 encrypted data
    */
-  private processM6Response(m6Response: any, decryptKey: Buffer): void {
+  private processM6Response(
+    m6Response: any,
+    decryptKey: Buffer,
+  ): string | undefined {
     if (!m6Response.message?.plain?._0?.event?._0?.pairingData?._0?.data) {
-      return;
+      return undefined;
     }
 
     const m6DataBase64 =
@@ -622,7 +638,41 @@ export class PairingProtocol implements PairingProtocolInterface {
       });
       const decryptedTLV = decodeTLV8ToDict(decrypted);
       log.debug('M6 decrypted content types:', Object.keys(decryptedTLV));
+      const remotePairingUdid = this.extractRemotePairingUdid(decryptedTLV);
+      if (remotePairingUdid) {
+        log.debug(`M6 INFO remotepairing_udid: ${remotePairingUdid}`);
+      }
+      return remotePairingUdid;
     }
+    return undefined;
+  }
+
+  private extractRemotePairingUdid(
+    decryptedTLV: Record<number, Buffer | undefined>,
+  ): string | undefined {
+    const info = decryptedTLV[PairingDataComponentType.INFO];
+    if (!info) {
+      return undefined;
+    }
+
+    const decodedInfo = Opack2.loads(info);
+    if (!this.isOpackDictionary(decodedInfo)) {
+      return undefined;
+    }
+
+    const remotePairingUdid = decodedInfo.remotepairing_udid;
+    return typeof remotePairingUdid === 'string' && remotePairingUdid
+      ? remotePairingUdid.toUpperCase()
+      : undefined;
+  }
+
+  private isOpackDictionary(value: unknown): value is Opack2Dictionary {
+    return (
+      typeof value === 'object' &&
+      value !== null &&
+      !Array.isArray(value) &&
+      !Buffer.isBuffer(value)
+    );
   }
 
   /**
@@ -658,8 +708,42 @@ export class PairingProtocol implements PairingProtocolInterface {
     device: AppleTVDevice,
     ltpk: Buffer,
     ltsk: Buffer,
-  ): Promise<string> {
+    remotePairingUdid?: string,
+  ): Promise<AppleTVPairingFlowResult> {
+    const deviceId = this.resolvePairingDeviceId(device, remotePairingUdid);
     const storage = new PairingStorage(DEFAULT_PAIRING_CONFIG);
-    return await storage.save(device.identifier || device.name, ltpk, ltsk);
+    const pairingFile = await storage.save(
+      deviceId,
+      ltpk,
+      ltsk,
+      '',
+      remotePairingUdid,
+    );
+    return { deviceId, pairingFile };
+  }
+
+  private resolvePairingDeviceId(
+    device: AppleTVDevice,
+    remotePairingUdid?: string,
+  ): string {
+    if (remotePairingUdid) {
+      return remotePairingUdid.toUpperCase();
+    }
+
+    if (
+      process.platform === 'darwin' &&
+      device.identifierSource === 'devicectl' &&
+      device.identifier
+    ) {
+      log.warn(
+        'M6 INFO did not include remotepairing_udid; falling back to devicectl identifier',
+      );
+      return device.identifier.toUpperCase();
+    }
+
+    throw new PairingError(
+      'Apple TV pairing did not provide remotepairing_udid and no macOS devicectl fallback is available',
+      'REMOTE_PAIRING_UDID_MISSING',
+    );
   }
 }

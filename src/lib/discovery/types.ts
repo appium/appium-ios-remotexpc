@@ -1,5 +1,6 @@
 export interface DiscoveredDeviceMetadata {
   identifier?: string;
+  identifierSource?: 'bonjour' | 'devicectl';
   model?: string;
   version?: string;
   deviceType?: string;
