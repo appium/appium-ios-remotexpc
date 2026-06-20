@@ -29,6 +29,7 @@ import { MobileConfigService } from './services/ios/mobile-config/index.js';
 import MobileImageMounterService from './services/ios/mobile-image-mounter/index.js';
 import { NotificationProxyService } from './services/ios/notification-proxy/index.js';
 import { PowerAssertionService } from './services/ios/power-assertion/index.js';
+import { ScreenCaptureService } from './services/ios/screen-capture/index.js';
 import { SpringBoardService } from './services/ios/springboard-service/index.js';
 import SyslogService from './services/ios/syslog-service/index.js';
 import { DvtTestmanagedProxyService } from './services/ios/testmanagerd/index.js';
@@ -110,6 +111,16 @@ export async function startPowerAssertionService(
 ): Promise<PowerAssertionService> {
   await requireCatalogService(udid, PowerAssertionService.RSD_SERVICE_NAME);
   return new PowerAssertionService(udid);
+}
+
+/**
+ * Start the CoreDevice screen capture service for the given device UDID.
+ */
+export async function startScreenCaptureService(
+  udid: string,
+): Promise<ScreenCaptureService> {
+  await requireCatalogService(udid, ScreenCaptureService.RSD_SERVICE_NAME);
+  return new ScreenCaptureService(udid);
 }
 
 const RSD_SYSLOG_BINARY_SERVICE_NAME = 'com.apple.os_trace_relay.shim.remote';

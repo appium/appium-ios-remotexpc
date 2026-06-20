@@ -314,6 +314,11 @@ function encodeObject(writer: Writer, value: XPCValue): void {
     }
     return;
   }
+  if (typeof value === 'bigint') {
+    writer.writeUInt32LE(XPC_TYPES.uint64);
+    writer.writeBigUInt64LE(value);
+    return;
+  }
   if (typeof value === 'string') {
     writer.writeUInt32LE(XPC_TYPES.string);
     const strBuf = Buffer.from(value, 'utf8');

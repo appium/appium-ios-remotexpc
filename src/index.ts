@@ -7,6 +7,7 @@ import {
   createLockdownServiceForTunnel,
 } from './lib/lockdown/index.js';
 import { DevicePortForwarder } from './lib/port-forwarding/index.js';
+import type { RsdServiceCatalogClient as RsdServiceCatalogClientType } from './lib/remote-xpc/rsd-service-catalog-client.js';
 import {
   TunnelManager,
   TunnelReadinessCoordinator,
@@ -29,7 +30,11 @@ export type {
   DevicePortForwarderOptions,
   UpstreamSocketConnector,
 } from './lib/port-forwarding/index.js';
-export type { RemoteXpcConnection } from './lib/remote-xpc/remote-xpc-connection.js';
+export type { RsdServiceCatalogClient } from './lib/remote-xpc/rsd-service-catalog-client.js';
+/**
+ * @deprecated Use RsdServiceCatalogClient instead.
+ */
+export type RemoteXpcConnection = RsdServiceCatalogClientType;
 export type { AfcService } from './services/ios/afc/index.js';
 export { AfcConnectionError } from './services/ios/afc/errors.js';
 export type {
@@ -86,6 +91,11 @@ export type {
   TestmanagerdService,
   XCTestServices,
 } from './lib/types.js';
+export type {
+  CaptureScreenshotOptions,
+  CaptureScreenshotResult,
+} from './services/ios/screen-capture/index.js';
+export { ScreenCaptureService } from './services/ios/screen-capture/index.js';
 export { PowerAssertionType } from './lib/types.js';
 export { NetworkMessageType } from './services/ios/dvt/instruments/network-monitor.js';
 export {
