@@ -20,6 +20,15 @@ import type {
 
 const log = getLogger('AppleTVPairingService');
 
+export interface AppleTVPairingDiscoveryOptions {
+  timeoutMs?: number;
+}
+
+export interface AppleTVPairingOptions {
+  discoveryTimeoutMs?: number;
+  devices?: AppleTVDevice[];
+}
+
 /** Main service orchestrating Apple TV device discovery and pairing */
 export class AppleTVPairingService {
   private readonly networkClient: NetworkClient;
@@ -42,14 +51,18 @@ export class AppleTVPairingService {
 
   async discoverAndPair(
     deviceSelector?: string,
+    options: AppleTVPairingOptions = {},
   ): Promise<AppleTVPairingResult> {
     try {
-      const devices = await this.discoverDevices();
+      const devices =
+        options.devices ??
+        (await this.discoverDevices({
+          timeoutMs: options.discoveryTimeoutMs,
+        }));
 
       if (devices.length === 0) {
         const errorMessage =
           'No Apple TV pairing devices found. Please ensure your Apple TV is on the same network and in pairing mode.';
-        log.error(errorMessage);
         throw new PairingError(errorMessage, 'NO_DEVICES');
       }
 
@@ -62,7 +75,6 @@ export class AppleTVPairingService {
         pairingFile: pairingResult.pairingFile,
       };
     } catch (error) {
-      log.error('Pairing failed:', error);
       return {
         success: false,
         deviceId: 'unknown',
@@ -98,23 +110,20 @@ export class AppleTVPairingService {
     }
   }
 
-  private async discoverDevices(): Promise<AppleTVDevice[]> {
+  async discoverDevices(
+    options: AppleTVPairingDiscoveryOptions = {},
+  ): Promise<AppleTVDevice[]> {
     try {
+      const timeoutMs = options.timeoutMs ?? this.config.discoveryTimeout;
       const backend = createDiscoveryBackend(process.platform, {
         serviceType: REMOTE_PAIRING_MANUAL_DISCOVERY_SERVICE_TYPE,
         domain: REMOTE_PAIRING_DISCOVERY_DOMAIN,
       });
-      log.info(
-        `Discovering Apple TV devices (waiting ${this.config.discoveryTimeout / 1000} seconds)...`,
-      );
-      const discoveredDevices = await backend.discoverDevices(
-        this.config.discoveryTimeout,
-      );
+      const discoveredDevices = await backend.discoverDevices(timeoutMs);
       const enrichedDevices =
         await enrichDiscoveredDevicesWithDevicectl(discoveredDevices);
       return toAppleTVDevices(enrichedDevices);
     } catch (error) {
-      log.error('Device discovery failed:', error);
       throw new PairingError(
         'Device discovery failed',
         'DISCOVERY_ERROR',
