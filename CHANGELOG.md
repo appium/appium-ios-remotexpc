@@ -1,3 +1,9 @@
+## [5.1.4](https://github.com/appium/appium-ios-remotexpc/compare/v5.1.3...v5.1.4) (2026-06-20)
+
+### Bug Fixes
+
+* Loading pair records from strongbox ([#243](https://github.com/appium/appium-ios-remotexpc/issues/243)) ([5ae772f](https://github.com/appium/appium-ios-remotexpc/commit/5ae772f81becc419b74eb7e90422f1d11889726a))
+
 ## [5.1.3](https://github.com/appium/appium-ios-remotexpc/compare/v5.1.2...v5.1.3) (2026-06-20)
 
 ### Bug Fixes
