@@ -44,6 +44,18 @@ export type {
   ZipConduitStreamStats,
 } from './services/ios/zipconduit/index.js';
 export type { InstallationProxyService } from './services/ios/installation-proxy/index.js';
+export {
+  HID_BUTTON_STATE_CANCELED,
+  HID_BUTTON_STATE_DOWN,
+  HID_BUTTON_STATE_UP,
+  HidIndigoService,
+} from './services/ios/hid-indigo/index.js';
+export type {
+  HidButtonEventOptions,
+  HidButtonName,
+  HidButtonPressOptions,
+  HidButtonState,
+} from './services/ios/hid-indigo/index.js';
 export type {
   SyslogEntry,
   SyslogLabel,
