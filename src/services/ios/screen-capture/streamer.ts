@@ -1,12 +1,19 @@
 import { performance } from 'node:perf_hooks';
 
-import type {
-  CaptureScreenshotOptions,
-  CaptureScreenshotResult,
-} from './index.js';
-
 export const MAX_SCREEN_CAPTURE_FPS = 240;
 const ACTUAL_FPS_WINDOW_MS = 1000;
+
+export interface CaptureScreenshotOptions {
+  /** DVT screenshot captures the primary display; this is returned as metadata only. */
+  displayUniqueId?: string | null;
+}
+
+export interface CaptureScreenshotResult {
+  image: Buffer;
+  displayUniqueID?: string | null;
+  imageFormat?: string;
+  [key: string]: unknown;
+}
 
 export interface ScreenCaptureStreamerOptions extends CaptureScreenshotOptions {
   /** Target frames per second. Capture time is included in the frame budget. */
@@ -17,17 +24,23 @@ export class ScreenCaptureStreamer {
   private frameRate: number;
   private stopped = false;
   private paused = false;
+  private readonly captureOptions: CaptureScreenshotOptions;
   private readonly abortController = new AbortController();
   private readonly frameTimestamps: number[] = [];
   private waiters: Array<() => void> = [];
 
   constructor(
     options: ScreenCaptureStreamerOptions,
-    private readonly captureFrame: () => Promise<CaptureScreenshotResult>,
+    private readonly captureScreenshot: (
+      options: CaptureScreenshotOptions,
+    ) => Promise<CaptureScreenshotResult>,
     private readonly onStop: (streamer: ScreenCaptureStreamer) => void,
   ) {
     validateFps(options.fps);
     this.frameRate = options.fps;
+    this.captureOptions = {
+      displayUniqueId: options.displayUniqueId,
+    };
   }
 
   get fps(): number {
@@ -99,7 +112,10 @@ export class ScreenCaptureStreamer {
         }
 
         const startedAt = performance.now();
-        const frame = await this.captureFrame();
+        // DVT screenshots are request/response captures, not a native stream.
+        // Profiling on device showed almost all frame time waiting for the
+        // DVT response (~145ms), while send/decode overhead was sub-millisecond.
+        const frame = await this.captureScreenshot(this.captureOptions);
         this.recordFrame(performance.now());
         yield frame;
 

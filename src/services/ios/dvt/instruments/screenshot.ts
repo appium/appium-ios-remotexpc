@@ -13,13 +13,6 @@ export class Screenshot extends BaseInstrument {
    */
   async getScreenshot(): Promise<Buffer> {
     await this.initialize();
-    return await this.takeScreenshot();
-  }
-
-  /**
-   * Capture a screenshot using an already initialized channel.
-   */
-  async takeScreenshot(): Promise<Buffer> {
     const channel = this.requireChannel();
 
     await channel.call('takeScreenshot')();

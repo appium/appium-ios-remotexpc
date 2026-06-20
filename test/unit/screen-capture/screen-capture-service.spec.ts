@@ -17,8 +17,7 @@ class TestScreenCaptureService extends ScreenCaptureService {
 
   protected async getScreenshotInstrument(): Promise<any> {
     return {
-      initialize: async (): Promise<void> => {},
-      takeScreenshot: async (): Promise<Buffer> => {
+      getScreenshot: async (): Promise<Buffer> => {
         this.requestedImages.push(this.image);
         return this.image;
       },
