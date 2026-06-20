@@ -94,6 +94,8 @@ export type {
 export type {
   CaptureScreenshotOptions,
   CaptureScreenshotResult,
+  ScreenCaptureStreamer,
+  ScreenCaptureStreamerOptions,
 } from './services/ios/screen-capture/index.js';
 export { ScreenCaptureService } from './services/ios/screen-capture/index.js';
 export { PowerAssertionType } from './lib/types.js';

@@ -1,6 +1,10 @@
 import { BaseService } from '../base-service.js';
 import { DVTSecureSocketProxyService } from '../dvt/index.js';
 import { Screenshot } from '../dvt/instruments/screenshot.js';
+import {
+  ScreenCaptureStreamer,
+  type ScreenCaptureStreamerOptions,
+} from './streamer.js';
 
 export interface CaptureScreenshotOptions {
   /** DVT screenshot captures the primary display; this is returned as metadata only. */
@@ -22,6 +26,7 @@ export class ScreenCaptureService extends BaseService {
 
   private dvtService: DVTSecureSocketProxyService | null = null;
   private screenshot: Screenshot | null = null;
+  private activeStreamer: ScreenCaptureStreamer | null = null;
 
   constructor(udid: string) {
     super(udid);
@@ -46,7 +51,30 @@ export class ScreenCaptureService extends BaseService {
     };
   }
 
+  createStreamer(options: ScreenCaptureStreamerOptions): ScreenCaptureStreamer {
+    if (this.activeStreamer && !this.activeStreamer.isStopped) {
+      throw new Error('A screen capture streamer is already active');
+    }
+
+    this.activeStreamer = new ScreenCaptureStreamer(
+      this,
+      options,
+      (streamer) => {
+        if (this.activeStreamer === streamer) {
+          this.activeStreamer = null;
+        }
+      },
+    );
+    return this.activeStreamer;
+  }
+
+  getActiveStreamer(): ScreenCaptureStreamer | null {
+    return this.activeStreamer?.isStopped ? null : this.activeStreamer;
+  }
+
   async close(): Promise<void> {
+    this.activeStreamer?.stop();
+
     if (!this.dvtService) {
       return;
     }
@@ -67,3 +95,5 @@ export class ScreenCaptureService extends BaseService {
     return this.screenshot;
   }
 }
+
+export type { ScreenCaptureStreamer, ScreenCaptureStreamerOptions };
