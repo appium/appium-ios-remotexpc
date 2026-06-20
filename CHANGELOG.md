@@ -1,3 +1,9 @@
+## [5.1.5](https://github.com/appium/appium-ios-remotexpc/compare/v5.1.4...v5.1.5) (2026-06-20)
+
+### Miscellaneous Chores
+
+* Improve progress logging for AppleTV pairing scenarios ([#245](https://github.com/appium/appium-ios-remotexpc/issues/245)) ([cc3eabe](https://github.com/appium/appium-ios-remotexpc/commit/cc3eabeaee49d53ad6cf1d546ab1c38ac5d2adac))
+
 ## [5.1.4](https://github.com/appium/appium-ios-remotexpc/compare/v5.1.3...v5.1.4) (2026-06-20)
 
 ### Bug Fixes
