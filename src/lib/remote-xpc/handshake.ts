@@ -112,7 +112,24 @@ class Handshake {
       );
       await this.sendFrame(headersFrameReply.serialize());
 
-      // Step 7: Open REPLY_CHANNEL with INIT_HANDSHAKE flags.
+      // Step 7: Send second DataFrame on stream 1 with specific flags.
+      // The receiving daemon expects this frame order:
+      // Headers#1, Data#1(init), Headers#3, Data#1(term), Data#3(init).
+      const dataMessage: XPCMessage = {
+        flags: 0x0201,
+        id: 0,
+        body: null,
+      };
+      const encodedDataMessage: Buffer = encodeMessage(dataMessage);
+      const dataFrame: DataFrame = new DataFrame(
+        Http2Constants.ROOT_CHANNEL,
+        encodedDataMessage,
+        [],
+      );
+      await this.sendFrame(dataFrame.serialize());
+      this._nextMessageId[Http2Constants.ROOT_CHANNEL]++;
+
+      // Step 8: Open REPLY_CHANNEL with INIT_HANDSHAKE flags.
       const replyMessage: XPCMessage = {
         flags:
           XpcConstants.XPC_FLAGS_ALWAYS_SET |
@@ -128,21 +145,6 @@ class Handshake {
       );
       await this.sendFrame(replyDataFrame.serialize());
       this._nextMessageId[Http2Constants.REPLY_CHANNEL]++;
-
-      // Step 8: Send second DataFrame on stream 1 with specific flags.
-      const dataMessage: XPCMessage = {
-        flags: 0x0201,
-        id: 0,
-        body: null,
-      };
-      const encodedDataMessage: Buffer = encodeMessage(dataMessage);
-      const dataFrame: DataFrame = new DataFrame(
-        Http2Constants.ROOT_CHANNEL,
-        encodedDataMessage,
-        [],
-      );
-      await this.sendFrame(dataFrame.serialize());
-      this._nextMessageId[Http2Constants.ROOT_CHANNEL]++;
 
       // Step 9: Send SETTINGS ACK frame.
       const ackFrame: SettingsFrame = new SettingsFrame(0, null, ['ACK']);
