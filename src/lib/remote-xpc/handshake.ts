@@ -76,8 +76,10 @@ class Handshake {
 
       // Step 2: Send SETTINGS frame on stream 0.
       const settings: Record<number, number> = {
-        [SettingsFrame.MAX_CONCURRENT_STREAMS]: 100,
-        [SettingsFrame.INITIAL_WINDOW_SIZE]: 1048576,
+        [SettingsFrame.MAX_CONCURRENT_STREAMS]:
+          Http2Constants.DEFAULT_SETTINGS_MAX_CONCURRENT_STREAMS,
+        [SettingsFrame.INITIAL_WINDOW_SIZE]:
+          Http2Constants.DEFAULT_SETTINGS_INITIAL_WINDOW_SIZE,
       };
       const settingsFrame: SettingsFrame = new SettingsFrame(0, settings, []);
       await this.sendFrame(settingsFrame.serialize());
@@ -85,7 +87,7 @@ class Handshake {
       // Step 3: Send WINDOW_UPDATE frame on stream 0.
       const windowUpdateFrame: WindowUpdateFrame = new WindowUpdateFrame(
         0,
-        983041,
+        Http2Constants.DEFAULT_WIN_SIZE_INCR,
       );
       await this.sendFrame(windowUpdateFrame.serialize());
 
@@ -100,7 +102,19 @@ class Handshake {
       // Step 5: Send first DataFrame on stream 1 (empty payload).
       await this.sendRequest({});
 
-      // Step 6: Send second DataFrame on stream 1 with specific flags.
+      // Step 6: Send a HEADERS frame on stream 3 before terminating stream 1.
+      // CoreDevice services validate this ordering and close the connection if
+      // the stream-1 terminator arrives before the reply channel exists.
+      const headersFrameReply: HeadersFrame = new HeadersFrame(
+        Http2Constants.REPLY_CHANNEL,
+        Buffer.from(''),
+        ['END_HEADERS'],
+      );
+      await this.sendFrame(headersFrameReply.serialize());
+
+      // Step 7: Send second DataFrame on stream 1 with specific flags.
+      // The receiving daemon expects this frame order:
+      // Headers#1, Data#1(init), Headers#3, Data#1(term), Data#3(init).
       const dataMessage: XPCMessage = {
         flags: 0x0201,
         id: 0,
@@ -114,14 +128,6 @@ class Handshake {
       );
       await this.sendFrame(dataFrame.serialize());
       this._nextMessageId[Http2Constants.ROOT_CHANNEL]++;
-
-      // Step 7: Send a HEADERS frame on stream 3.
-      const headersFrameReply: HeadersFrame = new HeadersFrame(
-        Http2Constants.REPLY_CHANNEL,
-        Buffer.from(''),
-        ['END_HEADERS'],
-      );
-      await this.sendFrame(headersFrameReply.serialize());
 
       // Step 8: Open REPLY_CHANNEL with INIT_HANDSHAKE flags.
       const replyMessage: XPCMessage = {
