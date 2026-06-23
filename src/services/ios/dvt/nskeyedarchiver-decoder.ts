@@ -236,8 +236,15 @@ export class NSKeyedArchiverDecoder {
       const key = this.decodeObject(keyRefs[i], visited, depth + 1);
       const value = this.decodeObject(valueRefs[i], visited, depth + 1);
 
-      if (typeof key === 'string') {
-        result[key] = value;
+      // Object keys are strings in JS. Coerce primitive keys (e.g. the integer
+      // pids used by the sysmontap `Processes` map) so they are not dropped.
+      if (
+        typeof key === 'string' ||
+        typeof key === 'number' ||
+        typeof key === 'bigint' ||
+        typeof key === 'boolean'
+      ) {
+        result[String(key)] = value;
       }
     }
 
