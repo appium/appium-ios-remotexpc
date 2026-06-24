@@ -40,6 +40,10 @@ const establishedTunnelsByUdid = new Map();
 /** @type {Map<string, () => void>} */
 const lifecycleWatchStopByUdid = new Map();
 
+/**
+ * @param {import('appium-ios-tuntap').TunnelConnection} tunnelConnection
+ * @returns {Promise<void>}
+ */
 async function closeTunnelQuietly(tunnelConnection) {
   try {
     await tunnelConnection.closer();
@@ -48,6 +52,10 @@ async function closeTunnelQuietly(tunnelConnection) {
   }
 }
 
+/**
+ * @param {string} udid
+ * @returns {void}
+ */
 function stopLifecycleWatch(udid) {
   const stop = lifecycleWatchStopByUdid.get(udid);
   if (stop) {
@@ -56,6 +64,10 @@ function stopLifecycleWatch(udid) {
   }
 }
 
+/**
+ * @param {TunnelCreationSuccessResult} result
+ * @returns {void}
+ */
 function registerEstablishedTunnel(result) {
   const udid = result.device.Properties.SerialNumber;
   stopLifecycleWatch(udid);
@@ -70,6 +82,11 @@ function registerEstablishedTunnel(result) {
   establishedTunnelsByUdid.set(udid, result);
 }
 
+/**
+ *
+ * @param {string} connectionType
+ * @returns {number}
+ */
 function connectionTypeRank(connectionType) {
   if (connectionType === 'USB') {
     return 0;
@@ -104,6 +121,13 @@ function dedupeDevicesByUdid(devices) {
   return [...byUdid.values()];
 }
 
+/**
+ *
+ * @param {TunnelCreationSuccessResult} result
+ * @param {import('appium-ios-remotexpc').TunnelRegistryEntry | undefined} existing
+ * @param {number} now
+ * @returns {import('appium-ios-remotexpc').TunnelRegistryEntry}
+ */
 function buildTunnelEntry(result, existing, now) {
   const udid = result.device.Properties.SerialNumber;
   const entry = {
@@ -120,6 +144,10 @@ function buildTunnelEntry(result, existing, now) {
   return entry;
 }
 
+/**
+ * @param {TunnelCreationSuccessResult} result
+ * @returns {Promise<boolean>}
+ */
 async function publishDiscoveredTunnelEntry(result) {
   return await publishTunnelRegistryEntry({
     registryServer,
@@ -130,6 +158,7 @@ async function publishDiscoveredTunnelEntry(result) {
   });
 }
 
+/** @type {(() => void)[]} */
 const registryWatcherStops = [];
 /** @type {Map<string, Promise<void>>} */
 const reconnectingByUdid = new Map();
@@ -139,6 +168,9 @@ const reconnectingByUdid = new Map();
  *
  * @param {object} registry
  * @param {TunnelCreationSuccessResult[]} successful
+ * @param {object} callbacks
+ * @param {function({ udid: string, address: string }): Promise<void>} [callbacks.onTunnelDead]
+ * @returns {void}
  */
 function attachTunnelRegistryLifecycleWatch(registry, successful, callbacks = {}) {
   for (const result of successful) {
@@ -172,6 +204,15 @@ function attachTunnelRegistryLifecycleWatch(registry, successful, callbacks = {}
   );
 }
 
+/**
+ *
+ * @param {object} opts
+ * @param {string} opts.udid
+ * @param {number} opts.maxRetries
+ * @param {import('appium-ios-remotexpc').UsbmuxDevice} opts.device
+ * @param {function(string): Promise<void>} opts.reconnectTunnelByUdid
+ * @returns {Promise<void>}
+ */
 async function runReconnectAttempts({
   udid,
   maxRetries,
@@ -193,6 +234,7 @@ async function runReconnectAttempts({
         registryServer.getRegistry(),
         [result],
         {
+
           onTunnelDead: async ({ udid: droppedUdid }) => {
             await reconnectTunnelByUdid(droppedUdid);
           },
@@ -211,6 +253,12 @@ async function runReconnectAttempts({
   log.error(`Reconnect retries exhausted for ${udid}`);
 }
 
+/**
+ * @param {object} opts
+ * @param {number} opts.reconnectRetries
+ * @param {Map<string, import('appium-ios-remotexpc').UsbmuxDevice>} opts.devicesByUdid
+ * @returns {function(string): Promise<void>}
+ */
 function createReconnectTunnelByUdid({
   reconnectRetries,
   devicesByUdid,
@@ -246,6 +294,10 @@ function createReconnectTunnelByUdid({
 }
 
 function setupCleanupHandlers() {
+  /**
+   * @param {string} signal
+   * @returns {Promise<void>}
+   */
   const cleanup = async (signal) => {
     log.warn(`\nCleaning up (${signal})...`);
 
@@ -323,6 +375,7 @@ async function createTunnelForDevice(device) {
     log.info('CoreDeviceProxy started successfully');
 
     log.info(`Creating tunnel...`);
+    /** @type {{ notify: ((reason: string) => void) | null }} */
     const lifecycle = { notify: null };
     const tunnelConnection = await TunnelManager.getTunnel(
       socket,
@@ -347,6 +400,10 @@ async function createTunnelForDevice(device) {
       },
       success: true,
       tunnelConnection,
+      /**
+       * @param {(reason: string) => void} handler
+       * @returns {void}
+       */
       registerOnDead: (handler) => {
         lifecycle.notify = handler;
       },
@@ -492,6 +549,10 @@ async function main() {
           registryServer.getRegistry(),
           [result],
           {
+            /**
+             * @param {{ udid: string }} ctx
+             * @returns {Promise<void>}
+             */
             onTunnelDead: async ({ udid }) => {
               await reconnectTunnelByUdid(udid);
             },
