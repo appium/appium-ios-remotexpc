@@ -39,6 +39,7 @@ const APPLETV_TUNNEL_DISCOVERY_PROGRESS_BAR_WIDTH = 24;
 /** @type {import('appium-ios-remotexpc').TunnelRegistryServer | null} */
 let registryServer = null;
 
+/** @type {(() => void)[]} */
 const registryWatcherStops = [];
 /** @type {Map<string, Promise<void>>} */
 const reconnectingByUdid = new Map();
@@ -48,6 +49,10 @@ const establishedTunnelsByUdid = new Map();
 /** @type {Map<string, () => void>} */
 const lifecycleWatchStopByUdid = new Map();
 
+/**
+ * @param {import('appium-ios-tuntap').TunnelConnection} tunnelConnection
+ * @returns {Promise<void>}
+ */
 async function closeTunnelQuietly(tunnelConnection) {
   try {
     await tunnelConnection.closer();
@@ -56,6 +61,10 @@ async function closeTunnelQuietly(tunnelConnection) {
   }
 }
 
+/**
+ * @param {string} udid
+ * @returns {void}
+ */
 function stopLifecycleWatch(udid) {
   const stop = lifecycleWatchStopByUdid.get(udid);
   if (stop) {
@@ -68,7 +77,7 @@ function stopLifecycleWatch(udid) {
  *
  * @param {import('appium-ios-remotexpc').AppleTVTunnelService} tunnelService
  * @param {number} timeoutMs
- * @returns {Promise<number, Promise<AppleTVDevice[]>>}
+ * @returns {{ startedAt: number, promise: Promise<AppleTVDevice[]> }}
  */
 function startDevicesDiscovery(tunnelService, timeoutMs) {
   const startedAt = performance.now();
@@ -78,7 +87,7 @@ function startDevicesDiscovery(tunnelService, timeoutMs) {
 
 /**
  *
- * @param {Promise<AppleTVDevice[]>} discovery
+ * @param {{ startedAt: number, promise: Promise<AppleTVDevice[]> }} discovery
  * @param {number} timeoutMs
  * @returns {Promise<AppleTVDevice[]>}
  */
@@ -109,9 +118,13 @@ async function waitForDevicesDiscovery(discovery, timeoutMs) {
  * @returns {boolean}
  */
 function isNoDevicesFoundError(err) {
-  return err instanceof Error && ('code' in err && err.code === 'NO_DEVICES') || err.message?.includes('No devices found');
+  return err instanceof Error && ('code' in err && err.code === 'NO_DEVICES') || /** @type {Error} */ (err).message?.includes('No devices found');
 }
 
+/**
+ * @param {AppleTvEstablishedTunnel} result
+ * @returns {void}
+ */
 function registerEstablishedTunnel(result) {
   const udid = result.device.identifier;
   stopLifecycleWatch(udid);
@@ -125,11 +138,15 @@ function registerEstablishedTunnel(result) {
   }
   establishedTunnelsByUdid.set(udid, result);
 }
+
+/** @type {import('appium-ios-remotexpc').AppleTVTunnelService | null} */
 let tunnelService = null;
 
 /**
- * @param {object} registry
+ * @param {import('appium-ios-remotexpc').TunnelRegistry} registry
  * @param {AppleTvEstablishedTunnel[]} successfulResults
+ * @param {object} callbacks
+ * @param {function({ udid: string, address: string }): Promise<void>} [callbacks.onTunnelDead]
  */
 function attachAppleTvTunnelRegistryLifecycleWatch(registry, successfulResults, callbacks = {}) {
   for (const result of successfulResults) {
@@ -163,7 +180,14 @@ function attachAppleTvTunnelRegistryLifecycleWatch(registry, successfulResults, 
   );
 }
 
+/**
+ * @returns {void}
+ */
 function setupCleanupHandlers() {
+  /**
+   * @param {string} signal
+   * @returns {Promise<void>}
+   */
   const cleanup = async (signal) => {
     log.warn(`\nCleaning up (${signal})...`);
 
@@ -230,6 +254,7 @@ function setupCleanupHandlers() {
  */
 async function establishOneTunnel(startResult) {
   const { tcpSocket, psk, device } = startResult;
+  /** @type {{ notify: ((reason: string) => void) | null }} */
   const lifecycle = { notify: null };
 
   const tunnelConnection = await TunnelManager.getTunnelPsk(
@@ -247,6 +272,10 @@ async function establishOneTunnel(startResult) {
       RsdPort: tunnelConnection.RsdPort,
     },
     tunnelConnection,
+    /**
+     * @param {(reason: string) => void} handler
+     * @returns {void}
+     */
     registerOnDead: (handler) => {
       lifecycle.notify = handler;
     },
@@ -256,6 +285,12 @@ async function establishOneTunnel(startResult) {
   return result;
 }
 
+/**
+ * @param {AppleTvEstablishedTunnel} result
+ * @param {import('appium-ios-remotexpc').TunnelRegistryEntry | undefined} existing
+ * @param {number} now
+ * @returns {import('appium-ios-remotexpc').TunnelRegistryEntry}
+ */
 function buildAppleTvTunnelEntry(result, existing, now) {
   const udid = result.device.identifier;
   const entry = {
@@ -272,6 +307,11 @@ function buildAppleTvTunnelEntry(result, existing, now) {
   return entry;
 }
 
+/**
+ *
+ * @param {AppleTvEstablishedTunnel} result
+ * @returns {Promise<boolean>}
+ */
 async function publishDiscoveredTunnelEntry(result) {
   return await publishTunnelRegistryEntry({
     registryServer,
@@ -282,6 +322,16 @@ async function publishDiscoveredTunnelEntry(result) {
   });
 }
 
+/**
+ *
+ * @param {object} opts
+ * @param {string} opts.udid
+ * @param {number} opts.maxRetries
+ * @param {import('appium-ios-remotexpc').AppleTVTunnelService} opts.tunnelService
+ * @param {function(string): Promise<void>} opts.reconnectTunnelByUdid
+ * @param {number} opts.discoveryTimeoutMs
+ * @returns {Promise<void>}
+ */
 async function runAppleTvReconnectAttempts({
   udid,
   maxRetries,
@@ -327,6 +377,14 @@ async function runAppleTvReconnectAttempts({
   log.error(`Reconnect retries exhausted for ${udid}`);
 }
 
+/**
+ *
+ * @param {object} opts
+ * @param {number} opts.reconnectRetries
+ * @param {import('appium-ios-remotexpc').AppleTVTunnelService} opts.tunnelService
+ * @param {number} opts.discoveryTimeoutMs
+ * @returns {function(string): Promise<void>}
+ */
 function createAppleTvReconnectTunnelByUdid({
   reconnectRetries,
   tunnelService,
@@ -564,4 +622,8 @@ await main();
  * @property {{ Address: string, RsdPort?: number }} tunnel
  * @property {import('appium-ios-tuntap').TunnelConnection} tunnelConnection
  * @property {(handler: (reason: string) => void) => void} registerOnDead
+ */
+
+/**
+ * @typedef {import('appium-ios-remotexpc').AppleTVDevice} AppleTVDevice
  */

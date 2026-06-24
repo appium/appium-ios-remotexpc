@@ -1,3 +1,9 @@
+## [5.2.2](https://github.com/appium/appium-ios-remotexpc/compare/v5.2.1...v5.2.2) (2026-06-24)
+
+### Miscellaneous Chores
+
+* Add scripts to typescript checks ([#253](https://github.com/appium/appium-ios-remotexpc/issues/253)) ([f06a206](https://github.com/appium/appium-ios-remotexpc/commit/f06a2060a41f834ca049cb31d9f453c12d9fc013))
+
 ## [5.2.1](https://github.com/appium/appium-ios-remotexpc/compare/v5.2.0...v5.2.1) (2026-06-24)
 
 ### Miscellaneous Chores

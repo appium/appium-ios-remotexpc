@@ -40,6 +40,10 @@ const establishedTunnelsByUdid = new Map();
 /** @type {Map<string, () => void>} */
 const lifecycleWatchStopByUdid = new Map();
 
+/**
+ * @param {import('appium-ios-tuntap').TunnelConnection} tunnelConnection
+ * @returns {Promise<void>}
+ */
 async function closeTunnelQuietly(tunnelConnection) {
   try {
     await tunnelConnection.closer();
@@ -48,6 +52,10 @@ async function closeTunnelQuietly(tunnelConnection) {
   }
 }
 
+/**
+ * @param {string} udid
+ * @returns {void}
+ */
 function stopLifecycleWatch(udid) {
   const stop = lifecycleWatchStopByUdid.get(udid);
   if (stop) {
@@ -56,6 +64,10 @@ function stopLifecycleWatch(udid) {
   }
 }
 
+/**
+ * @param {TunnelCreationSuccessResult} result
+ * @returns {void}
+ */
 function registerEstablishedTunnel(result) {
   const udid = result.device.Properties.SerialNumber;
   stopLifecycleWatch(udid);
@@ -70,6 +82,11 @@ function registerEstablishedTunnel(result) {
   establishedTunnelsByUdid.set(udid, result);
 }
 
+/**
+ *
+ * @param {string} connectionType
+ * @returns {number}
+ */
 function connectionTypeRank(connectionType) {
   if (connectionType === 'USB') {
     return 0;
@@ -104,15 +121,25 @@ function dedupeDevicesByUdid(devices) {
   return [...byUdid.values()];
 }
 
+/**
+ *
+ * @param {TunnelCreationSuccessResult} result
+ * @param {import('appium-ios-remotexpc').TunnelRegistryEntry | undefined} existing
+ * @param {number} now
+ * @returns {import('appium-ios-remotexpc').TunnelRegistryEntry}
+ */
 function buildTunnelEntry(result, existing, now) {
   const udid = result.device.Properties.SerialNumber;
+  /** @type {import('appium-ios-remotexpc').TunnelRegistryEntry} */
   const entry = {
     udid,
     deviceId: result.device.DeviceID,
     address: result.tunnel.Address,
     rsdPort: result.tunnel.RsdPort,
     services: {},
+    // @ts-expect-error - connectionType is not typed
     connectionType: result.device.Properties.ConnectionType,
+    // @ts-expect-error - productId is not typed
     productId: result.device.Properties.ProductID,
     createdAt: existing?.createdAt ?? now,
     lastUpdated: now,
@@ -120,6 +147,10 @@ function buildTunnelEntry(result, existing, now) {
   return entry;
 }
 
+/**
+ * @param {TunnelCreationSuccessResult} result
+ * @returns {Promise<boolean>}
+ */
 async function publishDiscoveredTunnelEntry(result) {
   return await publishTunnelRegistryEntry({
     registryServer,
@@ -130,6 +161,7 @@ async function publishDiscoveredTunnelEntry(result) {
   });
 }
 
+/** @type {(() => void)[]} */
 const registryWatcherStops = [];
 /** @type {Map<string, Promise<void>>} */
 const reconnectingByUdid = new Map();
@@ -137,8 +169,11 @@ const reconnectingByUdid = new Map();
 /**
  * When the native forwarder exits, drop the UDID from the HTTP registry and tear down state.
  *
- * @param {object} registry
+ * @param {import('appium-ios-remotexpc').TunnelRegistry} registry
  * @param {TunnelCreationSuccessResult[]} successful
+ * @param {object} callbacks
+ * @param {function({ udid: string, address: string }): Promise<void>} [callbacks.onTunnelDead]
+ * @returns {void}
  */
 function attachTunnelRegistryLifecycleWatch(registry, successful, callbacks = {}) {
   for (const result of successful) {
@@ -172,6 +207,15 @@ function attachTunnelRegistryLifecycleWatch(registry, successful, callbacks = {}
   );
 }
 
+/**
+ *
+ * @param {object} opts
+ * @param {string} opts.udid
+ * @param {number} opts.maxRetries
+ * @param {import('appium-ios-remotexpc').UsbmuxDevice} opts.device
+ * @param {function(string): Promise<void>} opts.reconnectTunnelByUdid
+ * @returns {Promise<void>}
+ */
 async function runReconnectAttempts({
   udid,
   maxRetries,
@@ -193,6 +237,7 @@ async function runReconnectAttempts({
         registryServer.getRegistry(),
         [result],
         {
+
           onTunnelDead: async ({ udid: droppedUdid }) => {
             await reconnectTunnelByUdid(droppedUdid);
           },
@@ -211,6 +256,12 @@ async function runReconnectAttempts({
   log.error(`Reconnect retries exhausted for ${udid}`);
 }
 
+/**
+ * @param {object} opts
+ * @param {number} opts.reconnectRetries
+ * @param {Map<string, import('appium-ios-remotexpc').UsbmuxDevice>} opts.devicesByUdid
+ * @returns {function(string): Promise<void>}
+ */
 function createReconnectTunnelByUdid({
   reconnectRetries,
   devicesByUdid,
@@ -245,7 +296,14 @@ function createReconnectTunnelByUdid({
   };
 }
 
+/**
+ * @returns {void}
+ */
 function setupCleanupHandlers() {
+  /**
+   * @param {string} signal
+   * @returns {Promise<void>}
+   */
   const cleanup = async (signal) => {
     log.warn(`\nCleaning up (${signal})...`);
 
@@ -298,6 +356,10 @@ function setupCleanupHandlers() {
   });
 }
 
+/**
+ * @param {import('appium-ios-remotexpc').UsbmuxDevice} device
+ * @returns {Promise<TunnelCreationSuccessResult>}
+ */
 async function createTunnelForDevice(device) {
   const udid = device.Properties.SerialNumber;
 
@@ -323,6 +385,7 @@ async function createTunnelForDevice(device) {
     log.info('CoreDeviceProxy started successfully');
 
     log.info(`Creating tunnel...`);
+    /** @type {{ notify: ((reason: string) => void) | null }} */
     const lifecycle = { notify: null };
     const tunnelConnection = await TunnelManager.getTunnel(
       socket,
@@ -339,7 +402,9 @@ async function createTunnelForDevice(device) {
     log.info(`   Tunnel Address: ${tunnelConnection.Address}`);
     log.info(`   Tunnel RsdPort: ${tunnelConnection.RsdPort}`);
 
+    /** @type {TunnelCreationSuccessResult} */
     const result = {
+      // @ts-expect-error - device is not typed
       device,
       tunnel: {
         Address: tunnelConnection.Address,
@@ -347,6 +412,10 @@ async function createTunnelForDevice(device) {
       },
       success: true,
       tunnelConnection,
+      /**
+       * @param {(reason: string) => void} handler
+       * @returns {void}
+       */
       registerOnDead: (handler) => {
         lifecycle.notify = handler;
       },
@@ -358,6 +427,7 @@ async function createTunnelForDevice(device) {
     const errorMessage = `Failed to create tunnel for device ${udid}: ${error}`;
     log.error(`❌ ${errorMessage}`);
     return {
+      // @ts-expect-error - device is not typed
       device,
       tunnel: { Address: '', RsdPort: 0 },
       success: false,
@@ -366,6 +436,9 @@ async function createTunnelForDevice(device) {
   }
 }
 
+/**
+ * @returns {Promise<void>}
+ */
 async function main() {
   setupCleanupHandlers();
 
@@ -492,6 +565,10 @@ async function main() {
           registryServer.getRegistry(),
           [result],
           {
+            /**
+             * @param {{ udid: string }} ctx
+             * @returns {Promise<void>}
+             */
             onTunnelDead: async ({ udid }) => {
               await reconnectTunnelByUdid(udid);
             },
@@ -554,8 +631,9 @@ await main();
  * Successful tunnel row (USB lockdown + CoreDeviceProxy) used for the registry and lifecycle watch.
  *
  * @typedef {object} TunnelCreationSuccessResult
- * @property {{ Properties: { SerialNumber: string }, DeviceID: number }} device
+ * @property {{ Properties: { SerialNumber: string, [key: string]: unknown }, DeviceID: number }} device
  * @property {{ Address: string, RsdPort?: number }} tunnel
  * @property {import('appium-ios-tuntap').TunnelConnection} tunnelConnection
  * @property {(handler: (reason: string) => void) => void} registerOnDead
+ * @property {boolean} success
  */
