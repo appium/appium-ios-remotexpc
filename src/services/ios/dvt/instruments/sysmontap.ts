@@ -1,3 +1,5 @@
+import { util } from '@appium/support';
+
 import { getLogger } from '../../../../lib/logger.js';
 import type {
   SysmonProcessInfo,
@@ -105,8 +107,8 @@ export class Sysmontap extends BaseInstrument {
 
     log.debug(
       `sysmontap configured: interval=${intervalMs}ms, ` +
-        `${this.processAttributes.length} process attrs, ` +
-        `${this.systemAttributes.length} system attrs`,
+        `${util.pluralize('process attribute', this.processAttributes.length, true)}, ` +
+        `${util.pluralize('system attribute', this.systemAttributes.length, true)}`,
     );
   }
 
@@ -147,7 +149,13 @@ export class Sysmontap extends BaseInstrument {
   async stop(): Promise<void> {
     this.stopRequested = true;
     this.receiveAbortController?.abort();
-    if (this.channel && this.started) {
+
+    if (!this.started) {
+      return;
+    }
+    this.started = false;
+
+    if (this.channel) {
       try {
         await this.requireChannel().call('stop')(undefined, false);
       } catch (error) {
@@ -157,7 +165,6 @@ export class Sysmontap extends BaseInstrument {
         );
       }
     }
-    this.started = false;
     log.debug('sysmontap sampling stopped');
   }
 
@@ -255,23 +262,12 @@ export class Sysmontap extends BaseInstrument {
    */
   async *iterSystem(): AsyncGenerator<SysmonSystemInfo, void, unknown> {
     for await (const sample of this.messages()) {
-      const system = this.parseSystem(sample);
-      if (system) {
-        yield system;
+      const system = sample.System;
+      if (!Array.isArray(system)) {
+        continue;
       }
+      yield this.zipAttributes(this.systemAttributes, system);
     }
-  }
-
-  /**
-   * Map a raw sample's `System` tuple to a labelled object using the configured
-   * system attribute names, or `null` when the sample has no system data.
-   */
-  private parseSystem(sample: SysmonSample): SysmonSystemInfo | null {
-    const system = sample.System;
-    if (!Array.isArray(system)) {
-      return null;
-    }
-    return this.zipAttributes(this.systemAttributes, system);
   }
 
   /**
