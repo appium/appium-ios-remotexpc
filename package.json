@@ -1,6 +1,6 @@
 {
   "name": "appium-ios-remotexpc",
-  "version": "5.2.0",
+  "version": "5.2.2",
   "main": "build/src/index.js",
   "types": "build/src/index.d.ts",
   "type": "module",
