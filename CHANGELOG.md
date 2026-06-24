@@ -1,3 +1,9 @@
+## [5.2.1](https://github.com/appium/appium-ios-remotexpc/compare/v5.2.0...v5.2.1) (2026-06-24)
+
+### Miscellaneous Chores
+
+* refactor tunnels creation and pairing scripts ([#247](https://github.com/appium/appium-ios-remotexpc/issues/247)) ([c614312](https://github.com/appium/appium-ios-remotexpc/commit/c614312dde31ce4019707ff3f079b57362a761ee))
+
 ## [5.2.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.1.6...v5.2.0) (2026-06-22)
 
 ### Features

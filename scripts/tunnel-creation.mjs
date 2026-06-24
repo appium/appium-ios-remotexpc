@@ -3,21 +3,31 @@
  * Create lockdown + CoreDeviceProxy tunnels for connected USB devices and expose the tunnel registry API.
  */
 
-import { logger } from '@appium/support';
+import { logger, util } from '@appium/support';
 import { Command } from 'commander';
-
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 import {
   TunnelManager,
   TunnelReadinessCoordinator,
   createLockdownServiceByUDID,
   createUsbmux,
-  discoverServices,
-  servicesToCatalog,
   startCoreDeviceProxyTcp,
   startTunnelRegistryServer,
   watchTunnelRegistryOnDead,
 } from 'appium-ios-remotexpc';
-import { DEFAULT_TUNNEL_REGISTRY_PORT } from '../build/src/lib/tunnel/tunnel-registry-server.js';
+import {
+  parseNonNegativeIntegerOption,
+  parsePortOption,
+} from './lib/options.mjs';
+import { sleep } from './lib/timers.mjs';
+import {
+  createEmptyTunnelRegistry,
+  publishDiscoveredTunnelEntry as publishTunnelRegistryEntry,
+  refreshServiceCatalog,
+} from './lib/tunnel-registry.mjs';
+import { DEFAULT_TUNNEL_REGISTRY_PORT } from './lib/constants.mjs';
+import { assertRoot } from './lib/root.mjs';
 
 const log = logger.getLogger('TunnelCreation');
 
@@ -94,41 +104,8 @@ function dedupeDevicesByUdid(devices) {
   return [...byUdid.values()];
 }
 
-function parsePort(value) {
-  const port = Number.parseInt(value, 10);
-  if (!Number.isFinite(port) || port <= 0 || port > 65535) {
-    throw new Error(
-      `Invalid port: ${value}. Expected an integer between 1 and 65535.`,
-    );
-  }
-  return port;
-}
-
-function parseNonNegativeInteger(value) {
-  const count = Number.parseInt(value, 10);
-  if (!Number.isFinite(count) || count < 0) {
-    throw new Error(
-      `Invalid retry count: ${value}. Expected a non-negative integer (0 = unlimited).`,
-    );
-  }
-  return count;
-}
-
-async function refreshServiceCatalog(udid, entry) {
-  log.info(`Refreshing RSD service catalog for ${udid}...`);
-  const services = await discoverServices(udid, entry.address, entry.rsdPort);
-  const now = Date.now();
-  return {
-    ...entry,
-    services: servicesToCatalog(services),
-    catalogUpdatedAt: now,
-    lastUpdated: now,
-  };
-}
-
-function buildTunnelEntryBase(result, existing) {
+function buildTunnelEntry(result, existing, now) {
   const udid = result.device.Properties.SerialNumber;
-  const now = Date.now();
   const entry = {
     udid,
     deviceId: result.device.DeviceID,
@@ -144,40 +121,13 @@ function buildTunnelEntryBase(result, existing) {
 }
 
 async function publishDiscoveredTunnelEntry(result) {
-  if (!registryServer) {
-    throw new Error('Registry server is not started');
-  }
-
-  const udid = result.device.Properties.SerialNumber;
-  const rsdPort = result.tunnel.RsdPort;
-  if (typeof rsdPort !== 'number' || rsdPort <= 0) {
-    log.warn(
-      `Skipping registry entry for ${udid}: no valid RSD port (got ${String(rsdPort)})`,
-    );
-    return false;
-  }
-
-  registryServer.markTunnelPending(udid);
-  log.info(
-    `Discovering RSD services for ${udid} at ${result.tunnel.Address}:${rsdPort}...`,
-  );
-
-  const services = await discoverServices(
-    udid,
-    result.tunnel.Address,
-    rsdPort,
-  );
-  const now = Date.now();
-  const registry = registryServer.getRegistry();
-  const entry = buildTunnelEntryBase(result, registry.tunnels[udid]);
-  entry.services = servicesToCatalog(services);
-  entry.catalogUpdatedAt = now;
-
-  registryServer.upsertReadyEntry(udid, entry);
-  log.info(
-    `Published tunnel catalog for ${udid} (${Object.keys(entry.services).length} services)`,
-  );
-  return true;
+  return await publishTunnelRegistryEntry({
+    registryServer,
+    result,
+    getUdid: (r) => r.device.Properties.SerialNumber,
+    buildEntry: buildTunnelEntry,
+    log,
+  });
 }
 
 const registryWatcherStops = [];
@@ -220,10 +170,6 @@ function attachTunnelRegistryLifecycleWatch(registry, successful, callbacks = {}
   log.info(
     'Tunnel registry will update automatically if a native forwarder exits unexpectedly.',
   );
-}
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function runReconnectAttempts({
@@ -328,25 +274,27 @@ function setupCleanupHandlers() {
 
   process.on('SIGINT', async () => {
     await cleanup('SIGINT (Ctrl+C)');
-    process.exit(0);
+    process.exit(process.exitCode || 0);
   });
   process.on('SIGTERM', async () => {
     await cleanup('SIGTERM');
-    process.exit(0);
+    process.exit(process.exitCode || 0);
   });
   process.on('SIGHUP', async () => {
     await cleanup('SIGHUP');
-    process.exit(0);
+    process.exit(process.exitCode || 0);
   });
 
   process.on('uncaughtException', async (error) => {
     log.error('Uncaught Exception:', error);
     await cleanup('Uncaught Exception');
+    process.exit(process.exitCode || 1);
   });
 
   process.on('unhandledRejection', async (reason, promise) => {
     log.error('Unhandled Rejection at:', promise, 'reason:', reason);
     await cleanup('Unhandled Rejection');
+    process.exit(process.exitCode || 1);
   });
 }
 
@@ -433,17 +381,19 @@ async function main() {
     .option(
       '--tunnel-registry-port <port>',
       `Port for tunnel registry API (default: ${DEFAULT_TUNNEL_REGISTRY_PORT})`,
-      parsePort,
+      (value) => parsePortOption(value, 'tunnel registry port'),
     )
     .option(
       '--reconnect-retries <count>',
       'Reconnect retries after unexpected tunnel drop (0 = unlimited)',
-      parseNonNegativeInteger,
+      (value) => parseNonNegativeIntegerOption(value, 'retry count'),
     );
 
   program.parse(process.argv);
   const options = program.opts();
   const specificUdid = options.udid ?? program.args[0] ?? undefined;
+
+  await assertRoot(path.join('scripts', path.basename(fileURLToPath(import.meta.url))));
 
   if (specificUdid) {
     log.info(
@@ -476,7 +426,7 @@ async function main() {
       process.exit(0);
     }
 
-    log.info(`Found ${devices.length} connected device(s):`);
+    log.info(`Found ${util.pluralize('connected device', devices.length, true)}:`);
     devices.forEach((device, index) => {
       log.info(`  ${index + 1}. UDID: ${device.Properties.SerialNumber}`);
       log.info(`     Device ID: ${device.DeviceID}`);
@@ -506,25 +456,19 @@ async function main() {
     devicesToProcess = dedupeDevicesByUdid(devicesToProcess);
     if (devicesToProcess.length < beforeDedupe) {
       log.info(
-        `Deduped ${beforeDedupe} usbmux entries to ${devicesToProcess.length} device(s) (USB preferred over Network)`,
+        `Deduped ${util.pluralize('usbmux entry', beforeDedupe, true)} to ${util.pluralize('device', devicesToProcess.length, true)} (USB preferred over Network)`,
       );
     }
 
-    log.info(`\nProcessing ${devicesToProcess.length} device(s)...`);
+    log.info(`\nProcessing ${util.pluralize('device', devicesToProcess.length, true)}...`);
 
     const readiness = new TunnelReadinessCoordinator();
-    const registry = {
-      tunnels: {},
-      metadata: {
-        lastUpdated: new Date().toISOString(),
-        totalTunnels: 0,
-        activeTunnels: 0,
-      },
-    };
+    const registry = createEmptyTunnelRegistry();
 
     registryServer = await startTunnelRegistryServer(registry, registryPort, {
       readiness,
-      refreshServices: refreshServiceCatalog,
+      refreshServices: async (udid, entry) =>
+        await refreshServiceCatalog(udid, entry, log),
     });
 
     const reconnectRetries = options.reconnectRetries;
@@ -560,19 +504,19 @@ async function main() {
       }
 
       if (devicesToProcess.length > 1) {
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        await sleep(1000);
       }
     }
 
     log.info('\n=== TUNNEL CREATION SUMMARY ===');
     const failed = results.filter((r) => !r.success);
 
-    log.info(`Total devices processed: ${results.length}`);
-    log.info(`Successful tunnels: ${successful.length}`);
-    log.info(`Failed tunnels: ${failed.length}`);
+    log.info(`Total ${util.pluralize('device', results.length, true)} processed`);
+    log.info(`Successful ${util.pluralize('tunnel', successful.length, true)}`);
+    log.info(`Failed ${util.pluralize('tunnel', failed.length, true)}`);
 
     if (successful.length > 0) {
-      log.info('\n✅ Successful tunnels:');
+      log.info(`\n✅ Successful ${util.pluralize('tunnel', successful.length)}:`);
       log.info('\n📁 Tunnel registry API:');
       log.info('   The tunnel registry is now available through the API at:');
       log.info(`   http://localhost:${registryPort}/remotexpc/tunnels`);
