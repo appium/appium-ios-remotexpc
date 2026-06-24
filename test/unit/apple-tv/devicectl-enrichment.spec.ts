@@ -66,6 +66,7 @@ describe('devicectl-enrichment', function () {
 
     expect(enriched).to.have.lengthOf(1);
     expect(enriched[0].metadata.identifier).to.equal('udid-123');
+    expect(enriched[0].metadata.identifierSource).to.equal('devicectl');
     expect(enriched[0].metadata.model).to.equal('AppleTV6,2');
     expect(enriched[0].metadata.version).to.equal('17.4');
     expect(enriched[0].metadata.deviceType).to.equal('tv');

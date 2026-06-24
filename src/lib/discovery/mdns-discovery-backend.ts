@@ -99,6 +99,7 @@ async function instanceToDevice(
     const identifier = txt.identifier ?? name;
     const metadata: DiscoveredDeviceMetadata = {
       identifier,
+      identifierSource: 'bonjour',
       model: txt.model ?? '',
       version: txt.ver ?? '',
     };

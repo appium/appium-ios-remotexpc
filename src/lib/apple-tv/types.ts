@@ -4,6 +4,7 @@ export interface AppleTVDeviceInfo {
   btAddr: string;
   mac: Buffer;
   remotePairingSerialNumber: string;
+  remotePairingUdid?: string;
   accountID: string;
   model: string;
   name: string;
@@ -23,6 +24,11 @@ export interface PairingResult {
   error?: Error;
 }
 
+export interface AppleTVPairingFlowResult {
+  pairingFile: string;
+  deviceId: string;
+}
+
 /** Public type for Apple TV pairing results (e.g. from discoverAndPair). */
 export type AppleTVPairingResult = PairingResult;
 
@@ -30,6 +36,7 @@ export type AppleTVPairingResult = PairingResult;
 export interface AppleTVDevice {
   name: string;
   identifier: string;
+  identifierSource?: 'bonjour' | 'devicectl';
   hostname: string;
   ip?: string;
   port: number;

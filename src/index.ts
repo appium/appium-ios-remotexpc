@@ -7,6 +7,7 @@ import {
   createLockdownServiceForTunnel,
 } from './lib/lockdown/index.js';
 import { DevicePortForwarder } from './lib/port-forwarding/index.js';
+import type { RsdServiceCatalogClient as RsdServiceCatalogClientType } from './lib/remote-xpc/rsd-service-catalog-client.js';
 import {
   TunnelManager,
   TunnelReadinessCoordinator,
@@ -29,7 +30,11 @@ export type {
   DevicePortForwarderOptions,
   UpstreamSocketConnector,
 } from './lib/port-forwarding/index.js';
-export type { RemoteXpcConnection } from './lib/remote-xpc/remote-xpc-connection.js';
+export type { RsdServiceCatalogClient } from './lib/remote-xpc/rsd-service-catalog-client.js';
+/**
+ * @deprecated Use RsdServiceCatalogClient instead.
+ */
+export type RemoteXpcConnection = RsdServiceCatalogClientType;
 export type { AfcService } from './services/ios/afc/index.js';
 export { AfcConnectionError } from './services/ios/afc/errors.js';
 export type {
@@ -39,6 +44,18 @@ export type {
   ZipConduitStreamStats,
 } from './services/ios/zipconduit/index.js';
 export type { InstallationProxyService } from './services/ios/installation-proxy/index.js';
+export {
+  HID_BUTTON_STATE_CANCELED,
+  HID_BUTTON_STATE_DOWN,
+  HID_BUTTON_STATE_UP,
+  HidIndigoService,
+} from './services/ios/hid-indigo/index.js';
+export type {
+  HidButtonEventOptions,
+  HidButtonName,
+  HidButtonPressOptions,
+  HidButtonState,
+} from './services/ios/hid-indigo/index.js';
 export type {
   SyslogEntry,
   SyslogLabel,

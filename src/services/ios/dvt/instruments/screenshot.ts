@@ -1,7 +1,4 @@
-import { getLogger } from '../../../../lib/logger.js';
 import { BaseInstrument } from './base-instrument.js';
-
-const log = getLogger('Screenshot');
 
 /**
  * Screenshot service for capturing device screenshots
@@ -31,7 +28,6 @@ export class Screenshot extends BaseInstrument {
       );
     }
 
-    log.info(`Screenshot captured successfully (${result.length} bytes)`);
     return result;
   }
 }

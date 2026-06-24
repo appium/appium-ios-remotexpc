@@ -1,3 +1,19 @@
+## [5.2.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.1.6...v5.2.0) (2026-06-22)
+
+### Features
+
+* Add `com.apple.coredevice.hid.indigo` service ([#249](https://github.com/appium/appium-ios-remotexpc/issues/249)) ([dfc21f7](https://github.com/appium/appium-ios-remotexpc/commit/dfc21f7624ca4a20988c3abd6c20b2aa17d49158))
+
+### Bug Fixes
+
+* Remove extra logging from screenshotting service ([#250](https://github.com/appium/appium-ios-remotexpc/issues/250)) ([d7818eb](https://github.com/appium/appium-ios-remotexpc/commit/d7818eb49c9260f8cc3c51b980ed2520e5f81122))
+
+## [5.1.6](https://github.com/appium/appium-ios-remotexpc/compare/v5.1.5...v5.1.6) (2026-06-20)
+
+### Bug Fixes
+
+* Fetch AppleTV device udid from M6 pairing record ([#246](https://github.com/appium/appium-ios-remotexpc/issues/246)) ([bf8a338](https://github.com/appium/appium-ios-remotexpc/commit/bf8a3380da9eaa78456d6287115d67f5e2b1790a))
+
 ## [5.1.5](https://github.com/appium/appium-ios-remotexpc/compare/v5.1.4...v5.1.5) (2026-06-20)
 
 ### Miscellaneous Chores
