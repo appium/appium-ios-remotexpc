@@ -120,6 +120,10 @@ export class Sysmontap extends BaseInstrument {
    * connection (e.g. via `Services.startDVTService`).
    */
   async start(): Promise<void> {
+    if (this.started) {
+      log.debug('sysmontap already sampling; start() is a no-op');
+      return;
+    }
     if (!this.builtConfig) {
       await this.configure();
     }
@@ -147,7 +151,10 @@ export class Sysmontap extends BaseInstrument {
       try {
         await this.requireChannel().call('stop')(undefined, false);
       } catch (error) {
-        log.debug('Error sending stop to sysmontap:', error);
+        log.debug(
+          'sysmontap stop() could not notify the device:',
+          error instanceof Error ? error.message : error,
+        );
       }
     }
     this.started = false;
@@ -161,7 +168,10 @@ export class Sysmontap extends BaseInstrument {
    * Internal control/heartbeat frames are filtered out.
    *
    * Sampling starts automatically on first iteration and stops when iteration
-   * terminates (via break, return, or error).
+   * terminates (via break or return), when {@link stop} is called, or when the
+   * underlying DVT connection is closed. The iterator never throws on a read
+   * failure: it ends the stream instead, so a consumer's `for await` does not
+   * have to guard against connection teardown.
    */
   async *messages(): AsyncGenerator<SysmonSample, void, unknown> {
     await this.start();
@@ -176,10 +186,15 @@ export class Sysmontap extends BaseInstrument {
         try {
           plist = await channel.receivePlist(receiveAbortController.signal);
         } catch (err) {
-          if (this.stopRequested && this.isAbortError(err)) {
-            break;
+          // End the stream rather than throwing out of the async iterator
+          if (
+            !this.stopRequested &&
+            !this.isAbortError(err) &&
+            !this.isConnectionClosedError(err)
+          ) {
+            log.warn('sysmontap stream ended due to an unexpected error:', err);
           }
-          throw err;
+          break;
         } finally {
           if (this.receiveAbortController === receiveAbortController) {
             this.receiveAbortController = null;
@@ -232,12 +247,26 @@ export class Sysmontap extends BaseInstrument {
   }
 
   /**
-   * Map a raw sample's `System` tuple to a labelled object using the configured
-   * system attribute names.
-   * @param sample A sample yielded by {@link messages}
-   * @returns The labelled system info, or `null` when the sample has no system data
+   * Async iterator that yields labelled system snapshots. Each yielded value is
+   * the device-wide metrics from a single system sample, with the raw value
+   * tuple mapped to an object keyed by the configured system attribute names.
+   *
+   * This is the system-sample counterpart to {@link iterProcesses}.
    */
-  parseSystem(sample: SysmonSample): SysmonSystemInfo | null {
+  async *iterSystem(): AsyncGenerator<SysmonSystemInfo, void, unknown> {
+    for await (const sample of this.messages()) {
+      const system = this.parseSystem(sample);
+      if (system) {
+        yield system;
+      }
+    }
+  }
+
+  /**
+   * Map a raw sample's `System` tuple to a labelled object using the configured
+   * system attribute names, or `null` when the sample has no system data.
+   */
+  private parseSystem(sample: SysmonSample): SysmonSystemInfo | null {
     const system = sample.System;
     if (!Array.isArray(system)) {
       return null;
@@ -263,6 +292,21 @@ export class Sysmontap extends BaseInstrument {
     return (
       err instanceof DOMException ||
       (err instanceof Error && err.name === 'AbortError')
+    );
+  }
+
+  /**
+   * Whether an error indicates the underlying socket/DVT connection was closed,
+   * destroyed, or otherwise torn down (an expected way for the stream to end).
+   * Closing the DVT connection clears its per-channel fragmenters, so a pending
+   * read can surface as "No fragmenter for channel" or "Not connected".
+   */
+  private isConnectionClosedError(err: unknown): boolean {
+    return (
+      err instanceof Error &&
+      /socket|destroyed|closed|not initialized|not available|not connected|no fragmenter|EPIPE|ECONNRESET/i.test(
+        err.message,
+      )
     );
   }
 }

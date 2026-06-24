@@ -187,20 +187,13 @@ describe('Sysmontap', function () {
       log.info(`raw samples: system=${hasSystem}, processes=${hasProcesses}`);
     });
 
-    it('should parse system attributes from a system sample', async function () {
+    it('should stream labelled system snapshots through iterSystem()', async function () {
       const sysmontap = dvt.sysmontap;
 
       let parsedSystem: Record<string, unknown> | null = null;
-      let iterations = 0;
-      for await (const sample of sysmontap.messages()) {
-        const system = sysmontap.parseSystem(sample);
-        if (system) {
-          parsedSystem = system;
-          break;
-        }
-        if (++iterations >= 20) {
-          break;
-        }
+      for await (const system of sysmontap.iterSystem()) {
+        parsedSystem = system;
+        break;
       }
 
       expect(parsedSystem, 'expected to observe a system sample').to.exist;
@@ -255,6 +248,56 @@ describe('Sysmontap', function () {
       }
 
       expect(iterationCount).to.equal(2);
+    });
+
+    it('should treat a second start() while sampling as a no-op', async function () {
+      const sysmontap = dvt.sysmontap;
+
+      await sysmontap.start();
+      // A redundant start() must not re-issue setConfig/start or throw.
+      await sysmontap.start();
+
+      // Sampling is still healthy: a snapshot can be read.
+      let received = false;
+      for await (const sample of sysmontap.messages()) {
+        expect(sample).to.be.an('object');
+        received = true;
+        break;
+      }
+      expect(received).to.equal(true);
+    });
+
+    it('should end the stream without throwing when the DVT connection is closed', async function () {
+      const sysmontap = dvt.sysmontap;
+      const iterator = sysmontap.messages();
+
+      // Begin consumption so the iterator blocks in receivePlist().
+      const nextPromise = iterator.next();
+      await new Promise((resolve) => setTimeout(resolve, 250));
+
+      // Close the underlying connection from under the active stream.
+      await dvt.dvtService.close();
+
+      const terminal = await Promise.race([
+        (async () => {
+          let result = await nextPromise;
+          while (!result.done) {
+            result = await iterator.next();
+          }
+          return result;
+        })(),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () =>
+              reject(
+                new Error('sysmontap iterator did not end on connection close'),
+              ),
+            5000,
+          ),
+        ),
+      ]);
+
+      expect(terminal.done).to.equal(true);
     });
   });
 });

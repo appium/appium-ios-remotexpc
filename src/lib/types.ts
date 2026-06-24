@@ -1158,15 +1158,10 @@ export interface SysmontapService {
   getSystemAttributes(): string[];
 
   /**
-   * Map a raw sample's `System` tuple to a labelled object using the configured
-   * system attribute names, or `null` when the sample has no system data.
-   * @param sample A sample yielded by {@link messages}
-   */
-  parseSystem(sample: SysmonSample): SysmonSystemInfo | null;
-
-  /**
    * Async iterator yielding raw sysmontap samples as they arrive. Sampling
-   * starts on first iteration and stops when iteration ends.
+   * starts on first iteration and stops when iteration ends. The iterator never
+   * throws on a read failure — it ends the stream instead (e.g. when the DVT
+   * connection is closed).
    */
   messages(): AsyncGenerator<SysmonSample, void, unknown>;
 
@@ -1189,6 +1184,13 @@ export interface SysmontapService {
    * ```
    */
   iterProcesses(): AsyncGenerator<SysmonProcessInfo[], void, unknown>;
+
+  /**
+   * Async iterator yielding labelled system snapshots — the device-wide metrics
+   * from each system sample, mapped to objects keyed by the system attribute
+   * names. The system-sample counterpart to {@link iterProcesses}.
+   */
+  iterSystem(): AsyncGenerator<SysmonSystemInfo, void, unknown>;
 }
 
 /**
