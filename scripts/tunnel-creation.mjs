@@ -5,7 +5,8 @@
 
 import { logger, util } from '@appium/support';
 import { Command } from 'commander';
-
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 import {
   TunnelManager,
   TunnelReadinessCoordinator,
@@ -364,7 +365,6 @@ async function createTunnelForDevice(device) {
 }
 
 async function main() {
-  await assertRoot('tunnel-creation');
   setupCleanupHandlers();
 
   const program = new Command();
@@ -390,6 +390,8 @@ async function main() {
   program.parse(process.argv);
   const options = program.opts();
   const specificUdid = options.udid ?? program.args[0] ?? undefined;
+
+  await assertRoot(path.join('scripts', path.basename(fileURLToPath(import.meta.url))));
 
   if (specificUdid) {
     log.info(

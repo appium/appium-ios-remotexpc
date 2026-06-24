@@ -6,11 +6,11 @@ const execFileAsync = promisify(execFile);
 /**
  * Ensures a helper script is run with elevated privileges.
  *
- * @param {string} scriptName
+ * @param {string} relativeScriptPath
  */
-export async function assertRoot(scriptName) {
+export async function assertRoot(relativeScriptPath) {
   if (process.platform === 'win32') {
-    await assertWindowsAdmin(scriptName);
+    await assertWindowsAdmin(relativeScriptPath);
     return;
   }
 
@@ -18,21 +18,19 @@ export async function assertRoot(scriptName) {
     return;
   }
   if (process.getuid() !== 0) {
-    throw new Error(
-      `This script must be run as root/admin (e.g. sudo node scripts/${scriptName}.mjs ...).`,
-    );
+    throw new Error(`This script must be run as root/admin (e.g. sudo node "${relativeScriptPath}").`);
   }
 }
 
 /**
- * @param {string} scriptName
+ * @param {string} relativeScriptPath
  */
-async function assertWindowsAdmin(scriptName) {
+async function assertWindowsAdmin(relativeScriptPath) {
   try {
     await execFileAsync('net', ['session']);
   } catch {
     throw new Error(
-      `This script must be run as Administrator (e.g. from an elevated terminal: node scripts/${scriptName}.mjs ...).`,
+      `This script must be run as Administrator (e.g. from an elevated terminal: node "${relativeScriptPath}").`,
     );
   }
 }
