@@ -274,25 +274,27 @@ function setupCleanupHandlers() {
 
   process.on('SIGINT', async () => {
     await cleanup('SIGINT (Ctrl+C)');
-    process.exit(0);
+    process.exit(process.exitCode || 0);
   });
   process.on('SIGTERM', async () => {
     await cleanup('SIGTERM');
-    process.exit(0);
+    process.exit(process.exitCode || 0);
   });
   process.on('SIGHUP', async () => {
     await cleanup('SIGHUP');
-    process.exit(0);
+    process.exit(process.exitCode || 0);
   });
 
   process.on('uncaughtException', async (error) => {
     log.error('Uncaught Exception:', error);
     await cleanup('Uncaught Exception');
+    process.exit(process.exitCode || 1);
   });
 
   process.on('unhandledRejection', async (reason, promise) => {
     log.error('Unhandled Rejection at:', promise, 'reason:', reason);
     await cleanup('Unhandled Rejection');
+    process.exit(process.exitCode || 1);
   });
 }
 

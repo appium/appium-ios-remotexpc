@@ -27,6 +27,8 @@ import {
 } from './lib/tunnel-registry.mjs';
 import { DEFAULT_TUNNEL_REGISTRY_PORT } from './lib/constants.mjs';
 import { assertRoot } from './lib/root.mjs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const log = logger.getLogger('WiFiTunnel');
 
@@ -146,25 +148,27 @@ function setupCleanupHandlers() {
 
   process.on('SIGINT', async () => {
     await cleanup('SIGINT (Ctrl+C)');
-    process.exit(0);
+    process.exit(process.exitCode || 0);
   });
   process.on('SIGTERM', async () => {
     await cleanup('SIGTERM');
-    process.exit(0);
+    process.exit(process.exitCode || 0);
   });
   process.on('SIGHUP', async () => {
     await cleanup('SIGHUP');
-    process.exit(0);
+    process.exit(process.exitCode || 0);
   });
 
   process.on('uncaughtException', async (error) => {
     log.error('Uncaught Exception:', error);
     await cleanup('Uncaught Exception');
+    process.exit(process.exitCode || 1);
   });
 
   process.on('unhandledRejection', async (reason, promise) => {
     log.error('Unhandled Rejection at:', promise, 'reason:', reason);
     await cleanup('Unhandled Rejection');
+    process.exit(process.exitCode || 1);
   });
 }
 
@@ -302,7 +306,6 @@ function createAppleTvReconnectTunnelByUdid({
 }
 
 async function main() {
-  await assertRoot('start-appletv-tunnel');
   setupCleanupHandlers();
 
   const program = new Command();
@@ -337,6 +340,8 @@ async function main() {
   const deviceIdentifier = program.args[0];
   const registryPort =
     options.tunnelRegistryPort ?? DEFAULT_TUNNEL_REGISTRY_PORT;
+
+  await assertRoot(path.join('scripts', path.basename(fileURLToPath(import.meta.url))));
 
   if (deviceIdentifier) {
     log.info(`Targeting a single Apple TV: ${deviceIdentifier}`);
