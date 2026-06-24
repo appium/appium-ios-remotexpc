@@ -25,12 +25,16 @@ import {
   publishDiscoveredTunnelEntry as publishTunnelRegistryEntry,
   refreshServiceCatalog,
 } from './lib/tunnel-registry.mjs';
-import { DEFAULT_TUNNEL_REGISTRY_PORT } from './lib/constants.mjs';
+import { DEFAULT_TUNNEL_REGISTRY_PORT, DEFAULT_WIRELESS_APPLETV_DISCOVERY_TIMEOUT_MS } from './lib/constants.mjs';
 import { assertRoot } from './lib/root.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { startTimeoutProgressLogger } from './lib/progress.mjs';
 
 const log = logger.getLogger('WiFiTunnel');
+
+const APPLETV_TUNNEL_DISCOVERY_PROGRESS_INTERVAL_MS = 1000;
+const APPLETV_TUNNEL_DISCOVERY_PROGRESS_BAR_WIDTH = 24;
 
 /** @type {import('appium-ios-remotexpc').TunnelRegistryServer | null} */
 let registryServer = null;
@@ -58,6 +62,54 @@ function stopLifecycleWatch(udid) {
     stop();
     lifecycleWatchStopByUdid.delete(udid);
   }
+}
+
+/**
+ *
+ * @param {import('appium-ios-remotexpc').AppleTVTunnelService} tunnelService
+ * @param {number} timeoutMs
+ * @returns {Promise<number, Promise<AppleTVDevice[]>>}
+ */
+function startDevicesDiscovery(tunnelService, timeoutMs) {
+  const startedAt = performance.now();
+  const promise = tunnelService.discoverDevices({ timeoutMs });
+  return { startedAt, promise };
+}
+
+/**
+ *
+ * @param {Promise<AppleTVDevice[]>} discovery
+ * @param {number} timeoutMs
+ * @returns {Promise<AppleTVDevice[]>}
+ */
+async function waitForDevicesDiscovery(discovery, timeoutMs) {
+  const progress = startTimeoutProgressLogger({
+    log,
+    label: 'Waiting for wireless Apple TV devices discovery',
+    startedAt: discovery.startedAt,
+    timeoutMs,
+    barWidth: APPLETV_TUNNEL_DISCOVERY_PROGRESS_BAR_WIDTH,
+    intervalMs: APPLETV_TUNNEL_DISCOVERY_PROGRESS_INTERVAL_MS,
+  });
+
+  try {
+    const devices = await discovery.promise;
+    progress.succeed(
+      `Wireless Apple TV devices discovery completed: ${util.pluralize('device', devices.length, true)} found`,
+    );
+    return devices;
+  } catch (err) {
+    progress.fail('Wireless Apple TV devices discovery failed');
+    throw err;
+  }
+}
+
+/**
+ * @param {unknown} err
+ * @returns {boolean}
+ */
+function isNoDevicesFoundError(err) {
+  return err instanceof Error && ('code' in err && err.code === 'NO_DEVICES') || err.message?.includes('No devices found');
 }
 
 function registerEstablishedTunnel(result) {
@@ -396,11 +448,27 @@ async function main() {
         },
       );
     } else {
-      const devices = await tunnelService.discoverDevices({
-        timeoutMs: options.discoveryTimeout,
-      });
+      const discoveryTimeoutMs = options.discoveryTimeout ?? DEFAULT_WIRELESS_APPLETV_DISCOVERY_TIMEOUT_MS;
+      const discovery = startDevicesDiscovery(
+        tunnelService,
+        discoveryTimeoutMs,
+      );
+      /** @type {AppleTVDevice[]} */
+      let devices = [];
+      try {
+        devices = await waitForDevicesDiscovery(
+          discovery,
+          discoveryTimeoutMs,
+        );
+      } catch (err) {
+        if (isNoDevicesFoundError(err)) {
+          log.info('No wireless Apple TV devices found');
+          process.exit(process.exitCode || 0);
+        }
+        throw err;
+      }
       log.info(
-        `Discovered ${devices.length} Apple TV ${util.pluralize('device', devices.length)}; establishing ${util.pluralize('tunnel', devices.length)}...`,
+        `Discovered ${util.pluralize('Apple TV device', devices.length, true)}; establishing ${util.pluralize('tunnel', devices.length)}...`,
       );
 
       for (let i = 0; i < devices.length; i++) {
