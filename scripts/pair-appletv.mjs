@@ -20,12 +20,23 @@ const log = logger.getLogger('AppleTVPairing');
 const APPLETV_PAIRING_DISCOVERY_PROGRESS_INTERVAL_MS = 1000;
 const APPLETV_PAIRING_DISCOVERY_PROGRESS_BAR_WIDTH = 24;
 
+/**
+ * @param {import('appium-ios-remotexpc').AppleTVPairingService} pairingService
+ * @param {number} timeoutMs
+ * @returns {{ startedAt: number, promise: Promise<AppleTVDevice[]> }}
+ */
 function discoverAppleTVPairingDevices(pairingService, timeoutMs) {
   const startedAt = performance.now();
   const promise = pairingService.discoverDevices({ timeoutMs });
   return { startedAt, promise };
 }
 
+/**
+ *
+ * @param {{ startedAt: number, promise: Promise<AppleTVDevice[]> }} discovery
+ * @param {number} timeoutMs
+ * @returns {Promise<AppleTVDevice[]>}
+ */
 async function waitForAppleTVPairingDiscovery(discovery, timeoutMs) {
   const progress = startTimeoutProgressLogger({
     log,
@@ -48,6 +59,12 @@ async function waitForAppleTVPairingDiscovery(discovery, timeoutMs) {
   }
 }
 
+/**
+ * @param {import('appium-ios-remotexpc').AppleTVPairingService} pairingService
+ * @param {string} deviceSelector
+ * @param {number} discoveryTimeoutMs
+ * @returns {Promise<{ success: boolean, deviceId: string, pairingFile?: string, error?: Error | null }>}
+ */
 async function discoverAndPairWithProgress(
   pairingService,
   deviceSelector,
@@ -124,3 +141,7 @@ async function main() {
 }
 
 await main();
+
+/**
+ * @typedef {import('appium-ios-remotexpc').AppleTVDevice} AppleTVDevice
+ */

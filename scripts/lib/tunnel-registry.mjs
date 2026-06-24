@@ -35,7 +35,7 @@ export async function refreshServiceCatalog(udid, entry, log) {
  * @template T
  * @param {object} opts
  * @param {import('appium-ios-remotexpc').TunnelRegistryServer | null} opts.registryServer
- * @param {T} opts.result
+ * @param {T & { tunnel: { Address: string, RsdPort?: number } }} opts.result
  * @param {(result: T) => string} opts.getUdid
  * @param {(result: T, existing: import('appium-ios-remotexpc').TunnelRegistryEntry | undefined, now: number) => import('appium-ios-remotexpc').TunnelRegistryEntry} opts.buildEntry
  * @param {{info: (message: string) => void, warn: (message: string) => void}} opts.log
