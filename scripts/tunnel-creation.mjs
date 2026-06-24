@@ -130,13 +130,16 @@ function dedupeDevicesByUdid(devices) {
  */
 function buildTunnelEntry(result, existing, now) {
   const udid = result.device.Properties.SerialNumber;
+  /** @type {import('appium-ios-remotexpc').TunnelRegistryEntry} */
   const entry = {
     udid,
     deviceId: result.device.DeviceID,
     address: result.tunnel.Address,
     rsdPort: result.tunnel.RsdPort,
     services: {},
+    // @ts-expect-error - connectionType is not typed
     connectionType: result.device.Properties.ConnectionType,
+    // @ts-expect-error - productId is not typed
     productId: result.device.Properties.ProductID,
     createdAt: existing?.createdAt ?? now,
     lastUpdated: now,
@@ -166,7 +169,7 @@ const reconnectingByUdid = new Map();
 /**
  * When the native forwarder exits, drop the UDID from the HTTP registry and tear down state.
  *
- * @param {object} registry
+ * @param {import('appium-ios-remotexpc').TunnelRegistry} registry
  * @param {TunnelCreationSuccessResult[]} successful
  * @param {object} callbacks
  * @param {function({ udid: string, address: string }): Promise<void>} [callbacks.onTunnelDead]
@@ -293,6 +296,9 @@ function createReconnectTunnelByUdid({
   };
 }
 
+/**
+ * @returns {void}
+ */
 function setupCleanupHandlers() {
   /**
    * @param {string} signal
@@ -350,6 +356,10 @@ function setupCleanupHandlers() {
   });
 }
 
+/**
+ * @param {import('appium-ios-remotexpc').UsbmuxDevice} device
+ * @returns {Promise<TunnelCreationSuccessResult>}
+ */
 async function createTunnelForDevice(device) {
   const udid = device.Properties.SerialNumber;
 
@@ -392,7 +402,9 @@ async function createTunnelForDevice(device) {
     log.info(`   Tunnel Address: ${tunnelConnection.Address}`);
     log.info(`   Tunnel RsdPort: ${tunnelConnection.RsdPort}`);
 
+    /** @type {TunnelCreationSuccessResult} */
     const result = {
+      // @ts-expect-error - device is not typed
       device,
       tunnel: {
         Address: tunnelConnection.Address,
@@ -415,6 +427,7 @@ async function createTunnelForDevice(device) {
     const errorMessage = `Failed to create tunnel for device ${udid}: ${error}`;
     log.error(`❌ ${errorMessage}`);
     return {
+      // @ts-expect-error - device is not typed
       device,
       tunnel: { Address: '', RsdPort: 0 },
       success: false,
@@ -423,6 +436,9 @@ async function createTunnelForDevice(device) {
   }
 }
 
+/**
+ * @returns {Promise<void>}
+ */
 async function main() {
   setupCleanupHandlers();
 
@@ -615,8 +631,9 @@ await main();
  * Successful tunnel row (USB lockdown + CoreDeviceProxy) used for the registry and lifecycle watch.
  *
  * @typedef {object} TunnelCreationSuccessResult
- * @property {{ Properties: { SerialNumber: string }, DeviceID: number }} device
+ * @property {{ Properties: { SerialNumber: string, [key: string]: unknown }, DeviceID: number }} device
  * @property {{ Address: string, RsdPort?: number }} tunnel
  * @property {import('appium-ios-tuntap').TunnelConnection} tunnelConnection
  * @property {(handler: (reason: string) => void) => void} registerOnDead
+ * @property {boolean} success
  */

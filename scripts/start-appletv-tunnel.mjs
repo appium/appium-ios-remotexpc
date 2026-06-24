@@ -143,7 +143,6 @@ function registerEstablishedTunnel(result) {
 let tunnelService = null;
 
 /**
- * @param {object} registry
  * @param {import('appium-ios-remotexpc').TunnelRegistry} registry
  * @param {AppleTvEstablishedTunnel[]} successfulResults
  * @param {object} callbacks
@@ -181,6 +180,9 @@ function attachAppleTvTunnelRegistryLifecycleWatch(registry, successfulResults, 
   );
 }
 
+/**
+ * @returns {void}
+ */
 function setupCleanupHandlers() {
   /**
    * @param {string} signal
@@ -283,6 +285,12 @@ async function establishOneTunnel(startResult) {
   return result;
 }
 
+/**
+ * @param {AppleTvEstablishedTunnel} result
+ * @param {import('appium-ios-remotexpc').TunnelRegistryEntry | undefined} existing
+ * @param {number} now
+ * @returns {import('appium-ios-remotexpc').TunnelRegistryEntry}
+ */
 function buildAppleTvTunnelEntry(result, existing, now) {
   const udid = result.device.identifier;
   const entry = {
