@@ -7,8 +7,12 @@ export const Http2Constants = {
   FLAG_END_HEADERS: 0x4,
   FLAG_ACK: 0x1,
   DEFAULT_SETTINGS_MAX_CONCURRENT_STREAMS: 100,
-  DEFAULT_SETTINGS_INITIAL_WINDOW_SIZE: 1048576,
-  DEFAULT_WIN_SIZE_INCR: 983041,
+  // 16 MiB initial receive window. CoreDevice replies (e.g. AppService
+  // listapps) arrive on the odd XPC reply channel, which is not replenished
+  // with WINDOW_UPDATE frames, so the window must be large enough to hold a
+  // full response.
+  DEFAULT_SETTINGS_INITIAL_WINDOW_SIZE: 16 * 1024 * 1024,
+  DEFAULT_WIN_SIZE_INCR: 16 * 1024 * 1024 - 65535,
   SETTINGS_MAX_CONCURRENT_STREAMS: 0x03,
   SETTINGS_INITIAL_WINDOW_SIZE: 0x04,
 } as const;

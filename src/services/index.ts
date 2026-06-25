@@ -3,6 +3,7 @@ import {
   startTunnelRegistryServer,
 } from '../lib/tunnel/tunnel-registry-server.js';
 import * as afc from './ios/afc/index.js';
+import * as appService from './ios/app-service/index.js';
 import * as crashReports from './ios/crash-reports/index.js';
 import * as diagnostics from './ios/diagnostic-service/index.js';
 import * as hidIndigo from './ios/hid-indigo/index.js';
@@ -25,6 +26,7 @@ export {
   syslog,
   tunnel,
   afc,
+  appService,
   webinspector,
   TunnelRegistryServer,
   startTunnelRegistryServer,
