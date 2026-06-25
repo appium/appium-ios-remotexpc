@@ -100,7 +100,7 @@
     "semantic-release": "^25.0.2",
     "sinon": "^22.0.0",
     "ts-node": "^10.9.2",
-    "tsx": "4.21.0",
+    "tsx": "4.22.4",
     "typescript": "^6.0.2"
   },
   "dependencies": {
@@ -110,10 +110,10 @@
     "appium-ios-tuntap": "^1.0.0",
     "async-lock": "^1.4.1",
     "axios": "^1.15.1",
-    "commander": "^14.0.1",
+    "commander": "^15.0.0",
     "minimatch": "^10.1.1",
     "node-devicectl": "^1.2.0",
-    "npm-run-all2": "^8.0.4",
+    "npm-run-all2": "^9.0.2",
     "path-to-regexp": "^8.3.0"
   },
   "files": [
