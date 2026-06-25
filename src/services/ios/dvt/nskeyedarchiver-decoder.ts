@@ -236,8 +236,12 @@ export class NSKeyedArchiverDecoder {
       const key = this.decodeObject(keyRefs[i], visited, depth + 1);
       const value = this.decodeObject(valueRefs[i], visited, depth + 1);
 
-      if (typeof key === 'string') {
-        result[key] = value;
+      if (
+        typeof key === 'string' ||
+        typeof key === 'number' ||
+        typeof key === 'bigint'
+      ) {
+        result[String(key)] = value;
       }
     }
 

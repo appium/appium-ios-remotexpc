@@ -83,6 +83,7 @@ export type {
   GraphicsService,
   DeviceInfoService,
   NetworkMonitorService,
+  EnergyMonitorService,
   ProcessInfo,
   ConditionProfile,
   ConditionGroup,
@@ -105,6 +106,10 @@ export type {
 } from './lib/types.js';
 export { PowerAssertionType } from './lib/types.js';
 export { NetworkMessageType } from './services/ios/dvt/instruments/network-monitor.js';
+export type {
+  EnergyMetrics,
+  EnergyMonitorSample,
+} from './services/ios/dvt/instruments/energy-monitor.js';
 export {
   TunnelAvailabilityError,
   getTunnelForDevice,

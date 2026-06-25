@@ -816,6 +816,39 @@ export interface NetworkMonitorService {
 }
 
 /**
+ * Energy monitor service interface for sampling per-process energy metrics
+ */
+export interface EnergyMonitorService {
+  /**
+   * Start energy sampling for the given PIDs.
+   */
+  startSampling(pids: number[]): Promise<void>;
+  /**
+   * Stop energy sampling for the given PIDs.
+   */
+  stopSampling(pids: number[]): Promise<void>;
+  /**
+   * Take a single energy snapshot for the given PIDs.
+   * Returns a record mapping PID (string key) to its energy metrics.
+   */
+  sample(pids: number[]): Promise<Record<string, Record<string, number>>>;
+  /**
+   * Continuously yield energy snapshots for the given PIDs.
+   * Stops and cleans up when the generator is returned or throws.
+   *
+   * @example
+   * ```typescript
+   * for await (const snapshot of energy.monitor([1234])) {
+   *   console.log(snapshot);
+   * }
+   * ```
+   */
+  monitor(
+    pids: number[],
+  ): AsyncGenerator<Record<string, Record<string, number>>, void, undefined>;
+}
+
+/**
  * Process information
  */
 export interface ProcessInfo {
@@ -1162,6 +1195,8 @@ export interface DVTInstruments {
   networkMonitor: NetworkMonitorService;
   /** The ProcessControl service instance */
   processControl: ProcessControlService;
+  /** The EnergyMonitor service instance */
+  energyMonitor: EnergyMonitorService;
 }
 
 /**

@@ -16,6 +16,7 @@ import { DVTSecureSocketProxyService } from './services/ios/dvt/index.js';
 import { ApplicationListing } from './services/ios/dvt/instruments/application-listing.js';
 import { ConditionInducer } from './services/ios/dvt/instruments/condition-inducer.js';
 import { DeviceInfo } from './services/ios/dvt/instruments/device-info.js';
+import { EnergyMonitor } from './services/ios/dvt/instruments/energy-monitor.js';
 import { Graphics } from './services/ios/dvt/instruments/graphics.js';
 import { LocationSimulation } from './services/ios/dvt/instruments/location-simulation.js';
 import { NetworkMonitor } from './services/ios/dvt/instruments/network-monitor.js';
@@ -245,6 +246,7 @@ export async function startDVTService(udid: string): Promise<DVTInstruments> {
     notification: new Notifications(dvtService),
     networkMonitor: new NetworkMonitor(dvtService),
     processControl: new ProcessControl(dvtService),
+    energyMonitor: new EnergyMonitor(dvtService),
   };
 }
 
