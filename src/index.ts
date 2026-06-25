@@ -102,6 +102,11 @@ export type {
   SendMessageOptions,
   TestmanagerdService,
   XCTestServices,
+  SysmontapService,
+  SysmontapOptions,
+  SysmonSample,
+  SysmonProcessInfo,
+  SysmonSystemInfo,
 } from './lib/types.js';
 export { PowerAssertionType } from './lib/types.js';
 export { NetworkMessageType } from './services/ios/dvt/instruments/network-monitor.js';
@@ -118,6 +123,7 @@ export type { TunnelEndpoint } from './lib/tunnel/tunnel-api-client.js';
 export { XCTestConfigurationEncoder } from './services/ios/testmanagerd/xctestconfiguration.js';
 export type { XCTestConfigurationParams } from './services/ios/testmanagerd/xctestconfiguration.js';
 export { ProcessControl } from './services/ios/dvt/instruments/process-control.js';
+export { Sysmontap } from './services/ios/dvt/instruments/sysmontap.js';
 export {
   XCUITestService,
   XCTestRunner,

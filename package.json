@@ -59,6 +59,7 @@
     "test:dvt:applist": "mocha test/integration/dvt_instruments/app-listing-test.ts --exit --timeout 1m",
     "test:dvt:notification": "mocha test/integration/dvt_instruments/notifications-test.ts --exit --timeout 1m",
     "test:dvt:network-monitor": "mocha test/integration/dvt_instruments/network-monitor-test.ts --exit --timeout 1m",
+    "test:dvt:sysmontap": "mocha test/integration/dvt_instruments/sysmontap-test.ts --exit --timeout 1m",
     "test:dvt:process-control": "mocha test/integration/process-control-test.ts --exit --timeout 1m",
     "test:testmanagerd": "mocha test/integration/testmanagerd-test.ts --exit --timeout 2m",
     "test:tunnel-creation": "sudo node scripts/tunnel-creation.mjs",
