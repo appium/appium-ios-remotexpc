@@ -23,6 +23,7 @@ import { NetworkMonitor } from './services/ios/dvt/instruments/network-monitor.j
 import { Notifications } from './services/ios/dvt/instruments/notifications.js';
 import { ProcessControl } from './services/ios/dvt/instruments/process-control.js';
 import { Screenshot } from './services/ios/dvt/instruments/screenshot.js';
+import { Sysmontap } from './services/ios/dvt/instruments/sysmontap.js';
 import { HidIndigoService } from './services/ios/hid-indigo/index.js';
 import { HouseArrestService } from './services/ios/house-arrest/index.js';
 import { InstallationProxyService } from './services/ios/installation-proxy/index.js';
@@ -259,6 +260,7 @@ export async function startDVTService(udid: string): Promise<DVTInstruments> {
     notification: new Notifications(dvtService),
     networkMonitor: new NetworkMonitor(dvtService),
     processControl: new ProcessControl(dvtService),
+    sysmontap: new Sysmontap(dvtService),
   };
 }
 

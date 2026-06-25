@@ -189,6 +189,52 @@ export class DeviceInfo extends BaseInstrument {
     );
   }
 
+  /**
+   * Get the list of process attribute names supported by the sysmontap
+   * instrument. The returned order matches the per-process value tuples
+   * emitted by the sysmontap service, so it is used to label those values.
+   * @returns Array of process attribute names (e.g. 'pid', 'name', 'cpuUsage')
+   */
+  async sysmonProcessAttributes(): Promise<string[]> {
+    return this.expectStringArrayResult(
+      await this.requestInformation('sysmonProcessAttributes'),
+      'sysmonProcessAttributes',
+    );
+  }
+
+  /**
+   * Get the list of system attribute names supported by the sysmontap
+   * instrument. The returned order matches the system value tuple emitted by
+   * the sysmontap service, so it is used to label those values.
+   * @returns Array of system attribute names (e.g. 'vmPageSize', 'physMemSize')
+   */
+  async sysmonSystemAttributes(): Promise<string[]> {
+    return this.expectStringArrayResult(
+      await this.requestInformation('sysmonSystemAttributes'),
+      'sysmonSystemAttributes',
+    );
+  }
+
+  private expectStringArrayResult(result: unknown, context: string): string[] {
+    if (
+      Array.isArray(result) &&
+      result.every((item) => typeof item === 'string')
+    ) {
+      return result;
+    }
+
+    if (hasNSErrorIndicators(result)) {
+      const description =
+        (result as { NSUserInfo?: { NSLocalizedDescription?: string } })
+          .NSUserInfo?.NSLocalizedDescription ?? JSON.stringify(result);
+      throw new Error(`${context}: ${description}`);
+    }
+
+    throw new Error(
+      `${context}: expected string array, got ${typeof result} (${JSON.stringify(result)})`,
+    );
+  }
+
   private expectStringResult(result: unknown, context: string): string {
     if (typeof result === 'string') {
       return result;
