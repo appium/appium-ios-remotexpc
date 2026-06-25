@@ -61,11 +61,7 @@ export {
   CoreDeviceService,
 } from './services/ios/core-device/core-device-service.js';
 export type { CoreDeviceInvokeOptions } from './services/ios/core-device/core-device-service.js';
-export {
-  AppServiceService,
-  SIGNAL_SIGKILL,
-  SIGNAL_SIGTERM,
-} from './services/ios/app-service/index.js';
+export { AppService } from './services/ios/app-service/index.js';
 export type {
   AppServiceProcessToken,
   InstalledApp,

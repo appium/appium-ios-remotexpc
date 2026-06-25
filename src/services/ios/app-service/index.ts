@@ -9,10 +9,6 @@ import {
   CoreDeviceService,
 } from '../core-device/core-device-service.js';
 
-/** POSIX signal numbers commonly used to terminate processes. */
-export const SIGNAL_SIGTERM = 15;
-export const SIGNAL_SIGKILL = 9;
-
 const FEATURE_LIST_APPS = 'com.apple.coredevice.feature.listapps';
 const FEATURE_LAUNCH_APPLICATION =
   'com.apple.coredevice.feature.launchapplication';
@@ -108,21 +104,25 @@ export interface LaunchedApplication {
  *
  * @example
  * ```ts
- * const appService = await Services.startAppServiceService(udid);
+ * import { constants as osConstants } from 'node:os';
+ *
+ * const appService = await Services.startAppService(udid);
  * try {
- *   const apps = await appService.listApps();
  *   const launched = await appService.launchApplication('com.apple.Preferences');
- *   await appService.terminateApplication(launched.processIdentifier!);
+ *   await appService.sendSignalToProcess(
+ *     launched.processIdentifier!,
+ *     osConstants.signals.SIGKILL,
+ *   );
  * } finally {
  *   await appService.close();
  * }
  * ```
  */
-export class AppServiceService extends CoreDeviceService {
+export class AppService extends CoreDeviceService {
   static readonly RSD_SERVICE_NAME = 'com.apple.coredevice.appservice';
 
   constructor(udid: string) {
-    super(udid, AppServiceService.RSD_SERVICE_NAME);
+    super(udid, AppService.RSD_SERVICE_NAME);
   }
 
   /**
@@ -157,6 +157,9 @@ export class AppServiceService extends CoreDeviceService {
 
   /**
    * Launches an application by bundle identifier and returns its process token.
+   *
+   * Throws a {@link CoreDeviceError} if the bundle id is not installed (the
+   * device reports e.g. "The requested application … is not installed.").
    */
   async launchApplication(
     bundleId: string,
@@ -206,7 +209,11 @@ export class AppServiceService extends CoreDeviceService {
   }
 
   /**
-   * Sends a POSIX signal to a process by pid.
+   * Sends a POSIX signal to a process by pid. Use `os.constants.signals` for
+   * signal numbers (e.g. `SIGKILL` to terminate, `SIGTERM` to ask politely).
+   *
+   * Throws a {@link CoreDeviceError} if the pid is not running (the device
+   * reports `com.apple.dt.CoreDeviceError`).
    */
   async sendSignalToProcess(
     pid: number,
@@ -221,25 +228,18 @@ export class AppServiceService extends CoreDeviceService {
   }
 
   /**
-   * Terminates a process by pid (sends SIGKILL by default).
-   */
-  async terminateApplication(
-    pid: number,
-    signal: number = SIGNAL_SIGKILL,
-  ): Promise<XPCDictionary> {
-    return this.sendSignalToProcess(pid, signal);
-  }
-
-  /**
-   * Uninstalls an application by bundle identifier.
+   * Uninstalls an application by bundle identifier. This is idempotent: the
+   * device resolves successfully even if the app is not installed.
    */
   async uninstallApp(bundleId: string): Promise<void> {
     await this.invoke(FEATURE_UNINSTALL_APP, { bundleIdentifier: bundleId });
   }
 
   /**
-   * Monitors termination of a process. Resolves when the device reports the
-   * process has exited. Note: only supported on some devices/configurations.
+   * Monitors termination of a process and resolves with its exit status
+   * (`{ status: { exitCode, wasCoreDumpCreated } }`). If the pid is not running,
+   * the device resolves immediately rather than waiting. Pass `timeoutMs` via
+   * `options` to bound how long to wait for a still-running process to exit.
    */
   async monitorProcessTermination(
     pid: number,
@@ -277,4 +277,4 @@ function extractProcessIdentifier(output: XPCDictionary): number | undefined {
   return undefined;
 }
 
-export default AppServiceService;
+export default AppService;

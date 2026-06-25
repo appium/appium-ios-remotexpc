@@ -1,6 +1,7 @@
 import { expect } from 'chai';
+import { constants as osConstants } from 'node:os';
 
-import type { AppServiceService } from '../../src/index.js';
+import { type AppService, CoreDeviceError } from '../../src/index.js';
 import * as Services from '../../src/services.js';
 
 /**
@@ -8,18 +9,18 @@ import * as Services from '../../src/services.js';
  *
  * Requires a physical iOS device with a running tunnel registry and the
  * Developer Disk Image mounted (AppService is a developer service). Set the UDID
- * env var to the target device; the bundle launched/terminated defaults to
- * Preferences and can be overridden via APP_BUNDLE_ID.
+ * env var to the target device; the bundle launched defaults to Preferences and
+ * can be overridden via APP_BUNDLE_ID.
  *
  * Note (iOS 26): full `listApps` enumeration of third-party apps does not
  * complete over the RSD AppService path (the device only responds for an empty
  * result set), so the listApps test is bounded and lenient. Process and app
- * lifecycle operations (launch/terminate/signal/listProcesses) work fully.
+ * lifecycle operations (launch / signal / listProcesses) work fully.
  */
-describe('AppServiceService', function () {
+describe('AppService', function () {
   this.timeout(60000);
 
-  let appService: AppServiceService | null = null;
+  let appService: AppService | null = null;
   const udid = process.env.UDID || '';
   const bundleId = process.env.APP_BUNDLE_ID || 'com.apple.Preferences';
   const sleep = (ms: number): Promise<void> =>
@@ -29,7 +30,7 @@ describe('AppServiceService', function () {
     if (!udid) {
       throw new Error('set UDID env var to execute tests.');
     }
-    appService = await Services.startAppServiceService(udid);
+    appService = await Services.startAppService(udid);
   });
 
   after(async function () {
@@ -63,39 +64,53 @@ describe('AppServiceService', function () {
     );
 
     // Clean up.
-    await appService!.terminateApplication(launched.processIdentifier!);
+    await appService!.sendSignalToProcess(
+      launched.processIdentifier!,
+      osConstants.signals.SIGKILL,
+    );
   });
 
-  it('terminates a launched application', async function () {
+  it('signals a process and confirms it is gone', async function () {
     const launched = await appService!.launchApplication(bundleId);
     await sleep(800);
 
-    await appService!.terminateApplication(launched.processIdentifier!);
+    const result = await appService!.sendSignalToProcess(
+      launched.processIdentifier!,
+      osConstants.signals.SIGKILL,
+    );
+    expect(result).to.be.an('object');
 
     await sleep(1500);
     const processes = await appService!.listProcesses();
     const stillRunning = processes.some(
       (p) => p.processIdentifier === launched.processIdentifier,
     );
-    expect(stillRunning, 'terminated process should be gone').to.equal(false);
+    expect(stillRunning, 'signalled process should be gone').to.equal(false);
   });
 
-  it('sends a signal to a process', async function () {
-    const launched = await appService!.launchApplication(bundleId);
-    await sleep(500);
+  it('throws a descriptive error when launching a non-existent bundle', async function () {
+    let caught: unknown;
+    try {
+      await appService!.launchApplication('com.foo.doesnotexist', {
+        timeoutMs: 10000,
+      });
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).to.be.instanceOf(CoreDeviceError);
+    expect((caught as Error).message.toLowerCase()).to.contain('not installed');
+  });
 
-    const result = await appService!.sendSignalToProcess(
-      launched.processIdentifier!,
-      9,
-    );
+  it('uninstall is idempotent for a non-installed bundle', async function () {
+    // The device resolves successfully even if the app is not installed.
+    await appService!.uninstallApp('com.foo.doesnotexist');
+  });
+
+  it('monitorProcessTermination resolves immediately for a dead pid', async function () {
+    const result = await appService!.monitorProcessTermination(987654, {
+      timeoutMs: 8000,
+    });
     expect(result).to.be.an('object');
-
-    await sleep(1200);
-    const processes = await appService!.listProcesses();
-    const stillRunning = processes.some(
-      (p) => p.processIdentifier === launched.processIdentifier,
-    );
-    expect(stillRunning).to.equal(false);
   });
 
   it('reuses a single service across multiple operations', async function () {
@@ -104,7 +119,10 @@ describe('AppServiceService', function () {
     const a = await appService!.listProcesses();
     const launched = await appService!.launchApplication(bundleId);
     const b = await appService!.listProcesses();
-    await appService!.terminateApplication(launched.processIdentifier!);
+    await appService!.sendSignalToProcess(
+      launched.processIdentifier!,
+      osConstants.signals.SIGKILL,
+    );
     expect(a.length).to.be.greaterThan(0);
     expect(b.length).to.be.greaterThan(0);
   });
@@ -120,7 +138,7 @@ describe('AppServiceService', function () {
         timeoutMs: 8000,
       });
       expect(apps).to.be.an('array');
-    } catch (error) {
+    } catch {
       // iOS 26 may not respond to app enumeration over the AppService path.
       this.skip();
     }

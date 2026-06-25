@@ -1,13 +1,11 @@
 import { expect } from 'chai';
 import { EventEmitter } from 'node:events';
+import { constants as osConstants } from 'node:os';
 
 import { CoreDeviceError } from '../../../src/index.js';
 import { decodeMessage } from '../../../src/lib/remote-xpc/xpc-protocol.js';
 import type { XPCDictionary, XPCValue } from '../../../src/lib/types.js';
-import {
-  AppServiceService,
-  SIGNAL_SIGKILL,
-} from '../../../src/services/ios/app-service/index.js';
+import { AppService } from '../../../src/services/ios/app-service/index.js';
 
 type Responder = (sentBody: XPCDictionary) => XPCDictionary | null;
 
@@ -39,7 +37,7 @@ class FakeTransport extends EventEmitter {
   }
 }
 
-class TestAppServiceService extends AppServiceService {
+class TestAppService extends AppService {
   constructor(readonly fake: FakeTransport) {
     super('test-udid');
   }
@@ -61,11 +59,11 @@ function reply(output: XPCValue): XPCDictionary {
   return { 'CoreDevice.output': output };
 }
 
-describe('AppServiceService', function () {
+describe('AppService', function () {
   describe('CoreDevice envelope', function () {
     it('wraps every request in the CoreDevice invocation envelope', async function () {
       const fake = new FakeTransport(() => reply([]));
-      const service = new TestAppServiceService(fake);
+      const service = new TestAppService(fake);
 
       await service.listApps();
 
@@ -97,7 +95,7 @@ describe('AppServiceService', function () {
           ? reply(apps)
           : null,
       );
-      const service = new TestAppServiceService(fake);
+      const service = new TestAppService(fake);
 
       const result = await service.listApps();
 
@@ -116,7 +114,7 @@ describe('AppServiceService', function () {
 
     it('honors explicit include options', async function () {
       const fake = new FakeTransport(() => reply([]));
-      const service = new TestAppServiceService(fake);
+      const service = new TestAppService(fake);
 
       await service.listApps({ includeHiddenApps: false });
 
@@ -126,7 +124,7 @@ describe('AppServiceService', function () {
 
     it('forwards the iOS 26 container/metadata flags', async function () {
       const fake = new FakeTransport(() => reply([]));
-      const service = new TestAppServiceService(fake);
+      const service = new TestAppService(fake);
 
       await service.listApps({
         requireContainerAccess: true,
@@ -146,7 +144,7 @@ describe('AppServiceService', function () {
       const fake = new FakeTransport(() =>
         reply({ processToken: { processIdentifier: 99 } }),
       );
-      const service = new TestAppServiceService(fake);
+      const service = new TestAppService(fake);
 
       const launched = await service.launchApplication(
         'com.apple.Preferences',
@@ -178,7 +176,7 @@ describe('AppServiceService', function () {
 
     it('defaults arguments/environment and allows disabling terminateExisting', async function () {
       const fake = new FakeTransport(() => reply({ processToken: {} }));
-      const service = new TestAppServiceService(fake);
+      const service = new TestAppService(fake);
 
       await service.launchApplication('com.x', { terminateExisting: false });
 
@@ -196,7 +194,7 @@ describe('AppServiceService', function () {
         { processIdentifier: 42, executableURL: { relative: '/x' } },
       ];
       const fake = new FakeTransport(() => reply({ processTokens: tokens }));
-      const service = new TestAppServiceService(fake);
+      const service = new TestAppService(fake);
 
       const result = await service.listProcesses();
 
@@ -207,36 +205,27 @@ describe('AppServiceService', function () {
     });
   });
 
-  describe('sendSignalToProcess / terminateApplication', function () {
+  describe('sendSignalToProcess', function () {
     it('sends the pid and signal as the input', async function () {
       const fake = new FakeTransport(() => reply({}));
-      const service = new TestAppServiceService(fake);
+      const service = new TestAppService(fake);
 
-      await service.sendSignalToProcess(123, 15);
+      await service.sendSignalToProcess(123, osConstants.signals.SIGKILL);
 
       expect(feature(fake.sentBodies[0])).to.equal(
         'com.apple.coredevice.feature.sendsignaltoprocess',
       );
       expect(input(fake.sentBodies[0])).to.deep.equal({
         process: { processIdentifier: 123 },
-        signal: 15,
+        signal: osConstants.signals.SIGKILL,
       });
-    });
-
-    it('terminateApplication sends SIGKILL by default', async function () {
-      const fake = new FakeTransport(() => reply({}));
-      const service = new TestAppServiceService(fake);
-
-      await service.terminateApplication(123);
-
-      expect(input(fake.sentBodies[0]).signal).to.equal(SIGNAL_SIGKILL);
     });
   });
 
   describe('uninstallApp', function () {
     it('sends the bundle identifier', async function () {
       const fake = new FakeTransport(() => reply({}));
-      const service = new TestAppServiceService(fake);
+      const service = new TestAppService(fake);
 
       await service.uninstallApp('com.apple.Preferences');
 
@@ -252,7 +241,7 @@ describe('AppServiceService', function () {
   describe('error handling', function () {
     it('throws CoreDeviceError when the reply has no output', async function () {
       const fake = new FakeTransport(() => ({ 'CoreDevice.error': 'boom' }));
-      const service = new TestAppServiceService(fake);
+      const service = new TestAppService(fake);
 
       let caught: unknown;
       try {
@@ -263,9 +252,36 @@ describe('AppServiceService', function () {
       expect(caught).to.be.instanceOf(CoreDeviceError);
     });
 
+    it('surfaces the device NSError reason in the message', async function () {
+      const fake = new FakeTransport(() => ({
+        'CoreDevice.error': {
+          domain: 'com.apple.dt.CoreDeviceError',
+          code: 10002,
+          userInfo: {
+            NSLocalizedDescription: 'The application failed to launch.',
+            NSLocalizedFailureReason:
+              'The requested application com.foo.bar is not installed.',
+          },
+        },
+      }));
+      const service = new TestAppService(fake);
+
+      let caught: unknown;
+      try {
+        await service.launchApplication('com.foo.bar');
+      } catch (error) {
+        caught = error;
+      }
+      expect(caught).to.be.instanceOf(CoreDeviceError);
+      const message = (caught as Error).message;
+      expect(message).to.contain('is not installed');
+      expect(message).to.contain('com.apple.dt.CoreDeviceError');
+      expect(message).to.contain('10002');
+    });
+
     it('times out when no reply arrives', async function () {
       const fake = new FakeTransport(() => null);
-      const service = new TestAppServiceService(fake);
+      const service = new TestAppService(fake);
 
       let caught: unknown;
       try {
@@ -286,7 +302,7 @@ describe('AppServiceService', function () {
         }
         return reply({ processTokens: [{ processIdentifier: 7 }] });
       });
-      const service = new TestAppServiceService(fake);
+      const service = new TestAppService(fake);
 
       const [apps, procs] = await Promise.all([
         service.listApps(),
@@ -302,7 +318,7 @@ describe('AppServiceService', function () {
   describe('close', function () {
     it('closes the active transport', async function () {
       const fake = new FakeTransport(() => reply([]));
-      const service = new TestAppServiceService(fake);
+      const service = new TestAppService(fake);
 
       await service.listApps();
       await service.close();

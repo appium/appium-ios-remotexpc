@@ -34,6 +34,13 @@ function buildCoreDeviceVersion(version: string): XPCDictionary {
 
 const CORE_DEVICE_VERSION = buildCoreDeviceVersion(CORE_DEVICE_VERSION_STRING);
 
+export interface CoreDeviceInvokeOptions {
+  /** Optional action identifier for the invocation. */
+  actionIdentifier?: string;
+  /** Override the default response timeout. */
+  timeoutMs?: number;
+}
+
 /**
  * Error thrown when a CoreDevice invocation fails or returns no output.
  */
@@ -45,13 +52,6 @@ export class CoreDeviceError extends Error {
     this.name = 'CoreDeviceError';
     this.response = response;
   }
-}
-
-export interface CoreDeviceInvokeOptions {
-  /** Optional action identifier for the invocation. */
-  actionIdentifier?: string;
-  /** Override the default response timeout. */
-  timeoutMs?: number;
 }
 
 /**
@@ -162,7 +162,7 @@ export abstract class CoreDeviceService extends BaseService {
    * Closes any existing connection and opens a fresh one. Used by {@link invoke}
    * because CoreDevice services are one-shot per connection.
    */
-  private async freshTransport(): Promise<RemoteXpcFramedTransport> {
+  private async refreshTransport(): Promise<RemoteXpcFramedTransport> {
     if (this.transport) {
       const previous = this.transport;
       this.transport = null;
@@ -178,7 +178,7 @@ export abstract class CoreDeviceService extends BaseService {
     input: XPCDictionary,
     options: CoreDeviceInvokeOptions,
   ): Promise<XPCValue> {
-    const transport = await this.freshTransport();
+    const transport = await this.refreshTransport();
     const request = this.buildEnvelope(
       featureIdentifier,
       input,
@@ -207,10 +207,7 @@ export abstract class CoreDeviceService extends BaseService {
     const response = await responsePromise;
     const output = response['CoreDevice.output'];
     if (output === undefined) {
-      throw new CoreDeviceError(
-        `CoreDevice invocation '${featureIdentifier ?? '<none>'}' returned no output`,
-        response,
-      );
+      throw buildInvocationError(featureIdentifier, response);
     }
     return output;
   }
@@ -298,6 +295,57 @@ export abstract class CoreDeviceService extends BaseService {
       transport.once('close', onClose);
     });
   }
+}
+
+/**
+ * Builds a descriptive error from a CoreDevice reply that carries no output.
+ * The device returns an `NSError`-shaped `CoreDevice.error` whose `userInfo`
+ * holds a human-readable reason; surface it so callers can tell *why* (e.g. a
+ * missing bundle id or pid) instead of a generic failure.
+ */
+function buildInvocationError(
+  featureIdentifier: string | undefined,
+  response: XPCDictionary,
+): CoreDeviceError {
+  const feature = featureIdentifier ?? '<none>';
+  const deviceError = response['CoreDevice.error'];
+  if (
+    !deviceError ||
+    typeof deviceError !== 'object' ||
+    Array.isArray(deviceError)
+  ) {
+    return new CoreDeviceError(
+      `CoreDevice invocation '${feature}' returned no output`,
+      response,
+    );
+  }
+
+  const error = deviceError as XPCDictionary;
+  const userInfo =
+    error.userInfo && typeof error.userInfo === 'object'
+      ? (error.userInfo as XPCDictionary)
+      : {};
+  const reason =
+    pickString(userInfo.NSLocalizedDescription) ??
+    pickString(userInfo.NSLocalizedFailureReason) ??
+    pickString(userInfo.NSDebugDescription) ??
+    'unknown error';
+  const failureReason = pickString(userInfo.NSLocalizedFailureReason);
+  const detail =
+    failureReason && failureReason !== reason
+      ? `${reason} ${failureReason}`
+      : reason;
+  const domain = pickString(error.domain) ?? 'unknown';
+  const code = typeof error.code === 'number' ? ` ${error.code}` : '';
+
+  return new CoreDeviceError(
+    `CoreDevice '${feature}' failed: ${detail} [${domain}${code}]`,
+    response,
+  );
+}
+
+function pickString(value: XPCValue | undefined): string | undefined {
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
 
 export default CoreDeviceService;
