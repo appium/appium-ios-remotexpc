@@ -1,3 +1,9 @@
+## [5.3.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.2.2...v5.3.0) (2026-06-25)
+
+### Features
+
+* **sysmontap:** add sysmontap RSD service ([#251](https://github.com/appium/appium-ios-remotexpc/issues/251)) ([d2f94e4](https://github.com/appium/appium-ios-remotexpc/commit/d2f94e4ef2fb0fb7b1ba83d412a87f6dac731727))
+
 ## [5.2.2](https://github.com/appium/appium-ios-remotexpc/compare/v5.2.1...v5.2.2) (2026-06-24)
 
 ### Miscellaneous Chores
