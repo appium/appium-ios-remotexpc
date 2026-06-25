@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
+import { getLogger } from '../../../lib/logger.js';
 import {
   Http2Constants,
   XpcConstants,
@@ -8,6 +9,8 @@ import { RemoteXpcFramedTransport } from '../../../lib/remote-xpc/remote-xpc-fra
 import { encodeMessage } from '../../../lib/remote-xpc/xpc-protocol.js';
 import type { XPCDictionary, XPCValue } from '../../../lib/types.js';
 import { BaseService } from '../base-service.js';
+
+const log = getLogger('CoreDeviceService');
 
 const CONNECT_TIMEOUT_MS = 10_000;
 const DEFAULT_INVOKE_TIMEOUT_MS = 30_000;
@@ -152,10 +155,25 @@ export abstract class CoreDeviceService extends BaseService {
 
   protected async getTransport(): Promise<RemoteXpcFramedTransport> {
     if (!this.transport?.isConnected) {
-      this.transport = await this.createTransport();
-      this.nextMessageId = 1;
+      this.transport = await this.newTransport();
     }
     return this.transport;
+  }
+
+  /**
+   * Creates a transport and attaches a permanent `'error'` listener. The
+   * framed transport is an EventEmitter; an `'error'` emitted with no listener
+   * is thrown by Node and crashes the process. `invoke()` registers a per-call
+   * listener, but fire-and-forget `send()` does not — so this guarantees a
+   * listener always exists for the transport's lifetime.
+   */
+  private async newTransport(): Promise<RemoteXpcFramedTransport> {
+    const transport = await this.createTransport();
+    transport.on('error', (error: Error) => {
+      log.debug(`CoreDevice transport error: ${error.message}`);
+    });
+    this.nextMessageId = 1;
+    return transport;
   }
 
   /**
@@ -168,8 +186,7 @@ export abstract class CoreDeviceService extends BaseService {
       this.transport = null;
       await previous.close().catch((): void => undefined);
     }
-    this.transport = await this.createTransport();
-    this.nextMessageId = 1;
+    this.transport = await this.newTransport();
     return this.transport;
   }
 
