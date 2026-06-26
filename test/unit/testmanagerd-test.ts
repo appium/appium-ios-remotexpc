@@ -1,5 +1,3 @@
-import { expect } from 'chai';
-
 import { PlistUID, createBinaryPlist } from '../../src/lib/plist/index.js';
 import {
   DTX_CONSTANTS,

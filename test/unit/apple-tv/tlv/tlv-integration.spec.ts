@@ -1,5 +1,3 @@
-import { expect } from 'chai';
-
 import { TLV8_MAX_FRAGMENT_SIZE } from '../../../../src/lib/apple-tv/constants.js';
 import {
   decodeTLV8,

@@ -1,6 +1,4 @@
 import { logger } from '@appium/support';
-import { expect } from 'chai';
-
 import type { ConditionGroup, DVTInstruments } from '../../../src/index.js';
 import * as Services from '../../../src/services.js';
 

@@ -1,5 +1,3 @@
-import { expect } from 'chai';
-
 import type { HidIndigoService } from '../../src/index.js';
 import * as Services from '../../src/services.js';
 

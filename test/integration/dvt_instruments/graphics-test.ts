@@ -1,6 +1,4 @@
 import { logger } from '@appium/support';
-import { expect } from 'chai';
-
 import type { DVTInstruments } from '../../../src/lib/types.js';
 import * as Services from '../../../src/services.js';
 

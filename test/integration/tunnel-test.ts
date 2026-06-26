@@ -1,5 +1,3 @@
-import { expect } from 'chai';
-
 import type { SyslogService as ISyslogService } from '../../src/lib/types.js';
 import {
   startSyslogBinaryService,

@@ -1,5 +1,3 @@
-import { expect } from 'chai';
-
 import {
   ensureString,
   escapeXml,

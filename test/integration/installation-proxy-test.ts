@@ -1,5 +1,3 @@
-import { expect } from 'chai';
-
 import { getLogger } from '../../src/lib/logger.js';
 import * as Services from '../../src/services.js';
 import type { InstallationProxyService } from '../../src/services/ios/installation-proxy/index.js';

@@ -1,5 +1,3 @@
-import { expect } from 'chai';
-
 import { createLockdownServiceForTunnel } from '../../src/index.js';
 import type { LockdownDeviceInfo } from '../../src/lib/types.js';
 

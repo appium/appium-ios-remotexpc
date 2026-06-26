@@ -1,4 +1,3 @@
-import { expect } from 'chai';
 import esmock from 'esmock';
 
 class MockTunnelAvailabilityError extends Error {

@@ -1,4 +1,3 @@
-import { expect } from 'chai';
 import { EventEmitter } from 'node:events';
 import { constants as osConstants } from 'node:os';
 

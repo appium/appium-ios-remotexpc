@@ -1,4 +1,3 @@
-import { expect } from 'chai';
 import { constants as osConstants } from 'node:os';
 
 import { type AppService, CoreDeviceError } from '../../src/index.js';

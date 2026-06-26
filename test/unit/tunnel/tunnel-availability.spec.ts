@@ -1,4 +1,3 @@
-import { expect } from 'chai';
 import esmock from 'esmock';
 
 const TEST_UDID = 'test-udid';

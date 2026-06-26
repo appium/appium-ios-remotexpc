@@ -1,5 +1,3 @@
-import { expect, use } from 'chai';
-import chaiAsPromised from 'chai-as-promised';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
@@ -7,7 +5,6 @@ import { fileURLToPath } from 'node:url';
 
 import { StreamZip } from '../../../src/services/ios/zipconduit/stream-zip.js';
 
-use(chaiAsPromised);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURES = path.join(__dirname, '../../fixtures/stream-zip');

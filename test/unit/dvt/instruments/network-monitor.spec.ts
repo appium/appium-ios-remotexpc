@@ -1,5 +1,3 @@
-import { expect } from 'chai';
-
 import type { NetworkAddress } from '../../../../src/index.js';
 import { NetworkMonitor } from '../../../../src/services/ios/dvt/instruments/network-monitor.js';
 

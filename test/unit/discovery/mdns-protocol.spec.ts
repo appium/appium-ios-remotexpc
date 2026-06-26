@@ -1,5 +1,3 @@
-import { expect } from 'chai';
-
 import {
   QTYPE_PTR,
   QTYPE_SRV,

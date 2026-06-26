@@ -1,5 +1,3 @@
-import { expect } from 'chai';
-
 import { PairingDataComponentType } from '../../../../src/lib/apple-tv/constants.js';
 import { decodeTLV8ToDict } from '../../../../src/lib/apple-tv/tlv/decoder.js';
 import {

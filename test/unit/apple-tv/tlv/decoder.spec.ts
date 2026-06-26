@@ -1,5 +1,3 @@
-import { expect } from 'chai';
-
 import { TLV8Error } from '../../../../src/lib/apple-tv/errors.js';
 import {
   decodeTLV8,

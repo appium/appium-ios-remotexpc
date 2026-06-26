@@ -1,6 +1,4 @@
 import { logger } from '@appium/support';
-import { expect } from 'chai';
-
 import type { DVTInstruments, NetworkEvent } from '../../../src/index.js';
 import { NetworkMessageType } from '../../../src/index.js';
 import * as Services from '../../../src/services.js';

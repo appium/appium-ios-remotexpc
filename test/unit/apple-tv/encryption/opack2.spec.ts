@@ -1,5 +1,3 @@
-import { expect } from 'chai';
-import { describe, it } from 'mocha';
 
 import { Opack2 } from '../../../../src/lib/apple-tv/encryption/opack2.js';
 import { AppleTVError } from '../../../../src/lib/apple-tv/errors.js';

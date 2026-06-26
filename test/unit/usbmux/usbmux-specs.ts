@@ -1,12 +1,9 @@
-import { expect, use } from 'chai';
-import chaiAsPromised from 'chai-as-promised';
 import { Server, Socket } from 'node:net';
 
 import { type Device, Usbmux } from '../../../src/lib/usbmux/index.js';
 import { prioritizeUsbOverNetworkForDuplicateUdids } from '../../../src/lib/usbmux/utils.js';
 import { UDID, fixtures, getServerWithFixtures } from '../fixtures/index.js';
 
-use(chaiAsPromised);
 
 const DUP_UDID = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 

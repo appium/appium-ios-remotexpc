@@ -1,4 +1,3 @@
-import { expect } from 'chai';
 import path from 'node:path';
 
 import { getLogger } from '../../src/lib/logger.js';

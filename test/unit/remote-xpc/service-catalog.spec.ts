@@ -1,5 +1,3 @@
-import { expect } from 'chai';
-
 import { DataFrame } from '../../../src/lib/remote-xpc/handshake-frames.js';
 import {
   Http2FrameParser,

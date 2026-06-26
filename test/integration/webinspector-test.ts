@@ -1,6 +1,4 @@
 import { logger } from '@appium/support';
-import { expect } from 'chai';
-
 import type { WebInspectorService } from '../../src/index.js';
 import * as Services from '../../src/services.js';
 

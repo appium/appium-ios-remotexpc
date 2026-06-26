@@ -1,8 +1,6 @@
 import { logger } from '@appium/support';
-import { expect } from 'chai';
 import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
-import { after, before, describe } from 'mocha';
 import path from 'path';
 import { fileURLToPath } from 'url';
 

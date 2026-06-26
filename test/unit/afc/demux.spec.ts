@@ -1,4 +1,3 @@
-import { expect } from 'chai';
 import net from 'node:net';
 
 import { readUInt64LE } from '../../../src/services/ios/afc/codec.js';

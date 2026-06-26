@@ -1,5 +1,3 @@
-import { expect } from 'chai';
-
 import { createUsbmux } from '../../src/lib/usbmux/index.js';
 
 describe('Pair Record', function () {

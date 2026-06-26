@@ -1,6 +1,4 @@
 import { logger } from '@appium/support';
-import { expect } from 'chai';
-
 import type { MobileConfigService } from '../../src/lib/types.js';
 import * as Services from '../../src/services.js';
 

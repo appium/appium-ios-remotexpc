@@ -1,6 +1,4 @@
 import { logger } from '@appium/support';
-import { expect } from 'chai';
-
 import type { DVTInstruments } from '../../../src/index.js';
 import * as Services from '../../../src/services.js';
 import type { LocationCoordinates } from '../../../src/services/ios/dvt/instruments/location-simulation.js';

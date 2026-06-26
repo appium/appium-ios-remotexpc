@@ -1,4 +1,3 @@
-import { expect } from 'chai';
 import { createConnection } from 'node:net';
 
 import {

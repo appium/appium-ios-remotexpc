@@ -1,4 +1,3 @@
-import { expect } from 'chai';
 import os from 'node:os';
 
 import {

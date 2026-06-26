@@ -1,5 +1,4 @@
 import { logger } from '@appium/support';
-import { expect } from 'chai';
 import sinon from 'sinon';
 
 import type { DVTInstruments } from '../../../src/lib/types.js';

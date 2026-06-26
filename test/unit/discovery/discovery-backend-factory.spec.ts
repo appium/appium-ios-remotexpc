@@ -1,5 +1,3 @@
-import { expect } from 'chai';
-
 import { createDiscoveryBackend } from '../../../src/lib/discovery/discovery-backend-factory.js';
 import { MdnsDiscoveryBackend } from '../../../src/lib/discovery/mdns-discovery-backend.js';
 

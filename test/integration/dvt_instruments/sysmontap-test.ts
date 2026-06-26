@@ -1,6 +1,4 @@
 import { logger } from '@appium/support';
-import { expect } from 'chai';
-
 import type {
   DVTInstruments,
   SysmonProcessInfo,

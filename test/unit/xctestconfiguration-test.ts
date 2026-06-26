@@ -1,5 +1,3 @@
-import { expect } from 'chai';
-
 import { PlistUID } from '../../src/lib/plist/index.js';
 import {
   XCTestConfigurationEncoder,

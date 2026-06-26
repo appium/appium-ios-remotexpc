@@ -1,5 +1,3 @@
-import { expect } from 'chai';
-
 import { Services } from '../../src/index.js';
 import type { DiagnosticsService } from '../../src/lib/types.js';
 
