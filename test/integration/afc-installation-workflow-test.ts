@@ -4,6 +4,7 @@ import { getLogger } from '../../src/lib/logger.js';
 import * as Services from '../../src/services.js';
 import AfcService from '../../src/services/ios/afc/index.js';
 import { InstallationProxyService } from '../../src/services/ios/installation-proxy/index.js';
+import { requireDeviceUdid } from './helpers/device.js';
 
 const log = getLogger('AFC-InstallationProxy.Workflow.test');
 
@@ -27,7 +28,7 @@ describe('AFC + Installation Proxy Workflow', function () {
   let afcService: AfcService;
   let installationProxyService: InstallationProxyService;
 
-  const udid = process.env.UDID || '';
+  const udid = requireDeviceUdid();
   const testIpaPathV1 = process.env.TEST_IPA_PATH || '';
   const testIpaPathV2 = process.env.TEST_IPA_PATH_2 || '';
   const testBundleId = process.env.TEST_BUNDLE_ID || '';
@@ -38,12 +39,6 @@ describe('AFC + Installation Proxy Workflow', function () {
       log.warn(
         'Skipping AFC + Installation Proxy workflow tests: TEST_IPA_PATH and TEST_BUNDLE_ID must be set',
       );
-      this.skip();
-      return;
-    }
-
-    if (!udid) {
-      log.warn('Skipping tests: UDID environment variable not set');
       this.skip();
       return;
     }

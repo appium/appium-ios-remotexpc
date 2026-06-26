@@ -6,12 +6,13 @@ import { Readable } from 'node:stream';
 import { Services } from '../../src/index.js';
 import { AfcFileMode } from '../../src/services/ios/afc/enums.js';
 import AfcService from '../../src/services/ios/afc/index.js';
+import { requireDeviceUdid } from './helpers/device.js';
 
 describe('AFC Service', function () {
   // Allow extra time for device interaction
   this.timeout(60000);
 
-  const udid = process.env.UDID || '';
+  const udid = requireDeviceUdid();
 
   let afc: AfcService;
 

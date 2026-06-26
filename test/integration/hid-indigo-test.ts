@@ -1,17 +1,14 @@
 import type { HidIndigoService } from '../../src/index.js';
 import * as Services from '../../src/services.js';
+import { requireDeviceUdid } from './helpers/device.js';
 
 describe('HidIndigoService', function () {
   this.timeout(60000);
 
   let hidIndigoService: HidIndigoService | null = null;
-  const udid = process.env.UDID || '';
+  const udid = requireDeviceUdid();
 
   before(async function () {
-    if (!udid) {
-      throw new Error('set UDID env var to execute tests.');
-    }
-
     hidIndigoService = await Services.startHidIndigoService(udid);
   });
 

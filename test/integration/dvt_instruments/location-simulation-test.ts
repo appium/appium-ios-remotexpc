@@ -1,7 +1,9 @@
 import { logger } from '@appium/support';
+
 import type { DVTInstruments } from '../../../src/index.js';
 import * as Services from '../../../src/services.js';
 import type { LocationCoordinates } from '../../../src/services/ios/dvt/instruments/location-simulation.js';
+import { requireDeviceUdid } from '../helpers/device.js';
 
 const log = logger.getLogger('LocationSimulation.test');
 log.level = 'debug';
@@ -10,12 +12,9 @@ describe('Location Simulation Instrument', function () {
   this.timeout(30000);
 
   let dvtServiceConnection: DVTInstruments | null = null;
-  const udid = process.env.UDID || '';
+  const udid = requireDeviceUdid();
 
   before(async () => {
-    if (!udid) {
-      throw new Error('set UDID env var to execute tests.');
-    }
     dvtServiceConnection = await Services.startDVTService(udid);
   });
 

@@ -3,6 +3,7 @@ import sinon from 'sinon';
 
 import type { DVTInstruments } from '../../../src/lib/types.js';
 import * as Services from '../../../src/services.js';
+import { requireDeviceUdid } from '../helpers/device.js';
 
 const log = logger.getLogger('notifications.test');
 log.level = 'debug';
@@ -11,13 +12,9 @@ describe('Notifications', function () {
   this.timeout(30000);
 
   let dvtServiceConnection: DVTInstruments | null = null;
-  const udid = process.env.UDID || '';
+  const udid = requireDeviceUdid();
 
   before(async function () {
-    if (!udid) {
-      throw new Error('set UDID env var to execute tests.');
-    }
-
     dvtServiceConnection = await Services.startDVTService(udid);
   });
 

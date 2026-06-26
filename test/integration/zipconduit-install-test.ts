@@ -4,6 +4,7 @@ import { getLogger } from '../../src/lib/logger.js';
 import * as Services from '../../src/services.js';
 import type { InstallationProxyService } from '../../src/services/ios/installation-proxy/index.js';
 import type ZipConduitService from '../../src/services/ios/zipconduit/index.js';
+import { requireDeviceUdid } from './helpers/device.js';
 
 const log = getLogger('ZipConduit.Install.test');
 
@@ -24,7 +25,7 @@ describe('ZipConduit Install', function () {
   let zipConduitService: ZipConduitService;
   let installationProxyService: InstallationProxyService;
 
-  const udid = process.env.UDID || '';
+  const udid = requireDeviceUdid();
   const testIpaPath = process.env.TEST_IPA_PATH || '';
   const testBundleId = process.env.TEST_BUNDLE_ID || '';
 
@@ -33,12 +34,6 @@ describe('ZipConduit Install', function () {
       log.warn(
         'Skipping ZipConduit install test: TEST_IPA_PATH and TEST_BUNDLE_ID must be set',
       );
-      this.skip();
-      return;
-    }
-
-    if (!udid) {
-      log.warn('Skipping ZipConduit install test: UDID not set');
       this.skip();
       return;
     }

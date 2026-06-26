@@ -1,6 +1,8 @@
 import { logger } from '@appium/support';
+
 import type { NotificationProxyService } from '../../src/lib/types.js';
 import * as Services from '../../src/services.js';
+import { requireDeviceUdid } from './helpers/device.js';
 
 const log = logger.getLogger('NotificationProxyService.test');
 // Set NotificationProxyService logger to info level
@@ -10,7 +12,7 @@ describe('NotificationProxyService', function () {
   this.timeout(60000);
 
   let notificationProxyService: NotificationProxyService;
-  const udid = process.env.UDID || '';
+  const udid = requireDeviceUdid();
 
   before(async function () {
     notificationProxyService =

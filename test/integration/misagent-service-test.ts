@@ -1,6 +1,8 @@
 import { logger } from '@appium/support';
+
 import { type MisagentService } from '../../src/lib/types.js';
 import * as Services from '../../src/services.js';
+import { requireDeviceUdid } from './helpers/device.js';
 
 const log = logger.getLogger('MisagentService.test');
 log.level = 'info';
@@ -9,7 +11,7 @@ describe('MisagentService', function () {
   this.timeout(60000);
 
   let misagentService: MisagentService;
-  const udid = process.env.UDID || '';
+  const udid = requireDeviceUdid();
 
   before(async function () {
     misagentService = await Services.startMisagentService(udid);

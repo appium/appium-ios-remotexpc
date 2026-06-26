@@ -6,6 +6,7 @@ import { fileURLToPath } from 'url';
 
 import { Services } from '../../src/index.js';
 import type { MobileImageMounterService } from '../../src/index.js';
+import { requireDeviceUdid } from './helpers/device.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -36,13 +37,9 @@ describe('MobileImageMounterService Integration', function () {
   this.timeout(40000);
 
   let mobileImageMounterService: MobileImageMounterService | null = null;
-  const testUdid = process.env.UDID || '';
+  const testUdid = requireDeviceUdid();
 
   before(async function () {
-    if (!testUdid) {
-      throw new Error('set UDID env var to execute tests.');
-    }
-
     // Establish connection for all tests
     mobileImageMounterService =
       await Services.startMobileImageMounterService(testUdid);

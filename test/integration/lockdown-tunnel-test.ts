@@ -1,5 +1,6 @@
 import { createLockdownServiceForTunnel } from '../../src/index.js';
 import type { LockdownDeviceInfo } from '../../src/lib/types.js';
+import { requireDeviceUdid } from './helpers/device.js';
 
 /**
  * Integration: tunnel lockdown (`createLockdownServiceForTunnel`) and `getDeviceInfo()`.
@@ -13,13 +14,9 @@ import type { LockdownDeviceInfo } from '../../src/lib/types.js';
 describe('Lockdown over tunnel (getDeviceInfo)', function () {
   this.timeout(60000);
 
-  const udid = process.env.UDID?.trim() ?? '';
+  const udid = requireDeviceUdid();
 
   it('should return lockdown device info', async function () {
-    if (!udid) {
-      this.skip();
-    }
-
     const lockdown = await createLockdownServiceForTunnel(udid);
     try {
       const info: LockdownDeviceInfo = await lockdown.getDeviceInfo();

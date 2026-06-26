@@ -1,4 +1,5 @@
 import { logger } from '@appium/support';
+
 import type {
   DVTInstruments,
   HouseArrestService,
@@ -15,13 +16,16 @@ import {
 } from '../../src/lib/plist/index.js';
 import * as Services from '../../src/services.js';
 import { MessageAux } from '../../src/services/ios/dvt/index.js';
+import { requireDeviceUdid } from './helpers/device.js';
 
 const log = logger.getLogger('Testmanagerd.test');
 log.level = 'debug';
 
 const XCODE_VERSION = 36;
 
-const UDID = process.env.UDID || '';
+const UDID = requireDeviceUdid(
+  'Set UDID. Example: UDID=<device-udid> npm run test:testmanagerd',
+);
 /**
  * Set to a real attachment UUID to run the optional delete smoke test.
  * Must be a full RFC-4122 string (32 hex digits, with or without dashes), e.g.
@@ -85,14 +89,6 @@ function assertNSKeyedArchiverShape(obj: any): void {
 
 describe('Testmanagerd Service', function () {
   this.timeout(120000);
-
-  before(function () {
-    if (!UDID) {
-      throw new Error(
-        'Set UDID. Example: UDID=<device-udid> npm run test:testmanagerd',
-      );
-    }
-  });
 
   describe('Dual-connection handshake + control session init', function () {
     let controlConnection: TestmanagerdService | null = null;

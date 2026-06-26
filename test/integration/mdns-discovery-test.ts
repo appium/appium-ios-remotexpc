@@ -1,4 +1,5 @@
 import { logger } from '@appium/support';
+
 import { REMOTE_PAIRING_MANUAL_DISCOVERY_SERVICE_TYPE } from '../../src/lib/apple-tv/constants.js';
 import { createDiscoveryBackend } from '../../src/lib/discovery/discovery-backend-factory.js';
 import { MdnsTestResponder } from '../helpers/mdns-test-responder.js';

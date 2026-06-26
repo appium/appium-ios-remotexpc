@@ -1,10 +1,12 @@
 import { logger } from '@appium/support';
+
 import type {
   DVTInstruments,
   SysmonProcessInfo,
   SysmonSample,
 } from '../../../src/index.js';
 import * as Services from '../../../src/services.js';
+import { requireDeviceUdid } from '../helpers/device.js';
 
 const log = logger.getLogger('Sysmontap.test');
 log.level = 'debug';
@@ -30,16 +32,14 @@ async function collectProcessSnapshots(
 describe('Sysmontap', function () {
   this.timeout(60000);
 
-  const udid = process.env.UDID || '';
+  const udid = requireDeviceUdid();
 
   // A sysmontap instance supports a single sampling session per DVT connection,
   // so every test runs against its own freshly created connection.
   let dvt: DVTInstruments;
 
   beforeEach(async function () {
-    if (!udid) {
-      throw new Error('set UDID env var to execute tests.');
-    }
+    requireDeviceUdid(udid);
     dvt = await Services.startDVTService(udid);
   });
 

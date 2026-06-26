@@ -2,6 +2,7 @@ import { constants as osConstants } from 'node:os';
 
 import { type AppService, CoreDeviceError } from '../../src/index.js';
 import * as Services from '../../src/services.js';
+import { requireDeviceUdid } from './helpers/device.js';
 
 /**
  * Integration tests for the CoreDevice AppService.
@@ -20,15 +21,13 @@ describe('AppService', function () {
   this.timeout(60000);
 
   let appService: AppService | null = null;
-  const udid = process.env.UDID || '';
+  const udid = requireDeviceUdid();
   const bundleId = process.env.APP_BUNDLE_ID || 'com.apple.Preferences';
   const sleep = (ms: number): Promise<void> =>
     new Promise((resolve) => setTimeout(resolve, ms));
 
   before(async function () {
-    if (!udid) {
-      throw new Error('set UDID env var to execute tests.');
-    }
+    requireDeviceUdid(udid);
     appService = await Services.startAppService(udid);
   });
 

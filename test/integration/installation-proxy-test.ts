@@ -1,6 +1,7 @@
 import { getLogger } from '../../src/lib/logger.js';
 import * as Services from '../../src/services.js';
 import type { InstallationProxyService } from '../../src/services/ios/installation-proxy/index.js';
+import { requireDeviceUdid } from './helpers/device.js';
 
 const log = getLogger('InstallationProxyService.test');
 
@@ -8,7 +9,7 @@ describe('InstallationProxyService', function () {
   this.timeout(60000);
 
   let installationProxyService: InstallationProxyService;
-  const udid = process.env.UDID || '';
+  const udid = requireDeviceUdid();
 
   before(async function () {
     try {

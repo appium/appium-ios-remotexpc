@@ -1,12 +1,13 @@
 import { Services } from '../../src/index.js';
 import type { DiagnosticsService } from '../../src/lib/types.js';
+import { requireDeviceUdid } from './helpers/device.js';
 
 describe('Diagnostics Service', function () {
   // Increase timeout for integration tests
   this.timeout(60000);
 
   let diagService: DiagnosticsService;
-  const udid = process.env.UDID || '';
+  const udid = requireDeviceUdid();
 
   before(async function () {
     diagService = await Services.startDiagnosticsService(udid);

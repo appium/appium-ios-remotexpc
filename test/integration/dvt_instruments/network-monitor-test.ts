@@ -1,7 +1,9 @@
 import { logger } from '@appium/support';
+
 import type { DVTInstruments, NetworkEvent } from '../../../src/index.js';
 import { NetworkMessageType } from '../../../src/index.js';
 import * as Services from '../../../src/services.js';
+import { requireDeviceUdid } from '../helpers/device.js';
 
 const log = logger.getLogger('NetworkMonitor.test');
 log.level = 'debug';
@@ -35,12 +37,9 @@ describe('NetworkMonitor', function () {
   this.timeout(60000);
 
   let dvtServiceConnection: DVTInstruments | null = null;
-  const udid = process.env.UDID || '';
+  const udid = requireDeviceUdid();
 
   before(async function () {
-    if (!udid) {
-      throw new Error('set UDID env var to execute tests.');
-    }
     dvtServiceConnection = await Services.startDVTService(udid);
   });
 

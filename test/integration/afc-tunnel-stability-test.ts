@@ -9,6 +9,7 @@ import { getLogger } from '../../src/lib/logger.js';
 import * as Services from '../../src/services.js';
 import { AfcFileMode } from '../../src/services/ios/afc/enums.js';
 import type AfcService from '../../src/services/ios/afc/index.js';
+import { requireDeviceUdid } from './helpers/device.js';
 
 const log = getLogger('AFC.TunnelStability.test');
 
@@ -33,7 +34,7 @@ const MIB = 1024 * 1024;
  *   UDID=... npm run test:afc-tunnel-stability
  */
 describe('AFC tunnel stability', function () {
-  const udid = process.env.UDID || '';
+  const udid = requireDeviceUdid();
   const iterations = parsePositiveInt(process.env.AFC_STABILITY_ITERATIONS, 5);
   const fileSizeBytes = parsePositiveInt(
     process.env.AFC_STABILITY_FILE_SIZE_BYTES,
@@ -57,12 +58,6 @@ describe('AFC tunnel stability', function () {
   let sourceSha256 = '';
 
   before(async function () {
-    if (!udid) {
-      log.warn('Skipping: set UDID');
-      this.skip();
-      return;
-    }
-
     const tag = Date.now();
     localSourcePath = path.join(
       os.tmpdir(),

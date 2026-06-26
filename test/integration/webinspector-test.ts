@@ -1,6 +1,8 @@
 import { logger } from '@appium/support';
+
 import type { WebInspectorService } from '../../src/index.js';
 import * as Services from '../../src/services.js';
+import { requireDeviceUdid } from './helpers/device.js';
 
 const log = logger.getLogger('WebInspectorService.test');
 log.level = 'debug';
@@ -9,15 +11,12 @@ describe('WebInspectorService', function () {
   this.timeout(60000);
 
   let service: WebInspectorService;
-  const udid = process.env.UDID || '';
+  const udid = requireDeviceUdid();
   const sessionId = 'test-session-' + Date.now();
   let realAppId: string | null = null;
   let realPageId: number | null = null;
 
   before(async function () {
-    if (!udid) {
-      throw new Error('Set UDID env var to execute tests.');
-    }
     service = await Services.startWebInspectorService(udid);
   });
 

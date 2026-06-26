@@ -1,6 +1,8 @@
 import { logger } from '@appium/support';
+
 import type { DVTInstruments } from '../../src/index.js';
 import * as Services from '../../src/services.js';
+import { requireDeviceUdid } from './helpers/device.js';
 
 const log = logger.getLogger('DVTService.test');
 log.level = 'debug';
@@ -9,12 +11,9 @@ describe('DVT Service Connection', function () {
   this.timeout(30000);
 
   let dvtServiceConnection: DVTInstruments | null = null;
-  const udid = process.env.UDID || '';
+  const udid = requireDeviceUdid();
 
   before(async () => {
-    if (!udid) {
-      throw new Error('set UDID env var to execute tests.');
-    }
     dvtServiceConnection = await Services.startDVTService(udid);
   });
 

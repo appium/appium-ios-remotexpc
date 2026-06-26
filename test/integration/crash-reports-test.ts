@@ -7,6 +7,7 @@ import { Services } from '../../src/index.js';
 import type { CrashReportsService } from '../../src/index.js';
 import { AfcService } from '../../src/services/ios/afc/index.js';
 import { CrashReportsService as CrashReportsServiceClass } from '../../src/services/ios/crash-reports/index.js';
+import { requireDeviceUdid } from './helpers/device.js';
 
 const log = logger.getLogger('WebInspectorService.test');
 log.level = 'debug';
@@ -62,7 +63,7 @@ async function writeTestCrashReport(
 describe('Crash Reports Service', function () {
   this.timeout(120000); // pulling crash reports can take time
 
-  const udid = process.env.UDID || '';
+  const udid = requireDeviceUdid();
 
   let crashReportsService: CrashReportsService;
 

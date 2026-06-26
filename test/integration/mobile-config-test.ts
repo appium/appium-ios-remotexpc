@@ -1,6 +1,8 @@
 import { logger } from '@appium/support';
+
 import type { MobileConfigService } from '../../src/lib/types.js';
 import * as Services from '../../src/services.js';
+import { requireDeviceUdid } from './helpers/device.js';
 
 const log = logger.getLogger('MobileConfigService.test');
 // Set MobileConfigService logger to info level
@@ -10,7 +12,7 @@ describe('MobileConfigService', function () {
   this.timeout(60000);
 
   let mobileConfigService: MobileConfigService;
-  const udid = process.env.UDID || '';
+  const udid = requireDeviceUdid();
 
   before(async function () {
     mobileConfigService = await Services.startMobileConfigService(udid);

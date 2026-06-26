@@ -4,8 +4,9 @@ import {
   startSyslogTextService,
 } from '../../src/services.js';
 import type { Service } from '../../src/services/ios/base-service.js';
+import { requireDeviceUdid } from './helpers/device.js';
 
-const udid = process.env.UDID || '';
+const udid = requireDeviceUdid();
 
 function registerCommonSyslogTests(
   getService: () => ISyslogService,
@@ -36,9 +37,6 @@ describe('Tunnel and Syslog Service', function () {
     let serviceDescriptor: Service;
 
     before(async function () {
-      if (!udid) {
-        this.skip();
-      }
       ({ syslogService, serviceDescriptor } =
         await startSyslogBinaryService(udid));
     });
@@ -56,9 +54,6 @@ describe('Tunnel and Syslog Service', function () {
     );
 
     it('should capture and emit syslog messages', async function () {
-      if (!udid) {
-        this.skip();
-      }
       const messages: string[] = [];
       syslogService.on('message', (message: string) => {
         messages.push(message);
@@ -75,9 +70,6 @@ describe('Tunnel and Syslog Service', function () {
     let serviceDescriptor: Service;
 
     before(async function () {
-      if (!udid) {
-        this.skip();
-      }
       ({ syslogService, serviceDescriptor } =
         await startSyslogTextService(udid));
     });

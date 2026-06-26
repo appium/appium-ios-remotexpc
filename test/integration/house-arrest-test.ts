@@ -6,6 +6,7 @@ import path from 'node:path';
 import type { HouseArrestService } from '../../src/index.js';
 import * as Services from '../../src/services.js';
 import { AfcService } from '../../src/services/ios/afc/index.js';
+import { requireDeviceUdid } from './helpers/device.js';
 
 const log = logger.getLogger('HouseArrestService.test');
 log.level = 'debug';
@@ -13,7 +14,7 @@ log.level = 'debug';
 describe('House Arrest Service', function () {
   this.timeout(60000);
 
-  const udid = process.env.UDID || '';
+  const udid = requireDeviceUdid();
   // change this to a dev-signed and installed app
   const bundleId = 'com.example.app'; // used by vendContainer tests
   // download Adobe Acrobat from App Store
@@ -22,9 +23,6 @@ describe('House Arrest Service', function () {
   let houseArrestService: HouseArrestService;
 
   before(async function () {
-    if (!udid) {
-      throw new Error('Set UDID env var to execute tests.');
-    }
     houseArrestService = await Services.startHouseArrestService(udid);
   });
 

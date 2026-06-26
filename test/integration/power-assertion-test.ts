@@ -6,6 +6,7 @@ import type {
 } from '../../src/index.js';
 import { PowerAssertionType } from '../../src/index.js';
 import * as Services from '../../src/services.js';
+import { requireDeviceUdid } from './helpers/device.js';
 
 const log = logger.getLogger('PowerAssertionService.test');
 log.level = 'debug';
@@ -14,11 +15,9 @@ describe('PowerAssertionService Integration', function () {
   this.timeout(30000);
 
   let powerAssertionService: PowerAssertionService;
-  const udid = process.env.UDID || '';
+  const udid = requireDeviceUdid();
 
   before(async () => {
-    if (!udid) throw new Error('set UDID env var to execute tests.');
-
     powerAssertionService = await Services.startPowerAssertionService(udid);
   });
 

@@ -1,7 +1,9 @@
 import { logger } from '@appium/support';
+
 import type { SpringboardService } from '../../src/lib/types.js';
 import * as Services from '../../src/services.js';
 import { InterfaceOrientation } from '../../src/services/ios/springboard-service/index.js';
+import { requireDeviceUdid } from './helpers/device.js';
 
 const log = logger.getLogger('SpringBoardService.test');
 // Set SpringBoardService logger to info level
@@ -11,7 +13,7 @@ describe('SpringBoardService', function () {
   this.timeout(60000);
 
   let springboardService: SpringboardService;
-  const udid = process.env.UDID || '';
+  const udid = requireDeviceUdid();
 
   before(async function () {
     try {

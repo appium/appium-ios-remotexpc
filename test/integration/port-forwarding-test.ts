@@ -6,6 +6,7 @@ import {
   connectViaUsbmux,
   createUsbmux,
 } from '../../src/index.js';
+import { requireDeviceUdid } from './helpers/device.js';
 
 /**
  * Integration tests for {@link DevicePortForwarder} with usbmux and tunnel registry
@@ -130,7 +131,7 @@ describe('Port forwarding (usbmux)', function () {
     process.env.PORT_FORWARD_DEVICE_PORT ?? '',
     10,
   );
-  const requestedUdid = process.env.UDID;
+  const requestedUdid = requireDeviceUdid();
 
   let forwarder: DevicePortForwarder | undefined;
 
@@ -177,7 +178,7 @@ describe('Port forwarding (tunnel)', function () {
       '',
     10,
   );
-  const requestedUdid = process.env.UDID;
+  const requestedUdid = requireDeviceUdid();
 
   let forwarder: DevicePortForwarder | undefined;
 

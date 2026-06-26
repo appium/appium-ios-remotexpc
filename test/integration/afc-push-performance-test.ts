@@ -6,6 +6,7 @@ import { getLogger } from '../../src/lib/logger.js';
 import * as Services from '../../src/services.js';
 import { AfcFileMode } from '../../src/services/ios/afc/enums.js';
 import type AfcService from '../../src/services/ios/afc/index.js';
+import { requireDeviceUdid } from './helpers/device.js';
 
 const log = getLogger('AFC.PushPerformance.test');
 
@@ -28,7 +29,7 @@ const DEFAULT_MAX_DURATION_MS = 120_000;
  *   UDID=... AFC_PUSH_MAX_MS=60000 npm run test:afc-push-perf
  */
 describe('AFC push performance', function () {
-  const udid = process.env.UDID || '';
+  const udid = requireDeviceUdid();
   const pushSizeBytes = parsePositiveInt(
     process.env.AFC_PUSH_SIZE_BYTES,
     DEFAULT_PUSH_SIZE_BYTES,
@@ -46,12 +47,6 @@ describe('AFC push performance', function () {
   let remotePath = '';
 
   before(async function () {
-    if (!udid) {
-      log.warn('Skipping AFC push performance test: UDID is not set');
-      this.skip();
-      return;
-    }
-
     localPath = path.join(
       os.tmpdir(),
       `afc_push_perf_${Date.now()}_${pushSizeBytes}.bin`,
