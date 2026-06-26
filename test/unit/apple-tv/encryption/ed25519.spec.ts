@@ -1,13 +1,12 @@
-
 import {
   createEd25519Signature,
   generateEd25519KeyPair,
 } from '../../../../src/lib/apple-tv/encryption/ed25519.js';
 import { CryptographyError } from '../../../../src/lib/apple-tv/errors.js';
 
-describe('Apple TV Encryption - Ed25519', () => {
-  describe('generateEd25519KeyPair', () => {
-    it('should generate a valid key pair', () => {
+describe('Apple TV Encryption - Ed25519', function () {
+  describe('generateEd25519KeyPair', function () {
+    it('should generate a valid key pair', function () {
       const keyPair = generateEd25519KeyPair();
 
       expect(keyPair).to.have.property('publicKey');
@@ -18,7 +17,7 @@ describe('Apple TV Encryption - Ed25519', () => {
       expect(keyPair.privateKey.length).to.equal(32);
     });
 
-    it('should generate different key pairs each time', () => {
+    it('should generate different key pairs each time', function () {
       const keyPair1 = generateEd25519KeyPair();
       const keyPair2 = generateEd25519KeyPair();
 
@@ -27,7 +26,7 @@ describe('Apple TV Encryption - Ed25519', () => {
     });
   });
 
-  describe('createEd25519Signature', () => {
+  describe('createEd25519Signature', function () {
     let validPrivateKey: Buffer;
 
     beforeEach(function () {
@@ -35,7 +34,7 @@ describe('Apple TV Encryption - Ed25519', () => {
       validPrivateKey = keyPair.privateKey;
     });
 
-    it('should create a valid signature', () => {
+    it('should create a valid signature', function () {
       const data = Buffer.from('Hello, World!', 'utf8');
       const signature = createEd25519Signature(data, validPrivateKey);
 
@@ -43,7 +42,7 @@ describe('Apple TV Encryption - Ed25519', () => {
       expect(signature.length).to.equal(64);
     });
 
-    it('should create consistent signatures for same data and key', () => {
+    it('should create consistent signatures for same data and key', function () {
       const data = Buffer.from('Test message', 'utf8');
 
       const signature1 = createEd25519Signature(data, validPrivateKey);
@@ -52,7 +51,7 @@ describe('Apple TV Encryption - Ed25519', () => {
       expect(signature1.equals(signature2)).to.be.true;
     });
 
-    it('should create different signatures for different data', () => {
+    it('should create different signatures for different data', function () {
       const data1 = Buffer.from('Message 1', 'utf8');
       const data2 = Buffer.from('Message 2', 'utf8');
 
@@ -62,7 +61,7 @@ describe('Apple TV Encryption - Ed25519', () => {
       expect(signature1.equals(signature2)).to.be.false;
     });
 
-    it('should throw when data is empty', () => {
+    it('should throw when data is empty', function () {
       const emptyData = Buffer.alloc(0);
 
       expect(() => createEd25519Signature(emptyData, validPrivateKey)).to.throw(
@@ -71,7 +70,7 @@ describe('Apple TV Encryption - Ed25519', () => {
       );
     });
 
-    it('should throw when private key is wrong size', () => {
+    it('should throw when private key is wrong size', function () {
       const data = Buffer.from('test', 'utf8');
       const shortKey = Buffer.alloc(16);
 

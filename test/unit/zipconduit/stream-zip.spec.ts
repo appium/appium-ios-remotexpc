@@ -5,7 +5,6 @@ import { fileURLToPath } from 'node:url';
 
 import { StreamZip } from '../../../src/services/ios/zipconduit/stream-zip.js';
 
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURES = path.join(__dirname, '../../fixtures/stream-zip');
 const OK_DIR = path.join(FIXTURES, 'ok');
