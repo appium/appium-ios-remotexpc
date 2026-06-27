@@ -1,67 +1,20 @@
 import type { XPCDictionary, XPCValue } from '../../../lib/types.js';
 import { CoreDeviceService } from '../core-device/core-device-service.js';
-
-const GENERAL_PASTEBOARD = 'general';
-
-const PASTEBOARD_COMMAND = {
-  PULL: 'PULL',
-  PULL_REPLY: 'PULL_REPLY',
-  SET: 'SET',
-  SET_REPLY: 'SET_REPLY',
-  DATA: 'DATA',
-  PUSH: 'PUSH',
-  AUTONOTIFY: 'AUTONOTIFY',
-  RESOLVE: 'RESOLVE',
-} as const;
-
-const PASTEBOARD_UTI = {
-  UTF8_PLAIN_TEXT: 'public.utf8-plain-text',
-  PLAIN_TEXT: 'public.plain-text',
-  TEXT: 'public.text',
-  URL: 'public.url',
-  PNG: 'public.png',
-  JPEG: 'public.jpeg',
-  TIFF: 'public.tiff',
-  IMAGE: 'public.image',
-} as const;
-
-const PASTEBOARD_POLICY = {
-  ALL_RESOLVED: { allResolved: {} },
-  ALL_PROMISED: { allPromised: {} },
-  MATCH_SOURCE: { matchSource: {} },
-  PROMISE_SECONDARY: { promiseSecondary: {} },
-} as const satisfies Record<string, XPCDictionary>;
-
-const TEXT_UTIS = [
-  PASTEBOARD_UTI.UTF8_PLAIN_TEXT,
-  PASTEBOARD_UTI.PLAIN_TEXT,
-  PASTEBOARD_UTI.TEXT,
-] as const;
-const URL_UTIS = [PASTEBOARD_UTI.URL, ...TEXT_UTIS] as const;
-const IMAGE_UTIS = [
-  PASTEBOARD_UTI.PNG,
-  PASTEBOARD_UTI.JPEG,
-  PASTEBOARD_UTI.TIFF,
-  PASTEBOARD_UTI.IMAGE,
-] as const;
-
-type PasteboardDataInclusionPolicy = XPCDictionary;
-
-interface PasteboardItem extends XPCDictionary {
-  types: string[];
-  data: XPCDictionary;
-}
-
-interface PasteboardSnapshot extends XPCDictionary {
-  items?: PasteboardItem[];
-  metadata?: XPCDictionary;
-  sourceMetadata?: XPCDictionary;
-}
-
-interface PasteboardPullReply extends XPCDictionary {
-  command?: string;
-  pasteboard?: PasteboardSnapshot;
-}
+import {
+  GENERAL_PASTEBOARD,
+  IMAGE_UTIS,
+  PASTEBOARD_COMMAND,
+  PASTEBOARD_POLICY,
+  PASTEBOARD_UTI,
+  TEXT_UTIS,
+  URL_UTIS,
+} from './constants.js';
+import type {
+  PasteboardDataInclusionPolicy,
+  PasteboardItem,
+  PasteboardPullReply,
+  PasteboardSnapshot,
+} from './types.js';
 
 /**
  * Client for `com.apple.coredevice.pasteboardservice`.
