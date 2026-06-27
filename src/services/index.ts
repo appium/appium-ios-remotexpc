@@ -10,6 +10,7 @@ import * as hidIndigo from './ios/hid-indigo/index.js';
 import * as houseArrest from './ios/house-arrest/index.js';
 import * as installationProxy from './ios/installation-proxy/index.js';
 import * as mobileImageMounter from './ios/mobile-image-mounter/index.js';
+import * as pasteboard from './ios/pasteboard/index.js';
 import * as powerAssertion from './ios/power-assertion/index.js';
 import * as syslog from './ios/syslog-service/index.js';
 import * as tunnel from './ios/tunnel-service/index.js';
@@ -22,6 +23,7 @@ export {
   houseArrest,
   installationProxy,
   mobileImageMounter,
+  pasteboard,
   powerAssertion,
   syslog,
   tunnel,
