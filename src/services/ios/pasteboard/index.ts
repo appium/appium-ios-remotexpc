@@ -1,9 +1,9 @@
 import type { XPCDictionary, XPCValue } from '../../../lib/types.js';
 import { CoreDeviceService } from '../core-device/core-device-service.js';
 
-export const GENERAL_PASTEBOARD = 'general';
+const GENERAL_PASTEBOARD = 'general';
 
-export const PASTEBOARD_COMMAND = {
+const PASTEBOARD_COMMAND = {
   PULL: 'PULL',
   PULL_REPLY: 'PULL_REPLY',
   SET: 'SET',
@@ -14,14 +14,14 @@ export const PASTEBOARD_COMMAND = {
   RESOLVE: 'RESOLVE',
 } as const;
 
-export const PASTEBOARD_UTI = {
+const PASTEBOARD_UTI = {
   UTF8_PLAIN_TEXT: 'public.utf8-plain-text',
   PLAIN_TEXT: 'public.plain-text',
   TEXT: 'public.text',
   URL: 'public.url',
 } as const;
 
-export const PASTEBOARD_POLICY = {
+const PASTEBOARD_POLICY = {
   ALL_RESOLVED: { allResolved: {} },
   ALL_PROMISED: { allPromised: {} },
   MATCH_SOURCE: { matchSource: {} },
@@ -34,27 +34,20 @@ const TEXT_UTIS = [
   PASTEBOARD_UTI.TEXT,
 ] as const;
 
-export type PasteboardDataInclusionPolicy = XPCDictionary;
+type PasteboardDataInclusionPolicy = XPCDictionary;
 
-export interface PasteboardItemData extends XPCDictionary {
-  data?: Buffer | Uint8Array | string;
-  isPromised?: boolean;
-  isAvailable?: boolean;
-  size?: number | bigint;
-}
-
-export interface PasteboardItem extends XPCDictionary {
+interface PasteboardItem extends XPCDictionary {
   types: string[];
   data: XPCDictionary;
 }
 
-export interface PasteboardSnapshot extends XPCDictionary {
+interface PasteboardSnapshot extends XPCDictionary {
   items?: PasteboardItem[];
   metadata?: XPCDictionary;
   sourceMetadata?: XPCDictionary;
 }
 
-export interface PasteboardPullReply extends XPCDictionary {
+interface PasteboardPullReply extends XPCDictionary {
   command?: string;
   pasteboard?: PasteboardSnapshot;
 }
@@ -65,10 +58,27 @@ export interface PasteboardPullReply extends XPCDictionary {
 export class PasteboardService extends CoreDeviceService {
   static readonly RSD_SERVICE_NAME = 'com.apple.coredevice.pasteboardservice';
 
+  constructor(udid: string) {
+    super(udid, PasteboardService.RSD_SERVICE_NAME);
+  }
+
   /**
-   * Build a pasteboard item that carries UTF-8 text under the standard text UTIs.
+   * Pull the pasteboard and return the first decodable UTF-8 text item.
    */
-  static buildTextItem(
+  async getText(
+    pasteboardName = GENERAL_PASTEBOARD,
+  ): Promise<string | undefined> {
+    return PasteboardService.extractText(await this.get(pasteboardName));
+  }
+
+  /**
+   * Replace the pasteboard with a single UTF-8 text item.
+   */
+  async setText(text: string, pasteboardName = GENERAL_PASTEBOARD): Promise<void> {
+    await this.set([PasteboardService.buildTextItem(text)], pasteboardName);
+  }
+
+  private static buildTextItem(
     text: string,
     utis: readonly string[] = TEXT_UTIS,
   ): PasteboardItem {
@@ -81,25 +91,7 @@ export class PasteboardService extends CoreDeviceService {
     };
   }
 
-  /**
-   * Build a pasteboard item carrying raw data under one UTI.
-   */
-  static buildDataItem(
-    uti: string,
-    data: Buffer | Uint8Array | string,
-  ): PasteboardItem {
-    return {
-      types: [uti],
-      data: {
-        [uti]: { data: toBuffer(data) },
-      },
-    };
-  }
-
-  /**
-   * Extract the first decodable UTF-8 text payload from a pasteboard snapshot or reply.
-   */
-  static extractText(
+  private static extractText(
     snapshotOrReply: XPCDictionary | PasteboardSnapshot | PasteboardPullReply,
   ): string | undefined {
     const snapshot = pickSnapshot(snapshotOrReply);
@@ -121,14 +113,7 @@ export class PasteboardService extends CoreDeviceService {
     return undefined;
   }
 
-  constructor(udid: string) {
-    super(udid, PasteboardService.RSD_SERVICE_NAME);
-  }
-
-  /**
-   * Pull the current pasteboard contents and return the raw device reply.
-   */
-  async get(
+  private async get(
     pasteboardName = GENERAL_PASTEBOARD,
     dataPolicy: PasteboardDataInclusionPolicy = PASTEBOARD_POLICY.ALL_RESOLVED,
   ): Promise<PasteboardPullReply> {
@@ -142,19 +127,7 @@ export class PasteboardService extends CoreDeviceService {
     )) as PasteboardPullReply;
   }
 
-  /**
-   * Pull the pasteboard and return the first decodable UTF-8 text item.
-   */
-  async getText(
-    pasteboardName = GENERAL_PASTEBOARD,
-  ): Promise<string | undefined> {
-    return PasteboardService.extractText(await this.get(pasteboardName));
-  }
-
-  /**
-   * Replace the pasteboard with the provided raw items.
-   */
-  async set(
+  private async set(
     items: PasteboardItem[],
     pasteboardName = GENERAL_PASTEBOARD,
     sourceMetadata?: XPCDictionary,
@@ -170,19 +143,6 @@ export class PasteboardService extends CoreDeviceService {
     return await this.sendReceive(request, {
       actionIdentifier: PASTEBOARD_COMMAND.SET,
     });
-  }
-
-  /**
-   * Replace the pasteboard with a single UTF-8 text item.
-   */
-  async setText(
-    text: string,
-    pasteboardName = GENERAL_PASTEBOARD,
-  ): Promise<XPCDictionary> {
-    return await this.set(
-      [PasteboardService.buildTextItem(text)],
-      pasteboardName,
-    );
   }
 }
 
@@ -208,12 +168,6 @@ function decodeUtf8(value: XPCValue): string | undefined {
     return Buffer.from(value).toString('utf8');
   }
   return undefined;
-}
-
-function toBuffer(data: Buffer | Uint8Array | string): Buffer {
-  return typeof data === 'string'
-    ? Buffer.from(data, 'utf8')
-    : Buffer.from(data);
 }
 
 export default PasteboardService;

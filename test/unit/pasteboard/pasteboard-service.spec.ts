@@ -3,13 +3,7 @@ import { EventEmitter } from 'node:events';
 
 import { decodeMessage } from '../../../src/lib/remote-xpc/xpc-protocol.js';
 import type { XPCDictionary } from '../../../src/lib/types.js';
-import {
-  GENERAL_PASTEBOARD,
-  PASTEBOARD_COMMAND,
-  PASTEBOARD_POLICY,
-  PASTEBOARD_UTI,
-  PasteboardService,
-} from '../../../src/services/ios/pasteboard/index.js';
+import { PasteboardService } from '../../../src/services/ios/pasteboard/index.js';
 
 type Responder = (sentBody: XPCDictionary) => XPCDictionary | null;
 
@@ -48,67 +42,26 @@ class TestPasteboardService extends PasteboardService {
 }
 
 describe('PasteboardService', function () {
-  describe('helpers', function () {
-    it('buildTextItem produces standard text UTIs with Buffer payloads', function () {
-      const item = PasteboardService.buildTextItem('hello');
-
-      expect(item.types).to.deep.equal([
-        PASTEBOARD_UTI.UTF8_PLAIN_TEXT,
-        PASTEBOARD_UTI.PLAIN_TEXT,
-        PASTEBOARD_UTI.TEXT,
-      ]);
-      for (const uti of item.types) {
-        const datum = item.data[uti] as XPCDictionary;
-        expect(Buffer.isBuffer(datum.data)).to.equal(true);
-        expect((datum.data as Buffer).toString('utf8')).to.equal('hello');
-      }
-    });
-
-    it('buildDataItem produces one UTI with a Buffer payload', function () {
-      const item = PasteboardService.buildDataItem(
-        PASTEBOARD_UTI.URL,
-        'https://example.test',
-      );
-
-      expect(item.types).to.deep.equal([PASTEBOARD_UTI.URL]);
-      const datum = item.data[PASTEBOARD_UTI.URL] as XPCDictionary;
-      expect(Buffer.isBuffer(datum.data)).to.equal(true);
-      expect((datum.data as Buffer).toString('utf8')).to.equal(
-        'https://example.test',
-      );
-    });
-
-    it('extractText handles whole replies and bare snapshots', function () {
-      const item = PasteboardService.buildTextItem('from snapshot');
-      const snapshot = { items: [item] };
-      const reply = { command: 'PULL_REPLY', pasteboard: snapshot };
-
-      expect(PasteboardService.extractText(reply)).to.equal('from snapshot');
-      expect(PasteboardService.extractText(snapshot)).to.equal('from snapshot');
-      expect(PasteboardService.extractText({ items: [] })).to.equal(undefined);
-    });
-  });
-
   describe('requests', function () {
-    it('get sends PULL with the default allResolved data policy', async function () {
+    it('getText sends PULL with the default allResolved data policy', async function () {
       const reply = {
         command: 'PULL_REPLY',
-        pasteboard: { items: [] as XPCDictionary[] },
+        pasteboard: { items: [buildTextItem('hello')] },
       };
       const fake = new FakeTransport(() => reply);
       const service = new TestPasteboardService(fake);
 
-      const result = await service.get();
+      const result = await service.getText();
 
       expect(fake.sentBodies[0]).to.deep.equal({
-        command: PASTEBOARD_COMMAND.PULL,
-        pasteboardName: GENERAL_PASTEBOARD,
-        dataPolicy: PASTEBOARD_POLICY.ALL_RESOLVED,
+        command: 'PULL',
+        pasteboardName: 'general',
+        dataPolicy: { allResolved: {} },
       });
       expect(fake.sentBodies[0]).not.to.have.property(
         'CoreDevice.featureIdentifier',
       );
-      expect(result).to.deep.equal(reply);
+      expect(result).to.equal('hello');
     });
 
     it('setText sends SET with a text item', async function () {
@@ -119,20 +72,19 @@ describe('PasteboardService', function () {
       const fake = new FakeTransport(() => reply);
       const service = new TestPasteboardService(fake);
 
-      const result = await service.setText('hello');
+      await service.setText('hello');
 
       expect(fake.sentBodies[0]).to.deep.equal({
-        command: PASTEBOARD_COMMAND.SET,
-        pasteboardName: GENERAL_PASTEBOARD,
-        items: [PasteboardService.buildTextItem('hello')],
+        command: 'SET',
+        pasteboardName: 'general',
+        items: [buildTextItem('hello')],
       });
-      expect(result).to.deep.equal(reply);
     });
 
     it('getText extracts text from the raw PULL reply', async function () {
       const fake = new FakeTransport(() => ({
         command: 'PULL_REPLY',
-        pasteboard: { items: [PasteboardService.buildTextItem('hello')] },
+        pasteboard: { items: [buildTextItem('hello')] },
       }));
       const service = new TestPasteboardService(fake);
 
@@ -140,3 +92,15 @@ describe('PasteboardService', function () {
     });
   });
 });
+
+function buildTextItem(text: string): XPCDictionary {
+  const payload = Buffer.from(text, 'utf8');
+  return {
+    types: ['public.utf8-plain-text', 'public.plain-text', 'public.text'],
+    data: {
+      'public.utf8-plain-text': { data: Buffer.from(payload) },
+      'public.plain-text': { data: Buffer.from(payload) },
+      'public.text': { data: Buffer.from(payload) },
+    },
+  };
+}

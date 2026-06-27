@@ -1,10 +1,6 @@
 import { expect } from 'chai';
 
-import {
-  GENERAL_PASTEBOARD,
-  PasteboardService,
-  type PasteboardItem,
-} from '../../src/index.js';
+import { PasteboardService } from '../../src/index.js';
 import * as Services from '../../src/services.js';
 
 describe('PasteboardService', function () {
@@ -30,26 +26,17 @@ describe('PasteboardService', function () {
   });
 
   it('sets and gets UTF-8 text', async function () {
-    const original = await pasteboardService!.get();
-    const originalPasteboard = original.pasteboard;
-    const originalItems = Array.isArray(originalPasteboard?.items)
-      ? originalPasteboard.items
-      : [];
+    const originalText = await pasteboardService!.getText();
     const text = `appium-ios-remotexpc pasteboard ${Date.now()}`;
 
     try {
       await pasteboardService!.setText(text);
 
       expect(await pasteboardService!.getText()).to.equal(text);
-
-      const raw = await pasteboardService!.get();
-      expect(PasteboardService.extractText(raw)).to.equal(text);
     } finally {
-      await pasteboardService!.set(
-        originalItems as PasteboardItem[],
-        GENERAL_PASTEBOARD,
-        originalPasteboard?.sourceMetadata,
-      );
+      if (originalText !== undefined) {
+        await pasteboardService!.setText(originalText);
+      }
     }
   });
 });

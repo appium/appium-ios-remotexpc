@@ -69,20 +69,7 @@ export type {
   LaunchedApplication,
   ListAppsOptions,
 } from './services/ios/app-service/index.js';
-export {
-  GENERAL_PASTEBOARD,
-  PASTEBOARD_COMMAND,
-  PASTEBOARD_POLICY,
-  PASTEBOARD_UTI,
-  PasteboardService,
-} from './services/ios/pasteboard/index.js';
-export type {
-  PasteboardDataInclusionPolicy,
-  PasteboardItem,
-  PasteboardItemData,
-  PasteboardPullReply,
-  PasteboardSnapshot,
-} from './services/ios/pasteboard/index.js';
+export { PasteboardService } from './services/ios/pasteboard/index.js';
 export type {
   SyslogEntry,
   SyslogLabel,
