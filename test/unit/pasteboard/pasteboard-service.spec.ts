@@ -90,6 +90,54 @@ describe('PasteboardService', function () {
 
       expect(await service.getText()).to.equal('hello');
     });
+
+    it('setUrl sends SET with URL and text UTIs', async function () {
+      const fake = new FakeTransport(() => ({ command: 'SET_REPLY' }));
+      const service = new TestPasteboardService(fake);
+
+      await service.setUrl('https://example.test/path');
+
+      expect(fake.sentBodies[0]).to.deep.equal({
+        command: 'SET',
+        pasteboardName: 'general',
+        items: [buildUrlItem('https://example.test/path')],
+      });
+    });
+
+    it('getUrl extracts URL text from the raw PULL reply', async function () {
+      const fake = new FakeTransport(() => ({
+        command: 'PULL_REPLY',
+        pasteboard: { items: [buildUrlItem('https://example.test/path')] },
+      }));
+      const service = new TestPasteboardService(fake);
+
+      expect(await service.getUrl()).to.equal('https://example.test/path');
+    });
+
+    it('setImage sends SET with a PNG payload', async function () {
+      const image = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+      const fake = new FakeTransport(() => ({ command: 'SET_REPLY' }));
+      const service = new TestPasteboardService(fake);
+
+      await service.setImage(image);
+
+      expect(fake.sentBodies[0]).to.deep.equal({
+        command: 'SET',
+        pasteboardName: 'general',
+        items: [buildImageItem(image)],
+      });
+    });
+
+    it('getImage extracts image data from the raw PULL reply', async function () {
+      const image = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+      const fake = new FakeTransport(() => ({
+        command: 'PULL_REPLY',
+        pasteboard: { items: [buildImageItem(image)] },
+      }));
+      const service = new TestPasteboardService(fake);
+
+      expect(await service.getImage()).to.deep.equal(image);
+    });
   });
 });
 
@@ -101,6 +149,33 @@ function buildTextItem(text: string): XPCDictionary {
       'public.utf8-plain-text': { data: Buffer.from(payload) },
       'public.plain-text': { data: Buffer.from(payload) },
       'public.text': { data: Buffer.from(payload) },
+    },
+  };
+}
+
+function buildUrlItem(url: string): XPCDictionary {
+  const payload = Buffer.from(url, 'utf8');
+  return {
+    types: [
+      'public.url',
+      'public.utf8-plain-text',
+      'public.plain-text',
+      'public.text',
+    ],
+    data: {
+      'public.url': { data: Buffer.from(payload) },
+      'public.utf8-plain-text': { data: Buffer.from(payload) },
+      'public.plain-text': { data: Buffer.from(payload) },
+      'public.text': { data: Buffer.from(payload) },
+    },
+  };
+}
+
+function buildImageItem(image: Buffer): XPCDictionary {
+  return {
+    types: ['public.png'],
+    data: {
+      'public.png': { data: Buffer.from(image) },
     },
   };
 }

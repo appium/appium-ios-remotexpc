@@ -19,6 +19,10 @@ const PASTEBOARD_UTI = {
   PLAIN_TEXT: 'public.plain-text',
   TEXT: 'public.text',
   URL: 'public.url',
+  PNG: 'public.png',
+  JPEG: 'public.jpeg',
+  TIFF: 'public.tiff',
+  IMAGE: 'public.image',
 } as const;
 
 const PASTEBOARD_POLICY = {
@@ -32,6 +36,13 @@ const TEXT_UTIS = [
   PASTEBOARD_UTI.UTF8_PLAIN_TEXT,
   PASTEBOARD_UTI.PLAIN_TEXT,
   PASTEBOARD_UTI.TEXT,
+] as const;
+const URL_UTIS = [PASTEBOARD_UTI.URL, ...TEXT_UTIS] as const;
+const IMAGE_UTIS = [
+  PASTEBOARD_UTI.PNG,
+  PASTEBOARD_UTI.JPEG,
+  PASTEBOARD_UTI.TIFF,
+  PASTEBOARD_UTI.IMAGE,
 ] as const;
 
 type PasteboardDataInclusionPolicy = XPCDictionary;
@@ -68,7 +79,10 @@ export class PasteboardService extends CoreDeviceService {
   async getText(
     pasteboardName = GENERAL_PASTEBOARD,
   ): Promise<string | undefined> {
-    return PasteboardService.extractText(await this.get(pasteboardName));
+    return PasteboardService.extractString(
+      await this.get(pasteboardName),
+      TEXT_UTIS,
+    );
   }
 
   /**
@@ -79,6 +93,58 @@ export class PasteboardService extends CoreDeviceService {
     pasteboardName = GENERAL_PASTEBOARD,
   ): Promise<void> {
     await this.set([PasteboardService.buildTextItem(text)], pasteboardName);
+  }
+
+  /**
+   * Pull the pasteboard and return the first decodable URL string.
+   */
+  async getUrl(
+    pasteboardName = GENERAL_PASTEBOARD,
+  ): Promise<string | undefined> {
+    return PasteboardService.extractString(
+      await this.get(pasteboardName),
+      URL_UTIS,
+    );
+  }
+
+  /**
+   * Replace the pasteboard with a single URL value.
+   */
+  async setUrl(
+    url: string | URL,
+    pasteboardName = GENERAL_PASTEBOARD,
+  ): Promise<void> {
+    await this.set(
+      [PasteboardService.buildUrlItem(String(url))],
+      pasteboardName,
+    );
+  }
+
+  /**
+   * Pull the pasteboard and return the first image payload.
+   *
+   * Reads image data advertised as PNG, JPEG, TIFF, or generic image UTIs.
+   */
+  async getImage(
+    pasteboardName = GENERAL_PASTEBOARD,
+  ): Promise<Buffer | undefined> {
+    return PasteboardService.extractData(
+      await this.get(pasteboardName),
+      IMAGE_UTIS,
+    );
+  }
+
+  /**
+   * Replace the pasteboard with a PNG image payload.
+   *
+   * The bytes must be PNG data; the pasteboard item is advertised as
+   * `public.png`.
+   */
+  async setImage(
+    image: Buffer | Uint8Array,
+    pasteboardName = GENERAL_PASTEBOARD,
+  ): Promise<void> {
+    await this.set([PasteboardService.buildImageItem(image)], pasteboardName);
   }
 
   private static buildTextItem(
@@ -94,14 +160,34 @@ export class PasteboardService extends CoreDeviceService {
     };
   }
 
-  private static extractText(
+  private static buildUrlItem(url: string): PasteboardItem {
+    const payload = Buffer.from(url, 'utf8');
+    return {
+      types: [...URL_UTIS],
+      data: Object.fromEntries(
+        URL_UTIS.map((uti) => [uti, { data: Buffer.from(payload) }]),
+      ),
+    };
+  }
+
+  private static buildImageItem(image: Buffer | Uint8Array): PasteboardItem {
+    return {
+      types: [PASTEBOARD_UTI.PNG],
+      data: {
+        [PASTEBOARD_UTI.PNG]: { data: Buffer.from(image) },
+      },
+    };
+  }
+
+  private static extractString(
     snapshotOrReply: XPCDictionary | PasteboardSnapshot | PasteboardPullReply,
+    utis: readonly string[],
   ): string | undefined {
     const snapshot = pickSnapshot(snapshotOrReply);
     const items = Array.isArray(snapshot.items) ? snapshot.items : [];
     for (const item of items) {
       const dataMap = asDictionary(item.data);
-      for (const uti of TEXT_UTIS) {
+      for (const uti of utis) {
         const datum = asDictionary(dataMap[uti]);
         const raw = datum?.data;
         if (raw === undefined || raw === null) {
@@ -110,6 +196,25 @@ export class PasteboardService extends CoreDeviceService {
         const text = decodeUtf8(raw);
         if (text !== undefined) {
           return text;
+        }
+      }
+    }
+    return undefined;
+  }
+
+  private static extractData(
+    snapshotOrReply: XPCDictionary | PasteboardSnapshot | PasteboardPullReply,
+    utis: readonly string[],
+  ): Buffer | undefined {
+    const snapshot = pickSnapshot(snapshotOrReply);
+    const items = Array.isArray(snapshot.items) ? snapshot.items : [];
+    for (const item of items) {
+      const dataMap = asDictionary(item.data);
+      for (const uti of utis) {
+        const datum = asDictionary(dataMap[uti]);
+        const raw = datum?.data;
+        if (Buffer.isBuffer(raw) || raw instanceof Uint8Array) {
+          return Buffer.from(raw);
         }
       }
     }
