@@ -74,7 +74,10 @@ export class PasteboardService extends CoreDeviceService {
   /**
    * Replace the pasteboard with a single UTF-8 text item.
    */
-  async setText(text: string, pasteboardName = GENERAL_PASTEBOARD): Promise<void> {
+  async setText(
+    text: string,
+    pasteboardName = GENERAL_PASTEBOARD,
+  ): Promise<void> {
     await this.set([PasteboardService.buildTextItem(text)], pasteboardName);
   }
 
