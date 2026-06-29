@@ -94,11 +94,13 @@ export class EnergyMonitor extends BaseInstrument {
   /**
    * Take a single energy snapshot for the given PIDs.
    *
-   * {@link startSampling} must be called first — without it the device returns
-   * empty metrics. The call blocks until the device replies, so calling this
-   * in a tight loop does not spin-loop the CPU.
+   * {@link startSampling} must be called first. The call blocks until the
+   * device replies, so calling this in a tight loop does not spin-loop the CPU.
    */
   async sample(pids: number[]): Promise<EnergyMonitorSample> {
+    if (!this.sampling) {
+      throw new Error('startSampling() must be called before sample()');
+    }
     return await this.sampleOnce(pids);
   }
 
