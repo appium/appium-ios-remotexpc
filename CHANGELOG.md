@@ -1,3 +1,21 @@
+## [5.6.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.5.0...v5.6.0) (2026-06-29)
+
+### Features
+
+* Add `com.apple.coredevice.pasteboardservice` ([#256](https://github.com/appium/appium-ios-remotexpc/issues/256)) ([3bb305a](https://github.com/appium/appium-ios-remotexpc/commit/3bb305aa5f4fca640ee051f3e25c06377abc0231))
+
+## [5.5.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.4.1...v5.5.0) (2026-06-29)
+
+### Features
+
+* **dvt:** implement energy monitor ([#254](https://github.com/appium/appium-ios-remotexpc/issues/254)) ([71091c6](https://github.com/appium/appium-ios-remotexpc/commit/71091c662bc7eace305aaa89bb9ff5e7f3eb6388))
+
+## [5.4.1](https://github.com/appium/appium-ios-remotexpc/compare/v5.4.0...v5.4.1) (2026-06-29)
+
+### Miscellaneous Chores
+
+* **ci:** fix lint ([#257](https://github.com/appium/appium-ios-remotexpc/issues/257)) ([2d9a979](https://github.com/appium/appium-ios-remotexpc/commit/2d9a9794c35513f06a900e07a99e8bfbdf10d0ca))
+
 ## [5.4.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.3.0...v5.4.0) (2026-06-25)
 
 ### Features

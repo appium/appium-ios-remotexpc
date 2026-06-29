@@ -112,6 +112,20 @@ export abstract class CoreDeviceService extends BaseService {
   }
 
   /**
+   * Sends a direct XPC request on the root channel and returns the full reply.
+   * Some CoreDevice services (for example pasteboard) do not use the common
+   * `CoreDevice.featureIdentifier` invocation envelope.
+   */
+  protected async sendReceive(
+    body: XPCDictionary,
+    options: CoreDeviceInvokeOptions = {},
+  ): Promise<XPCDictionary> {
+    return this.enqueueInvocation(() =>
+      this.sendReceiveInternal(body, options),
+    );
+  }
+
+  /**
    * Invokes a CoreDevice feature and returns its `CoreDevice.output`.
    *
    * Each invocation uses a fresh connection: CoreDevice services close the
@@ -123,6 +137,27 @@ export abstract class CoreDeviceService extends BaseService {
     input: XPCDictionary = {},
     options: CoreDeviceInvokeOptions = {},
   ): Promise<XPCValue> {
+    return this.enqueueInvocation(() =>
+      this.invokeInternal(featureIdentifier, input, options),
+    );
+  }
+
+  protected async createTransport(): Promise<RemoteXpcFramedTransport> {
+    const transport = new RemoteXpcFramedTransport(
+      await this.resolveServiceAddress(this.serviceName),
+    );
+    await transport.connect({ timeoutMs: CONNECT_TIMEOUT_MS });
+    return transport;
+  }
+
+  protected async getTransport(): Promise<RemoteXpcFramedTransport> {
+    if (!this.transport?.isConnected) {
+      this.transport = await this.newTransport();
+    }
+    return this.transport;
+  }
+
+  private async enqueueInvocation<T>(operation: () => Promise<T>): Promise<T> {
     // Serialize invocations: await the previous call's completion, then install
     // a new tail that the next caller will await. Prior failures are ignored so
     // one failed call does not poison the queue.
@@ -139,25 +174,10 @@ export abstract class CoreDeviceService extends BaseService {
     }
 
     try {
-      return await this.invokeInternal(featureIdentifier, input, options);
+      return await operation();
     } finally {
       release();
     }
-  }
-
-  protected async createTransport(): Promise<RemoteXpcFramedTransport> {
-    const transport = new RemoteXpcFramedTransport(
-      await this.resolveServiceAddress(this.serviceName),
-    );
-    await transport.connect({ timeoutMs: CONNECT_TIMEOUT_MS });
-    return transport;
-  }
-
-  protected async getTransport(): Promise<RemoteXpcFramedTransport> {
-    if (!this.transport?.isConnected) {
-      this.transport = await this.newTransport();
-    }
-    return this.transport;
   }
 
   /**
@@ -227,6 +247,35 @@ export abstract class CoreDeviceService extends BaseService {
       throw buildInvocationError(featureIdentifier, response);
     }
     return output;
+  }
+
+  private async sendReceiveInternal(
+    body: XPCDictionary,
+    options: CoreDeviceInvokeOptions,
+  ): Promise<XPCDictionary> {
+    const transport = await this.refreshTransport();
+    const operationIdentifier = options.actionIdentifier ?? '<raw>';
+
+    // Register the response listener before sending so a fast reply is not lost.
+    const responsePromise = this.waitForResponse(
+      transport,
+      options.timeoutMs ?? DEFAULT_INVOKE_TIMEOUT_MS,
+      operationIdentifier,
+    );
+
+    transport.sendDataFrame(
+      encodeMessage({
+        flags:
+          XpcConstants.XPC_FLAGS_ALWAYS_SET |
+          XpcConstants.XPC_FLAGS_DATA_PRESENT |
+          XpcConstants.XPC_FLAGS_WANTING_REPLY,
+        id: this.nextMessageId++,
+        body,
+      }),
+      Http2Constants.ROOT_CHANNEL,
+    );
+
+    return await responsePromise;
   }
 
   private buildEnvelope(
