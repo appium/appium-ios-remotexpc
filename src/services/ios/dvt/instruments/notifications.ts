@@ -67,8 +67,7 @@ export interface MemoryLevelNotification {
  * ```
  */
 export type NotificationMessage =
-  | ApplicationStateNotification
-  | MemoryLevelNotification;
+  ApplicationStateNotification | MemoryLevelNotification;
 
 /**
  * Notifications service for monitoring iOS system events
@@ -128,8 +127,7 @@ export class Notifications extends BaseInstrument {
             const data = decodeNSKeyedArchiver(decodedData);
             yield {
               selector: selector as
-                | 'applicationStateNotification:'
-                | 'memoryLevelNotification:',
+                'applicationStateNotification:' | 'memoryLevelNotification:',
               data,
             } as NotificationMessage;
           } catch (error) {

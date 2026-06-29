@@ -759,8 +759,7 @@ export class XCTestRunner extends EventEmitter<XCTestRunnerEvents> {
       this.installationProxy = null;
 
       const runnerApp = appLookup[this.options.testRunnerBundleId] as
-        | InstalledAppInfo
-        | undefined;
+        InstalledAppInfo | undefined;
       if (!runnerApp?.Path) {
         throw new Error(
           `Runner app not found: ${this.options.testRunnerBundleId}`,
@@ -768,8 +767,7 @@ export class XCTestRunner extends EventEmitter<XCTestRunnerEvents> {
       }
 
       const targetApp = appLookup[this.options.appUnderTestBundleId] as
-        | InstalledAppInfo
-        | undefined;
+        InstalledAppInfo | undefined;
       if (!targetApp?.Path) {
         throw new Error(
           `Target app not found: ${this.options.appUnderTestBundleId}`,

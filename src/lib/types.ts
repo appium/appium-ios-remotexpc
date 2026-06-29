@@ -760,9 +760,7 @@ export interface ConnectionUpdateEvent {
  * Union type for all network monitoring events
  */
 export type NetworkEvent =
-  | InterfaceDetectionEvent
-  | ConnectionDetectionEvent
-  | ConnectionUpdateEvent;
+  InterfaceDetectionEvent | ConnectionDetectionEvent | ConnectionUpdateEvent;
 
 /**
  * Network monitor service interface for real-time network activity monitoring
