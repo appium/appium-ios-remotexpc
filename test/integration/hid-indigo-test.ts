@@ -1,10 +1,11 @@
+import { expect } from 'chai';
+import { after, before, describe, it } from 'node:test';
+
 import type { HidIndigoService } from '../../src/index.js';
 import * as Services from '../../src/services.js';
 import { requireDeviceUdid } from './helpers/device.js';
 
-describe('HidIndigoService', function () {
-  this.timeout(60000);
-
+describe('HidIndigoService', { timeout: 60000 }, function () {
   let hidIndigoService: HidIndigoService | null = null;
   const udid = requireDeviceUdid();
 

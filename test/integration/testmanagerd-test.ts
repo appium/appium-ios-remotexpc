@@ -1,4 +1,6 @@
 import { logger } from '@appium/support';
+import { expect } from 'chai';
+import { after, before, describe, it } from 'node:test';
 
 import type {
   DVTInstruments,
@@ -87,9 +89,7 @@ function assertNSKeyedArchiverShape(obj: any): void {
  * `UDID=<device-udid> TEST_RUNNER_BUNDLE_ID=<xctrunner-bundle-id> APP_UNDER_TEST_BUNDLE_ID=<target-app-bundle-id> XCTEST_BUNDLE_ID=<xctest-bundle-id> npm run test:testmanagerd`
  */
 
-describe('Testmanagerd Service', function () {
-  this.timeout(120000);
-
+describe('Testmanagerd Service', { timeout: 120000 }, function () {
   describe('Dual-connection handshake + control session init', function () {
     let controlConnection: TestmanagerdService | null = null;
     let execConnection: TestmanagerdService | null = null;
@@ -126,7 +126,9 @@ describe('Testmanagerd Service', function () {
         !APP_UNDER_TEST_BUNDLE_ID ||
         !XCTEST_BUNDLE_ID
       ) {
-        this.skip();
+        throw new Error(
+          'Skipping XCTestConfiguration write via HouseArrest tests: TEST_RUNNER_BUNDLE_ID, APP_UNDER_TEST_BUNDLE_ID, and XCTEST_BUNDLE_ID must be set',
+        );
       }
     });
 
@@ -256,34 +258,40 @@ describe('Testmanagerd Service', function () {
         !APP_UNDER_TEST_BUNDLE_ID ||
         !XCTEST_BUNDLE_ID
       ) {
-        this.skip();
+        throw new Error(
+          'Skipping Full XCTest launch flow tests: TEST_RUNNER_BUNDLE_ID, APP_UNDER_TEST_BUNDLE_ID, and XCTEST_BUNDLE_ID must be set',
+        );
       }
     });
 
-    it('should execute full XCTest launch lifecycle via runXCTest', async function () {
-      this.timeout(Number(process.env.XCTEST_MOCHA_TIMEOUT_MS || 360000));
+    it(
+      'should execute full XCTest launch lifecycle via runXCTest',
+      { timeout: Number(process.env.XCTEST_TIMEOUT_MS || 360000) },
+      async function () {
+        const result = await runXCTest({
+          udid: UDID,
+          testRunnerBundleId: TEST_RUNNER_BUNDLE_ID!,
+          appUnderTestBundleId: APP_UNDER_TEST_BUNDLE_ID!,
+          xctestBundleId: XCTEST_BUNDLE_ID!,
+          timeoutMs: Number(process.env.XCTEST_PLAN_TIMEOUT_MS || 300000),
+        });
 
-      const result = await runXCTest({
-        udid: UDID,
-        testRunnerBundleId: TEST_RUNNER_BUNDLE_ID!,
-        appUnderTestBundleId: APP_UNDER_TEST_BUNDLE_ID!,
-        xctestBundleId: XCTEST_BUNDLE_ID!,
-        timeoutMs: Number(process.env.XCTEST_PLAN_TIMEOUT_MS || 300000),
-      });
+        log.debug('XCTest run result:', result);
 
-      log.debug('XCTest run result:', result);
-
-      expect(result.status).to.equal('passed');
-      expect(result.sessionIdentifier).to.be.a('string');
-      expect(result.testRunnerPid).to.be.greaterThan(0);
-      expect(result.durationMs).to.be.greaterThan(0);
-    });
+        expect(result.status).to.equal('passed');
+        expect(result.sessionIdentifier).to.be.a('string');
+        expect(result.testRunnerPid).to.be.greaterThan(0);
+        expect(result.durationMs).to.be.greaterThan(0);
+      },
+    );
   });
 
   describe('IDE delete attachments (optional)', function () {
     before(function () {
       if (!XCTEST_DELETE_ATTACHMENT_TEST_UUID) {
-        this.skip();
+        throw new Error(
+          'Skipping IDE delete attachments tests: XCTEST_DELETE_ATTACHMENT_TEST_UUID must be set',
+        );
       }
     });
 

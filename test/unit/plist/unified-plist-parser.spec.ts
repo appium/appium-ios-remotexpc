@@ -1,5 +1,7 @@
 import { fs, node } from '@appium/support';
+import { expect } from 'chai';
 import path from 'node:path';
+import { before, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { isBinaryPlist } from '../../../src/lib/plist/binary-plist-parser.js';

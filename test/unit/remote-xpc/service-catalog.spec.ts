@@ -1,3 +1,6 @@
+import { expect } from 'chai';
+import { describe, it } from 'node:test';
+
 import { DataFrame } from '../../../src/lib/remote-xpc/handshake-frames.js';
 import {
   Http2FrameParser,

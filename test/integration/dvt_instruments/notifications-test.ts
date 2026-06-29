@@ -1,4 +1,6 @@
 import { logger } from '@appium/support';
+import { expect } from 'chai';
+import { after, before, describe, it } from 'node:test';
 import sinon from 'sinon';
 
 import type { DVTInstruments } from '../../../src/lib/types.js';
@@ -8,9 +10,7 @@ import { requireDeviceUdid } from '../helpers/device.js';
 const log = logger.getLogger('notifications.test');
 log.level = 'debug';
 
-describe('Notifications', function () {
-  this.timeout(30000);
-
+describe('Notifications', { timeout: 30000 }, function () {
   let dvtServiceConnection: DVTInstruments | null = null;
   const udid = requireDeviceUdid();
 
@@ -73,7 +73,9 @@ describe('Notifications', function () {
       try {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         for await (const _msg of notifications.messages()) {
-          if (++iterationCount === 2) break;
+          if (++iterationCount === 2) {
+            break;
+          }
         }
 
         expect(iterationCount).to.equal(2);

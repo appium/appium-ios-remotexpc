@@ -1,4 +1,6 @@
 import { logger } from '@appium/support';
+import { expect } from 'chai';
+import { after, before, describe, it } from 'node:test';
 
 import type { DVTInstruments, NetworkEvent } from '../../../src/index.js';
 import { NetworkMessageType } from '../../../src/index.js';
@@ -33,9 +35,7 @@ async function findEventOfType<K extends NetworkEvent['type']>(
   throw new Error(`Event stream ended without receiving ${eventType} event`);
 }
 
-describe('NetworkMonitor', function () {
-  this.timeout(60000);
-
+describe('NetworkMonitor', { timeout: 60000 }, function () {
   let dvtServiceConnection: DVTInstruments | null = null;
   const udid = requireDeviceUdid();
 
@@ -65,7 +65,7 @@ describe('NetworkMonitor', function () {
 
       const result = await Promise.race([
         nextPromise,
-        new Promise<IteratorResult<NetworkEvent>>((_, reject) =>
+        new Promise<IteratorResult<NetworkEvent>>((resolve, reject) =>
           setTimeout(
             () =>
               reject(
@@ -81,7 +81,7 @@ describe('NetworkMonitor', function () {
       if (!result.done) {
         const terminalResult = await Promise.race([
           iterator.next(),
-          new Promise<IteratorResult<NetworkEvent>>((_, reject) =>
+          new Promise<IteratorResult<NetworkEvent>>((resolve, reject) =>
             setTimeout(
               () =>
                 reject(

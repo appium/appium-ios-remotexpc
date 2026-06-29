@@ -1,3 +1,6 @@
+import { expect } from 'chai';
+import { beforeEach, describe, it } from 'node:test';
+
 import { PlistUID } from '../../src/lib/plist/plist-uid.js';
 import { NSKeyedArchiverEncoder } from '../../src/services/ios/dvt/nskeyedarchiver-encoder.js';
 

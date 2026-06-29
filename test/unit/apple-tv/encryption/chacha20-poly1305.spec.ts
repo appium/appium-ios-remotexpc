@@ -1,3 +1,6 @@
+import { expect } from 'chai';
+import { describe, it } from 'node:test';
+
 import {
   type ChaCha20Poly1305Params,
   decryptChaCha20Poly1305,

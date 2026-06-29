@@ -1,4 +1,6 @@
 import { logger } from '@appium/support';
+import { expect } from 'chai';
+import { after, before, describe, it } from 'node:test';
 
 import type { DVTInstruments } from '../../src/index.js';
 import * as Services from '../../src/services.js';
@@ -6,9 +8,7 @@ import { requireDeviceUdid } from './helpers/device.js';
 
 const log = logger.getLogger('ProcessControl.test');
 
-describe('ProcessControl Service', function () {
-  this.timeout(60000);
-
+describe('ProcessControl Service', { timeout: 60000 }, function () {
   let dvtServiceConnection: DVTInstruments | null = null;
   const udid = requireDeviceUdid();
 
@@ -20,7 +20,7 @@ describe('ProcessControl Service', function () {
     if (dvtServiceConnection) {
       try {
         await dvtServiceConnection.dvtService.close();
-      } catch (error) {}
+      } catch {}
     }
   });
 

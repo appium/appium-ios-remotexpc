@@ -1,4 +1,6 @@
 import { logger } from '@appium/support';
+import { expect } from 'chai';
+import { after, before, describe, it } from 'node:test';
 
 import type { MobileConfigService } from '../../src/lib/types.js';
 import * as Services from '../../src/services.js';
@@ -8,9 +10,7 @@ const log = logger.getLogger('MobileConfigService.test');
 // Set MobileConfigService logger to info level
 log.level = 'info';
 
-describe('MobileConfigService', function () {
-  this.timeout(60000);
-
+describe('MobileConfigService', { timeout: 60000 }, function () {
   let mobileConfigService: MobileConfigService;
   const udid = requireDeviceUdid();
 

@@ -1,4 +1,6 @@
 import { logger } from '@appium/support';
+import { expect } from 'chai';
+import { type TestContext, after, before, describe, it } from 'node:test';
 
 import type { WebInspectorService } from '../../src/index.js';
 import * as Services from '../../src/services.js';
@@ -7,9 +9,7 @@ import { requireDeviceUdid } from './helpers/device.js';
 const log = logger.getLogger('WebInspectorService.test');
 log.level = 'debug';
 
-describe('WebInspectorService', function () {
-  this.timeout(60000);
-
+describe('WebInspectorService', { timeout: 60000 }, function () {
   let service: WebInspectorService;
   const udid = requireDeviceUdid();
   const sessionId = 'test-session-' + Date.now();
@@ -134,16 +134,15 @@ describe('WebInspectorService', function () {
       await listenTask;
 
       if (!foundSafari || !realAppId || !realPageId) {
-        log.warn(
+        throw new Error(
           'Safari not found. Ensure Safari is open with a webpage loaded.',
         );
-        this.skip();
       }
     });
 
-    it('should setup inspector socket', async function () {
+    it('should setup inspector socket', async function (ctx: TestContext) {
       if (!realAppId || !realPageId) {
-        this.skip();
+        ctx.skip();
         return;
       }
 
@@ -167,9 +166,9 @@ describe('WebInspectorService', function () {
       await listenTask;
     });
 
-    it('should send CDP commands and receive responses', async function () {
+    it('should send CDP commands and receive responses', async function (ctx: TestContext) {
       if (!realAppId || !realPageId) {
-        this.skip();
+        ctx.skip();
         return;
       }
 
@@ -253,9 +252,9 @@ describe('WebInspectorService', function () {
       await listenTask;
     });
 
-    it('should highlight webview on device', async function () {
+    it('should highlight webview on device', async function (ctx: TestContext) {
       if (!realAppId || !realPageId) {
-        this.skip();
+        ctx.skip();
         return;
       }
 

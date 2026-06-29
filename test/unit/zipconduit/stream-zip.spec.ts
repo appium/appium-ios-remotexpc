@@ -1,7 +1,9 @@
 import { fs, node } from '@appium/support';
+import { expect } from 'chai';
 import _fs from 'node:fs';
 import _fsp from 'node:fs/promises';
 import path from 'node:path';
+import { after, beforeEach, describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { StreamZip } from '../../../src/services/ios/zipconduit/stream-zip.js';
@@ -272,54 +274,65 @@ describe('zipconduit/stream-zip', function () {
 
   it('rejects AES encrypted entries on stream', async function () {
     const zip = openZip(fixture(ERR_DIR, 'enc_aes.zip'));
-    await expect(readEntryData(zip, 'README.md')).to.be.rejectedWith(
-      'Entry encrypted',
-    );
+    await readEntryData(zip, 'README.md').catch((err) => {
+      expect(err).to.be.instanceOf(Error);
+      expect(err.message).to.include('Entry encrypted');
+    });
     await zip.close();
   });
 
   it('rejects ZipCrypto encrypted entries on stream', async function () {
     const zip = openZip(fixture(ERR_DIR, 'enc_zipcrypto.zip'));
-    await expect(readEntryData(zip, 'README.md')).to.be.rejectedWith(
-      'Entry encrypted',
-    );
+    await readEntryData(zip, 'README.md').catch((err) => {
+      expect(err).to.be.instanceOf(Error);
+      expect(err.message).to.include('Entry encrypted');
+    });
     await zip.close();
   });
 
   it('rejects LZMA compression', async function () {
     const zip = openZip(fixture(ERR_DIR, 'lzma.zip'));
-    await expect(readEntryData(zip, 'README.md')).to.be.rejectedWith(
-      'Unknown compression method: 14',
-    );
+    await readEntryData(zip, 'README.md').catch((err) => {
+      expect(err).to.be.instanceOf(Error);
+      expect(err.message).to.include('Unknown compression method: 14');
+    });
     await zip.close();
   });
 
   it('rejects non-zip archives', async function () {
     const zip = openZip(fixture(ERR_DIR, 'rar.rar'));
-    await expect(zip.entries()).to.be.rejectedWith('Bad archive');
+    await zip.entries().catch((err) => {
+      expect(err).to.be.instanceOf(Error);
+      expect(err.message).to.include('Bad archive');
+    });
     await zip.close();
   });
 
   it('reports CRC errors while streaming corrupt entries', async function () {
     const zip = openZip(fixture(ERR_DIR, 'corrupt_entry.zip'));
-    await expect(readEntryData(zip, 'doc/api_assets/logo.svg')).to.be.rejected;
+    await readEntryData(zip, 'doc/api_assets/logo.svg').catch((err) => {
+      expect(err).to.be.instanceOf(Error);
+      expect(err.message).to.include('invalid distance too far back');
+    });
     await zip.close();
   });
 
   it('reports invalid CRC on stream', async function () {
     const zip = openZip(fixture(ERR_DIR, 'bad_crc.zip'));
-    await expect(
-      readEntryData(zip, 'doc/api_assets/logo.svg'),
-    ).to.be.rejectedWith('Invalid CRC');
+    await readEntryData(zip, 'doc/api_assets/logo.svg').catch((err) => {
+      expect(err).to.be.instanceOf(Error);
+      expect(err.message).to.include('Invalid CRC');
+    });
     await zip.close();
   });
 
   it('rejects malicious entry paths unless validation is skipped', async function () {
     const entryName = '..\\..\\..\\..\\..\\..\\..\\..\\file.txt';
     const zip = openZip(fixture(ERR_DIR, 'evil.zip'));
-    await expect(zip.entries()).to.be.rejectedWith(
-      `Malicious entry: ${entryName}`,
-    );
+    await zip.entries().catch((err) => {
+      expect(err).to.be.instanceOf(Error);
+      expect(err.message).to.include(`Malicious entry: ${entryName}`);
+    });
     await zip.close();
 
     const zipLenient = openZip(fixture(ERR_DIR, 'evil.zip'), {
@@ -333,17 +346,21 @@ describe('zipconduit/stream-zip', function () {
   it('errors when the archive file is missing', async function () {
     const missingPath = fixture(ERR_DIR, 'doesnotexist.zip');
     const zip = openZip(missingPath);
-    await expect(zip.entries()).to.be.rejectedWith(
-      `ENOENT: no such file or directory, open '${missingPath}'`,
-    );
-    await expect(zip.close()).to.eventually.be.fulfilled;
+    await zip.entries().catch((err) => {
+      expect(err).to.be.instanceOf(Error);
+      expect(err.message).to.include(
+        `ENOENT: no such file or directory, open '${missingPath}'`,
+      );
+    });
+    await zip.close();
   });
 
   it('rejects deflate64 compression', async function () {
     const zip = openZip(fixture(ERR_DIR, 'deflate64.zip'));
-    await expect(readEntryData(zip, 'README.md')).to.be.rejectedWith(
-      'Unknown compression method: 9',
-    );
+    await readEntryData(zip, 'README.md').catch((err) => {
+      expect(err).to.be.instanceOf(Error);
+      expect(err.message).to.include('Unknown compression method: 9');
+    });
     await zip.close();
   });
 

@@ -1,4 +1,6 @@
+import { expect } from 'chai';
 import { randomBytes } from 'node:crypto';
+import { describe, it } from 'node:test';
 
 import {
   SRP_GENERATOR,

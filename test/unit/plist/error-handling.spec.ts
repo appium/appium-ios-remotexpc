@@ -1,3 +1,6 @@
+import { expect } from 'chai';
+import { describe, it } from 'node:test';
+
 import { parsePlist as parseXmlPlist } from '../../../src/lib/plist/plist-parser.js';
 import { parsePlist as unifiedParsePlist } from '../../../src/lib/plist/unified-plist-parser.js';
 import type { PlistDictionary } from '../../../src/lib/types.js';

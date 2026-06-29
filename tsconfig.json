@@ -6,9 +6,7 @@
     "checkJs": true,
     "strictNullChecks": false,
     "outDir": "build",
-    "types": [
-      "node"
-    ]
+    "types": ["node", "chai"]
   },
   "include": [
     "src",

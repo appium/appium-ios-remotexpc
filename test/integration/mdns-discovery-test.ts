@@ -1,53 +1,39 @@
-import { logger } from '@appium/support';
+import { expect } from 'chai';
+import { type TestContext, after, before, describe, it } from 'node:test';
 
 import { REMOTE_PAIRING_MANUAL_DISCOVERY_SERVICE_TYPE } from '../../src/lib/apple-tv/constants.js';
 import { createDiscoveryBackend } from '../../src/lib/discovery/discovery-backend-factory.js';
 import { MdnsTestResponder } from '../helpers/mdns-test-responder.js';
 
-const log = logger.getLogger('MdnsDiscoveryTest');
-
 const TEST_SERVICE_TYPE = '_apptest-remotexpc._tcp';
 const DISCOVERY_TIMEOUT_MS = 3000;
 
-describe('mDNS discovery (e2e)', function () {
-  this.timeout(15000);
-
+describe('mDNS discovery (e2e)', { timeout: 15000 }, function () {
   let responder: MdnsTestResponder | undefined;
-  let bindError: Error | undefined;
 
   before(async function () {
-    try {
-      responder = await MdnsTestResponder.start([
-        {
-          instanceName: 'E2E Test Device',
-          serviceType: TEST_SERVICE_TYPE,
-          host: 'apptest-host.local.',
-          port: 49152,
-          ipv4: '127.0.0.1',
-          txt: {
-            identifier: 'e2e-test-id',
-            model: 'AppleTV6,2',
-            ver: '18.0',
-          },
+    responder = await MdnsTestResponder.start([
+      {
+        instanceName: 'E2E Test Device',
+        serviceType: TEST_SERVICE_TYPE,
+        host: 'apptest-host.local.',
+        port: 49152,
+        ipv4: '127.0.0.1',
+        txt: {
+          identifier: 'e2e-test-id',
+          model: 'AppleTV6,2',
+          ver: '18.0',
         },
-        {
-          instanceName: 'E2E Long Service',
-          serviceType: REMOTE_PAIRING_MANUAL_DISCOVERY_SERVICE_TYPE,
-          host: 'apptest-long.local.',
-          port: 49153,
-          ipv4: '127.0.0.1',
-          txt: { identifier: 'e2e-long-id' },
-        },
-      ]);
-    } catch (err) {
-      bindError = err instanceof Error ? err : new Error(String(err));
-    }
-    if (bindError) {
-      log.warn(
-        `Skipping mDNS e2e: cannot bind UDP port 5353 (${bindError.message})`,
-      );
-      this.skip();
-    }
+      },
+      {
+        instanceName: 'E2E Long Service',
+        serviceType: REMOTE_PAIRING_MANUAL_DISCOVERY_SERVICE_TYPE,
+        host: 'apptest-long.local.',
+        port: 49153,
+        ipv4: '127.0.0.1',
+        txt: { identifier: 'e2e-long-id' },
+      },
+    ]);
   });
 
   after(async function () {
@@ -91,26 +77,26 @@ describe('mDNS discovery (e2e)', function () {
   });
 });
 
-describe('mDNS discovery (live _remotepairing._tcp on LAN)', function () {
-  this.timeout(30000);
+describe(
+  'mDNS discovery (live _remotepairing._tcp on LAN)',
+  { timeout: 30000 },
+  function () {
+    const enabled = process.env.REMOTE_PAIRING_LIVE_DISCOVERY === '1';
 
-  const enabled = process.env.REMOTE_PAIRING_LIVE_DISCOVERY === '1';
-
-  before(function () {
-    if (!enabled) {
-      this.skip();
-    }
-  });
-
-  it('discovers at least one Apple device advertising _remotepairing._tcp', async function () {
-    const backend = createDiscoveryBackend(process.platform, {
-      serviceType: '_remotepairing._tcp',
-      domain: 'local',
+    it('discovers at least one Apple device advertising _remotepairing._tcp', async function (ctx: TestContext) {
+      if (!enabled) {
+        ctx.skip();
+        return;
+      }
+      const backend = createDiscoveryBackend(process.platform, {
+        serviceType: '_remotepairing._tcp',
+        domain: 'local',
+      });
+      const devices = await backend.discoverDevices(10000);
+      expect(devices.length).to.be.greaterThan(
+        0,
+        'No _remotepairing._tcp advertisers found on the LAN — Macs and other paired Apple devices count',
+      );
     });
-    const devices = await backend.discoverDevices(10000);
-    expect(devices.length).to.be.greaterThan(
-      0,
-      'No _remotepairing._tcp advertisers found on the LAN — Macs and other paired Apple devices count',
-    );
-  });
-});
+  },
+);

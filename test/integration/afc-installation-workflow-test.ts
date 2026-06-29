@@ -1,9 +1,11 @@
+import { expect } from 'chai';
 import path from 'node:path';
+import { after, before, describe, it } from 'node:test';
 
 import { getLogger } from '../../src/lib/logger.js';
 import * as Services from '../../src/services.js';
-import AfcService from '../../src/services/ios/afc/index.js';
-import { InstallationProxyService } from '../../src/services/ios/installation-proxy/index.js';
+import type AfcService from '../../src/services/ios/afc/index.js';
+import type { InstallationProxyService } from '../../src/services/ios/installation-proxy/index.js';
 import { requireDeviceUdid } from './helpers/device.js';
 
 const log = getLogger('AFC-InstallationProxy.Workflow.test');
@@ -21,10 +23,8 @@ const log = getLogger('AFC-InstallationProxy.Workflow.test');
  * Example:
  * UDID=... TEST_IPA_PATH=./v1.ipa TEST_IPA_PATH_2=./v2.ipa TEST_BUNDLE_ID=com.test.app npm run test:installation-workflow
  */
-describe('AFC + Installation Proxy Workflow', function () {
+describe('AFC + Installation Proxy Workflow', { timeout: 300000 }, function () {
   // Installation can take several minutes depending on app size
-  this.timeout(300000); // 5 minutes
-
   let afcService: AfcService;
   let installationProxyService: InstallationProxyService;
 
@@ -36,11 +36,9 @@ describe('AFC + Installation Proxy Workflow', function () {
   before(async function () {
     // Skip tests if required environment variables are not set
     if (!testIpaPathV1 || !testBundleId) {
-      log.warn(
+      throw new Error(
         'Skipping AFC + Installation Proxy workflow tests: TEST_IPA_PATH and TEST_BUNDLE_ID must be set',
       );
-      this.skip();
-      return;
     }
 
     try {

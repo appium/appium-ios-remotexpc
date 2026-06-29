@@ -1,3 +1,6 @@
+import { expect } from 'chai';
+import { describe, it } from 'node:test';
+
 import { ZIP_LOCAL_FILE_HEADER_SIGNATURE } from '../../../src/services/ios/zipconduit/constants.js';
 import {
   SIGNING_ERROR,

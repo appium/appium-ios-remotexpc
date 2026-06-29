@@ -1,4 +1,6 @@
+import { expect } from 'chai';
 import { constants as osConstants } from 'node:os';
+import { type TestContext, after, before, describe, it } from 'node:test';
 
 import { type AppService, CoreDeviceError } from '../../src/index.js';
 import * as Services from '../../src/services.js';
@@ -17,9 +19,7 @@ import { requireDeviceUdid } from './helpers/device.js';
  * result set), so the listApps test is bounded and lenient. Process and app
  * lifecycle operations (launch / signal / listProcesses) work fully.
  */
-describe('AppService', function () {
-  this.timeout(60000);
-
+describe('AppService', { timeout: 60000 }, function () {
   let appService: AppService | null = null;
   const udid = requireDeviceUdid();
   const bundleId = process.env.APP_BUNDLE_ID || 'com.apple.Preferences';
@@ -125,7 +125,7 @@ describe('AppService', function () {
     expect(b.length).to.be.greaterThan(0);
   });
 
-  it('lists apps (bounded; iOS 26 may not enumerate over this path)', async function () {
+  it('lists apps (bounded; iOS 26 may not enumerate over this path)', async function (ctx: TestContext) {
     try {
       const apps = await appService!.listApps({
         requireContainerAccess: true,
@@ -138,7 +138,7 @@ describe('AppService', function () {
       expect(apps).to.be.an('array');
     } catch {
       // iOS 26 may not respond to app enumeration over the AppService path.
-      this.skip();
+      ctx.skip();
     }
   });
 });

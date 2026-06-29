@@ -1,4 +1,6 @@
+import { expect } from 'chai';
 import esmock from 'esmock';
+import { describe, it } from 'node:test';
 
 function slugify(value: string): string {
   return value

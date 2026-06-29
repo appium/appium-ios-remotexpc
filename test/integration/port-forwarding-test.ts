@@ -1,4 +1,6 @@
+import { expect } from 'chai';
 import { createConnection } from 'node:net';
+import { after, before, describe, it } from 'node:test';
 
 import {
   DevicePortForwarder,
@@ -119,9 +121,7 @@ async function resolveUdid(requestedUdid?: string): Promise<string> {
   }
 }
 
-describe('Port forwarding (usbmux)', function () {
-  this.timeout(30000);
-
+describe('Port forwarding (usbmux)', { timeout: 30000 }, function () {
   const localHost = process.env.PORT_FORWARD_HOST ?? '127.0.0.1';
   const localPort = Number.parseInt(
     process.env.PORT_FORWARD_LOCAL_PORT ?? '18100',
@@ -137,7 +137,7 @@ describe('Port forwarding (usbmux)', function () {
 
   before(async function () {
     if (!Number.isFinite(devicePort) || devicePort <= 0) {
-      this.skip();
+      throw new Error('PORT_FORWARD_DEVICE_PORT is not set');
     }
 
     const udid = await resolveUdid(requestedUdid);
@@ -162,9 +162,7 @@ describe('Port forwarding (usbmux)', function () {
   });
 });
 
-describe('Port forwarding (tunnel)', function () {
-  this.timeout(30000);
-
+describe('Port forwarding (tunnel)', { timeout: 30000 }, function () {
   const localHost = process.env.PORT_FORWARD_HOST ?? '127.0.0.1';
   const localPort = Number.parseInt(
     process.env.PORT_FORWARD_TUNNEL_LOCAL_PORT ??
@@ -184,7 +182,7 @@ describe('Port forwarding (tunnel)', function () {
 
   before(async function () {
     if (!Number.isFinite(devicePort) || devicePort <= 0) {
-      this.skip();
+      throw new Error('PORT_FORWARD_DEVICE_PORT is not set');
     }
 
     const udid = await resolveUdid(requestedUdid);

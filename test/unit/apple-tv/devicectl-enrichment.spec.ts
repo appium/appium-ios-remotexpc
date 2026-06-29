@@ -1,4 +1,6 @@
+import { expect } from 'chai';
 import esmock from 'esmock';
+import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import type { DevicectlDeviceRecord } from '../../../src/lib/discovery/devicectl-device-records.js';
 import type { DiscoveredDevice } from '../../../src/lib/discovery/types.js';

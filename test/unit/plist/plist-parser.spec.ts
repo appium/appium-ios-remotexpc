@@ -1,3 +1,6 @@
+import { expect } from 'chai';
+import { describe, it } from 'node:test';
+
 import { parsePlist as parseXmlPlist } from '../../../src/lib/plist/plist-parser.js';
 import {
   findFirstReplacementCharacter,
@@ -6,11 +9,7 @@ import {
   isValidXml,
   trimBeforeXmlDeclaration,
 } from '../../../src/lib/plist/utils.js';
-import type {
-  PlistArray,
-  PlistDictionary,
-  PlistValue,
-} from '../../../src/lib/types.js';
+import type { PlistArray, PlistDictionary } from '../../../src/lib/types.js';
 
 describe('Plist Parser', function () {
   describe('XML Cleaning Logic', function () {

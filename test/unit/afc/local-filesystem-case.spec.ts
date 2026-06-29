@@ -1,4 +1,6 @@
+import { expect } from 'chai';
 import os from 'node:os';
+import { afterEach, describe, it } from 'node:test';
 
 import {
   type DiskutilInfoPlist,

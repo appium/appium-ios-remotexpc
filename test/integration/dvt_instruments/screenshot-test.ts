@@ -1,4 +1,6 @@
 import { logger } from '@appium/support';
+import { expect } from 'chai';
+import { after, before, describe, it } from 'node:test';
 
 import type { DVTInstruments } from '../../../src/index.js';
 import * as Services from '../../../src/services.js';
@@ -9,9 +11,7 @@ log.level = 'debug';
 
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
-describe('Screenshot Instrument', function () {
-  this.timeout(30000);
-
+describe('Screenshot Instrument', { timeout: 30000 }, function () {
   let dvtServiceConnection: DVTInstruments | null = null;
   const udid = requireDeviceUdid();
 
@@ -23,7 +23,7 @@ describe('Screenshot Instrument', function () {
     if (dvtServiceConnection) {
       try {
         await dvtServiceConnection.dvtService.close();
-      } catch (error) {}
+      } catch {}
     }
   });
 

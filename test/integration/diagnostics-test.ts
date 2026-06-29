@@ -1,11 +1,11 @@
+import { expect } from 'chai';
+import { after, before, describe, it } from 'node:test';
+
 import { Services } from '../../src/index.js';
 import type { DiagnosticsService } from '../../src/lib/types.js';
 import { requireDeviceUdid } from './helpers/device.js';
 
-describe('Diagnostics Service', function () {
-  // Increase timeout for integration tests
-  this.timeout(60000);
-
+describe('Diagnostics Service', { timeout: 60000 }, function () {
   let diagService: DiagnosticsService;
   const udid = requireDeviceUdid();
 

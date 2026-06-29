@@ -1,5 +1,7 @@
+import { expect } from 'chai';
 import os from 'node:os';
 import path from 'node:path';
+import { afterEach, describe, it } from 'node:test';
 import sinon from 'sinon';
 
 import { PullLocalNameAllocator } from '../../../src/services/ios/afc/pull-local-name-allocator.js';

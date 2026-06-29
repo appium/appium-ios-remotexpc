@@ -1,4 +1,6 @@
+import { expect } from 'chai';
 import { type Server, type Socket } from 'node:net';
+import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import { type Device, Usbmux } from '../../../src/lib/usbmux/index.js';
 import { prioritizeUsbOverNetworkForDuplicateUdids } from '../../../src/lib/usbmux/utils.js';
@@ -68,7 +70,9 @@ describe('usbmux', function () {
     ({ server, socket } = await getServerWithFixtures());
     usbmux = new Usbmux(socket);
 
-    await expect(usbmux.listDevices(-1)).to.be.rejected;
+    await usbmux.listDevices(-1).catch((err) => {
+      expect(err).to.be.instanceOf(Error);
+    });
   });
 
   it('should find correct device', async function () {

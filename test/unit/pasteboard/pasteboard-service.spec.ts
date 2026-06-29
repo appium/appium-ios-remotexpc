@@ -1,5 +1,6 @@
 import { expect } from 'chai';
 import { EventEmitter } from 'node:events';
+import { describe, it } from 'node:test';
 
 import { decodeMessage } from '../../../src/lib/remote-xpc/xpc-protocol.js';
 import type { XPCDictionary } from '../../../src/lib/types.js';

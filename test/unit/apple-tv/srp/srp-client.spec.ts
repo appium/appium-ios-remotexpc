@@ -1,4 +1,6 @@
+import { expect } from 'chai';
 import { randomBytes } from 'node:crypto';
+import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import {
   SRP_KEY_LENGTH_BYTES,

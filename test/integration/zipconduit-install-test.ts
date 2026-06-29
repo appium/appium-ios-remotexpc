@@ -1,4 +1,6 @@
+import { expect } from 'chai';
 import path from 'node:path';
+import { after, before, describe, it } from 'node:test';
 
 import { getLogger } from '../../src/lib/logger.js';
 import * as Services from '../../src/services.js';
@@ -19,9 +21,7 @@ const log = getLogger('ZipConduit.Install.test');
  * Example:
  * UDID=... TEST_IPA_PATH=./App.ipa TEST_BUNDLE_ID=com.example.app npm run test:zipconduit-install
  */
-describe('ZipConduit Install', function () {
-  this.timeout(600000);
-
+describe('ZipConduit Install', { timeout: 600000 }, function () {
   let zipConduitService: ZipConduitService;
   let installationProxyService: InstallationProxyService;
 
@@ -31,11 +31,9 @@ describe('ZipConduit Install', function () {
 
   before(async function () {
     if (!testIpaPath || !testBundleId) {
-      log.warn(
+      throw new Error(
         'Skipping ZipConduit install test: TEST_IPA_PATH and TEST_BUNDLE_ID must be set',
       );
-      this.skip();
-      return;
     }
 
     zipConduitService = await Services.startZipConduitService(udid);

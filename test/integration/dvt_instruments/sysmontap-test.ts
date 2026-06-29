@@ -1,4 +1,12 @@
 import { logger } from '@appium/support';
+import { expect } from 'chai';
+import {
+  type TestContext,
+  afterEach,
+  beforeEach,
+  describe,
+  it,
+} from 'node:test';
 
 import type {
   DVTInstruments,
@@ -29,9 +37,7 @@ async function collectProcessSnapshots(
   return snapshots;
 }
 
-describe('Sysmontap', function () {
-  this.timeout(60000);
-
+describe('Sysmontap', { timeout: 60000 }, function () {
   const udid = requireDeviceUdid();
 
   // A sysmontap instance supports a single sampling session per DVT connection,
@@ -125,7 +131,7 @@ describe('Sysmontap', function () {
       );
     });
 
-    it('should label process records in the configured attribute order (launchd is pid 1)', async function () {
+    it('should label process records in the configured attribute order (launchd is pid 1)', async function (ctx: TestContext) {
       const sysmontap = dvt.sysmontap;
       await sysmontap.configure();
       const processAttributes = sysmontap.getProcessAttributes();
@@ -135,7 +141,7 @@ describe('Sysmontap', function () {
         !processAttributes.includes('pid')
       ) {
         log.warn("'name'/'pid' attributes not present; skipping");
-        this.skip();
+        ctx.skip();
         return;
       }
 
@@ -222,7 +228,7 @@ describe('Sysmontap', function () {
           }
           return result;
         })(),
-        new Promise<never>((_, reject) =>
+        new Promise<never>((resolve, reject) =>
           setTimeout(
             () => reject(new Error('sysmontap iterator did not stop')),
             5000,
@@ -284,7 +290,7 @@ describe('Sysmontap', function () {
           }
           return result;
         })(),
-        new Promise<never>((_, reject) =>
+        new Promise<never>((resolve, reject) =>
           setTimeout(
             () =>
               reject(

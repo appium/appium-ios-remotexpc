@@ -1,3 +1,6 @@
+import { expect } from 'chai';
+import { describe, it } from 'node:test';
+
 import { parsePlist as parseXmlPlist } from '../../../src/lib/plist/plist-parser.js';
 import {
   cleanXmlWithReplacementChar,

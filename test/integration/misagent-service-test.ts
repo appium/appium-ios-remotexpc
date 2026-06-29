@@ -1,4 +1,6 @@
 import { logger } from '@appium/support';
+import { expect } from 'chai';
+import { after, before, describe, it } from 'node:test';
 
 import { type MisagentService } from '../../src/lib/types.js';
 import * as Services from '../../src/services.js';
@@ -7,9 +9,7 @@ import { requireDeviceUdid } from './helpers/device.js';
 const log = logger.getLogger('MisagentService.test');
 log.level = 'info';
 
-describe('MisagentService', function () {
-  this.timeout(60000);
-
+describe('MisagentService', { timeout: 60000 }, function () {
   let misagentService: MisagentService;
   const udid = requireDeviceUdid();
 

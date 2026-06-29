@@ -1,4 +1,5 @@
 import { logger } from '@appium/support';
+import { after, before, describe, it } from 'node:test';
 
 import type {
   PowerAssertionOptions,
@@ -11,9 +12,7 @@ import { requireDeviceUdid } from './helpers/device.js';
 const log = logger.getLogger('PowerAssertionService.test');
 log.level = 'debug';
 
-describe('PowerAssertionService Integration', function () {
-  this.timeout(30000);
-
+describe('PowerAssertionService Integration', { timeout: 30000 }, function () {
   let powerAssertionService: PowerAssertionService;
   const udid = requireDeviceUdid();
 

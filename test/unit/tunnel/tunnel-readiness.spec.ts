@@ -1,3 +1,6 @@
+import { expect } from 'chai';
+import { describe, it } from 'node:test';
+
 import { TunnelReadinessCoordinator } from '../../../src/lib/tunnel/tunnel-readiness.js';
 import type { TunnelRegistryEntry } from '../../../src/lib/types.js';
 

@@ -1,3 +1,6 @@
+import { expect } from 'chai';
+import { afterEach, before, describe, it } from 'node:test';
+
 import type { SyslogService as ISyslogService } from '../../src/lib/types.js';
 import {
   startSyslogBinaryService,
@@ -29,9 +32,7 @@ function registerCommonSyslogTests(
   });
 }
 
-describe('Tunnel and Syslog Service', function () {
-  this.timeout(60000);
-
+describe('Tunnel and Syslog Service', { timeout: 60000 }, function () {
   describe('os_trace_relay binary-mode (os_trace_relay.shim.remote)', function () {
     let syslogService: ISyslogService;
     let serviceDescriptor: Service;

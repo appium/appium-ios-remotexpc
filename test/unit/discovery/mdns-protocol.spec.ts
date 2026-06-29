@@ -1,3 +1,6 @@
+import { expect } from 'chai';
+import { describe, it } from 'node:test';
+
 import {
   QTYPE_PTR,
   QTYPE_SRV,

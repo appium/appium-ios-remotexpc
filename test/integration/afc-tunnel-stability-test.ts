@@ -1,9 +1,12 @@
+import { expect } from 'chai';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
+import type { Socket } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
+import { after, before, describe, it } from 'node:test';
 
 import { getLogger } from '../../src/lib/logger.js';
 import * as Services from '../../src/services.js';
@@ -12,8 +15,17 @@ import type AfcService from '../../src/services/ios/afc/index.js';
 import { requireDeviceUdid } from './helpers/device.js';
 
 const log = getLogger('AFC.TunnelStability.test');
-
 const MIB = 1024 * 1024;
+const iterations = parsePositiveInt(process.env.AFC_STABILITY_ITERATIONS, 5);
+const maxRoundMs = parsePositiveInt(process.env.AFC_STABILITY_MAX_MS, 120_000);
+const fileSizeBytes = parsePositiveInt(
+  process.env.AFC_STABILITY_FILE_SIZE_BYTES,
+  10 * MIB,
+);
+const writeChunkBytes = parsePositiveInt(
+  process.env.AFC_STABILITY_WRITE_CHUNK_BYTES,
+  128 * 1024,
+);
 
 /**
  * Integration tunnel stability check: upload and download the same AFC file many times
@@ -33,166 +45,155 @@ const MIB = 1024 * 1024;
  * Example:
  *   UDID=... npm run test:afc-tunnel-stability
  */
-describe('AFC tunnel stability', function () {
-  const udid = requireDeviceUdid();
-  const iterations = parsePositiveInt(process.env.AFC_STABILITY_ITERATIONS, 5);
-  const fileSizeBytes = parsePositiveInt(
-    process.env.AFC_STABILITY_FILE_SIZE_BYTES,
-    10 * MIB,
-  );
-  const maxRoundMs = parsePositiveInt(
-    process.env.AFC_STABILITY_MAX_MS,
-    120_000,
-  );
-  const writeChunkBytes = parsePositiveInt(
-    process.env.AFC_STABILITY_WRITE_CHUNK_BYTES,
-    128 * 1024,
-  );
+describe(
+  'AFC tunnel stability',
+  { timeout: iterations * (maxRoundMs + 30_000) + 120_000 },
+  function () {
+    const udid = requireDeviceUdid();
 
-  this.timeout(iterations * (maxRoundMs + 30_000) + 120_000);
+    let afc: AfcService;
+    let localSourcePath = '';
+    let localPullDir = '';
+    let remotePath = '';
+    let sourceSha256 = '';
 
-  let afc: AfcService;
-  let localSourcePath = '';
-  let localPullDir = '';
-  let remotePath = '';
-  let sourceSha256 = '';
+    before(async function () {
+      const tag = Date.now();
+      localSourcePath = path.join(
+        os.tmpdir(),
+        `afc_stability_src_${tag}_${fileSizeBytes}.bin`,
+      );
+      localPullDir = path.join(os.tmpdir(), `afc_stability_pull_${tag}`);
+      remotePath = `/Downloads/afc_stability_${tag}.bin`;
 
-  before(async function () {
-    const tag = Date.now();
-    localSourcePath = path.join(
-      os.tmpdir(),
-      `afc_stability_src_${tag}_${fileSizeBytes}.bin`,
-    );
-    localPullDir = path.join(os.tmpdir(), `afc_stability_pull_${tag}`);
-    remotePath = `/Downloads/afc_stability_${tag}.bin`;
+      log.info(
+        `Preparing ${formatMiB(fileSizeBytes)} source at ${localSourcePath}`,
+      );
+      await writeFixedSizeFile(localSourcePath, fileSizeBytes);
+      sourceSha256 = await sha256File(localSourcePath);
+      await fsp.mkdir(localPullDir, { recursive: true });
 
-    log.info(
-      `Preparing ${formatMiB(fileSizeBytes)} source at ${localSourcePath}`,
-    );
-    await writeFixedSizeFile(localSourcePath, fileSizeBytes);
-    sourceSha256 = await sha256File(localSourcePath);
-    await fsp.mkdir(localPullDir, { recursive: true });
+      afc = await Services.startAfcService(udid);
+      attachAfcSocketDiagnostics(afc, log);
+    });
 
-    afc = await Services.startAfcService(udid);
-    attachAfcSocketDiagnostics(afc, log);
-  });
-
-  after(async function () {
-    try {
-      if (afc && remotePath) {
-        await afc.rm(remotePath, true);
-      }
-    } catch {
-      // ignore
-    }
-    try {
-      afc?.close();
-    } catch {
-      // ignore
-    }
-    for (const p of [localSourcePath, localPullDir]) {
-      if (!p) {
-        continue;
-      }
+    after(async function () {
       try {
-        await fsp.rm(p, { recursive: true, force: true });
+        if (afc && remotePath) {
+          await afc.rm(remotePath, true);
+        }
       } catch {
         // ignore
       }
-    }
-  });
-
-  it('should upload and download the same file repeatedly on one AFC session', async function () {
-    log.info(
-      `Running ${iterations} push+pull rounds (${formatMiB(fileSizeBytes)} each, ` +
-        `writeChunk=${formatMiB(writeChunkBytes)}, max ${maxRoundMs}ms/round)`,
-    );
-
-    const roundStats: Array<{
-      round: number;
-      pushMs: number;
-      pullMs: number;
-      totalMs: number;
-      mibPerSecond: number;
-    }> = [];
-
-    for (let round = 1; round <= iterations; round++) {
-      const pullPath = path.join(localPullDir, `round_${round}.bin`);
-      const roundStart = performance.now();
-
-      log.info(`round ${round}/${iterations} begin`);
-
-      const pushStart = performance.now();
-      await pushWithSteps(
-        afc,
-        round,
-        localSourcePath,
-        remotePath,
-        writeChunkBytes,
-      );
-      const pushMs = performance.now() - pushStart;
-
-      const stat = await logStep(round, 'verify.stat', () =>
-        afc.stat(remotePath),
-      );
-      expect(stat.st_ifmt).to.equal(AfcFileMode.S_IFREG);
-      expect(stat.st_size).to.equal(BigInt(fileSizeBytes));
-
-      const pullStart = performance.now();
-      await pullWithSteps(afc, round, remotePath, pullPath);
-      const pullMs = performance.now() - pullStart;
-
-      const totalMs = performance.now() - roundStart;
-      const pulledSha256 = await logStep(round, 'verify.sha256', () =>
-        sha256File(pullPath),
-      );
-      expect(pulledSha256).to.equal(
-        sourceSha256,
-        `round ${round}: pulled content mismatch`,
-      );
-
-      const mibPerSecond = (2 * fileSizeBytes) / MIB / (totalMs / 1000);
-      roundStats.push({
-        round,
-        pushMs,
-        pullMs,
-        totalMs,
-        mibPerSecond,
-      });
-
-      log.info(
-        `Round ${round}/${iterations}: push ${pushMs.toFixed(0)}ms, pull ${pullMs.toFixed(0)}ms, ` +
-          `total ${totalMs.toFixed(0)}ms (${mibPerSecond.toFixed(2)} MiB/s round-trip)`,
-      );
-
-      expect(totalMs).to.be.lessThan(
-        maxRoundMs,
-        `round ${round} exceeded ${maxRoundMs}ms budget`,
-      );
-
-      await logStep(round, 'cleanup.unlink', async () => {
+      try {
+        afc?.close();
+      } catch {
+        // ignore
+      }
+      for (const p of [localSourcePath, localPullDir]) {
+        if (!p) {
+          continue;
+        }
         try {
-          await fsp.unlink(pullPath);
+          await fsp.rm(p, { recursive: true, force: true });
         } catch {
           // ignore
         }
-      });
+      }
+    });
 
-      log.info(`round ${round}/${iterations} done`);
-    }
+    it('should upload and download the same file repeatedly on one AFC session', async function () {
+      log.info(
+        `Running ${iterations} push+pull rounds (${formatMiB(fileSizeBytes)} each, ` +
+          `writeChunk=${formatMiB(writeChunkBytes)}, max ${maxRoundMs}ms/round)`,
+      );
 
-    const avgRoundTrip =
-      roundStats.reduce((sum, s) => sum + s.mibPerSecond, 0) /
-      roundStats.length;
-    const minRoundTrip = Math.min(...roundStats.map((s) => s.mibPerSecond));
-    const maxRoundTrip = Math.max(...roundStats.map((s) => s.mibPerSecond));
+      const roundStats: Array<{
+        round: number;
+        pushMs: number;
+        pullMs: number;
+        totalMs: number;
+        mibPerSecond: number;
+      }> = [];
 
-    log.info(
-      `Summary: ${iterations}/${iterations} ok; round-trip throughput ` +
-        `min=${minRoundTrip.toFixed(2)} avg=${avgRoundTrip.toFixed(2)} max=${maxRoundTrip.toFixed(2)} MiB/s`,
-    );
-  });
-});
+      for (let round = 1; round <= iterations; round++) {
+        const pullPath = path.join(localPullDir, `round_${round}.bin`);
+        const roundStart = performance.now();
+
+        log.info(`round ${round}/${iterations} begin`);
+
+        const pushStart = performance.now();
+        await pushWithSteps(
+          afc,
+          round,
+          localSourcePath,
+          remotePath,
+          writeChunkBytes,
+        );
+        const pushMs = performance.now() - pushStart;
+
+        const stat = await logStep(round, 'verify.stat', () =>
+          afc.stat(remotePath),
+        );
+        expect(stat.st_ifmt).to.equal(AfcFileMode.S_IFREG);
+        expect(stat.st_size).to.equal(BigInt(fileSizeBytes));
+
+        const pullStart = performance.now();
+        await pullWithSteps(afc, round, remotePath, pullPath);
+        const pullMs = performance.now() - pullStart;
+
+        const totalMs = performance.now() - roundStart;
+        const pulledSha256 = await logStep(round, 'verify.sha256', () =>
+          sha256File(pullPath),
+        );
+        expect(pulledSha256).to.equal(
+          sourceSha256,
+          `round ${round}: pulled content mismatch`,
+        );
+
+        const mibPerSecond = (2 * fileSizeBytes) / MIB / (totalMs / 1000);
+        roundStats.push({
+          round,
+          pushMs,
+          pullMs,
+          totalMs,
+          mibPerSecond,
+        });
+
+        log.info(
+          `Round ${round}/${iterations}: push ${pushMs.toFixed(0)}ms, pull ${pullMs.toFixed(0)}ms, ` +
+            `total ${totalMs.toFixed(0)}ms (${mibPerSecond.toFixed(2)} MiB/s round-trip)`,
+        );
+
+        expect(totalMs).to.be.lessThan(
+          maxRoundMs,
+          `round ${round} exceeded ${maxRoundMs}ms budget`,
+        );
+
+        await logStep(round, 'cleanup.unlink', async () => {
+          try {
+            await fsp.unlink(pullPath);
+          } catch {
+            // ignore
+          }
+        });
+
+        log.info(`round ${round}/${iterations} done`);
+      }
+
+      const avgRoundTrip =
+        roundStats.reduce((sum, s) => sum + s.mibPerSecond, 0) /
+        roundStats.length;
+      const minRoundTrip = Math.min(...roundStats.map((s) => s.mibPerSecond));
+      const maxRoundTrip = Math.max(...roundStats.map((s) => s.mibPerSecond));
+
+      log.info(
+        `Summary: ${iterations}/${iterations} ok; round-trip throughput ` +
+          `min=${minRoundTrip.toFixed(2)} avg=${avgRoundTrip.toFixed(2)} max=${maxRoundTrip.toFixed(2)} MiB/s`,
+      );
+    });
+  },
+);
 
 const HEARTBEAT_MS = parsePositiveInt(
   process.env.AFC_STABILITY_HEARTBEAT_MS,
@@ -246,7 +247,7 @@ function attachAfcSocketDiagnostics(
   afc: AfcService,
   logger: ReturnType<typeof getLogger>,
 ): void {
-  const hook = (socket: import('node:net').Socket, label: string) => {
+  const hook = (socket: Socket, label: string) => {
     const startedAt = performance.now();
     let bytesIn = 0;
     let bytesOut = 0;

@@ -1,4 +1,6 @@
 import { logger } from '@appium/support';
+import { expect } from 'chai';
+import { type TestContext, after, before, describe, it } from 'node:test';
 
 import type { DVTInstruments } from '../../../src/index.js';
 import * as Services from '../../../src/services.js';
@@ -7,9 +9,7 @@ import { requireDeviceUdid } from '../helpers/device.js';
 const log = logger.getLogger('DeviceInfo.test');
 log.level = 'debug';
 
-describe('DeviceInfo Instrument', function () {
-  this.timeout(30000);
-
+describe('DeviceInfo Instrument', { timeout: 30000 }, function () {
   let dvtServiceConnection: DVTInstruments | null = null;
   const udid = requireDeviceUdid();
 
@@ -21,7 +21,7 @@ describe('DeviceInfo Instrument', function () {
     if (dvtServiceConnection) {
       try {
         await dvtServiceConnection.dvtService.close();
-      } catch (error) {}
+      } catch {}
     }
   });
 
@@ -66,7 +66,7 @@ describe('DeviceInfo Instrument', function () {
       expect(isRunning).to.be.true;
     });
 
-    it('should get executable name for PID', async function () {
+    it('should get executable name for PID', async function (ctx: TestContext) {
       const processes = await dvtServiceConnection!.deviceInfo.proclist();
       const springboard = processes.find((p) => p.name === 'SpringBoard');
 
@@ -79,7 +79,7 @@ describe('DeviceInfo Instrument', function () {
         expect(execPath.length).to.be.greaterThan(0);
         expect(execPath).to.include('SpringBoard');
       } else {
-        this.skip();
+        ctx.skip();
       }
     });
   });
@@ -148,7 +148,7 @@ describe('DeviceInfo Instrument', function () {
       expect(username.length).to.be.greaterThan(0);
     });
 
-    it('should get group name for GID', async function () {
+    it('should get group name for GID', async function (ctx: TestContext) {
       try {
         // mobile (501) is the common app-owner group on iOS
         const groupName =
@@ -162,7 +162,7 @@ describe('DeviceInfo Instrument', function () {
           message.includes('nameForGID') &&
           message.includes('does not respond')
         ) {
-          this.skip();
+          ctx.skip();
         }
         throw error;
       }
@@ -170,7 +170,7 @@ describe('DeviceInfo Instrument', function () {
   });
 
   describe('Integration Tests', () => {
-    it('should correlate process info with executable path', async function () {
+    it('should correlate process info with executable path', async function (ctx: TestContext) {
       const processes = await dvtServiceConnection!.deviceInfo.proclist();
       const springboard = processes.find((p) => p.name === 'SpringBoard');
 
@@ -187,7 +187,7 @@ describe('DeviceInfo Instrument', function () {
         expect(execPath).to.include('SpringBoard');
         expect(springboard.pid).to.be.a('number');
       } else {
-        this.skip();
+        ctx.skip();
       }
     });
   });

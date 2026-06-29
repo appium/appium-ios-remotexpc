@@ -1,3 +1,6 @@
+import { expect } from 'chai';
+import { describe, it } from 'node:test';
+
 import { createLockdownServiceForTunnel } from '../../src/index.js';
 import type { LockdownDeviceInfo } from '../../src/lib/types.js';
 import { requireDeviceUdid } from './helpers/device.js';
@@ -11,20 +14,22 @@ import { requireDeviceUdid } from './helpers/device.js';
  * - **`UDID`** — device that has a tunnel entry in that registry.
  */
 
-describe('Lockdown over tunnel (getDeviceInfo)', function () {
-  this.timeout(60000);
+describe(
+  'Lockdown over tunnel (getDeviceInfo)',
+  { timeout: 60000 },
+  function () {
+    const udid = requireDeviceUdid();
 
-  const udid = requireDeviceUdid();
-
-  it('should return lockdown device info', async function () {
-    const lockdown = await createLockdownServiceForTunnel(udid);
-    try {
-      const info: LockdownDeviceInfo = await lockdown.getDeviceInfo();
-      expect(info).to.be.an('object');
-      expect(info.UniqueDeviceID).to.be.a('string').and.not.empty;
-      expect(info.ProductVersion).to.be.a('string').and.not.empty;
-    } finally {
-      lockdown.close();
-    }
-  });
-});
+    it('should return lockdown device info', async function () {
+      const lockdown = await createLockdownServiceForTunnel(udid);
+      try {
+        const info: LockdownDeviceInfo = await lockdown.getDeviceInfo();
+        expect(info).to.be.an('object');
+        expect(info.UniqueDeviceID).to.be.a('string').and.not.empty;
+        expect(info.ProductVersion).to.be.a('string').and.not.empty;
+      } finally {
+        lockdown.close();
+      }
+    });
+  },
+);

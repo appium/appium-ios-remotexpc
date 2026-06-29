@@ -1,4 +1,5 @@
 import { expect } from 'chai';
+import { after, before, describe, it } from 'node:test';
 
 import { type PasteboardService } from '../../src/index.js';
 import * as Services from '../../src/services.js';
@@ -8,9 +9,7 @@ const PNG_1X1 = Buffer.from(
   'base64',
 );
 
-describe('PasteboardService', function () {
-  this.timeout(60000);
-
+describe('PasteboardService', { timeout: 60000 }, function () {
   let pasteboardService: PasteboardService | null = null;
   const udid = process.env.UDID || '';
 

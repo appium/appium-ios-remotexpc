@@ -1,3 +1,6 @@
+import { expect } from 'chai';
+import { describe, it } from 'node:test';
+
 import { generateHostId } from '../../../../src/lib/apple-tv/utils/uuid-generator.js';
 
 describe('uuid-generator', () => {

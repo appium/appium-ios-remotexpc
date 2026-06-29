@@ -1,3 +1,6 @@
+import { expect } from 'chai';
+import { beforeEach, describe, it } from 'node:test';
+
 import { PlistUID, createBinaryPlist } from '../../src/lib/plist/index.js';
 import {
   DTX_CONSTANTS,

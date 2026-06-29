@@ -1,4 +1,6 @@
 import { logger } from '@appium/support';
+import { expect } from 'chai';
+import { after, before, describe, it } from 'node:test';
 
 import type { SpringboardService } from '../../src/lib/types.js';
 import * as Services from '../../src/services.js';
@@ -9,9 +11,7 @@ const log = logger.getLogger('SpringBoardService.test');
 // Set SpringBoardService logger to info level
 log.level = 'info';
 
-describe('SpringBoardService', function () {
-  this.timeout(60000);
-
+describe('SpringBoardService', { timeout: 60000 }, function () {
   let springboardService: SpringboardService;
   const udid = requireDeviceUdid();
 

@@ -1,7 +1,9 @@
 import { logger } from '@appium/support';
+import { expect } from 'chai';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import { after, afterEach, before, beforeEach, describe, it } from 'node:test';
 
 import { Services } from '../../src/index.js';
 import type { CrashReportsService } from '../../src/index.js';
@@ -60,9 +62,7 @@ async function writeTestCrashReport(
   }
 }
 
-describe('Crash Reports Service', function () {
-  this.timeout(120000); // pulling crash reports can take time
-
+describe('Crash Reports Service', { timeout: 120000 }, function () {
   const udid = requireDeviceUdid();
 
   let crashReportsService: CrashReportsService;

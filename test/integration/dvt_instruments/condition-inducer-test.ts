@@ -1,4 +1,6 @@
 import { logger } from '@appium/support';
+import { expect } from 'chai';
+import { after, before, describe, it } from 'node:test';
 
 import type { ConditionGroup, DVTInstruments } from '../../../src/index.js';
 import * as Services from '../../../src/services.js';
@@ -7,9 +9,7 @@ import { requireDeviceUdid } from '../helpers/device.js';
 const log = logger.getLogger('ConditionInducer.test');
 log.level = 'debug';
 
-describe('Condition Inducer Instrument', function () {
-  this.timeout(30000);
-
+describe('Condition Inducer Instrument', { timeout: 30000 }, function () {
   let dvtServiceConnection: DVTInstruments | null = null;
   const udid = requireDeviceUdid();
 
@@ -21,11 +21,11 @@ describe('Condition Inducer Instrument', function () {
     if (dvtServiceConnection) {
       try {
         await dvtServiceConnection.conditionInducer.disable();
-      } catch (error) {}
+      } catch {}
 
       try {
         await dvtServiceConnection.dvtService.close();
-      } catch (error) {}
+      } catch {}
     }
   });
 

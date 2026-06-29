@@ -1,17 +1,16 @@
+import { expect } from 'chai';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { Readable } from 'node:stream';
+import { after, before, describe, it } from 'node:test';
 
 import { Services } from '../../src/index.js';
 import { AfcFileMode } from '../../src/services/ios/afc/enums.js';
-import AfcService from '../../src/services/ios/afc/index.js';
+import type AfcService from '../../src/services/ios/afc/index.js';
 import { requireDeviceUdid } from './helpers/device.js';
 
-describe('AFC Service', function () {
-  // Allow extra time for device interaction
-  this.timeout(60000);
-
+describe('AFC Service', { timeout: 60000 }, function () {
   const udid = requireDeviceUdid();
 
   let afc: AfcService;

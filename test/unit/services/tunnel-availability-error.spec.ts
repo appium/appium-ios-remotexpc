@@ -1,4 +1,6 @@
+import { expect } from 'chai';
 import esmock from 'esmock';
+import { describe, it } from 'node:test';
 
 class MockTunnelAvailabilityError extends Error {
   readonly code = 'ERR_TUNNEL_AVAILABILITY';
