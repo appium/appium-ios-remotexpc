@@ -1,6 +1,6 @@
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { fs, node } from '@appium/support';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import {
   createBinaryPlist,
@@ -13,9 +13,11 @@ import {
 } from '../../../src/lib/plist/index.js';
 import type { PlistDictionary } from '../../../src/lib/types.js';
 
-// Get the directory name
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const FIXTURES_PATH = path.join(__dirname, 'fixtures');
+const PKG_ROOT = node.getModuleRootSync(
+  'appium-ios-remotexpc',
+  fileURLToPath(import.meta.url),
+);
+const FIXTURES_PATH = path.join(PKG_ROOT, 'test', 'unit', 'plist', 'fixtures');
 
 describe('Plist Module', function () {
   let sampleXmlPlistPath: string;
@@ -24,12 +26,12 @@ describe('Plist Module', function () {
   let sampleBinaryPlistContent: Buffer;
   let expectedPlistObject: PlistDictionary;
 
-  before(function () {
+  before(async function () {
     sampleXmlPlistPath = path.join(FIXTURES_PATH, 'sample.xml.plist');
-    sampleXmlPlistContent = fs.readFileSync(sampleXmlPlistPath, 'utf8');
+    sampleXmlPlistContent = await fs.readFile(sampleXmlPlistPath, 'utf8');
 
     sampleBinaryPlistPath = path.join(FIXTURES_PATH, 'sample.binary.plist');
-    sampleBinaryPlistContent = fs.readFileSync(sampleBinaryPlistPath);
+    sampleBinaryPlistContent = await fs.readFile(sampleBinaryPlistPath);
 
     // Define the expected object structure that should match our XML plist
     expectedPlistObject = {

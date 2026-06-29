@@ -1,12 +1,16 @@
-import fs from 'node:fs';
-import fsp from 'node:fs/promises';
+import { fs, node } from '@appium/support';
+import _fs from 'node:fs';
+import _fsp from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { StreamZip } from '../../../src/services/ios/zipconduit/stream-zip.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const FIXTURES = path.join(__dirname, '../../fixtures/stream-zip');
+const PKG_ROOT = node.getModuleRootSync(
+  'appium-ios-remotexpc',
+  fileURLToPath(import.meta.url),
+);
+const FIXTURES = path.join(PKG_ROOT, 'test', 'fixtures', 'stream-zip');
 const OK_DIR = path.join(FIXTURES, 'ok');
 const ERR_DIR = path.join(FIXTURES, 'err');
 const SPECIAL_DIR = path.join(FIXTURES, 'special');
@@ -60,8 +64,8 @@ async function assertFilesEqual(
   expectedPath: string,
 ): Promise<void> {
   assertBuffersEqual(
-    await fsp.readFile(actualPath),
-    await fsp.readFile(expectedPath),
+    await fs.readFile(actualPath),
+    await fs.readFile(expectedPath),
     `${actualPath} <> ${expectedPath}`,
   );
 }
@@ -70,8 +74,8 @@ async function writeStreamToFile(
   stm: NodeJS.ReadableStream,
   targetPath: string,
 ): Promise<void> {
-  await fsp.mkdir(path.dirname(targetPath), { recursive: true });
-  const handle = await fsp.open(targetPath, 'w');
+  await fs.mkdir(path.dirname(targetPath), { recursive: true });
+  const handle = await _fsp.open(targetPath, 'w');
   try {
     for await (const chunk of stm) {
       const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
@@ -98,22 +102,22 @@ function openZip(
 }
 
 describe('zipconduit/stream-zip', function () {
-  beforeEach(function () {
+  beforeEach(async function () {
     testPathTmp = path.join(basePathTmp, String(testNum++));
-    fs.mkdirSync(basePathTmp, { recursive: true });
-    if (fs.existsSync(testPathTmp)) {
-      fs.rmSync(testPathTmp, { recursive: true, force: true });
+    await fs.mkdir(basePathTmp, { recursive: true });
+    if (await fs.exists(testPathTmp)) {
+      await fs.rimraf(testPathTmp);
     }
-    fs.mkdirSync(testPathTmp, { recursive: true });
+    await fs.mkdir(testPathTmp, { recursive: true });
   });
 
-  after(function () {
-    if (fs.existsSync(basePathTmp)) {
-      fs.rmSync(basePathTmp, { recursive: true, force: true });
+  after(async function () {
+    if (await fs.exists(basePathTmp)) {
+      await fs.rimraf(basePathTmp);
     }
   });
 
-  for (const file of fs
+  for (const file of _fs
     .readdirSync(OK_DIR)
     .filter((f) => path.extname(f).length === 4)) {
     it(`reads ok/${file}`, async function () {
@@ -174,7 +178,7 @@ describe('zipconduit/stream-zip', function () {
       );
 
       const docDir = path.join(testPathTmp, 'doc-extract');
-      fs.mkdirSync(docDir, { recursive: true });
+      await fs.mkdir(docDir, { recursive: true });
       let docExtracted = 0;
       for (const [name, zipEntry] of Object.entries(entries)) {
         if (!name.startsWith('doc/') || !zipEntry.isFile) {
@@ -191,9 +195,7 @@ describe('zipconduit/stream-zip', function () {
       );
 
       const syncData = await readEntryData(zip, 'README.md');
-      const expectedData = await fsp.readFile(
-        fixture(CONTENT_DIR, 'README.md'),
-      );
+      const expectedData = await fs.readFile(fixture(CONTENT_DIR, 'README.md'));
       assertBuffersEqual(syncData, expectedData, 'streamed entry');
 
       await zip.close();
@@ -211,7 +213,7 @@ describe('zipconduit/stream-zip', function () {
     const zip = openZip(fixture(SPECIAL_DIR, 'zip64.zip'));
     const internalZip = await readEntryData(zip, 'files.zip');
     const filesZipTmp = path.join(testPathTmp, 'files.zip');
-    await fsp.writeFile(filesZipTmp, internalZip);
+    await fs.writeFile(filesZipTmp, internalZip);
     await zip.close();
 
     const filesZip = openZip(filesZipTmp);
@@ -232,7 +234,7 @@ describe('zipconduit/stream-zip', function () {
   });
 
   it('opens archives from an existing fd', async function () {
-    const fd = fs.openSync(fixture(SPECIAL_DIR, 'tiny.zip'), 'r');
+    const fd = await fs.open(fixture(SPECIAL_DIR, 'tiny.zip'), 'r');
     const zip = openZip(undefined, { fd });
     const data = await readEntryData(zip, 'BSDmakefile');
     expect(data.toString('utf8').slice(0, 4)).to.equal('all:');

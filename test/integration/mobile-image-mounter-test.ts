@@ -1,14 +1,17 @@
-import { logger } from '@appium/support';
-import { createHash } from 'crypto';
-import { promises as fs } from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { logger, node } from '@appium/support';
+import { createHash } from 'node:crypto';
+import { promises as fs } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { Services } from '../../src/index.js';
 import type { MobileImageMounterService } from '../../src/index.js';
 import { requireDeviceUdid } from './helpers/device.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PKG_ROOT = node.getModuleRootSync(
+  'appium-ios-remotexpc',
+  fileURLToPath(import.meta.url),
+);
 
 const log = logger.getLogger('MobileImageMounterService.test');
 log.level = 'debug';
@@ -19,7 +22,7 @@ async function getFixturesInfo(): Promise<{
   fixturesDir: string;
 }> {
   const realDir = process.env.MOUNTER_IMAGE_DIR;
-  const stubDir = path.join(__dirname, '..', 'fixtures', 'stubs');
+  const stubDir = path.join(PKG_ROOT, 'test', 'fixtures', 'stubs');
 
   const isReal =
     !!realDir &&

@@ -14,5 +14,8 @@
     "src",
     "scripts",
     "test"
+  ],
+  "exclude": [
+    "build"
   ]
 }

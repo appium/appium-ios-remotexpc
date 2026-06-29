@@ -1,8 +1,8 @@
 import { logger } from '@appium/support';
-import { expect } from 'chai';
 
 import type { DVTInstruments } from '../../../src/index.js';
 import * as Services from '../../../src/services.js';
+import { requireDeviceUdid } from '../helpers/device.js';
 
 const log = logger.getLogger('EnergyMonitor.test');
 
@@ -11,12 +11,9 @@ describe('EnergyMonitor Service', function () {
 
   let dvt: DVTInstruments | null = null;
   let calculatorPid: number | null = null;
-  const udid = process.env.UDID || '';
+  const udid = requireDeviceUdid();
 
   before(async function () {
-    if (!udid) {
-      throw new Error('set UDID env var to execute tests.');
-    }
     dvt = await Services.startDVTService(udid);
     calculatorPid = await dvt.processControl.launch({
       bundleId: 'com.apple.calculator',
@@ -29,12 +26,12 @@ describe('EnergyMonitor Service', function () {
     if (dvt && calculatorPid) {
       try {
         await dvt.processControl.kill(calculatorPid);
-      } catch (error) {}
+      } catch {}
     }
     if (dvt) {
       try {
         await dvt.dvtService.close();
-      } catch (error) {}
+      } catch {}
     }
   });
 
