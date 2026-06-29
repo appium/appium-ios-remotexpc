@@ -57,6 +57,7 @@
     "test:dvt:condition-inducer": "mocha test/integration/dvt_instruments/condition-inducer-test.ts --exit --timeout 1m",
     "test:dvt:screenshot": "mocha test/integration/dvt_instruments/screenshot-test.ts --exit --timeout 1m",
     "test:dvt:device-info": "mocha test/integration/dvt_instruments/device-info-test.ts --exit --timeout 1m",
+    "test:dvt:energy-monitor": "mocha test/integration/dvt_instruments/energy-monitor-test.ts --exit --timeout 1m",
     "test:dvt:applist": "mocha test/integration/dvt_instruments/app-listing-test.ts --exit --timeout 1m",
     "test:dvt:notification": "mocha test/integration/dvt_instruments/notifications-test.ts --exit --timeout 1m",
     "test:dvt:network-monitor": "mocha test/integration/dvt_instruments/network-monitor-test.ts --exit --timeout 1m",

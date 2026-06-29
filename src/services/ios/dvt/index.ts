@@ -225,28 +225,28 @@ export class DVTSecureSocketProxyService extends BaseService {
     const payloadHeader = DTXMessage.parsePayloadHeader(packetData);
 
     const compression = (payloadHeader.flags & 0xff000) >> 12;
-    if (compression) {
-      throw new Error('Compressed messages not supported');
+
+    if (compression !== 0) {
+      throw new Error(`Unsupported DTX compression type: ${compression}`);
     }
 
-    let offset = DTX_CONSTANTS.PAYLOAD_HEADER_SIZE;
+    const payload = packetData.subarray(DTX_CONSTANTS.PAYLOAD_HEADER_SIZE);
+
+    let offset = 0;
 
     // Parse auxiliary data if present
     let aux: any[] = [];
     if (payloadHeader.auxiliaryLength > 0) {
-      const auxBuffer = packetData.subarray(
-        offset,
-        offset + payloadHeader.auxiliaryLength,
-      );
+      const auxBuffer = payload.subarray(0, payloadHeader.auxiliaryLength);
       aux = this.parseAuxiliaryData(auxBuffer);
-      offset += payloadHeader.auxiliaryLength;
+      offset = payloadHeader.auxiliaryLength;
     }
 
     // Extract object data
     const objSize =
       Number(payloadHeader.totalLength) - payloadHeader.auxiliaryLength;
     const data =
-      objSize > 0 ? packetData.subarray(offset, offset + objSize) : null;
+      objSize > 0 ? payload.subarray(offset, offset + objSize) : null;
 
     return [data, aux];
   }
@@ -299,7 +299,7 @@ export class DVTSecureSocketProxyService extends BaseService {
   private async performHandshake(): Promise<void> {
     const args = new MessageAux();
     args.appendObj({
-      'com.apple.private.DTXBlockCompression': 0,
+      'com.apple.private.DTXBlockCompression': 2,
       'com.apple.private.DTXConnection': 1,
     });
     await this.sendMessage(0, '_notifyOfPublishedCapabilities:', {
