@@ -51,13 +51,16 @@ export class PasteboardService extends CoreDeviceService {
   /**
    * Pull the pasteboard and return the first decodable URL string.
    */
-  async getUrl(
-    pasteboardName = GENERAL_PASTEBOARD,
-  ): Promise<string | undefined> {
-    return PasteboardService.extractString(
+  async getUrl(pasteboardName = GENERAL_PASTEBOARD): Promise<URL | undefined> {
+    const urlString = PasteboardService.extractString(
       await this.get(pasteboardName),
       URL_UTIS,
     );
+    try {
+      return urlString ? new URL(urlString) : undefined;
+    } catch {
+      return undefined;
+    }
   }
 
   /**
