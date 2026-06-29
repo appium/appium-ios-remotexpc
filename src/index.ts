@@ -69,6 +69,7 @@ export type {
   LaunchedApplication,
   ListAppsOptions,
 } from './services/ios/app-service/index.js';
+export { PasteboardService } from './services/ios/pasteboard/index.js';
 export type {
   SyslogEntry,
   SyslogLabel,

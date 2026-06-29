@@ -32,6 +32,7 @@ import { MisagentService } from './services/ios/misagent/index.js';
 import { MobileConfigService } from './services/ios/mobile-config/index.js';
 import MobileImageMounterService from './services/ios/mobile-image-mounter/index.js';
 import { NotificationProxyService } from './services/ios/notification-proxy/index.js';
+import { PasteboardService } from './services/ios/pasteboard/index.js';
 import { PowerAssertionService } from './services/ios/power-assertion/index.js';
 import { SpringBoardService } from './services/ios/springboard-service/index.js';
 import SyslogService from './services/ios/syslog-service/index.js';
@@ -135,6 +136,16 @@ export async function startHidIndigoService(
 export async function startAppService(udid: string): Promise<AppService> {
   await requireCatalogService(udid, AppService.RSD_SERVICE_NAME);
   return new AppService(udid);
+}
+
+/**
+ * Start the CoreDevice pasteboard service for the given device UDID.
+ */
+export async function startPasteboardService(
+  udid: string,
+): Promise<PasteboardService> {
+  await requireCatalogService(udid, PasteboardService.RSD_SERVICE_NAME);
+  return new PasteboardService(udid);
 }
 
 const RSD_SYSLOG_BINARY_SERVICE_NAME = 'com.apple.os_trace_relay.shim.remote';
