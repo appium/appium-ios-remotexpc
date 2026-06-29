@@ -40,51 +40,129 @@ export class EnergyMonitor extends BaseInstrument {
   static readonly IDENTIFIER =
     'com.apple.xcode.debug-gauge-data-providers.Energy';
 
+  private sampling = false;
+  private stopRequested = false;
+  private receiveAbortController: AbortController | null = null;
+
+  /**
+   * Start energy sampling for the given PIDs.
+   * Idempotent: a second call while already sampling is a no-op.
+   */
   async startSampling(pids: number[]): Promise<void> {
+    if (this.sampling) {
+      log.debug('energy monitor already sampling; startSampling() is a no-op');
+      return;
+    }
     await this.initialize();
     const channel = this.requireChannel();
+    this.stopRequested = false;
     await channel.call('startSamplingForPIDs_')(
       new MessageAux().appendObj(pids),
       false,
     );
+    this.sampling = true;
   }
 
+  /**
+   * Stop energy sampling for the given PIDs.
+   * Safe to call when not sampling or before initialization.
+   */
   async stopSampling(pids: number[]): Promise<void> {
-    const channel = this.requireChannel();
-    await channel.call('stopSamplingForPIDs_')(
-      new MessageAux().appendObj(pids),
-      false,
-    );
+    this.stopRequested = true;
+    this.receiveAbortController?.abort();
+
+    if (!this.sampling) {
+      return;
+    }
+    this.sampling = false;
+
+    if (this.channel) {
+      try {
+        await this.channel.call('stopSamplingForPIDs_')(
+          new MessageAux().appendObj(pids),
+          false,
+        );
+      } catch (error) {
+        log.debug(
+          'energy monitor stopSampling() could not notify the device:',
+          error instanceof Error ? error.message : error,
+        );
+      }
+    }
   }
 
+  /**
+   * Take a single energy snapshot for the given PIDs.
+   *
+   * {@link startSampling} must be called first — without it the device returns
+   * empty metrics. The call blocks until the device replies, so calling this
+   * in a tight loop does not spin-loop the CPU.
+   */
   async sample(pids: number[]): Promise<EnergyMonitorSample> {
-    const channel = this.requireChannel();
-    const args = new MessageAux().appendObj({}).appendObj(pids);
-    await channel.call('sampleAttributes_forPIDs_')(args);
-    return await channel.receivePlist();
+    return await this.sampleOnce(pids);
   }
 
   /**
    * Continuously samples energy metrics for the given PIDs.
-   * Stops monitoring on generator return or throw.
+   * Stops when the generator is returned/thrown, when {@link stopSampling} is
+   * called, or when the underlying DVT connection is closed.
    */
   async *monitor(
     pids: number[],
   ): AsyncGenerator<EnergyMonitorSample, void, undefined> {
     log.debug('Energy monitoring started');
-    // initialize() before stopSampling so requireChannel() doesn't throw on first use
-    await this.initialize();
-    // Stop first in case a previous session is still active
+    // Stop any prior session so monitor() always owns a clean lifecycle.
     await this.stopSampling(pids);
     await this.startSampling(pids);
 
     try {
-      while (true) {
-        yield await this.sample(pids);
+      while (!this.stopRequested) {
+        const abortController = new AbortController();
+        this.receiveAbortController = abortController;
+
+        let sample: EnergyMonitorSample | null = null;
+        try {
+          sample = await this.sampleOnce(pids, abortController.signal);
+        } catch (err) {
+          if (this.stopRequested || this.isAbortError(err)) {
+            break;
+          }
+          log.debug(
+            'energy monitor read error:',
+            err instanceof Error ? err.message : err,
+          );
+          break;
+        } finally {
+          if (this.receiveAbortController === abortController) {
+            this.receiveAbortController = null;
+          }
+        }
+
+        if (sample !== null) {
+          yield sample;
+        }
       }
     } finally {
       log.debug('Energy monitoring stopped');
       await this.stopSampling(pids);
     }
+  }
+
+  private async sampleOnce(
+    pids: number[],
+    signal?: AbortSignal,
+  ): Promise<EnergyMonitorSample> {
+    const channel = this.requireChannel();
+    await channel.call('sampleAttributes_forPIDs_')(
+      new MessageAux().appendObj({}).appendObj(pids),
+    );
+    return await channel.receivePlist(signal);
+  }
+
+  private isAbortError(err: unknown): boolean {
+    return (
+      err instanceof DOMException ||
+      (err instanceof Error && err.name === 'AbortError')
+    );
   }
 }

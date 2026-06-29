@@ -830,6 +830,9 @@ export interface EnergyMonitorService {
   /**
    * Take a single energy snapshot for the given PIDs.
    * Returns a record mapping PID (string key) to its energy metrics.
+   *
+   * {@link startSampling} must be called first — without it the device returns
+   * empty metrics.
    */
   sample(pids: number[]): Promise<Record<string, Record<string, number>>>;
   /**
