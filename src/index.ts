@@ -56,6 +56,19 @@ export type {
   HidButtonPressOptions,
   HidButtonState,
 } from './services/ios/hid-indigo/index.js';
+export {
+  CoreDeviceError,
+  CoreDeviceService,
+} from './services/ios/core-device/core-device-service.js';
+export type { CoreDeviceInvokeOptions } from './services/ios/core-device/core-device-service.js';
+export { AppService } from './services/ios/app-service/index.js';
+export type {
+  AppServiceProcessToken,
+  InstalledApp,
+  LaunchApplicationOptions,
+  LaunchedApplication,
+  ListAppsOptions,
+} from './services/ios/app-service/index.js';
 export type {
   SyslogEntry,
   SyslogLabel,
@@ -102,6 +115,11 @@ export type {
   SendMessageOptions,
   TestmanagerdService,
   XCTestServices,
+  SysmontapService,
+  SysmontapOptions,
+  SysmonSample,
+  SysmonProcessInfo,
+  SysmonSystemInfo,
 } from './lib/types.js';
 export { PowerAssertionType } from './lib/types.js';
 export { NetworkMessageType } from './services/ios/dvt/instruments/network-monitor.js';
@@ -118,6 +136,7 @@ export type { TunnelEndpoint } from './lib/tunnel/tunnel-api-client.js';
 export { XCTestConfigurationEncoder } from './services/ios/testmanagerd/xctestconfiguration.js';
 export type { XCTestConfigurationParams } from './services/ios/testmanagerd/xctestconfiguration.js';
 export { ProcessControl } from './services/ios/dvt/instruments/process-control.js';
+export { Sysmontap } from './services/ios/dvt/instruments/sysmontap.js';
 export {
   XCUITestService,
   XCTestRunner,

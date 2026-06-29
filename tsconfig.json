@@ -3,12 +3,14 @@
   "extends": "@appium/tsconfig/tsconfig.json",
   "compilerOptions": {
     "strict": true,
+    "checkJs": true,
     "strictNullChecks": false,
     "outDir": "build",
     "types": ["node", "mocha", "chai"]
   },
   "include": [
     "src",
+    "scripts",
     "test"
   ]
 }

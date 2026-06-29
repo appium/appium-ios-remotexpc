@@ -1,3 +1,27 @@
+## [5.4.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.3.0...v5.4.0) (2026-06-25)
+
+### Features
+
+* **coredevice:** add coredevice app-service ([#252](https://github.com/appium/appium-ios-remotexpc/issues/252)) ([10e3976](https://github.com/appium/appium-ios-remotexpc/commit/10e397651c48f121f01948257b15bcb171472f3d))
+
+## [5.3.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.2.2...v5.3.0) (2026-06-25)
+
+### Features
+
+* **sysmontap:** add sysmontap RSD service ([#251](https://github.com/appium/appium-ios-remotexpc/issues/251)) ([d2f94e4](https://github.com/appium/appium-ios-remotexpc/commit/d2f94e4ef2fb0fb7b1ba83d412a87f6dac731727))
+
+## [5.2.2](https://github.com/appium/appium-ios-remotexpc/compare/v5.2.1...v5.2.2) (2026-06-24)
+
+### Miscellaneous Chores
+
+* Add scripts to typescript checks ([#253](https://github.com/appium/appium-ios-remotexpc/issues/253)) ([f06a206](https://github.com/appium/appium-ios-remotexpc/commit/f06a2060a41f834ca049cb31d9f453c12d9fc013))
+
+## [5.2.1](https://github.com/appium/appium-ios-remotexpc/compare/v5.2.0...v5.2.1) (2026-06-24)
+
+### Miscellaneous Chores
+
+* refactor tunnels creation and pairing scripts ([#247](https://github.com/appium/appium-ios-remotexpc/issues/247)) ([c614312](https://github.com/appium/appium-ios-remotexpc/commit/c614312dde31ce4019707ff3f079b57362a761ee))
+
 ## [5.2.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.1.6...v5.2.0) (2026-06-22)
 
 ### Features

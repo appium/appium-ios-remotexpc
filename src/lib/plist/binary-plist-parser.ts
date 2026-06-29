@@ -200,6 +200,25 @@ class BinaryPlistParser {
 
         return intValue; // Return as number if no precision loss
       }
+      case 16: {
+        // 128-bit integers are stored as big-endian two's complement. They
+        // appear in large archives (e.g. sysmontap process samples) for values
+        // that Apple encodes in 16 bytes even when they fit in fewer.
+        const high = this._buffer.readBigUInt64BE(startOffset);
+        const low = this._buffer.readBigUInt64BE(startOffset + 8);
+        let bigInt = (high << 64n) | low;
+
+        // Interpret the sign bit of the full 128-bit value.
+        if (high >> 63n === 1n) {
+          bigInt -= 1n << 128n;
+        }
+
+        const intValue = Number(bigInt);
+        // Values beyond Number's safe range are returned as BigInt to preserve
+        // precision. This is common and expected (e.g. sysmontap counters), so
+        // it is intentionally not logged.
+        return BigInt(intValue) === bigInt ? intValue : bigInt;
+      }
       default:
         throw new TypeError(
           `Unexpected integer byte count: ${intByteCount}. Cannot parse integer value.`,

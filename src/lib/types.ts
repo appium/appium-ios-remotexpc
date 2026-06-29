@@ -1033,6 +1033,162 @@ export interface DeviceInfoService {
    * @returns Group name string
    */
   nameForGid(gid: number): Promise<string>;
+
+  /**
+   * Get the ordered list of per-process attribute names supported by the
+   * sysmontap instrument. The order matches the per-process value tuples that
+   * the sysmontap service emits.
+   * @returns Array of process attribute names
+   * @example
+   * ```typescript
+   * const attrs = await deviceInfo.sysmonProcessAttributes();
+   * // ['pid', 'name', 'cpuUsage', 'physFootprint', 'memResidentSize', ...]
+   * ```
+   */
+  sysmonProcessAttributes(): Promise<string[]>;
+
+  /**
+   * Get the ordered list of system attribute names supported by the sysmontap
+   * instrument. The order matches the system value tuple that the sysmontap
+   * service emits.
+   * @returns Array of system attribute names
+   * @example
+   * ```typescript
+   * const attrs = await deviceInfo.sysmonSystemAttributes();
+   * // ['vmPageSize', 'physMemSize', '__vmSwapUsage', 'vmFreeCount', ...]
+   * ```
+   */
+  sysmonSystemAttributes(): Promise<string[]>;
+}
+
+/**
+ * A single process record emitted by the sysmontap instrument.
+ *
+ * Keys correspond to the process attribute names returned by
+ * {@link DeviceInfoService.sysmonProcessAttributes}. Common keys include
+ * `pid`, `name`, `cpuUsage`, `physFootprint`, and `memResidentSize`, but the
+ * exact set depends on the iOS version and the configured attributes.
+ */
+export interface SysmonProcessInfo {
+  [attribute: string]: unknown;
+}
+
+/**
+ * A single system record emitted by the sysmontap instrument.
+ *
+ * Keys correspond to the system attribute names returned by
+ * {@link DeviceInfoService.sysmonSystemAttributes}.
+ */
+export interface SysmonSystemInfo {
+  [attribute: string]: unknown;
+}
+
+/**
+ * A raw sample emitted by the sysmontap instrument.
+ *
+ * Each sample is a dictionary that may contain a `Processes` map (keyed by
+ * pid, with each value being the raw per-process attribute tuple) and/or a
+ * `System` attribute tuple, alongside additional metadata keys such as
+ * `StartMachAbsTime`, `EndMachAbsTime`, `Type`, and `CPUCount`.
+ */
+export interface SysmonSample {
+  /** Map of pid -> raw per-process attribute value tuple. */
+  Processes?: Record<string, unknown[]>;
+  /** Raw system attribute value tuple. */
+  System?: unknown[];
+  [key: string]: unknown;
+}
+
+/**
+ * Configuration options for the sysmontap instrument.
+ */
+export interface SysmontapOptions {
+  /**
+   * Sampling interval in milliseconds. Defaults to 500ms; values below the
+   * minimum (1ms) are clamped.
+   */
+  intervalMs?: number;
+  /**
+   * Override the per-process attributes to collect. When omitted, the full set
+   * reported by the device is requested automatically.
+   */
+  processAttributes?: string[];
+  /**
+   * Override the system attributes to collect. When omitted, the full set
+   * reported by the device is requested automatically.
+   */
+  systemAttributes?: string[];
+}
+
+/**
+ * Sysmontap service interface for streaming process and system resource usage.
+ */
+export interface SysmontapService {
+  /**
+   * Resolve the sampling attributes (querying the device unless overridden) and
+   * build the sampling configuration. Does not start sampling — the
+   * configuration is applied to the device by {@link start}. Called
+   * automatically by {@link start} when not invoked explicitly; call it
+   * directly to customise the interval or attributes before sampling begins.
+   * @param options Optional sampling configuration
+   */
+  configure(options?: SysmontapOptions): Promise<void>;
+
+  /**
+   * Begin sampling. Resolves the configuration with defaults first if
+   * {@link configure} was not already called.
+   *
+   * Only one sampling session is supported per DVT connection: after
+   * {@link stop} the device does not resume sampling on the same connection, so
+   * start a new DVT service to sample again.
+   */
+  start(): Promise<void>;
+
+  /**
+   * Stop sampling and unblock any in-flight iterator.
+   */
+  stop(): Promise<void>;
+
+  /** The process attribute names currently in effect (post-configure). */
+  getProcessAttributes(): string[];
+
+  /** The system attribute names currently in effect (post-configure). */
+  getSystemAttributes(): string[];
+
+  /**
+   * Async iterator yielding raw sysmontap samples as they arrive. Sampling
+   * starts on first iteration and stops when iteration ends. The iterator never
+   * throws on a read failure — it ends the stream instead (e.g. when the DVT
+   * connection is closed).
+   */
+  messages(): AsyncGenerator<SysmonSample, void, unknown>;
+
+  /**
+   * Async iterator yielding labelled per-process snapshots. Each yielded value
+   * is the list of processes from a single sample, with raw value tuples mapped
+   * to objects keyed by the process attribute names.
+   *
+   * Note: the first emitted snapshot typically contains uninitialised
+   * `cpuUsage` values and is commonly skipped by consumers.
+   *
+   * @example
+   * ```typescript
+   * for await (const processes of sysmontap.iterProcesses()) {
+   *   for (const proc of processes) {
+   *     console.log(proc.pid, proc.name, proc.cpuUsage);
+   *   }
+   *   break;
+   * }
+   * ```
+   */
+  iterProcesses(): AsyncGenerator<SysmonProcessInfo[], void, unknown>;
+
+  /**
+   * Async iterator yielding labelled system snapshots — the device-wide metrics
+   * from each system sample, mapped to objects keyed by the system attribute
+   * names. The system-sample counterpart to {@link iterProcesses}.
+   */
+  iterSystem(): AsyncGenerator<SysmonSystemInfo, void, unknown>;
 }
 
 /**
@@ -1160,6 +1316,8 @@ export interface DVTInstruments {
   networkMonitor: NetworkMonitorService;
   /** The ProcessControl service instance */
   processControl: ProcessControlService;
+  /** The Sysmontap service instance */
+  sysmontap: SysmontapService;
 }
 
 /**
