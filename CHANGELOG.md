@@ -1,3 +1,9 @@
+## [5.6.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.5.0...v5.6.0) (2026-06-29)
+
+### Features
+
+* Add `com.apple.coredevice.pasteboardservice` ([#256](https://github.com/appium/appium-ios-remotexpc/issues/256)) ([3bb305a](https://github.com/appium/appium-ios-remotexpc/commit/3bb305aa5f4fca640ee051f3e25c06377abc0231))
+
 ## [5.5.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.4.1...v5.5.0) (2026-06-29)
 
 ### Features
