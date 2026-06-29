@@ -9,6 +9,7 @@ import type {
   XCTestServices,
 } from './lib/types.js';
 import AfcService from './services/ios/afc/index.js';
+import { AppService } from './services/ios/app-service/index.js';
 import { type Service } from './services/ios/base-service.js';
 import { CrashReportsService } from './services/ios/crash-reports/index.js';
 import DiagnosticsService from './services/ios/diagnostic-service/index.js';
@@ -123,6 +124,17 @@ export async function startHidIndigoService(
 ): Promise<HidIndigoService> {
   await requireCatalogService(udid, HidIndigoService.RSD_SERVICE_NAME);
   return new HidIndigoService(udid);
+}
+
+/**
+ * Start the CoreDevice AppService for the given device UDID.
+ *
+ * Provides app and process management (list apps, launch apps, list processes,
+ * signal processes, uninstall apps) over RemoteXPC.
+ */
+export async function startAppService(udid: string): Promise<AppService> {
+  await requireCatalogService(udid, AppService.RSD_SERVICE_NAME);
+  return new AppService(udid);
 }
 
 const RSD_SYSLOG_BINARY_SERVICE_NAME = 'com.apple.os_trace_relay.shim.remote';

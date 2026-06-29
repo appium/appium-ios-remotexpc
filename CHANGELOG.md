@@ -1,3 +1,9 @@
+## [5.4.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.3.0...v5.4.0) (2026-06-25)
+
+### Features
+
+* **coredevice:** add coredevice app-service ([#252](https://github.com/appium/appium-ios-remotexpc/issues/252)) ([10e3976](https://github.com/appium/appium-ios-remotexpc/commit/10e397651c48f121f01948257b15bcb171472f3d))
+
 ## [5.3.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.2.2...v5.3.0) (2026-06-25)
 
 ### Features

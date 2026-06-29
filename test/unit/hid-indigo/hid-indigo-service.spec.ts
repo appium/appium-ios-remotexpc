@@ -1,26 +1,38 @@
 import { expect } from 'chai';
+import { EventEmitter } from 'node:events';
 
-import { decodeMessage } from '../../../src/lib/remote-xpc/xpc-protocol.js';
 import {
   HID_BUTTON_STATE_DOWN,
   HID_BUTTON_STATE_UP,
   HidIndigoService,
-} from '../../../src/services/ios/hid-indigo/index.js';
+} from '../../../src/index.js';
+import { decodeMessage } from '../../../src/lib/remote-xpc/xpc-protocol.js';
+
+class FakeTransport extends EventEmitter {
+  isConnected = true;
+  closeCalls = 0;
+  readonly sentPayloads: Buffer[] = [];
+
+  sendDataFrame(payload: Buffer): void {
+    this.sentPayloads.push(payload);
+  }
+
+  async close(): Promise<void> {
+    this.closeCalls++;
+  }
+}
 
 class TestHidIndigoService extends HidIndigoService {
-  readonly sentPayloads: Buffer[] = [];
-  closeCalls = 0;
+  readonly fake = new FakeTransport();
+  get sentPayloads(): Buffer[] {
+    return this.fake.sentPayloads;
+  }
+  get closeCalls(): number {
+    return this.fake.closeCalls;
+  }
 
   protected async createTransport(): Promise<any> {
-    return {
-      isConnected: true,
-      sendDataFrame: (payload: Buffer): void => {
-        this.sentPayloads.push(payload);
-      },
-      close: async (): Promise<void> => {
-        this.closeCalls++;
-      },
-    };
+    return this.fake;
   }
 }
 
@@ -73,6 +85,22 @@ describe('HidIndigoService', function () {
     await service.close();
 
     expect(service.closeCalls).to.equal(1);
+  });
+
+  it('handles a late transport error after a fire-and-forget send', async function () {
+    const service = new TestHidIndigoService('test-udid');
+
+    await service.sendButton({
+      usagePage: 0x0c,
+      usageCode: 0xe9,
+      state: 'down',
+    });
+
+    // A socket error arriving after the (fire-and-forget) send must not surface
+    // as an unhandled 'error' event — the base attaches a permanent listener.
+    expect(() =>
+      service.fake.emit('error', new Error('connection reset')),
+    ).to.not.throw();
   });
 });
 
