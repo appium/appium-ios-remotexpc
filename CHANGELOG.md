@@ -1,3 +1,9 @@
+## [5.5.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.4.1...v5.5.0) (2026-06-29)
+
+### Features
+
+* **dvt:** implement energy monitor ([#254](https://github.com/appium/appium-ios-remotexpc/issues/254)) ([71091c6](https://github.com/appium/appium-ios-remotexpc/commit/71091c662bc7eace305aaa89bb9ff5e7f3eb6388))
+
 ## [5.4.1](https://github.com/appium/appium-ios-remotexpc/compare/v5.4.0...v5.4.1) (2026-06-29)
 
 ### Miscellaneous Chores
