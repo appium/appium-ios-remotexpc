@@ -1,3 +1,9 @@
+## [5.6.1](https://github.com/appium/appium-ios-remotexpc/compare/v5.6.0...v5.6.1) (2026-06-30)
+
+### Miscellaneous Chores
+
+* Drop mocha ([#255](https://github.com/appium/appium-ios-remotexpc/issues/255)) ([0d676fa](https://github.com/appium/appium-ios-remotexpc/commit/0d676fa37722ec12343dbdb05abcef93c02d46c3))
+
 ## [5.6.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.5.0...v5.6.0) (2026-06-29)
 
 ### Features
