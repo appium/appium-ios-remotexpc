@@ -111,9 +111,7 @@ describe('PasteboardService', function () {
       }));
       const service = new TestPasteboardService(fake);
 
-      expect((await service.getUrl())?.toString()).to.equal(
-        'https://example.test/path',
-      );
+      expect(await service.getUrl()).to.equal('https://example.test/path');
     });
 
     it('setImage sends SET with a PNG payload', async function () {
