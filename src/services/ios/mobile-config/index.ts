@@ -1,15 +1,13 @@
-import { fs } from '@appium/support';
 import path from 'node:path';
 
-import { getLogger } from '../../../lib/logger.js';
-import { SUPPORTED_EXTENSIONS } from '../../../lib/plist/constants.js';
-import { createPlist, parsePlist } from '../../../lib/plist/index.js';
-import {
-  type MobileConfigService as MobileConfigServiceInterface,
-  type PlistDictionary,
-} from '../../../lib/types.js';
-import { type ServiceConnection } from '../../../service-connection.js';
-import { BaseService } from '../base-service.js';
+import {fs} from '@appium/support';
+
+import {getLogger} from '../../../lib/logger.js';
+import {SUPPORTED_EXTENSIONS} from '../../../lib/plist/constants.js';
+import {createPlist, parsePlist} from '../../../lib/plist/index.js';
+import {type MobileConfigService as MobileConfigServiceInterface, type PlistDictionary} from '../../../lib/types.js';
+import {type ServiceConnection} from '../../../service-connection.js';
+import {BaseService} from '../base-service.js';
 
 const ERROR_CLOUD_CONFIGURATION_ALREADY_PRESENT = 14002;
 const log = getLogger('MobileConfigService');
@@ -50,10 +48,7 @@ interface ProfileList {
  * - Remove configuration profiles
  * - List installed configuration profiles
  */
-class MobileConfigService
-  extends BaseService
-  implements MobileConfigServiceInterface
-{
+class MobileConfigService extends BaseService implements MobileConfigServiceInterface {
   static readonly RSD_SERVICE_NAME = 'com.apple.mobile.MCInstall.shim.remote';
   private _conn: ServiceConnection | null = null;
 
@@ -66,9 +61,7 @@ class MobileConfigService
       return this._conn;
     }
 
-    this._conn = await this.startLockdownService(
-      MobileConfigService.RSD_SERVICE_NAME,
-    );
+    this._conn = await this.startLockdownService(MobileConfigService.RSD_SERVICE_NAME);
     return this._conn;
   }
 
@@ -119,13 +112,8 @@ class MobileConfigService
     }
 
     const fileExtension = path.extname(filePath).toLowerCase();
-    if (
-      !fileExtension ||
-      !SUPPORTED_EXTENSIONS.includes(fileExtension as any)
-    ) {
-      throw new Error(
-        `Unsupported file format. Supported formats: ${SUPPORTED_EXTENSIONS.join(', ')}`,
-      );
+    if (!fileExtension || !SUPPORTED_EXTENSIONS.includes(fileExtension as any)) {
+      throw new Error(`Unsupported file format. Supported formats: ${SUPPORTED_EXTENSIONS.join(', ')}`);
     }
 
     const payload = await fs.readFile(filePath);
@@ -196,9 +184,7 @@ class MobileConfigService
     await this._sendPlistAndReceive(req);
   }
 
-  private async _sendPlistAndReceive(
-    req: PlistDictionary,
-  ): Promise<PlistDictionary> {
+  private async _sendPlistAndReceive(req: PlistDictionary): Promise<PlistDictionary> {
     if (!this._conn) {
       this._conn = await this.connectToMobileConfigService();
     }
@@ -220,9 +206,4 @@ class MobileConfigService
   }
 }
 
-export {
-  type ProfileManifest,
-  type ProfileMetadata,
-  type ProfileList,
-  MobileConfigService,
-};
+export {type ProfileManifest, type ProfileMetadata, type ProfileList, MobileConfigService};

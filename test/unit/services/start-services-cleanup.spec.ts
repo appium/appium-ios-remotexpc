@@ -1,12 +1,13 @@
-import { expect } from 'chai';
+import {describe, it} from 'node:test';
+
+import {expect} from 'chai';
 import esmock from 'esmock';
-import { describe, it } from 'node:test';
 import * as sinon from 'sinon';
 
 const TEST_HOST = '127.0.0.1';
 const TEST_PORT = 49_374;
 const TEST_UDID = 'test-udid';
-const WAIT_OPTS = { waitMs: 15_000 };
+const WAIT_OPTS = {waitMs: 15_000};
 
 interface LoadedServices {
   services: Record<string, (...args: unknown[]) => Promise<unknown>>;
@@ -19,7 +20,7 @@ async function loadServicesWithStubs(
     resolveTunnelServiceImpl?: (
       udid: string,
       serviceName: string,
-    ) => Promise<{ host: string; port: number; udid: string }>;
+    ) => Promise<{host: string; port: number; udid: string}>;
     resolveTunnelServicePortsImpl?: (
       udid: string,
       serviceNames: string[],
@@ -50,15 +51,11 @@ async function loadServicesWithStubs(
   if (options.resolveTunnelServicePortsImpl) {
     resolveTunnelServicePorts.callsFake(options.resolveTunnelServicePortsImpl);
   } else {
-    resolveTunnelServicePorts.callsFake(
-      async (_udid: string, serviceNames: string[]) => ({
-        host: TEST_HOST,
-        ports: Object.fromEntries(
-          serviceNames.map((name) => [name, TEST_PORT]),
-        ),
-        udid: TEST_UDID,
-      }),
-    );
+    resolveTunnelServicePorts.callsFake(async (_udid: string, serviceNames: string[]) => ({
+      host: TEST_HOST,
+      ports: Object.fromEntries(serviceNames.map((name) => [name, TEST_PORT])),
+      udid: TEST_UDID,
+    }));
   }
 
   const services = await esmock('../../../src/services.js', {
@@ -78,28 +75,22 @@ async function loadServicesWithStubs(
     },
   });
 
-  return { services, resolveTunnelService, resolveTunnelServicePorts };
+  return {services, resolveTunnelService, resolveTunnelServicePorts};
 }
 
 describe('start*Service — registry catalog resolution', function () {
   describe('resolveTunnelService (via startAfcService)', function () {
     it('resolves the AFC RSD shim by name before creating the instance', async function () {
-      const { services, resolveTunnelService } = await loadServicesWithStubs();
+      const {services, resolveTunnelService} = await loadServicesWithStubs();
 
       const afc = await services.startAfcService(TEST_UDID);
 
       expect(afc).to.exist;
-      expect(
-        resolveTunnelService.calledOnceWith(
-          TEST_UDID,
-          'com.apple.afc.shim.remote',
-          WAIT_OPTS,
-        ),
-      ).to.equal(true);
+      expect(resolveTunnelService.calledOnceWith(TEST_UDID, 'com.apple.afc.shim.remote', WAIT_OPTS)).to.equal(true);
     });
 
     it('propagates resolver errors', async function () {
-      const { services } = await loadServicesWithStubs({
+      const {services} = await loadServicesWithStubs({
         resolveTunnelServiceImpl: async () => {
           throw new Error('catalog missing service');
         },
@@ -118,19 +109,15 @@ describe('start*Service — registry catalog resolution', function () {
 
   describe('RSD service-name correctness', function () {
     it('startSyslogBinaryService queries the os_trace_relay RSD shim by name', async function () {
-      const { services, resolveTunnelService } = await loadServicesWithStubs();
+      const {services, resolveTunnelService} = await loadServicesWithStubs();
 
       const result = await services.startSyslogBinaryService(TEST_UDID);
-      const { serviceDescriptor } = result as {
-        serviceDescriptor: { serviceName: string; port: string };
+      const {serviceDescriptor} = result as {
+        serviceDescriptor: {serviceName: string; port: string};
       };
 
       expect(
-        resolveTunnelService.calledOnceWith(
-          TEST_UDID,
-          'com.apple.os_trace_relay.shim.remote',
-          WAIT_OPTS,
-        ),
+        resolveTunnelService.calledOnceWith(TEST_UDID, 'com.apple.os_trace_relay.shim.remote', WAIT_OPTS),
       ).to.equal(true);
       expect(serviceDescriptor).to.deep.equal({
         serviceName: 'com.apple.os_trace_relay.shim.remote',
@@ -141,34 +128,20 @@ describe('start*Service — registry catalog resolution', function () {
 
   describe('other start*Service helpers', function () {
     for (const [fn, serviceName] of [
-      [
-        'startInstallationProxyService',
-        'com.apple.mobile.installation_proxy.shim.remote',
-      ],
-      [
-        'startNotificationProxyService',
-        'com.apple.mobile.notification_proxy.shim.remote',
-      ],
+      ['startInstallationProxyService', 'com.apple.mobile.installation_proxy.shim.remote'],
+      ['startNotificationProxyService', 'com.apple.mobile.notification_proxy.shim.remote'],
       ['startHidIndigoService', 'com.apple.coredevice.hid.indigo'],
       ['startPasteboardService', 'com.apple.coredevice.pasteboardservice'],
     ] as const) {
       it(`${fn} resolves ${serviceName} from the catalog`, async function () {
-        const { services, resolveTunnelService } =
-          await loadServicesWithStubs();
+        const {services, resolveTunnelService} = await loadServicesWithStubs();
         await services[fn](TEST_UDID);
-        expect(
-          resolveTunnelService.calledOnceWith(
-            TEST_UDID,
-            serviceName,
-            WAIT_OPTS,
-          ),
-        ).to.equal(true);
+        expect(resolveTunnelService.calledOnceWith(TEST_UDID, serviceName, WAIT_OPTS)).to.equal(true);
       });
     }
 
     it('startCrashReportsService resolves both crash report shims', async function () {
-      const { services, resolveTunnelServicePorts } =
-        await loadServicesWithStubs();
+      const {services, resolveTunnelServicePorts} = await loadServicesWithStubs();
 
       await services.startCrashReportsService(TEST_UDID);
 
@@ -176,10 +149,7 @@ describe('start*Service — registry catalog resolution', function () {
       sinon.assert.calledWith(
         resolveTunnelServicePorts.firstCall,
         TEST_UDID,
-        [
-          'com.apple.crashreportcopymobile.shim.remote',
-          'com.apple.crashreportmover.shim.remote',
-        ],
+        ['com.apple.crashreportcopymobile.shim.remote', 'com.apple.crashreportmover.shim.remote'],
         WAIT_OPTS,
       );
     });

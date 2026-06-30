@@ -1,8 +1,8 @@
-import type { Socket } from 'node:net';
+import type {Socket} from 'node:net';
 
-import type { LockdownService } from '../../../lib/lockdown/index.js';
-import { getLogger } from '../../../lib/logger.js';
-import { createUsbmux } from '../../../lib/usbmux/index.js';
+import type {LockdownService} from '../../../lib/lockdown/index.js';
+import {getLogger} from '../../../lib/logger.js';
+import {createUsbmux} from '../../../lib/usbmux/index.js';
 
 const log = getLogger('TunnelService');
 const LABEL = 'appium-internal';
@@ -42,24 +42,13 @@ export async function startCoreDeviceProxyTcp(
   const usbmux = await createUsbmux();
   try {
     const pairRecord = await usbmux.readPairRecord(udid);
-    if (
-      !pairRecord ||
-      !pairRecord.HostCertificate ||
-      !pairRecord.HostPrivateKey
-    ) {
-      throw new Error(
-        'Missing required pair record or certificates for TLS upgrade',
-      );
+    if (!pairRecord || !pairRecord.HostCertificate || !pairRecord.HostPrivateKey) {
+      throw new Error('Missing required pair record or certificates for TLS upgrade');
     }
 
-    const coreDeviceSocket = await usbmux.connect(
-      Number(deviceID),
-      Number(response.Port),
-    );
+    const coreDeviceSocket = await usbmux.connect(Number(deviceID), Number(response.Port));
 
-    log.debug(
-      'Socket connected to CoreDeviceProxy (raw TCP, native TLS in tuntap)',
-    );
+    log.debug('Socket connected to CoreDeviceProxy (raw TCP, native TLS in tuntap)');
 
     return {
       socket: coreDeviceSocket,
@@ -67,9 +56,7 @@ export async function startCoreDeviceProxyTcp(
       key: pairRecord.HostPrivateKey,
     };
   } catch (err) {
-    await usbmux
-      .close()
-      .catch((closeErr) => log.error(`Error closing usbmux: ${closeErr}`));
+    await usbmux.close().catch((closeErr) => log.error(`Error closing usbmux: ${closeErr}`));
     throw err;
   }
 }

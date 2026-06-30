@@ -1,5 +1,5 @@
-import type { Channel } from '../channel.js';
-import type { DVTSecureSocketProxyService } from '../index.js';
+import type {Channel} from '../channel.js';
+import type {DVTSecureSocketProxyService} from '../index.js';
 
 /**
  * Base class for DVT instrument services.
@@ -27,9 +27,7 @@ export abstract class BaseInstrument {
 
   protected requireChannel(): Channel {
     if (!this.channel) {
-      throw new Error(
-        `${this.constructor.name} channel is not initialized. Call initialize() first.`,
-      );
+      throw new Error(`${this.constructor.name} channel is not initialized. Call initialize() first.`);
     }
     return this.channel;
   }

@@ -1,17 +1,18 @@
-import { logger } from '@appium/support';
-import { expect } from 'chai';
-import { after, before, describe, it } from 'node:test';
+import {after, before, describe, it} from 'node:test';
 
-import type { DVTInstruments } from '../../../src/index.js';
+import {logger} from '@appium/support';
+import {expect} from 'chai';
+
+import type {DVTInstruments} from '../../../src/index.js';
 import * as Services from '../../../src/services.js';
-import { requireDeviceUdid } from '../helpers/device.js';
+import {requireDeviceUdid} from '../helpers/device.js';
 
 const log = logger.getLogger('Screenshot.test');
 log.level = 'debug';
 
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
-describe('Screenshot Instrument', { timeout: 30000 }, function () {
+describe('Screenshot Instrument', {timeout: 30000}, function () {
   let dvtServiceConnection: DVTInstruments | null = null;
   let udid: string;
 

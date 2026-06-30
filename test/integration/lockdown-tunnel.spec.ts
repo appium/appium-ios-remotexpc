@@ -1,9 +1,10 @@
-import { expect } from 'chai';
-import { before, describe, it } from 'node:test';
+import {before, describe, it} from 'node:test';
 
-import { createLockdownServiceForTunnel } from '../../src/index.js';
-import type { LockdownDeviceInfo } from '../../src/lib/types.js';
-import { requireDeviceUdid } from './helpers/device.js';
+import {expect} from 'chai';
+
+import {createLockdownServiceForTunnel} from '../../src/index.js';
+import type {LockdownDeviceInfo} from '../../src/lib/types.js';
+import {requireDeviceUdid} from './helpers/device.js';
 
 /**
  * Integration: tunnel lockdown (`createLockdownServiceForTunnel`) and `getDeviceInfo()`.
@@ -14,26 +15,22 @@ import { requireDeviceUdid } from './helpers/device.js';
  * - **`UDID`** — device that has a tunnel entry in that registry.
  */
 
-describe(
-  'Lockdown over tunnel (getDeviceInfo)',
-  { timeout: 60000 },
-  function () {
-    let udid: string;
+describe('Lockdown over tunnel (getDeviceInfo)', {timeout: 60000}, function () {
+  let udid: string;
 
-    before(async function () {
-      udid = requireDeviceUdid();
-    });
+  before(async function () {
+    udid = requireDeviceUdid();
+  });
 
-    it('should return lockdown device info', async function () {
-      const lockdown = await createLockdownServiceForTunnel(udid);
-      try {
-        const info: LockdownDeviceInfo = await lockdown.getDeviceInfo();
-        expect(info).to.be.an('object');
-        expect(info.UniqueDeviceID).to.be.a('string').and.not.empty;
-        expect(info.ProductVersion).to.be.a('string').and.not.empty;
-      } finally {
-        lockdown.close();
-      }
-    });
-  },
-);
+  it('should return lockdown device info', async function () {
+    const lockdown = await createLockdownServiceForTunnel(udid);
+    try {
+      const info: LockdownDeviceInfo = await lockdown.getDeviceInfo();
+      expect(info).to.be.an('object');
+      expect(info.UniqueDeviceID).to.be.a('string').and.not.empty;
+      expect(info.ProductVersion).to.be.a('string').and.not.empty;
+    } finally {
+      lockdown.close();
+    }
+  });
+});

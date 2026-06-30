@@ -15,9 +15,7 @@ export function bigIntToBuffer(value: bigint, length: number): Buffer {
   const byteLength = Math.ceil(hex.length / 2);
 
   if (byteLength > length) {
-    throw new RangeError(
-      `Value 0x${hex} is too large to fit in ${length} bytes`,
-    );
+    throw new RangeError(`Value 0x${hex} is too large to fit in ${length} bytes`);
   }
 
   const paddedHex = hex.padStart(length * 2, '0');
@@ -63,11 +61,7 @@ export function bigIntToMinimalBuffer(value: bigint): Buffer {
  *
  * @throws {RangeError} If the exponent is negative or the modulus is zero.
  */
-export function modPow(
-  base: bigint,
-  exponent: bigint,
-  modulus: bigint,
-): bigint {
+export function modPow(base: bigint, exponent: bigint, modulus: bigint): bigint {
   if (modulus === 0n) {
     throw new RangeError('Modulus must be non-zero');
   }

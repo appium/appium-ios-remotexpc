@@ -1,4 +1,4 @@
-import { type Socket, createSocket } from 'node:dgram';
+import {type Socket, createSocket} from 'node:dgram';
 
 import {
   MDNS_MCAST_V4,
@@ -36,10 +36,8 @@ export class MdnsTestResponder {
     });
   }
 
-  static async start(
-    advertisements: MdnsAdvertisement[],
-  ): Promise<MdnsTestResponder> {
-    const socket = createSocket({ type: 'udp4', reuseAddr: true });
+  static async start(advertisements: MdnsAdvertisement[]): Promise<MdnsTestResponder> {
+    const socket = createSocket({type: 'udp4', reuseAddr: true});
     await new Promise<void>((resolve, reject) => {
       socket.once('error', reject);
       socket.bind(MDNS_PORT, '0.0.0.0', () => {
@@ -61,11 +59,7 @@ export class MdnsTestResponder {
     });
   }
 
-  private handleQuery(
-    message: Buffer,
-    senderAddress: string,
-    senderPort: number,
-  ): void {
+  private handleQuery(message: Buffer, senderAddress: string, senderPort: number): void {
     const queryName = parseQueryName(message);
     if (!queryName) {
       return;
@@ -102,15 +96,9 @@ function parseQueryName(message: Buffer): string | null {
   return decodeName(message, 12).name;
 }
 
-function buildDiscoveryResponse(
-  query: Buffer,
-  advertisement: MdnsAdvertisement,
-): Buffer {
+function buildDiscoveryResponse(query: Buffer, advertisement: MdnsAdvertisement): Buffer {
   const domain = advertisement.domain ?? 'local';
-  const serviceTypeFqdn = buildServiceTypeFqdn(
-    advertisement.serviceType,
-    domain,
-  );
+  const serviceTypeFqdn = buildServiceTypeFqdn(advertisement.serviceType, domain);
   const instanceFqdn = `${advertisement.instanceName}.${serviceTypeFqdn}`;
   const host = advertisement.host ?? 'apptest-host.local.';
   const target = host.endsWith('.') ? host : `${host}.`;
@@ -125,11 +113,7 @@ function buildDiscoveryResponse(
   const srvRdata = Buffer.concat([srvBody, encodeName(target)]);
   const srvRR = encodeResourceRecord(instanceFqdn, QTYPE_SRV, srvRdata);
 
-  const txtRR = encodeResourceRecord(
-    instanceFqdn,
-    QTYPE_TXT,
-    encodeTxtRecord(advertisement.txt ?? {}),
-  );
+  const txtRR = encodeResourceRecord(instanceFqdn, QTYPE_TXT, encodeTxtRecord(advertisement.txt ?? {}));
 
   const ipv4Parts = advertisement.ipv4.split('.').map((octet) => Number(octet));
   const aRdata = Buffer.from(ipv4Parts);
@@ -147,21 +131,11 @@ function buildDiscoveryResponse(
 }
 
 function encodeTxtRecord(txt: Record<string, string>): Buffer {
-  const segments = Object.entries(txt).map(([key, value]) =>
-    Buffer.from(`${key}=${value}`),
-  );
-  return Buffer.concat(
-    segments.map((segment) =>
-      Buffer.concat([Buffer.from([segment.length]), segment]),
-    ),
-  );
+  const segments = Object.entries(txt).map(([key, value]) => Buffer.from(`${key}=${value}`));
+  return Buffer.concat(segments.map((segment) => Buffer.concat([Buffer.from([segment.length]), segment])));
 }
 
-function encodeResourceRecord(
-  name: string,
-  type: number,
-  rdata: Buffer,
-): Buffer {
+function encodeResourceRecord(name: string, type: number, rdata: Buffer): Buffer {
   return Buffer.concat([
     encodeName(name),
     writeUint16(type),

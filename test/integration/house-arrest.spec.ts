@@ -1,19 +1,20 @@
-import { logger } from '@appium/support';
-import { expect } from 'chai';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { after, afterEach, before, describe, it } from 'node:test';
+import {after, afterEach, before, describe, it} from 'node:test';
 
-import type { HouseArrestService } from '../../src/index.js';
+import {logger} from '@appium/support';
+import {expect} from 'chai';
+
+import type {HouseArrestService} from '../../src/index.js';
 import * as Services from '../../src/services.js';
-import { AfcService } from '../../src/services/ios/afc/index.js';
-import { requireDeviceUdid } from './helpers/device.js';
+import {AfcService} from '../../src/services/ios/afc/index.js';
+import {requireDeviceUdid} from './helpers/device.js';
 
 const log = logger.getLogger('HouseArrestService.test');
 log.level = 'debug';
 
-describe('House Arrest Service', { timeout: 60000 }, function () {
+describe('House Arrest Service', {timeout: 60000}, function () {
   let udid: string;
   // change this to a dev-signed and installed app
   const bundleId = 'com.example.app'; // used by vendContainer tests
@@ -103,14 +104,11 @@ describe('House Arrest Service', { timeout: 60000 }, function () {
       const invalidBundleId = 'com.invalid.nonexistent.app';
 
       try {
-        const invalidAfcService =
-          await houseArrestService.vendContainer(invalidBundleId);
+        const invalidAfcService = await houseArrestService.vendContainer(invalidBundleId);
         invalidAfcService.close();
         expect.fail('Should have thrown error for non-existent bundle ID');
       } catch (error) {
-        expect((error as Error).message).to.include(
-          'Application not installed',
-        );
+        expect((error as Error).message).to.include('Application not installed');
       }
     });
   });

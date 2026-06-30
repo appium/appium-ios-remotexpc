@@ -1,4 +1,4 @@
-import { lookup } from 'node:dns/promises';
+import {lookup} from 'node:dns/promises';
 
 /**
  * Strip a single trailing dot from an FQDN-style value (e.g. `local.` → `local`).
@@ -20,10 +20,7 @@ export function normalizeHostname(host?: string): string | undefined {
 /**
  * Resolve a preferred IPv4 address from service data or DNS lookup.
  */
-export async function resolveIpAddress(
-  host?: string,
-  addresses?: string[],
-): Promise<string | undefined> {
+export async function resolveIpAddress(host?: string, addresses?: string[]): Promise<string | undefined> {
   if (addresses?.[0]) {
     return addresses[0];
   }

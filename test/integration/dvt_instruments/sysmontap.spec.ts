@@ -1,20 +1,11 @@
-import { logger } from '@appium/support';
-import { expect } from 'chai';
-import {
-  type TestContext,
-  afterEach,
-  beforeEach,
-  describe,
-  it,
-} from 'node:test';
+import {type TestContext, afterEach, beforeEach, describe, it} from 'node:test';
 
-import type {
-  DVTInstruments,
-  SysmonProcessInfo,
-  SysmonSample,
-} from '../../../src/index.js';
+import {logger} from '@appium/support';
+import {expect} from 'chai';
+
+import type {DVTInstruments, SysmonProcessInfo, SysmonSample} from '../../../src/index.js';
 import * as Services from '../../../src/services.js';
-import { requireDeviceUdid } from '../helpers/device.js';
+import {requireDeviceUdid} from '../helpers/device.js';
 
 const log = logger.getLogger('Sysmontap.test');
 log.level = 'debug';
@@ -37,7 +28,7 @@ async function collectProcessSnapshots(
   return snapshots;
 }
 
-describe('Sysmontap', { timeout: 60000 }, function () {
+describe('Sysmontap', {timeout: 60000}, function () {
   let udid: string;
 
   // A sysmontap instance supports a single sampling session per DVT connection,
@@ -86,7 +77,7 @@ describe('Sysmontap', { timeout: 60000 }, function () {
   describe('Configuration', function () {
     it('should expose discovered attributes after configuring', async function () {
       const sysmontap = dvt.sysmontap;
-      await sysmontap.configure({ intervalMs: 1000 });
+      await sysmontap.configure({intervalMs: 1000});
 
       const processAttributes = sysmontap.getProcessAttributes();
       const systemAttributes = sysmontap.getSystemAttributes();
@@ -106,8 +97,7 @@ describe('Sysmontap', { timeout: 60000 }, function () {
 
       const processAttributes = sysmontap.getProcessAttributes();
       const populated = snapshots.find((snapshot) => snapshot.length > 0);
-      expect(populated, 'expected at least one populated process snapshot').to
-        .exist;
+      expect(populated, 'expected at least one populated process snapshot').to.exist;
 
       const processes = populated!;
       expect(processes.length).to.be.greaterThan(0);
@@ -120,15 +110,11 @@ describe('Sysmontap', { timeout: 60000 }, function () {
       expect(recordKeys).to.have.lengthOf(processAttributes.length);
       recordKeys.forEach((key) => expect(processAttributes).to.include(key));
       expect(sample).to.have.property('pid');
-      expect(sample.pid).to.satisfy(
-        (v: unknown) => typeof v === 'number' || typeof v === 'bigint',
-      );
+      expect(sample.pid).to.satisfy((v: unknown) => typeof v === 'number' || typeof v === 'bigint');
 
       log.info(
         `received ${processes.length} processes; first record:`,
-        JSON.stringify(sample, (_k, v) =>
-          typeof v === 'bigint' ? `${v}` : v,
-        ).slice(0, 400),
+        JSON.stringify(sample, (_k, v) => (typeof v === 'bigint' ? `${v}` : v)).slice(0, 400),
       );
     });
 
@@ -137,10 +123,7 @@ describe('Sysmontap', { timeout: 60000 }, function () {
       await sysmontap.configure();
       const processAttributes = sysmontap.getProcessAttributes();
 
-      if (
-        !processAttributes.includes('name') ||
-        !processAttributes.includes('pid')
-      ) {
+      if (!processAttributes.includes('name') || !processAttributes.includes('pid')) {
         log.warn("'name'/'pid' attributes not present; skipping");
         ctx.skip();
         return;
@@ -230,10 +213,7 @@ describe('Sysmontap', { timeout: 60000 }, function () {
           return result;
         })(),
         new Promise<never>((resolve, reject) =>
-          setTimeout(
-            () => reject(new Error('sysmontap iterator did not stop')),
-            5000,
-          ),
+          setTimeout(() => reject(new Error('sysmontap iterator did not stop')), 5000),
         ),
       ]);
 
@@ -292,13 +272,7 @@ describe('Sysmontap', { timeout: 60000 }, function () {
           return result;
         })(),
         new Promise<never>((resolve, reject) =>
-          setTimeout(
-            () =>
-              reject(
-                new Error('sysmontap iterator did not end on connection close'),
-              ),
-            5000,
-          ),
+          setTimeout(() => reject(new Error('sysmontap iterator did not end on connection close')), 5000),
         ),
       ]);
 

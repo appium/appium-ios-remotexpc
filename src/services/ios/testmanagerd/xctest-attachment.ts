@@ -1,20 +1,13 @@
 import crypto from 'node:crypto';
 
-import { getLogger } from '../../../lib/logger.js';
-import type { TestmanagerdService } from '../../../lib/types.js';
+import {getLogger} from '../../../lib/logger.js';
+import type {TestmanagerdService} from '../../../lib/types.js';
 import * as Services from '../../../services.js';
-import { MessageAux } from '../dvt/dtx-message.js';
-import {
-  extractNSKeyedArchiverObjects,
-  hasNSErrorIndicators,
-} from '../dvt/utils.js';
-import { canonicalizeUuidString } from './uuid.js';
-import {
-  DEFAULT_EXEC_CAPABILITIES,
-  SELECTOR,
-  TESTMANAGERD_CHANNEL,
-} from './xctest-common.js';
-import { createNSUUID } from './xctestconfiguration.js';
+import {MessageAux} from '../dvt/dtx-message.js';
+import {extractNSKeyedArchiverObjects, hasNSErrorIndicators} from '../dvt/utils.js';
+import {canonicalizeUuidString} from './uuid.js';
+import {DEFAULT_EXEC_CAPABILITIES, SELECTOR, TESTMANAGERD_CHANNEL} from './xctest-common.js';
+import {createNSUUID} from './xctestconfiguration.js';
 
 const log = getLogger('XCTestAttachment');
 
@@ -49,12 +42,9 @@ export class XCTestAttachment {
       throw new Error('delete requires at least one UUID');
     }
 
-    const testmanagerdService = await Services.startTestmanagerdService(
-      this.udid,
-    );
+    const testmanagerdService = await Services.startTestmanagerdService(this.udid);
     try {
-      const channel =
-        await testmanagerdService.makeChannel(TESTMANAGERD_CHANNEL);
+      const channel = await testmanagerdService.makeChannel(TESTMANAGERD_CHANNEL);
       const channelCode = channel.getCode();
 
       const sessionId = crypto.randomUUID();
@@ -65,19 +55,11 @@ export class XCTestAttachment {
         capabilities: DEFAULT_EXEC_CAPABILITIES,
       });
 
-      await testmanagerdService.sendMessage(
-        channelCode,
-        SELECTOR.initiateSession,
-        { args: initArgs },
-      );
+      await testmanagerdService.sendMessage(channelCode, SELECTOR.initiateSession, {args: initArgs});
       const [initResult] = await testmanagerdService.recvPlist(channelCode);
       log.debug('Exec session for attachment delete:', initResult);
 
-      return await deleteAttachmentsOnChannel(
-        testmanagerdService,
-        channelCode,
-        uuids,
-      );
+      return await deleteAttachmentsOnChannel(testmanagerdService, channelCode, uuids);
     } finally {
       try {
         await testmanagerdService.close();
@@ -100,10 +82,8 @@ function throwIfNSErrorReply(result: unknown, context: string): void {
     const hasErr = objects.some((o) => hasNSErrorIndicators(o));
     if (hasErr) {
       const msg =
-        objects.find(
-          (o: any) =>
-            typeof o === 'string' && o.length > MIN_NSERROR_DESCRIPTION_LEN,
-        ) ?? 'NSError from testmanagerd';
+        objects.find((o: any) => typeof o === 'string' && o.length > MIN_NSERROR_DESCRIPTION_LEN) ??
+        'NSError from testmanagerd';
       throw new Error(`${context}: ${msg}`);
     }
   }
@@ -132,11 +112,7 @@ async function deleteAttachmentsOnChannel(
   // NSSet<NSUUID> — matches `_IDE_deleteAttachmentsWithUUIDs:` on the IDE side.
   args.appendObj(new Set(unique.map((u) => createNSUUID(u))));
 
-  await connection.sendMessage(
-    channelCode,
-    SELECTOR.deleteAttachmentsWithUUIDs,
-    { args, expectsReply: true },
-  );
+  await connection.sendMessage(channelCode, SELECTOR.deleteAttachmentsWithUUIDs, {args, expectsReply: true});
 
   const [result] = await connection.recvPlist(channelCode);
   throwIfNSErrorReply(result, 'deleteAttachmentsOnChannel');

@@ -1,21 +1,16 @@
-import { expect } from 'chai';
-import { describe, it } from 'node:test';
+import {describe, it} from 'node:test';
 
-import { DataFrame } from '../../../src/lib/remote-xpc/handshake-frames.js';
-import {
-  Http2FrameParser,
-  buildWindowUpdateFrames,
-} from '../../../src/lib/remote-xpc/http2-frame-parser.js';
-import {
-  ServiceCatalogCollector,
-  servicesFromXpcBody,
-} from '../../../src/lib/remote-xpc/service-catalog.js';
-import { encodeMessage } from '../../../src/lib/remote-xpc/xpc-protocol.js';
+import {expect} from 'chai';
+
+import {DataFrame} from '../../../src/lib/remote-xpc/handshake-frames.js';
+import {Http2FrameParser, buildWindowUpdateFrames} from '../../../src/lib/remote-xpc/http2-frame-parser.js';
+import {ServiceCatalogCollector, servicesFromXpcBody} from '../../../src/lib/remote-xpc/service-catalog.js';
+import {encodeMessage} from '../../../src/lib/remote-xpc/xpc-protocol.js';
 
 function buildCatalogXpcPayload(serviceCount: number): Buffer {
-  const services: Record<string, { Port: string }> = {};
+  const services: Record<string, {Port: string}> = {};
   for (let i = 0; i < serviceCount; i++) {
-    services[`com.apple.example.service_${i}`] = { Port: String(52000 + i) };
+    services[`com.apple.example.service_${i}`] = {Port: String(52000 + i)};
   }
   services['com.apple.mobile.diagnostics_relay.shim.remote'] = {
     Port: '59999',
@@ -36,7 +31,7 @@ describe('RSD service catalog discovery', function () {
     it('extracts all services including late-alphabet names', function () {
       const body = {
         Services: {
-          'com.apple.afc.shim.remote': { Port: '52280' },
+          'com.apple.afc.shim.remote': {Port: '52280'},
           'com.apple.mobile.diagnostics_relay.shim.remote': {
             Port: '52299',
           },
@@ -47,15 +42,12 @@ describe('RSD service catalog discovery', function () {
       expect(result).not.to.be.null;
       expect(result!.services).to.have.lengthOf(2);
       expect(
-        result!.services.find(
-          (s) =>
-            s.serviceName === 'com.apple.mobile.diagnostics_relay.shim.remote',
-        )?.port,
+        result!.services.find((s) => s.serviceName === 'com.apple.mobile.diagnostics_relay.shim.remote')?.port,
       ).to.equal('52299');
     });
 
     it('returns null when Services is missing', function () {
-      expect(servicesFromXpcBody({ MessageType: 'Handshake' })).to.be.null;
+      expect(servicesFromXpcBody({MessageType: 'Handshake'})).to.be.null;
     });
   });
 
@@ -65,10 +57,8 @@ describe('RSD service catalog discovery', function () {
       const splitAt = Math.floor(payload.length / 3);
       const collector = new ServiceCatalogCollector();
 
-      expect(collector.ingestDataPayload(payload.subarray(0, splitAt))).to.be
-        .null;
-      expect(collector.ingestDataPayload(payload.subarray(splitAt))).to.not.be
-        .null;
+      expect(collector.ingestDataPayload(payload.subarray(0, splitAt))).to.be.null;
+      expect(collector.ingestDataPayload(payload.subarray(splitAt))).to.not.be.null;
     });
 
     it('parses multiple back-to-back XPC messages in one chunk', function () {
@@ -80,36 +70,25 @@ describe('RSD service catalog discovery', function () {
       const catalog = buildCatalogXpcPayload(3);
       const collector = new ServiceCatalogCollector();
 
-      const result = collector.ingestDataPayload(
-        Buffer.concat([prelude, catalog]),
-      );
+      const result = collector.ingestDataPayload(Buffer.concat([prelude, catalog]));
 
       expect(result).not.to.be.null;
-      expect(
-        result!.services.some(
-          (s) =>
-            s.serviceName === 'com.apple.mobile.diagnostics_relay.shim.remote',
-        ),
-      ).to.be.true;
+      expect(result!.services.some((s) => s.serviceName === 'com.apple.mobile.diagnostics_relay.shim.remote')).to.be
+        .true;
     });
 
     it('preserves trailing bytes after a decoded non-catalog message', function () {
       const prelude = encodeMessage({
         flags: 0x0201,
         id: BigInt(0),
-        body: { MessageType: 'Handshake' },
+        body: {MessageType: 'Handshake'},
       });
       const catalog = buildCatalogXpcPayload(2);
       const collector = new ServiceCatalogCollector();
 
-      expect(
-        collector.ingestDataPayload(prelude.subarray(0, prelude.length - 4)),
-      ).to.be.null;
-      expect(
-        collector.ingestDataPayload(
-          Buffer.concat([prelude.subarray(prelude.length - 4), catalog]),
-        ),
-      ).to.not.be.null;
+      expect(collector.ingestDataPayload(prelude.subarray(0, prelude.length - 4))).to.be.null;
+      expect(collector.ingestDataPayload(Buffer.concat([prelude.subarray(prelude.length - 4), catalog]))).to.not.be
+        .null;
     });
 
     it('returns the complete catalog across many TCP-sized chunks', function () {
@@ -119,21 +98,14 @@ describe('RSD service catalog discovery', function () {
       let result = null;
 
       for (let offset = 0; offset < payload.length; offset += chunkSize) {
-        const chunk = payload.subarray(
-          offset,
-          Math.min(offset + chunkSize, payload.length),
-        );
+        const chunk = payload.subarray(offset, Math.min(offset + chunkSize, payload.length));
         result = collector.ingestDataPayload(chunk) ?? result;
       }
 
       expect(result).not.to.be.null;
       expect(result!.services.length).to.be.at.least(50);
-      expect(
-        result!.services.some(
-          (s) =>
-            s.serviceName === 'com.apple.mobile.diagnostics_relay.shim.remote',
-        ),
-      ).to.be.true;
+      expect(result!.services.some((s) => s.serviceName === 'com.apple.mobile.diagnostics_relay.shim.remote')).to.be
+        .true;
     });
   });
 
@@ -148,9 +120,7 @@ describe('RSD service catalog discovery', function () {
       header.writeUInt32BE(1, 5); // stream 1
       const body = Buffer.from([5]); // pad length 5 >= body length 1
 
-      expect(() => parser.append(Buffer.concat([header, body]))).to.throw(
-        /PROTOCOL_ERROR: Padding exceeds frame size/,
-      );
+      expect(() => parser.append(Buffer.concat([header, body]))).to.throw(/PROTOCOL_ERROR: Padding exceeds frame size/);
     });
 
     it('reassembles a DATA frame split across multiple socket reads', function () {
@@ -165,9 +135,7 @@ describe('RSD service catalog discovery', function () {
       expect(first).to.have.lengthOf(0);
       expect(second).to.have.lengthOf(1);
       expect(second[0].type).to.equal('data');
-      expect(second[0].type === 'data' && second[0].frame.data.length).to.equal(
-        xpcPayload.length,
-      );
+      expect(second[0].type === 'data' && second[0].frame.data.length).to.equal(xpcPayload.length);
     });
   });
 

@@ -1,14 +1,11 @@
 import fs from 'node:fs/promises';
 import posixpath from 'node:path/posix';
 
-import { getLogger } from '../../../lib/logger.js';
-import {
-  DEFAULT_TUNNEL_SERVICE_WAIT_MS,
-  resolveTunnelService,
-} from '../../../lib/tunnel/tunnel-service-resolver.js';
-import type { CrashReportsPullOptions } from '../../../lib/types.js';
-import { createRawServiceSocket, readExact } from '../afc/codec.js';
-import { AfcService } from '../afc/index.js';
+import {getLogger} from '../../../lib/logger.js';
+import {DEFAULT_TUNNEL_SERVICE_WAIT_MS, resolveTunnelService} from '../../../lib/tunnel/tunnel-service-resolver.js';
+import type {CrashReportsPullOptions} from '../../../lib/types.js';
+import {createRawServiceSocket, readExact} from '../afc/codec.js';
+import {AfcService} from '../afc/index.js';
 
 const log = getLogger('CrashReportsService');
 
@@ -28,19 +25,13 @@ const APPSTORED_PATH = '/com.apple.appstored';
  * and com.apple.crashreportmover.shim.remote for flush operations.
  */
 export class CrashReportsService {
-  static readonly RSD_COPY_MOBILE_NAME =
-    'com.apple.crashreportcopymobile.shim.remote';
-  static readonly RSD_CRASH_MOVER_NAME =
-    'com.apple.crashreportmover.shim.remote';
+  static readonly RSD_COPY_MOBILE_NAME = 'com.apple.crashreportcopymobile.shim.remote';
+  static readonly RSD_CRASH_MOVER_NAME = 'com.apple.crashreportmover.shim.remote';
 
   private readonly afc: AfcService;
 
   constructor(private readonly udid: string) {
-    this.afc = new AfcService(
-      udid,
-      true,
-      CrashReportsService.RSD_COPY_MOBILE_NAME,
-    );
+    this.afc = new AfcService(udid, true, CrashReportsService.RSD_COPY_MOBILE_NAME);
   }
 
   /**
@@ -83,25 +74,17 @@ export class CrashReportsService {
    * @param entry Remote path on device, defaults to "/"
    * @param options Pull options (erase, match pattern)
    */
-  async pull(
-    out: string,
-    entry = '/',
-    options?: CrashReportsPullOptions,
-  ): Promise<void> {
-    const { erase = false, match } = options ?? {};
+  async pull(out: string, entry = '/', options?: CrashReportsPullOptions): Promise<void> {
+    const {erase = false, match} = options ?? {};
 
-    log.debug(
-      `Pulling crash reports from '${entry}' to '${out}', erase: ${erase}`,
-    );
+    log.debug(`Pulling crash reports from '${entry}' to '${out}', erase: ${erase}`);
 
-    await fs.mkdir(out, { recursive: true });
+    await fs.mkdir(out, {recursive: true});
 
     await this.afc.pull(entry, out, {
       recursive: true,
       match,
-      callback: erase
-        ? async (remotePath) => void (await this.afc.rmSingle(remotePath, true))
-        : undefined,
+      callback: erase ? async (remotePath) => void (await this.afc.rmSingle(remotePath, true)) : undefined,
     });
   }
 
@@ -123,14 +106,10 @@ export class CrashReportsService {
     }
 
     // Filter out special paths that are auto-created
-    const realFailures = nonDeletedItems.filter(
-      (item) => item !== APPSTORED_PATH,
-    );
+    const realFailures = nonDeletedItems.filter((item) => item !== APPSTORED_PATH);
 
     if (realFailures.length > 0) {
-      throw new Error(
-        `Failed to clear crash reports directory, undeleted items: ${realFailures.join(', ')}`,
-      );
+      throw new Error(`Failed to clear crash reports directory, undeleted items: ${realFailures.join(', ')}`);
     }
 
     log.debug('Successfully cleared all crash reports');
@@ -142,11 +121,9 @@ export class CrashReportsService {
   async flush(): Promise<void> {
     log.debug('Flushing crash reports');
 
-    const { host, port } = await resolveTunnelService(
-      this.udid,
-      CrashReportsService.RSD_CRASH_MOVER_NAME,
-      { waitMs: DEFAULT_TUNNEL_SERVICE_WAIT_MS },
-    );
+    const {host, port} = await resolveTunnelService(this.udid, CrashReportsService.RSD_CRASH_MOVER_NAME, {
+      waitMs: DEFAULT_TUNNEL_SERVICE_WAIT_MS,
+    });
 
     const socket = await createRawServiceSocket(host, port);
     try {

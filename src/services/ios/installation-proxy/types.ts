@@ -1,9 +1,6 @@
 export type ApplicationType = 'Any' | 'User' | 'System';
 
-export type ProgressCallback = (
-  percentComplete: number,
-  status: string,
-) => void | Promise<void>;
+export type ProgressCallback = (percentComplete: number, status: string) => void | Promise<void>;
 
 export interface BrowseOptions {
   applicationType?: ApplicationType;

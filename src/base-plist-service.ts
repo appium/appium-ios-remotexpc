@@ -1,10 +1,7 @@
-import { type Socket } from 'node:net';
+import {type Socket} from 'node:net';
 
-import {
-  PlistService,
-  type PlistServiceOptions,
-} from './lib/plist/plist-service.js';
-import type { PlistDictionary } from './lib/types.js';
+import {PlistService, type PlistServiceOptions} from './lib/plist/plist-service.js';
+import type {PlistDictionary} from './lib/types.js';
 
 /**
  * Message type for plist communications
@@ -21,10 +18,7 @@ export abstract class BasePlistService {
    * @param timeout Timeout in milliseconds
    * @returns Promise resolving to the response
    */
-  async sendAndReceive(
-    message: PlistMessage,
-    timeout?: number,
-  ): Promise<PlistMessage> {
+  async sendAndReceive(message: PlistMessage, timeout?: number): Promise<PlistMessage> {
     return this._plistService.sendPlistAndReceive(message, timeout);
   }
 
@@ -62,10 +56,7 @@ export abstract class BasePlistService {
    * @param plistServiceOrSocket PlistService instance or Socket
    * @param options Configuration options for PlistService
    */
-  protected constructor(
-    plistServiceOrSocket: PlistService | Socket,
-    options: PlistServiceOptions = {},
-  ) {
+  protected constructor(plistServiceOrSocket: PlistService | Socket, options: PlistServiceOptions = {}) {
     if (plistServiceOrSocket instanceof PlistService) {
       this._plistService = plistServiceOrSocket;
     } else {

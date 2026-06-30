@@ -1,10 +1,11 @@
-import { expect } from 'chai';
-import { constants as osConstants } from 'node:os';
-import { type TestContext, after, before, describe, it } from 'node:test';
+import {constants as osConstants} from 'node:os';
+import {type TestContext, after, before, describe, it} from 'node:test';
 
-import { type AppService, CoreDeviceError } from '../../src/index.js';
+import {expect} from 'chai';
+
+import {type AppService, CoreDeviceError} from '../../src/index.js';
 import * as Services from '../../src/services.js';
-import { requireDeviceUdid } from './helpers/device.js';
+import {requireDeviceUdid} from './helpers/device.js';
 
 /**
  * Integration tests for the CoreDevice AppService.
@@ -19,12 +20,11 @@ import { requireDeviceUdid } from './helpers/device.js';
  * result set), so the listApps test is bounded and lenient. Process and app
  * lifecycle operations (launch / signal / listProcesses) work fully.
  */
-describe('AppService', { timeout: 60000 }, function () {
+describe('AppService', {timeout: 60000}, function () {
   let appService: AppService | null = null;
   let udid: string;
   const bundleId = process.env.APP_BUNDLE_ID || 'com.apple.Preferences';
-  const sleep = (ms: number): Promise<void> =>
-    new Promise((resolve) => setTimeout(resolve, ms));
+  const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
   before(async function () {
     udid = requireDeviceUdid();
@@ -55,35 +55,23 @@ describe('AppService', { timeout: 60000 }, function () {
 
     await sleep(800);
     const processes = await appService!.listProcesses();
-    const running = processes.some(
-      (p) => p.processIdentifier === launched.processIdentifier,
-    );
-    expect(running, 'launched process should appear in listProcesses').to.equal(
-      true,
-    );
+    const running = processes.some((p) => p.processIdentifier === launched.processIdentifier);
+    expect(running, 'launched process should appear in listProcesses').to.equal(true);
 
     // Clean up.
-    await appService!.sendSignalToProcess(
-      launched.processIdentifier!,
-      osConstants.signals.SIGKILL,
-    );
+    await appService!.sendSignalToProcess(launched.processIdentifier!, osConstants.signals.SIGKILL);
   });
 
   it('signals a process and confirms it is gone', async function () {
     const launched = await appService!.launchApplication(bundleId);
     await sleep(800);
 
-    const result = await appService!.sendSignalToProcess(
-      launched.processIdentifier!,
-      osConstants.signals.SIGKILL,
-    );
+    const result = await appService!.sendSignalToProcess(launched.processIdentifier!, osConstants.signals.SIGKILL);
     expect(result).to.be.an('object');
 
     await sleep(1500);
     const processes = await appService!.listProcesses();
-    const stillRunning = processes.some(
-      (p) => p.processIdentifier === launched.processIdentifier,
-    );
+    const stillRunning = processes.some((p) => p.processIdentifier === launched.processIdentifier);
     expect(stillRunning, 'signalled process should be gone').to.equal(false);
   });
 
@@ -118,10 +106,7 @@ describe('AppService', { timeout: 60000 }, function () {
     const a = await appService!.listProcesses();
     const launched = await appService!.launchApplication(bundleId);
     const b = await appService!.listProcesses();
-    await appService!.sendSignalToProcess(
-      launched.processIdentifier!,
-      osConstants.signals.SIGKILL,
-    );
+    await appService!.sendSignalToProcess(launched.processIdentifier!, osConstants.signals.SIGKILL);
     expect(a.length).to.be.greaterThan(0);
     expect(b.length).to.be.greaterThan(0);
   });

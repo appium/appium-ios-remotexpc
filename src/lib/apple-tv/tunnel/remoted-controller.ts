@@ -1,7 +1,7 @@
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
+import {execFile} from 'node:child_process';
+import {promisify} from 'node:util';
 
-import { getLogger } from '../../logger.js';
+import {getLogger} from '../../logger.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -49,9 +49,7 @@ export class RemotedController {
           ? `permission denied (run with sudo so we can SIGSTOP remoted; otherwise ` +
             `the device may reject createListener with "Tunnel listener creator not set")`
           : String(err);
-      log.warn(
-        `Failed to suspend remoted (pid ${pid}); continuing without suspension: ${reason}`,
-      );
+      log.warn(`Failed to suspend remoted (pid ${pid}); continuing without suspension: ${reason}`);
     }
   }
 
@@ -84,13 +82,13 @@ export class RemotedController {
  */
 async function findPidsByName(name: string): Promise<number[]> {
   try {
-    const { stdout } = await execFileAsync(PGREP_BIN, ['-x', name]);
+    const {stdout} = await execFileAsync(PGREP_BIN, ['-x', name]);
     return stdout
       .split('\n')
       .map((line) => parseInt(line.trim(), 10))
       .filter((pid) => Number.isFinite(pid) && pid > 0);
   } catch (err) {
-    const code = (err as { code?: unknown })?.code;
+    const code = (err as {code?: unknown})?.code;
     if (code !== PGREP_NO_MATCH_EXIT_CODE) {
       log.debug(`pgrep failed for "${name}": ${err}`);
     }

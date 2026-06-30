@@ -1,28 +1,21 @@
-import { Readable, Writable } from 'node:stream';
+import {Readable, Writable} from 'node:stream';
 
-import { buildReadPayload, nextReadChunkSize, writeUInt64LE } from './codec.js';
-import { MAXIMUM_WRITE_SIZE } from './constants.js';
-import { AfcError, AfcOpcode } from './enums.js';
+import {buildReadPayload, nextReadChunkSize, writeUInt64LE} from './codec.js';
+import {MAXIMUM_WRITE_SIZE} from './constants.js';
+import {AfcError, AfcOpcode} from './enums.js';
 
 export type AfcSendAndWait = (
   op: AfcOpcode,
   headerPayload?: Buffer,
   content?: Buffer,
-) => Promise<{ status: AfcError; data: Buffer }>;
+) => Promise<{status: AfcError; data: Buffer}>;
 
-export type AfcFileWriteAndWait = (
-  handlePayload: Buffer,
-  content: Buffer,
-) => Promise<{ status: AfcError; data: Buffer }>;
+export type AfcFileWriteAndWait = (handlePayload: Buffer, content: Buffer) => Promise<{status: AfcError; data: Buffer}>;
 
 /**
  * Create a readable stream that pulls file chunks over AFC READ requests.
  */
-export function createAfcReadStream(
-  handle: bigint,
-  size: bigint,
-  sendAndWait: AfcSendAndWait,
-): Readable {
+export function createAfcReadStream(handle: bigint, size: bigint, sendAndWait: AfcSendAndWait): Readable {
   let left = size;
   let pumping = false;
 
@@ -37,16 +30,11 @@ export function createAfcReadStream(
         try {
           while (left > 0n) {
             const toRead = nextReadChunkSize(left);
-            const { status, data } = await sendAndWait(
-              AfcOpcode.READ,
-              buildReadPayload(handle, toRead),
-            );
+            const {status, data} = await sendAndWait(AfcOpcode.READ, buildReadPayload(handle, toRead));
 
             if (status !== AfcError.SUCCESS) {
               const errorName = AfcError[status] || 'UNKNOWN';
-              stream.destroy(
-                new Error(`fread error: ${errorName} (${status})`),
-              );
+              stream.destroy(new Error(`fread error: ${errorName} (${status})`));
               return;
             }
 
@@ -86,26 +74,18 @@ export function createAfcWriteStream(
   const handlePayload = writeUInt64LE(handle);
 
   return new Writable({
-    async write(
-      chunk: Buffer,
-      encoding: BufferEncoding,
-      callback: (error?: Error | null) => void,
-    ) {
+    async write(chunk: Buffer, encoding: BufferEncoding, callback: (error?: Error | null) => void) {
       try {
         let offset = 0;
         while (offset < chunk.length) {
           const end = Math.min(offset + chunkSize, chunk.length);
           const subchunk = chunk.subarray(offset, end);
 
-          const { status } = await writeChunk(handlePayload, subchunk);
+          const {status} = await writeChunk(handlePayload, subchunk);
 
           if (status !== AfcError.SUCCESS) {
             const errorName = AfcError[status] || 'UNKNOWN';
-            callback(
-              new Error(
-                `fwrite chunk failed with ${errorName} (${status}) at offset ${offset}`,
-              ),
-            );
+            callback(new Error(`fwrite chunk failed with ${errorName} (${status}) at offset ${offset}`));
             return;
           }
           offset = end;

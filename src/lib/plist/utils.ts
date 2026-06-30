@@ -1,4 +1,4 @@
-import { UTF8_ENCODING } from './constants.js';
+import {UTF8_ENCODING} from './constants.js';
 
 /**
  * Represents a tag position in XML
@@ -152,10 +152,7 @@ export function escapeXml(str: string): string {
  * @returns True if the data contains XML plist content, false otherwise
  */
 export function isXmlPlistContent(data: string | Buffer): boolean {
-  return (
-    data.toString(UTF8_ENCODING).includes('<?xml') ||
-    data.toString(UTF8_ENCODING).includes('<plist')
-  );
+  return data.toString(UTF8_ENCODING).includes('<?xml') || data.toString(UTF8_ENCODING).includes('<plist');
 }
 
 /**
@@ -165,10 +162,7 @@ export function isXmlPlistContent(data: string | Buffer): boolean {
  * @param position - The position to search around
  * @returns An object with the nearest tags before and after the position
  */
-export function findTagsAroundPosition(
-  xmlString: string,
-  position: number,
-): TagsAroundPosition {
+export function findTagsAroundPosition(xmlString: string, position: number): TagsAroundPosition {
   return {
     beforeTag: findTagBefore(xmlString, position),
     afterTag: findTagAfter(xmlString, position),
@@ -182,11 +176,8 @@ export function findTagsAroundPosition(
  * @param badCharPos - The position of the replacement character
  * @returns The cleaned XML string
  */
-export function cleanXmlWithReplacementChar(
-  xmlString: string,
-  badCharPos: number,
-): string {
-  const { beforeTag, afterTag } = findTagsAroundPosition(xmlString, badCharPos);
+export function cleanXmlWithReplacementChar(xmlString: string, badCharPos: number): string {
+  const {beforeTag, afterTag} = findTagsAroundPosition(xmlString, badCharPos);
 
   if (!beforeTag || !afterTag) {
     return fallbackCleaning(xmlString);
@@ -217,9 +208,7 @@ function parseTagContent(tagContent: string): {
   isOpening: boolean;
 } {
   const isClosing = tagContent.startsWith('/');
-  const tagName = isClosing
-    ? tagContent.substring(1).trim().split(/\s+/)[0]
-    : tagContent.trim().split(/\s+/)[0];
+  const tagName = isClosing ? tagContent.substring(1).trim().split(/\s+/)[0] : tagContent.trim().split(/\s+/)[0];
 
   return {
     tagName,
@@ -235,12 +224,8 @@ function parseTagContent(tagContent: string): {
  * @param tagContent - Content between < and > in the tag
  * @returns A TagPosition object
  */
-function createTagPosition(
-  startPos: number,
-  endPos: number,
-  tagContent: string,
-): TagPosition {
-  const { tagName, isOpening } = parseTagContent(tagContent);
+function createTagPosition(startPos: number, endPos: number, tagContent: string): TagPosition {
+  const {tagName, isOpening} = parseTagContent(tagContent);
 
   return {
     start: startPos,
@@ -257,10 +242,7 @@ function createTagPosition(
  * @param position - The position to search before
  * @returns The tag position or null if not found
  */
-function findTagBefore(
-  xmlString: string,
-  position: number,
-): TagPosition | null {
+function findTagBefore(xmlString: string, position: number): TagPosition | null {
   const tagEndPos = xmlString.lastIndexOf('>', position);
   if (tagEndPos < 0) {
     return null;
@@ -305,11 +287,7 @@ function findTagAfter(xmlString: string, position: number): TagPosition | null {
  * @param endPos - The end position to remove to
  * @returns The modified XML string
  */
-function removeContentBetween(
-  xmlString: string,
-  startPos: number,
-  endPos: number,
-): string {
+function removeContentBetween(xmlString: string, startPos: number, endPos: number): string {
   return xmlString.substring(0, startPos) + xmlString.substring(endPos);
 }
 
@@ -321,11 +299,7 @@ function removeContentBetween(
  * @param afterTag - The tag after the replacement character
  * @returns The cleaned XML string
  */
-function cleanBetweenTags(
-  xmlString: string,
-  beforeTag: TagPosition,
-  afterTag: TagPosition,
-): string {
+function cleanBetweenTags(xmlString: string, beforeTag: TagPosition, afterTag: TagPosition): string {
   return removeContentBetween(xmlString, beforeTag.end, afterTag.start);
 }
 
@@ -337,11 +311,7 @@ function cleanBetweenTags(
  * @param afterTag - The tag after the replacement character
  * @returns The cleaned XML string or null if can't be cleaned
  */
-function cleanInsideTag(
-  xmlString: string,
-  beforeTag: TagPosition,
-  afterTag: TagPosition,
-): string | null {
+function cleanInsideTag(xmlString: string, beforeTag: TagPosition, afterTag: TagPosition): string | null {
   const prevCompleteTag = xmlString.lastIndexOf('>', beforeTag.start);
   if (prevCompleteTag < 0) {
     return null;

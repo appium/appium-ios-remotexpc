@@ -1,24 +1,22 @@
-import { expect } from 'chai';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { after, before, describe, it } from 'node:test';
+import {after, before, describe, it} from 'node:test';
 
-import { getLogger } from '../../src/lib/logger.js';
+import {expect} from 'chai';
+
+import {getLogger} from '../../src/lib/logger.js';
 import * as Services from '../../src/services.js';
-import { AfcFileMode } from '../../src/services/ios/afc/enums.js';
+import {AfcFileMode} from '../../src/services/ios/afc/enums.js';
 import type AfcService from '../../src/services/ios/afc/index.js';
-import { requireDeviceUdid } from './helpers/device.js';
+import {requireDeviceUdid} from './helpers/device.js';
 
 const log = getLogger('AFC.PushPerformance.test');
 
 const MIB = 1024 * 1024;
 const DEFAULT_PUSH_SIZE_BYTES = 10 * MIB;
 const DEFAULT_MAX_DURATION_MS = 120_000;
-const maxDurationMs = parsePositiveInt(
-  process.env.AFC_PUSH_MAX_MS,
-  DEFAULT_MAX_DURATION_MS,
-);
+const maxDurationMs = parsePositiveInt(process.env.AFC_PUSH_MAX_MS, DEFAULT_MAX_DURATION_MS);
 
 /**
  * Integration test for large AFC uploads over an active RemoteXPC tunnel.
@@ -34,84 +32,68 @@ const maxDurationMs = parsePositiveInt(
  * Example:
  *   UDID=... AFC_PUSH_MAX_MS=60000 npm run test:afc-push-perf
  */
-describe(
-  'AFC push performance',
-  { timeout: maxDurationMs + 30_000 },
-  function () {
-    let udid: string;
-    const pushSizeBytes = parsePositiveInt(
-      process.env.AFC_PUSH_SIZE_BYTES,
-      DEFAULT_PUSH_SIZE_BYTES,
-    );
+describe('AFC push performance', {timeout: maxDurationMs + 30_000}, function () {
+  let udid: string;
+  const pushSizeBytes = parsePositiveInt(process.env.AFC_PUSH_SIZE_BYTES, DEFAULT_PUSH_SIZE_BYTES);
 
-    let afc: AfcService;
-    let localPath = '';
-    let remotePath = '';
+  let afc: AfcService;
+  let localPath = '';
+  let remotePath = '';
 
-    before(async function () {
-      udid = requireDeviceUdid();
+  before(async function () {
+    udid = requireDeviceUdid();
 
-      localPath = path.join(
-        os.tmpdir(),
-        `afc_push_perf_${Date.now()}_${pushSizeBytes}.bin`,
-      );
-      remotePath = `/Downloads/afc_push_perf_${Date.now()}.bin`;
+    localPath = path.join(os.tmpdir(), `afc_push_perf_${Date.now()}_${pushSizeBytes}.bin`);
+    remotePath = `/Downloads/afc_push_perf_${Date.now()}.bin`;
 
-      log.info(
-        `Preparing ${formatMiB(pushSizeBytes)} local file at ${localPath}`,
-      );
-      await writeFixedSizeFile(localPath, pushSizeBytes);
+    log.info(`Preparing ${formatMiB(pushSizeBytes)} local file at ${localPath}`);
+    await writeFixedSizeFile(localPath, pushSizeBytes);
 
-      afc = await Services.startAfcService(udid);
-    });
+    afc = await Services.startAfcService(udid);
+  });
 
-    after(async function () {
-      try {
-        if (afc && remotePath) {
-          await afc.rm(remotePath, true);
-        }
-      } catch {
-        // ignore cleanup errors
+  after(async function () {
+    try {
+      if (afc && remotePath) {
+        await afc.rm(remotePath, true);
       }
+    } catch {
+      // ignore cleanup errors
+    }
+    try {
+      afc?.close();
+    } catch {
+      // ignore
+    }
+    if (localPath) {
       try {
-        afc?.close();
+        await fs.unlink(localPath);
       } catch {
         // ignore
       }
-      if (localPath) {
-        try {
-          await fs.unlink(localPath);
-        } catch {
-          // ignore
-        }
-      }
-    });
+    }
+  });
 
-    it('should push a large file within the configured duration budget', async function () {
-      log.info(
-        `Uploading ${formatMiB(pushSizeBytes)} to ${remotePath} (max ${maxDurationMs}ms)`,
-      );
+  it('should push a large file within the configured duration budget', async function () {
+    log.info(`Uploading ${formatMiB(pushSizeBytes)} to ${remotePath} (max ${maxDurationMs}ms)`);
 
-      const startedAt = performance.now();
-      await afc.push(localPath, remotePath);
-      const elapsedMs = performance.now() - startedAt;
+    const startedAt = performance.now();
+    await afc.push(localPath, remotePath);
+    const elapsedMs = performance.now() - startedAt;
 
-      const stat = await afc.stat(remotePath);
-      expect(stat.st_ifmt).to.equal(AfcFileMode.S_IFREG);
-      expect(stat.st_size).to.equal(BigInt(pushSizeBytes));
+    const stat = await afc.stat(remotePath);
+    expect(stat.st_ifmt).to.equal(AfcFileMode.S_IFREG);
+    expect(stat.st_size).to.equal(BigInt(pushSizeBytes));
 
-      const mibPerSecond = pushSizeBytes / MIB / (elapsedMs / 1000);
-      log.info(
-        `AFC push completed in ${elapsedMs.toFixed(0)}ms (${mibPerSecond.toFixed(2)} MiB/s)`,
-      );
+    const mibPerSecond = pushSizeBytes / MIB / (elapsedMs / 1000);
+    log.info(`AFC push completed in ${elapsedMs.toFixed(0)}ms (${mibPerSecond.toFixed(2)} MiB/s)`);
 
-      expect(elapsedMs).to.be.lessThan(
-        maxDurationMs,
-        `expected push to finish within ${maxDurationMs}ms but took ${elapsedMs.toFixed(0)}ms (${mibPerSecond.toFixed(2)} MiB/s)`,
-      );
-    });
-  },
-);
+    expect(elapsedMs).to.be.lessThan(
+      maxDurationMs,
+      `expected push to finish within ${maxDurationMs}ms but took ${elapsedMs.toFixed(0)}ms (${mibPerSecond.toFixed(2)} MiB/s)`,
+    );
+  });
+});
 
 function parsePositiveInt(raw: string | undefined, fallback: number): number {
   if (!raw) {
@@ -128,10 +110,7 @@ function formatMiB(bytes: number): string {
   return `${(bytes / MIB).toFixed(1)} MiB`;
 }
 
-async function writeFixedSizeFile(
-  filePath: string,
-  sizeBytes: number,
-): Promise<void> {
+async function writeFixedSizeFile(filePath: string, sizeBytes: number): Promise<void> {
   const chunk = Buffer.alloc(MIB, 0x42);
   const handle = await fs.open(filePath, 'w');
   try {

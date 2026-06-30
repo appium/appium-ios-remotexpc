@@ -1,12 +1,13 @@
-import { expect } from 'chai';
 import path from 'node:path';
-import { after, before, describe, it } from 'node:test';
+import {after, before, describe, it} from 'node:test';
 
-import { getLogger } from '../../src/lib/logger.js';
+import {expect} from 'chai';
+
+import {getLogger} from '../../src/lib/logger.js';
 import * as Services from '../../src/services.js';
-import type { InstallationProxyService } from '../../src/services/ios/installation-proxy/index.js';
+import type {InstallationProxyService} from '../../src/services/ios/installation-proxy/index.js';
 import type ZipConduitService from '../../src/services/ios/zipconduit/index.js';
-import { requireDeviceUdid } from './helpers/device.js';
+import {requireDeviceUdid} from './helpers/device.js';
 
 const log = getLogger('ZipConduit.Install.test');
 
@@ -21,7 +22,7 @@ const log = getLogger('ZipConduit.Install.test');
  * Example:
  * UDID=... TEST_IPA_PATH=./App.ipa TEST_BUNDLE_ID=com.example.app npm run test:zipconduit-install
  */
-describe('ZipConduit Install', { timeout: 600000 }, function () {
+describe('ZipConduit Install', {timeout: 600000}, function () {
   let zipConduitService: ZipConduitService;
   let installationProxyService: InstallationProxyService;
 
@@ -33,14 +34,11 @@ describe('ZipConduit Install', { timeout: 600000 }, function () {
     udid = requireDeviceUdid();
 
     if (!testIpaPath || !testBundleId) {
-      throw new Error(
-        'Skipping ZipConduit install test: TEST_IPA_PATH and TEST_BUNDLE_ID must be set',
-      );
+      throw new Error('Skipping ZipConduit install test: TEST_IPA_PATH and TEST_BUNDLE_ID must be set');
     }
 
     zipConduitService = await Services.startZipConduitService(udid);
-    installationProxyService =
-      await Services.startInstallationProxyService(udid);
+    installationProxyService = await Services.startInstallationProxyService(udid);
   });
 
   after(async function () {
@@ -74,20 +72,18 @@ describe('ZipConduit Install', { timeout: 600000 }, function () {
     }
 
     const startedAt = Date.now();
-    const progressUpdates: Array<{ percent: number; status: string }> = [];
+    const progressUpdates: Array<{percent: number; status: string}> = [];
 
     log.info(`Installing ${testIpaPath} via zip_conduit`);
     await zipConduitService.install(testIpaPath, {
-      progress: ({ percent, status }) => {
-        progressUpdates.push({ percent, status });
+      progress: ({percent, status}) => {
+        progressUpdates.push({percent, status});
         log.info(`Install progress: ${percent}% (${status})`);
       },
     });
 
     const elapsedMs = Date.now() - startedAt;
-    log.info(
-      `ZipConduit install finished in ${(elapsedMs / 1000).toFixed(2)}s (${progressUpdates.length} updates)`,
-    );
+    log.info(`ZipConduit install finished in ${(elapsedMs / 1000).toFixed(2)}s (${progressUpdates.length} updates)`);
 
     await new Promise((resolve) => setTimeout(resolve, 5000));
 

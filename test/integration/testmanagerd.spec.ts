@@ -1,24 +1,14 @@
-import { logger } from '@appium/support';
-import { expect } from 'chai';
-import { after, before, describe, it } from 'node:test';
+import {after, before, describe, it} from 'node:test';
 
-import type {
-  DVTInstruments,
-  HouseArrestService,
-  TestmanagerdService,
-} from '../../src/index.js';
-import {
-  XCTestAttachment,
-  XCTestConfigurationEncoder,
-  runXCTest,
-} from '../../src/index.js';
-import {
-  createBinaryPlist,
-  parseBinaryPlist,
-} from '../../src/lib/plist/index.js';
+import {logger} from '@appium/support';
+import {expect} from 'chai';
+
+import type {DVTInstruments, HouseArrestService, TestmanagerdService} from '../../src/index.js';
+import {XCTestAttachment, XCTestConfigurationEncoder, runXCTest} from '../../src/index.js';
+import {createBinaryPlist, parseBinaryPlist} from '../../src/lib/plist/index.js';
 import * as Services from '../../src/services.js';
-import { MessageAux } from '../../src/services/ios/dvt/index.js';
-import { requireDeviceUdid } from './helpers/device.js';
+import {MessageAux} from '../../src/services/ios/dvt/index.js';
+import {requireDeviceUdid} from './helpers/device.js';
 
 const log = logger.getLogger('Testmanagerd.test');
 log.level = 'debug';
@@ -30,43 +20,28 @@ const XCODE_VERSION = 36;
  * Must be a full RFC-4122 string (32 hex digits, with or without dashes), e.g.
  * `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`.
  */
-const XCTEST_DELETE_ATTACHMENT_TEST_UUID =
-  process.env.XCTEST_DELETE_ATTACHMENT_TEST_UUID || '';
+const XCTEST_DELETE_ATTACHMENT_TEST_UUID = process.env.XCTEST_DELETE_ATTACHMENT_TEST_UUID || '';
 const TEST_RUNNER_BUNDLE_ID = process.env.TEST_RUNNER_BUNDLE_ID;
 const APP_UNDER_TEST_BUNDLE_ID = process.env.APP_UNDER_TEST_BUNDLE_ID;
 const XCTEST_BUNDLE_ID = process.env.XCTEST_BUNDLE_ID;
 
-const TESTMANAGERD_CHANNEL =
-  'dtxproxy:XCTestManager_IDEInterface:XCTestManager_DaemonConnectionInterface';
+const TESTMANAGERD_CHANNEL = 'dtxproxy:XCTestManager_IDEInterface:XCTestManager_DaemonConnectionInterface';
 
-async function safeClose(
-  ...closeables: Array<{ close(): Promise<void> } | null | undefined>
-): Promise<void> {
-  await Promise.allSettled(
-    closeables.map((c) => c?.close() ?? Promise.resolve()),
-  );
+async function safeClose(...closeables: Array<{close(): Promise<void>} | null | undefined>): Promise<void> {
+  await Promise.allSettled(closeables.map((c) => c?.close() ?? Promise.resolve()));
 }
 
-async function makeControlChannel(
-  service: TestmanagerdService,
-): Promise<number> {
+async function makeControlChannel(service: TestmanagerdService): Promise<number> {
   const channel = await service.makeChannel(TESTMANAGERD_CHANNEL);
   expect(channel).to.not.be.null;
   expect(channel.getCode()).to.be.greaterThan(0);
   return channel.getCode();
 }
 
-async function initiateControlSession(
-  service: TestmanagerdService,
-  channelCode: number,
-): Promise<any> {
+async function initiateControlSession(service: TestmanagerdService, channelCode: number): Promise<any> {
   const args = new MessageAux();
   args.appendObj(XCODE_VERSION);
-  await service.sendMessage(
-    channelCode,
-    '_IDE_initiateControlSessionWithProtocolVersion:',
-    { args },
-  );
+  await service.sendMessage(channelCode, '_IDE_initiateControlSessionWithProtocolVersion:', {args});
   const [result] = await service.recvPlist(channelCode);
   expect(result).to.not.be.null;
   return result;
@@ -86,7 +61,7 @@ function assertNSKeyedArchiverShape(obj: any): void {
  * `UDID=<device-udid> TEST_RUNNER_BUNDLE_ID=<xctrunner-bundle-id> APP_UNDER_TEST_BUNDLE_ID=<target-app-bundle-id> XCTEST_BUNDLE_ID=<xctest-bundle-id> npm run test:testmanagerd`
  */
 
-describe('Testmanagerd Service', { timeout: 120000 }, function () {
+describe('Testmanagerd Service', {timeout: 120000}, function () {
   let udid: string;
 
   before(function () {
@@ -124,11 +99,7 @@ describe('Testmanagerd Service', { timeout: 120000 }, function () {
     let houseArrestService: HouseArrestService | null = null;
 
     before(function () {
-      if (
-        !TEST_RUNNER_BUNDLE_ID ||
-        !APP_UNDER_TEST_BUNDLE_ID ||
-        !XCTEST_BUNDLE_ID
-      ) {
+      if (!TEST_RUNNER_BUNDLE_ID || !APP_UNDER_TEST_BUNDLE_ID || !XCTEST_BUNDLE_ID) {
         throw new Error(
           'Skipping XCTestConfiguration write via HouseArrest tests: TEST_RUNNER_BUNDLE_ID, APP_UNDER_TEST_BUNDLE_ID, and XCTEST_BUNDLE_ID must be set',
         );
@@ -154,8 +125,7 @@ describe('Testmanagerd Service', { timeout: 120000 }, function () {
         } catch {}
       }
 
-      const xctestName =
-        XCTEST_BUNDLE_ID!.split('.').at(-1) || XCTEST_BUNDLE_ID!;
+      const xctestName = XCTEST_BUNDLE_ID!.split('.').at(-1) || XCTEST_BUNDLE_ID!;
       const testBundleURL = `file://${appPath}/PlugIns/${xctestName}.xctest`;
 
       const sessionId = 'AABBCCDD-1122-3344-5566-778899AABBCC';
@@ -176,9 +146,7 @@ describe('Testmanagerd Service', { timeout: 120000 }, function () {
 
       log.debug(`Serialized XCTestConfiguration: ${plistData.length} bytes`);
 
-      const afcService = await houseArrestService.vendContainer(
-        TEST_RUNNER_BUNDLE_ID!,
-      );
+      const afcService = await houseArrestService.vendContainer(TEST_RUNNER_BUNDLE_ID!);
 
       const configFileName = `Runner-${sessionId.toUpperCase()}.xctestconfiguration`;
       const remotePath = `/tmp/${configFileName}`;
@@ -237,11 +205,9 @@ describe('Testmanagerd Service', { timeout: 120000 }, function () {
       const authArgs = new MessageAux();
       authArgs.appendObj(pid);
 
-      await testmanagerdConnection.sendMessage(
-        channelCode,
-        '_IDE_authorizeTestSessionWithProcessID:',
-        { args: authArgs },
-      );
+      await testmanagerdConnection.sendMessage(channelCode, '_IDE_authorizeTestSessionWithProcessID:', {
+        args: authArgs,
+      });
 
       const [authResult] = await testmanagerdConnection.recvPlist(channelCode);
       log.debug('Authorization result:', authResult);
@@ -258,11 +224,7 @@ describe('Testmanagerd Service', { timeout: 120000 }, function () {
 
   describe('Full XCTest launch flow', function () {
     before(function () {
-      if (
-        !TEST_RUNNER_BUNDLE_ID ||
-        !APP_UNDER_TEST_BUNDLE_ID ||
-        !XCTEST_BUNDLE_ID
-      ) {
+      if (!TEST_RUNNER_BUNDLE_ID || !APP_UNDER_TEST_BUNDLE_ID || !XCTEST_BUNDLE_ID) {
         throw new Error(
           'Skipping Full XCTest launch flow tests: TEST_RUNNER_BUNDLE_ID, APP_UNDER_TEST_BUNDLE_ID, and XCTEST_BUNDLE_ID must be set',
         );
@@ -271,7 +233,7 @@ describe('Testmanagerd Service', { timeout: 120000 }, function () {
 
     it(
       'should execute full XCTest launch lifecycle via runXCTest',
-      { timeout: Number(process.env.XCTEST_TIMEOUT_MS || 360000) },
+      {timeout: Number(process.env.XCTEST_TIMEOUT_MS || 360000)},
       async function () {
         const result = await runXCTest({
           udid,
@@ -294,9 +256,7 @@ describe('Testmanagerd Service', { timeout: 120000 }, function () {
   describe('IDE delete attachments (optional)', function () {
     before(function () {
       if (!XCTEST_DELETE_ATTACHMENT_TEST_UUID) {
-        throw new Error(
-          'Skipping IDE delete attachments tests: XCTEST_DELETE_ATTACHMENT_TEST_UUID must be set',
-        );
+        throw new Error('Skipping IDE delete attachments tests: XCTEST_DELETE_ATTACHMENT_TEST_UUID must be set');
       }
     });
 

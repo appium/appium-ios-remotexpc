@@ -1,7 +1,8 @@
-import { expect } from 'chai';
-import { describe, it } from 'node:test';
+import {describe, it} from 'node:test';
 
-import { generateHostId } from '../../../../src/lib/apple-tv/utils/uuid-generator.js';
+import {expect} from 'chai';
+
+import {generateHostId} from '../../../../src/lib/apple-tv/utils/uuid-generator.js';
 
 describe('uuid-generator', () => {
   describe('generateHostId', () => {
@@ -11,9 +12,7 @@ describe('uuid-generator', () => {
       const uuid2 = generateHostId(hostname);
 
       expect(uuid1).to.equal(uuid2);
-      expect(uuid1).to.match(
-        /^[0-9A-F]{8}-[0-9A-F]{4}-3[0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/,
-      );
+      expect(uuid1).to.match(/^[0-9A-F]{8}-[0-9A-F]{4}-3[0-9A-F]{3}-[89AB][0-9A-F]{3}-[0-9A-F]{12}$/);
     });
 
     it('should generate different UUIDs for different hostnames', () => {
@@ -24,17 +23,11 @@ describe('uuid-generator', () => {
     });
 
     it('should throw error for empty string', () => {
-      expect(() => generateHostId('')).to.throw(
-        TypeError,
-        'Hostname must be a non-empty string',
-      );
+      expect(() => generateHostId('')).to.throw(TypeError, 'Hostname must be a non-empty string');
     });
 
     it('should throw error for non-string input', () => {
-      expect(() => generateHostId(null as any)).to.throw(
-        TypeError,
-        'Hostname must be a non-empty string',
-      );
+      expect(() => generateHostId(null as any)).to.throw(TypeError, 'Hostname must be a non-empty string');
     });
   });
 });

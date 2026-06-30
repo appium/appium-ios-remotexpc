@@ -1,15 +1,16 @@
-import { logger } from '@appium/support';
-import { expect } from 'chai';
-import { type TestContext, after, before, describe, it } from 'node:test';
+import {type TestContext, after, before, describe, it} from 'node:test';
 
-import type { WebInspectorService } from '../../src/index.js';
+import {logger} from '@appium/support';
+import {expect} from 'chai';
+
+import type {WebInspectorService} from '../../src/index.js';
 import * as Services from '../../src/services.js';
-import { requireDeviceUdid } from './helpers/device.js';
+import {requireDeviceUdid} from './helpers/device.js';
 
 const log = logger.getLogger('WebInspectorService.test');
 log.level = 'debug';
 
-describe('WebInspectorService', { timeout: 60000 }, function () {
+describe('WebInspectorService', {timeout: 60000}, function () {
   let service: WebInspectorService;
   let udid: string;
   const sessionId = 'test-session-' + Date.now();
@@ -76,19 +77,11 @@ describe('WebInspectorService', { timeout: 60000 }, function () {
           // Find Safari application
           if (message.__selector === '_rpc_reportConnectedApplicationList:') {
             const arg = message.__argument;
-            if (
-              arg &&
-              typeof arg === 'object' &&
-              !Buffer.isBuffer(arg) &&
-              !Array.isArray(arg)
-            ) {
+            if (arg && typeof arg === 'object' && !Buffer.isBuffer(arg) && !Array.isArray(arg)) {
               const apps = (arg as any).WIRApplicationDictionaryKey;
               if (apps) {
                 for (const [appId, appData] of Object.entries(apps)) {
-                  if (
-                    (appData as any).WIRApplicationBundleIdentifierKey ===
-                    'com.apple.mobilesafari'
-                  ) {
+                  if ((appData as any).WIRApplicationBundleIdentifierKey === 'com.apple.mobilesafari') {
                     realAppId = appId;
                     foundSafari = true;
                   }
@@ -98,17 +91,9 @@ describe('WebInspectorService', { timeout: 60000 }, function () {
           }
 
           // Find Safari page
-          if (
-            message.__selector === '_rpc_applicationSentListing:' &&
-            realAppId
-          ) {
+          if (message.__selector === '_rpc_applicationSentListing:' && realAppId) {
             const arg = message.__argument;
-            if (
-              arg &&
-              typeof arg === 'object' &&
-              !Buffer.isBuffer(arg) &&
-              !Array.isArray(arg)
-            ) {
+            if (arg && typeof arg === 'object' && !Buffer.isBuffer(arg) && !Array.isArray(arg)) {
               const appId = (arg as any).WIRApplicationIdentifierKey;
               if (appId === realAppId) {
                 const listing = (arg as any).WIRListingKey;
@@ -136,9 +121,7 @@ describe('WebInspectorService', { timeout: 60000 }, function () {
       await listenTask;
 
       if (!foundSafari || !realAppId || !realPageId) {
-        throw new Error(
-          'Safari not found. Ensure Safari is open with a webpage loaded.',
-        );
+        throw new Error('Safari not found. Ensure Safari is open with a webpage loaded.');
       }
     });
 
@@ -181,18 +164,11 @@ describe('WebInspectorService', { timeout: 60000 }, function () {
         for await (const message of service.listenMessage()) {
           if (message.__selector === '_rpc_applicationSentData:') {
             const arg = message.__argument;
-            if (
-              arg &&
-              typeof arg === 'object' &&
-              !Buffer.isBuffer(arg) &&
-              !Array.isArray(arg)
-            ) {
+            if (arg && typeof arg === 'object' && !Buffer.isBuffer(arg) && !Array.isArray(arg)) {
               const dataKey = (arg as any).WIRMessageDataKey;
               if (dataKey) {
                 try {
-                  const dataString = Buffer.isBuffer(dataKey)
-                    ? dataKey.toString('utf-8')
-                    : dataKey;
+                  const dataString = Buffer.isBuffer(dataKey) ? dataKey.toString('utf-8') : dataKey;
                   cdpResponses.push(JSON.parse(dataString));
                 } catch (e) {
                   // Ignore parse errors
@@ -208,15 +184,10 @@ describe('WebInspectorService', { timeout: 60000 }, function () {
       await new Promise((resolve) => setTimeout(resolve, 3000));
 
       // Get target ID
-      const targetEvent = cdpResponses.find(
-        (msg) => msg.method === 'Target.targetCreated',
-      );
+      const targetEvent = cdpResponses.find((msg) => msg.method === 'Target.targetCreated');
 
       if (!targetEvent) {
-        log.error(
-          'CDP responses received:',
-          JSON.stringify(cdpResponses, null, 2),
-        );
+        log.error('CDP responses received:', JSON.stringify(cdpResponses, null, 2));
         throw new Error('Target.targetCreated event not received');
       }
 
@@ -232,7 +203,7 @@ describe('WebInspectorService', { timeout: 60000 }, function () {
           message: JSON.stringify({
             id: 1,
             method: 'Runtime.evaluate',
-            params: { expression: '1 + 1', returnByValue: true },
+            params: {expression: '1 + 1', returnByValue: true},
           }),
         },
       });
@@ -240,9 +211,7 @@ describe('WebInspectorService', { timeout: 60000 }, function () {
       await new Promise((resolve) => setTimeout(resolve, 2000));
 
       // Parse nested responses
-      const dispatchMessages = cdpResponses.filter(
-        (msg) => msg.method === 'Target.dispatchMessageFromTarget',
-      );
+      const dispatchMessages = cdpResponses.filter((msg) => msg.method === 'Target.dispatchMessageFromTarget');
 
       expect(dispatchMessages.length).to.be.greaterThan(0);
 
@@ -288,10 +257,7 @@ describe('WebInspectorService', { timeout: 60000 }, function () {
       }
     })();
 
-    await service.forwardAutomationSessionRequest(
-      'automation-session-' + Date.now(),
-      'com.apple.mobilesafari',
-    );
+    await service.forwardAutomationSessionRequest('automation-session-' + Date.now(), 'com.apple.mobilesafari');
 
     await new Promise((resolve) => setTimeout(resolve, 1000));
     await service.stopListeningAsync();

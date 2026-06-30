@@ -1,20 +1,14 @@
-import { BaseItem, strongbox } from '@appium/strongbox';
 import * as http from 'node:http';
 
-import { TUNNEL_CONTAINER_NAME } from '../../constants.js';
-import { getLogger } from '../logger.js';
-import type { TunnelRegistry, TunnelRegistryEntry } from '../types.js';
-import {
-  MAX_TUNNEL_REGISTRY_WAIT_MS,
-  TUNNEL_REGISTRY_API_BASE_PATH,
-} from './constants.js';
-import { isTunnelEntryReady } from './tunnel-availability.js';
-import { TunnelReadinessCoordinator } from './tunnel-readiness.js';
-import {
-  type RouteRecord,
-  createRouteDispatcher,
-  getRequestPathname,
-} from './tunnel-registry-routes.js';
+import {BaseItem, strongbox} from '@appium/strongbox';
+
+import {TUNNEL_CONTAINER_NAME} from '../../constants.js';
+import {getLogger} from '../logger.js';
+import type {TunnelRegistry, TunnelRegistryEntry} from '../types.js';
+import {MAX_TUNNEL_REGISTRY_WAIT_MS, TUNNEL_REGISTRY_API_BASE_PATH} from './constants.js';
+import {isTunnelEntryReady} from './tunnel-availability.js';
+import {TunnelReadinessCoordinator} from './tunnel-readiness.js';
+import {type RouteRecord, createRouteDispatcher, getRequestPathname} from './tunnel-registry-routes.js';
 
 // Constants
 export const DEFAULT_TUNNEL_REGISTRY_PORT = 42314;
@@ -28,10 +22,7 @@ export interface TunnelRegistryServerOptions {
    * Re-run RSD discover-and-close for `udid` and return the updated registry entry.
    * Wired by tunnel-creation; required for POST refresh-services.
    */
-  refreshServices?: (
-    udid: string,
-    entry: TunnelRegistryEntry,
-  ) => Promise<TunnelRegistryEntry>;
+  refreshServices?: (udid: string, entry: TunnelRegistryEntry) => Promise<TunnelRegistryEntry>;
 }
 
 // Logger instance
@@ -58,18 +49,12 @@ export class TunnelRegistryServer {
    * @param tunnelsInfo - Registry data object
    * @param port - Port to listen on
    */
-  private readonly dispatchRoute = createRouteDispatcher(
-    this.tunnelRegistryRouteTable(),
-  );
+  private readonly dispatchRoute = createRouteDispatcher(this.tunnelRegistryRouteTable());
 
   private readonly readiness: TunnelReadinessCoordinator;
   private readonly refreshServices?: TunnelRegistryServerOptions['refreshServices'];
 
-  constructor(
-    tunnelsInfo: TunnelRegistry | undefined,
-    port: number,
-    options: TunnelRegistryServerOptions = {},
-  ) {
+  constructor(tunnelsInfo: TunnelRegistry | undefined, port: number, options: TunnelRegistryServerOptions = {}) {
     this.port = port;
     this.tunnelsInfo = tunnelsInfo;
     this.readiness = options.readiness ?? new TunnelReadinessCoordinator();
@@ -146,9 +131,7 @@ export class TunnelRegistryServer {
       await new Promise<void>((resolve, reject) => {
         this.server?.listen(this.port, () => {
           log.info(`Tunnel Registry Server started on port ${this.port}`);
-          log.info(
-            `API available at http://localhost:${this.port}${TUNNEL_REGISTRY_API_BASE_PATH}`,
-          );
+          log.info(`API available at http://localhost:${this.port}${TUNNEL_REGISTRY_API_BASE_PATH}`);
           resolve();
         });
 
@@ -193,10 +176,7 @@ export class TunnelRegistryServer {
   /**
    * Main request handler
    */
-  private async handleRequest(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-  ): Promise<void> {
+  private async handleRequest(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
     const method = req.method || 'GET';
     const pathname = getRequestPathname(req);
 
@@ -205,7 +185,7 @@ export class TunnelRegistryServer {
     try {
       const handled = await this.dispatchRoute(req, res);
       if (!handled) {
-        sendJSON(res, 404, { error: 'Not found' });
+        sendJSON(res, 404, {error: 'Not found'});
       }
     } catch (error) {
       log.error(`Request handling error: ${error}`);
@@ -248,16 +228,12 @@ export class TunnelRegistryServer {
   /**
    * Handler for getting a tunnel by UDID (optional ?waitMs= long-poll).
    */
-  private async getTunnelByUdid(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    udid: string,
-  ): Promise<void> {
+  private async getTunnelByUdid(req: http.IncomingMessage, res: http.ServerResponse, udid: string): Promise<void> {
     try {
       await this.loadRegistry();
       const waitMs = parseWaitMsQuery(req);
       if (waitMs === null) {
-        sendJSON(res, 400, { error: 'Invalid waitMs query parameter' });
+        sendJSON(res, 400, {error: 'Invalid waitMs query parameter'});
         return;
       }
 
@@ -278,7 +254,7 @@ export class TunnelRegistryServer {
         tunnel = await this.readiness.waitForReady(udid, waitMs);
         sendJSON(res, 200, tunnel);
       } catch {
-        sendJSON(res, 408, { status: 'NOT_READY' });
+        sendJSON(res, 408, {status: 'NOT_READY'});
       }
     } catch (error) {
       log.error(`Error getting tunnel by UDID: ${error}`);
@@ -288,10 +264,7 @@ export class TunnelRegistryServer {
     }
   }
 
-  private async refreshTunnelServices(
-    res: http.ServerResponse,
-    udid: string,
-  ): Promise<void> {
+  private async refreshTunnelServices(res: http.ServerResponse, udid: string): Promise<void> {
     try {
       await this.loadRegistry();
       const entry = this.tunnels[udid];
@@ -323,21 +296,16 @@ export class TunnelRegistryServer {
   /**
    * Handler for getting a tunnel by device ID
    */
-  private async getTunnelByDeviceId(
-    res: http.ServerResponse,
-    deviceId: number,
-  ): Promise<void> {
+  private async getTunnelByDeviceId(res: http.ServerResponse, deviceId: number): Promise<void> {
     try {
       await this.loadRegistry();
 
       if (isNaN(deviceId)) {
-        sendJSON(res, 400, { error: 'Invalid device ID' });
+        sendJSON(res, 400, {error: 'Invalid device ID'});
         return;
       }
 
-      const tunnel = Object.values(this.tunnels).find(
-        (t) => t.deviceId === deviceId,
-      );
+      const tunnel = Object.values(this.tunnels).find((t) => t.deviceId === deviceId);
 
       if (!tunnel) {
         sendJSON(res, 404, {
@@ -358,19 +326,14 @@ export class TunnelRegistryServer {
   /**
    * Handler for updating a tunnel
    */
-  private async updateTunnel(
-    req: http.IncomingMessage,
-    res: http.ServerResponse,
-    udid: string,
-  ): Promise<void> {
+  private async updateTunnel(req: http.IncomingMessage, res: http.ServerResponse, udid: string): Promise<void> {
     try {
       await this.loadRegistry();
       let tunnelData: TunnelRegistryEntry | null = null;
       try {
         tunnelData = await parseJSONBody<TunnelRegistryEntry>(req);
       } catch (parseError: unknown) {
-        const errorMessage =
-          parseError instanceof Error ? parseError.message : String(parseError);
+        const errorMessage = parseError instanceof Error ? parseError.message : String(parseError);
         log.error(`Failed to parse JSON body: ${errorMessage}`);
         sendJSON(res, 400, {
           error: 'Malformed JSON in request body',
@@ -456,32 +419,28 @@ export class TunnelRegistryServer {
         method: 'GET',
         path: `${base}/device/:deviceId`,
         name: 'get-by-device',
-        handler: async (_req, res, params) =>
-          this.getTunnelByDeviceId(res, parseInt(params.deviceId, 10)),
+        handler: async (_req, res, params) => this.getTunnelByDeviceId(res, parseInt(params.deviceId, 10)),
       },
       {
         method: 'POST',
         path: `${base}/:udid/refresh-services`,
         name: 'refresh-services',
         guard: (params) => !RESERVED_TUNNEL_UDID_SEGMENTS.has(params.udid),
-        handler: async (_req, res, params) =>
-          this.refreshTunnelServices(res, params.udid),
+        handler: async (_req, res, params) => this.refreshTunnelServices(res, params.udid),
       },
       {
         method: 'GET',
         path: `${base}/:udid`,
         name: 'get-by-udid',
         guard: (params) => !RESERVED_TUNNEL_UDID_SEGMENTS.has(params.udid),
-        handler: async (req, res, params) =>
-          this.getTunnelByUdid(req, res, params.udid),
+        handler: async (req, res, params) => this.getTunnelByUdid(req, res, params.udid),
       },
       {
         method: 'PUT',
         path: `${base}/:udid`,
         name: 'put-by-udid',
         guard: (params) => !RESERVED_TUNNEL_UDID_SEGMENTS.has(params.udid),
-        handler: async (req, res, params) =>
-          this.updateTunnel(req, res, params.udid),
+        handler: async (req, res, params) => this.updateTunnel(req, res, params.udid),
       },
     ];
   }
@@ -514,9 +473,7 @@ export async function startTunnelRegistryServer(
 /**
  * Parse JSON body from HTTP request
  */
-async function parseJSONBody<T = unknown>(
-  req: http.IncomingMessage,
-): Promise<T> {
+async function parseJSONBody<T = unknown>(req: http.IncomingMessage): Promise<T> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
     req.on('data', (chunk: Buffer | string) => {
@@ -524,8 +481,7 @@ async function parseJSONBody<T = unknown>(
     });
     req.on('end', () => {
       try {
-        const body =
-          chunks.length === 0 ? Buffer.alloc(0) : Buffer.concat(chunks);
+        const body = chunks.length === 0 ? Buffer.alloc(0) : Buffer.concat(chunks);
         const text = body.length > 0 ? body.toString('utf8') : '';
         resolve(text ? (JSON.parse(text) as T) : ({} as T));
       } catch (error) {
@@ -555,16 +511,10 @@ function parseWaitMsQuery(req: http.IncomingMessage): number | null {
   return waitMs;
 }
 
-function sendJSON(
-  res: http.ServerResponse,
-  statusCode: number,
-  data: unknown,
-): void {
+function sendJSON(res: http.ServerResponse, statusCode: number, data: unknown): void {
   const statusText = http.STATUS_CODES[statusCode] || '';
   const responseBody =
-    data && typeof data === 'object' && data !== null
-      ? { status: statusText, ...data }
-      : { status: statusText, data };
-  res.writeHead(statusCode, { 'Content-Type': 'application/json' });
+    data && typeof data === 'object' && data !== null ? {status: statusText, ...data} : {status: statusText, data};
+  res.writeHead(statusCode, {'Content-Type': 'application/json'});
   res.end(JSON.stringify(responseBody));
 }

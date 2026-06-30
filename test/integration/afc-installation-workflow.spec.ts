@@ -1,12 +1,13 @@
-import { expect } from 'chai';
 import path from 'node:path';
-import { after, before, describe, it } from 'node:test';
+import {after, before, describe, it} from 'node:test';
 
-import { getLogger } from '../../src/lib/logger.js';
+import {expect} from 'chai';
+
+import {getLogger} from '../../src/lib/logger.js';
 import * as Services from '../../src/services.js';
 import type AfcService from '../../src/services/ios/afc/index.js';
-import type { InstallationProxyService } from '../../src/services/ios/installation-proxy/index.js';
-import { requireDeviceUdid } from './helpers/device.js';
+import type {InstallationProxyService} from '../../src/services/ios/installation-proxy/index.js';
+import {requireDeviceUdid} from './helpers/device.js';
 
 const log = getLogger('AFC-InstallationProxy.Workflow.test');
 
@@ -23,7 +24,7 @@ const log = getLogger('AFC-InstallationProxy.Workflow.test');
  * Example:
  * UDID=... TEST_IPA_PATH=./v1.ipa TEST_IPA_PATH_2=./v2.ipa TEST_BUNDLE_ID=com.test.app npm run test:installation-workflow
  */
-describe('AFC + Installation Proxy Workflow', { timeout: 300000 }, function () {
+describe('AFC + Installation Proxy Workflow', {timeout: 300000}, function () {
   // Installation can take several minutes depending on app size
   let afcService: AfcService;
   let installationProxyService: InstallationProxyService;
@@ -46,8 +47,7 @@ describe('AFC + Installation Proxy Workflow', { timeout: 300000 }, function () {
       afcService = await Services.startAfcService(udid);
       log.info('AFC service initialized');
 
-      installationProxyService =
-        await Services.startInstallationProxyService(udid);
+      installationProxyService = await Services.startInstallationProxyService(udid);
       log.info('Installation Proxy service initialized');
     } catch (error) {
       log.error('Failed to initialize services:', error);
@@ -116,17 +116,13 @@ describe('AFC + Installation Proxy Workflow', { timeout: 300000 }, function () {
     it('should install app via Installation Proxy', async function () {
       log.info(`Installing app from ${remoteIpaPath}`);
 
-      const progressUpdates: Array<{ percent: number; status: string }> = [];
+      const progressUpdates: Array<{percent: number; status: string}> = [];
 
       // Install the app with progress callback
-      await installationProxyService.install(
-        remoteIpaPath,
-        {},
-        (percent, status) => {
-          log.info(`Installation progress: ${percent}% - ${status}`);
-          progressUpdates.push({ percent, status });
-        },
-      );
+      await installationProxyService.install(remoteIpaPath, {}, (percent, status) => {
+        log.info(`Installation progress: ${percent}% - ${status}`);
+        progressUpdates.push({percent, status});
+      });
 
       log.info('Installation completed');
       log.info(`Received ${progressUpdates.length} progress updates`);
@@ -143,17 +139,13 @@ describe('AFC + Installation Proxy Workflow', { timeout: 300000 }, function () {
     it('should uninstall app via Installation Proxy', async function () {
       log.info(`Uninstalling app: ${testBundleId}`);
 
-      const progressUpdates: Array<{ percent: number; status: string }> = [];
+      const progressUpdates: Array<{percent: number; status: string}> = [];
 
       // Uninstall the app with progress callback
-      await installationProxyService.uninstall(
-        testBundleId!,
-        {},
-        (percent, status) => {
-          log.info(`Uninstallation progress: ${percent}% - ${status}`);
-          progressUpdates.push({ percent, status });
-        },
-      );
+      await installationProxyService.uninstall(testBundleId!, {}, (percent, status) => {
+        log.info(`Uninstallation progress: ${percent}% - ${status}`);
+        progressUpdates.push({percent, status});
+      });
 
       log.info('Uninstallation completed');
       log.info(`Received ${progressUpdates.length} progress updates`);
@@ -238,13 +230,9 @@ describe('AFC + Installation Proxy Workflow', { timeout: 300000 }, function () {
       }
 
       // Install first version
-      await installationProxyService.install(
-        remoteIpaPathV1,
-        {},
-        (percent, status) => {
-          log.info(`Installation progress: ${percent}% - ${status}`);
-        },
-      );
+      await installationProxyService.install(remoteIpaPathV1, {}, (percent, status) => {
+        log.info(`Installation progress: ${percent}% - ${status}`);
+      });
 
       // Verify app is actually installed and get version
       await new Promise((resolve) => setTimeout(resolve, 3000));
@@ -252,8 +240,7 @@ describe('AFC + Installation Proxy Workflow', { timeout: 300000 }, function () {
       expect(verifyApps[testBundleId!]).to.exist;
 
       const installedVersion =
-        verifyApps[testBundleId!].CFBundleShortVersionString ||
-        verifyApps[testBundleId!].CFBundleVersion;
+        verifyApps[testBundleId!].CFBundleShortVersionString || verifyApps[testBundleId!].CFBundleVersion;
 
       log.info(`Installed version: ${installedVersion}`);
     });
@@ -265,17 +252,13 @@ describe('AFC + Installation Proxy Workflow', { timeout: 300000 }, function () {
       const apps = await installationProxyService.lookup([testBundleId!]);
       expect(apps[testBundleId!]).to.exist;
 
-      const installedVersion =
-        apps[testBundleId!].CFBundleShortVersionString ||
-        apps[testBundleId!].CFBundleVersion;
+      const installedVersion = apps[testBundleId!].CFBundleShortVersionString || apps[testBundleId!].CFBundleVersion;
 
       log.info(`Current installed version: ${installedVersion}`);
       expect(installedVersion).to.exist;
 
       // Use isAppInstalled helper
-      const installStatus = await installationProxyService.isAppInstalled(
-        testBundleId!,
-      );
+      const installStatus = await installationProxyService.isAppInstalled(testBundleId!);
       expect(installStatus.isInstalled).to.be.true;
       expect(installStatus.version).to.equal(installedVersion);
     });
@@ -284,32 +267,22 @@ describe('AFC + Installation Proxy Workflow', { timeout: 300000 }, function () {
       log.info('Testing Scenario 3: Upgrade to newer version');
 
       // Get current version before upgrade
-      const appsBeforeUpgrade = await installationProxyService.lookup([
-        testBundleId!,
-      ]);
+      const appsBeforeUpgrade = await installationProxyService.lookup([testBundleId!]);
       const versionBefore =
-        appsBeforeUpgrade[testBundleId!].CFBundleShortVersionString ||
-        appsBeforeUpgrade[testBundleId!].CFBundleVersion;
+        appsBeforeUpgrade[testBundleId!].CFBundleShortVersionString || appsBeforeUpgrade[testBundleId!].CFBundleVersion;
 
       log.info(`Current version: ${versionBefore}`);
 
       // Perform upgrade with second IPA
-      await installationProxyService.upgrade(
-        remoteIpaPathV2,
-        {},
-        (percent, status) => {
-          log.info(`Upgrade progress: ${percent}% - ${status}`);
-        },
-      );
+      await installationProxyService.upgrade(remoteIpaPathV2, {}, (percent, status) => {
+        log.info(`Upgrade progress: ${percent}% - ${status}`);
+      });
 
       // Verify version changed
       await new Promise((resolve) => setTimeout(resolve, 3000));
-      const appsAfterUpgrade = await installationProxyService.lookup([
-        testBundleId!,
-      ]);
+      const appsAfterUpgrade = await installationProxyService.lookup([testBundleId!]);
       const versionAfter =
-        appsAfterUpgrade[testBundleId!].CFBundleShortVersionString ||
-        appsAfterUpgrade[testBundleId!].CFBundleVersion;
+        appsAfterUpgrade[testBundleId!].CFBundleShortVersionString || appsAfterUpgrade[testBundleId!].CFBundleVersion;
 
       log.info(`Upgraded from ${versionBefore} to ${versionAfter}`);
       expect(versionAfter).to.not.equal(versionBefore);
@@ -320,17 +293,13 @@ describe('AFC + Installation Proxy Workflow', { timeout: 300000 }, function () {
 
       // Get final version after all upgrades
       const apps = await installationProxyService.lookup([testBundleId!]);
-      const finalVersion =
-        apps[testBundleId!].CFBundleShortVersionString ||
-        apps[testBundleId!].CFBundleVersion;
+      const finalVersion = apps[testBundleId!].CFBundleShortVersionString || apps[testBundleId!].CFBundleVersion;
 
       log.info(`Final installed version: ${finalVersion}`);
       expect(finalVersion).to.exist;
 
       // Verify with isAppInstalled helper
-      const installStatus = await installationProxyService.isAppInstalled(
-        testBundleId!,
-      );
+      const installStatus = await installationProxyService.isAppInstalled(testBundleId!);
       expect(installStatus.isInstalled).to.be.true;
       expect(installStatus.version).to.equal(finalVersion);
       expect(installStatus.appInfo).to.exist;
@@ -340,23 +309,17 @@ describe('AFC + Installation Proxy Workflow', { timeout: 300000 }, function () {
       log.info('Testing isAppInstalled helper');
 
       // Test with installed app
-      const installedResult = await installationProxyService.isAppInstalled(
-        testBundleId!,
-      );
+      const installedResult = await installationProxyService.isAppInstalled(testBundleId!);
 
       expect(installedResult.isInstalled).to.be.true;
       expect(installedResult.version).to.exist;
       expect(installedResult.appInfo).to.exist;
-      expect(installedResult.appInfo?.CFBundleIdentifier).to.equal(
-        testBundleId,
-      );
+      expect(installedResult.appInfo?.CFBundleIdentifier).to.equal(testBundleId);
 
       log.info(`Installed app version: ${installedResult.version}`);
 
       // Test with non-existent app
-      const notInstalledResult = await installationProxyService.isAppInstalled(
-        'com.nonexistent.app',
-      );
+      const notInstalledResult = await installationProxyService.isAppInstalled('com.nonexistent.app');
 
       expect(notInstalledResult.isInstalled).to.be.false;
       expect(notInstalledResult.version).to.be.undefined;

@@ -1,31 +1,29 @@
-import { expect } from 'chai';
+import {describe, it} from 'node:test';
+
+import {expect} from 'chai';
 import esmock from 'esmock';
-import { describe, it } from 'node:test';
 import * as sinon from 'sinon';
 
-import type { AppleTVDevice } from '../../../src/lib/apple-tv/types.js';
-import type { DiscoveredDevice } from '../../../src/lib/discovery/types.js';
+import type {AppleTVDevice} from '../../../src/lib/apple-tv/types.js';
+import type {DiscoveredDevice} from '../../../src/lib/discovery/types.js';
 
 describe('AppleTVTunnelService', function () {
   async function loadTunnelService() {
-    const { AppleTVTunnelService } = await esmock(
-      '../../../src/lib/apple-tv/tunnel/tunnel-service.js',
-      {
-        '../../../src/lib/apple-tv/network/index.js': {
-          NetworkClient: class {
-            disconnect() {}
-          },
-        },
-        '../../../src/lib/apple-tv/storage/pairing-storage.js': {
-          PairingStorage: class {},
-        },
-        '../../../src/lib/apple-tv/tunnel/remoted-controller.js': {
-          RemotedController: class {
-            resume() {}
-          },
+    const {AppleTVTunnelService} = await esmock('../../../src/lib/apple-tv/tunnel/tunnel-service.js', {
+      '../../../src/lib/apple-tv/network/index.js': {
+        NetworkClient: class {
+          disconnect() {}
         },
       },
-    );
+      '../../../src/lib/apple-tv/storage/pairing-storage.js': {
+        PairingStorage: class {},
+      },
+      '../../../src/lib/apple-tv/tunnel/remoted-controller.js': {
+        RemotedController: class {
+          resume() {}
+        },
+      },
+    });
     return AppleTVTunnelService;
   }
 
@@ -56,35 +54,30 @@ describe('AppleTVTunnelService', function () {
       },
     ];
 
-    const { AppleTVTunnelService } = await esmock(
-      '../../../src/lib/apple-tv/tunnel/tunnel-service.js',
-      {
-        '../../../src/lib/discovery/discovery-backend-factory.js': {
-          createDiscoveryBackend: () => ({ discoverDevices }),
-        },
-        '../../../src/lib/apple-tv/devicectl-enrichment.js': {
-          enrichDiscoveredDevicesWithDevicectl: async (
-            discoveredDevices: DiscoveredDevice[],
-          ) => discoveredDevices,
-        },
-        '../../../src/lib/apple-tv/discovered-device-mapper.js': {
-          toAppleTVDevices: () => devices,
-        },
-        '../../../src/lib/apple-tv/network/index.js': {
-          NetworkClient: class {
-            disconnect() {}
-          },
-        },
-        '../../../src/lib/apple-tv/storage/pairing-storage.js': {
-          PairingStorage: class {},
-        },
-        '../../../src/lib/apple-tv/tunnel/remoted-controller.js': {
-          RemotedController: class {
-            resume() {}
-          },
+    const {AppleTVTunnelService} = await esmock('../../../src/lib/apple-tv/tunnel/tunnel-service.js', {
+      '../../../src/lib/discovery/discovery-backend-factory.js': {
+        createDiscoveryBackend: () => ({discoverDevices}),
+      },
+      '../../../src/lib/apple-tv/devicectl-enrichment.js': {
+        enrichDiscoveredDevicesWithDevicectl: async (discoveredDevices: DiscoveredDevice[]) => discoveredDevices,
+      },
+      '../../../src/lib/apple-tv/discovered-device-mapper.js': {
+        toAppleTVDevices: () => devices,
+      },
+      '../../../src/lib/apple-tv/network/index.js': {
+        NetworkClient: class {
+          disconnect() {}
         },
       },
-    );
+      '../../../src/lib/apple-tv/storage/pairing-storage.js': {
+        PairingStorage: class {},
+      },
+      '../../../src/lib/apple-tv/tunnel/remoted-controller.js': {
+        RemotedController: class {
+          resume() {}
+        },
+      },
+    });
 
     const tunnelService = new AppleTVTunnelService();
     const discovered = await tunnelService.discoverDevices({
@@ -96,9 +89,7 @@ describe('AppleTVTunnelService', function () {
   });
 
   it('uses provided devices without running discovery', async function () {
-    const discoverDevices = sinon
-      .stub()
-      .rejects(new Error('unexpected discovery'));
+    const discoverDevices = sinon.stub().rejects(new Error('unexpected discovery'));
     const devices: AppleTVDevice[] = [
       {
         name: 'Apple TV',
@@ -111,36 +102,33 @@ describe('AppleTVTunnelService', function () {
       },
     ];
 
-    const { AppleTVTunnelService } = await esmock(
-      '../../../src/lib/apple-tv/tunnel/tunnel-service.js',
-      {
-        '../../../src/lib/discovery/discovery-backend-factory.js': {
-          createDiscoveryBackend: () => ({ discoverDevices }),
-        },
-        '../../../src/lib/apple-tv/network/index.js': {
-          NetworkClient: class {
-            disconnect() {}
-          },
-        },
-        '../../../src/lib/apple-tv/storage/pairing-storage.js': {
-          PairingStorage: class {
-            async getAvailableDeviceIds(): Promise<string[]> {
-              return [];
-            }
-          },
-        },
-        '../../../src/lib/apple-tv/tunnel/remoted-controller.js': {
-          RemotedController: class {
-            resume() {}
-          },
+    const {AppleTVTunnelService} = await esmock('../../../src/lib/apple-tv/tunnel/tunnel-service.js', {
+      '../../../src/lib/discovery/discovery-backend-factory.js': {
+        createDiscoveryBackend: () => ({discoverDevices}),
+      },
+      '../../../src/lib/apple-tv/network/index.js': {
+        NetworkClient: class {
+          disconnect() {}
         },
       },
-    );
+      '../../../src/lib/apple-tv/storage/pairing-storage.js': {
+        PairingStorage: class {
+          async getAvailableDeviceIds(): Promise<string[]> {
+            return [];
+          }
+        },
+      },
+      '../../../src/lib/apple-tv/tunnel/remoted-controller.js': {
+        RemotedController: class {
+          resume() {}
+        },
+      },
+    });
 
     const tunnelService = new AppleTVTunnelService();
     let error: Error | undefined;
     try {
-      await tunnelService.startTunnel(undefined, undefined, { devices });
+      await tunnelService.startTunnel(undefined, undefined, {devices});
     } catch (err) {
       error = err instanceof Error ? err : new Error(String(err));
     }
@@ -231,9 +219,7 @@ describe('AppleTVTunnelService', function () {
           privateKey: Buffer.alloc(0),
           remoteUnlockHostKey: '',
         }),
-      ).to.throw(
-        'Pair record does not include remote_pairing_udid and no macOS devicectl fallback is available',
-      );
+      ).to.throw('Pair record does not include remote_pairing_udid and no macOS devicectl fallback is available');
     } finally {
       Object.defineProperty(process, 'platform', {
         value: originalPlatform,

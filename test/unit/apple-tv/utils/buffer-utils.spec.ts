@@ -1,5 +1,6 @@
-import { expect } from 'chai';
-import { describe, it } from 'node:test';
+import {describe, it} from 'node:test';
+
+import {expect} from 'chai';
 
 import {
   bigIntToBuffer,
@@ -16,17 +17,11 @@ describe('buffer-utils', () => {
     });
 
     it('should throw error for negative values', () => {
-      expect(() => bigIntToBuffer(-1n, 4)).to.throw(
-        RangeError,
-        'Negative values not supported',
-      );
+      expect(() => bigIntToBuffer(-1n, 4)).to.throw(RangeError, 'Negative values not supported');
     });
 
     it('should throw error when value is too large', () => {
-      expect(() => bigIntToBuffer(0xffffn, 1)).to.throw(
-        RangeError,
-        'too large to fit',
-      );
+      expect(() => bigIntToBuffer(0xffffn, 1)).to.throw(RangeError, 'too large to fit');
     });
   });
 
@@ -45,10 +40,7 @@ describe('buffer-utils', () => {
     });
 
     it('should throw error for negative values', () => {
-      expect(() => bigIntToMinimalBuffer(-1n)).to.throw(
-        RangeError,
-        'Negative values not supported',
-      );
+      expect(() => bigIntToMinimalBuffer(-1n)).to.throw(RangeError, 'Negative values not supported');
     });
   });
 
@@ -59,17 +51,11 @@ describe('buffer-utils', () => {
     });
 
     it('should throw error for zero modulus', () => {
-      expect(() => modPow(2n, 3n, 0n)).to.throw(
-        RangeError,
-        'Modulus must be non-zero',
-      );
+      expect(() => modPow(2n, 3n, 0n)).to.throw(RangeError, 'Modulus must be non-zero');
     });
 
     it('should throw error for negative exponent', () => {
-      expect(() => modPow(2n, -1n, 5n)).to.throw(
-        RangeError,
-        'Negative exponents not supported',
-      );
+      expect(() => modPow(2n, -1n, 5n)).to.throw(RangeError, 'Negative exponents not supported');
     });
   });
 });

@@ -1,4 +1,4 @@
-import { AfcFopenMode } from './enums.js';
+import {AfcFopenMode} from './enums.js';
 
 /**
  * AFC protocol constants

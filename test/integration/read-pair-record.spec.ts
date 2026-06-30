@@ -1,12 +1,13 @@
-import { logger } from '@appium/support';
-import { expect } from 'chai';
-import { after, before, describe, it } from 'node:test';
+import {after, before, describe, it} from 'node:test';
 
-import { createUsbmux } from '../../src/lib/usbmux/index.js';
+import {logger} from '@appium/support';
+import {expect} from 'chai';
+
+import {createUsbmux} from '../../src/lib/usbmux/index.js';
 
 const log = logger.getLogger('ReadPairRecord.test');
 
-describe('Pair Record', { timeout: 60000 }, function () {
+describe('Pair Record', {timeout: 60000}, function () {
   let usb: any;
 
   before(async function () {

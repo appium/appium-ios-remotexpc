@@ -17,8 +17,7 @@ export const DEFAULT_PAIRING_CONFIG = {
  * `createListener` is *not* available on this service ("Tunnel listener
  * creator not set" if attempted).
  */
-export const REMOTE_PAIRING_MANUAL_DISCOVERY_SERVICE_TYPE =
-  '_remotepairing-manual-pairing._tcp';
+export const REMOTE_PAIRING_MANUAL_DISCOVERY_SERVICE_TYPE = '_remotepairing-manual-pairing._tcp';
 
 /**
  * mDNS service type for the trusted/verified Remote Pairing service. The
@@ -26,8 +25,7 @@ export const REMOTE_PAIRING_MANUAL_DISCOVERY_SERVICE_TYPE =
  * Tunnel-listener requests must be issued on this service after re-doing
  * pair-verify with the stored pair record.
  */
-export const REMOTE_PAIRING_VERIFIED_DISCOVERY_SERVICE_TYPE =
-  '_remotepairing._tcp';
+export const REMOTE_PAIRING_VERIFIED_DISCOVERY_SERVICE_TYPE = '_remotepairing._tcp';
 
 export const REMOTE_PAIRING_DISCOVERY_DOMAIN = 'local';
 

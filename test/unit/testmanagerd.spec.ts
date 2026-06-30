@@ -1,19 +1,17 @@
-import { expect } from 'chai';
-import { beforeEach, describe, it } from 'node:test';
+import {beforeEach, describe, it} from 'node:test';
 
-import { PlistUID, createBinaryPlist } from '../../src/lib/plist/index.js';
-import {
-  DTX_CONSTANTS,
-  MessageAux,
-} from '../../src/services/ios/dvt/dtx-message.js';
+import {expect} from 'chai';
+
+import {PlistUID, createBinaryPlist} from '../../src/lib/plist/index.js';
+import {DTX_CONSTANTS, MessageAux} from '../../src/services/ios/dvt/dtx-message.js';
 import {
   DvtTestmanagedProxyService,
   isExpectedCloseError,
   readPrimitiveDictEntry,
 } from '../../src/services/ios/testmanagerd/index.js';
-import { TestmanagerdEncoder } from '../../src/services/ios/testmanagerd/testmanagerd-encoder.js';
-import { canonicalizeUuidString } from '../../src/services/ios/testmanagerd/uuid.js';
-import { createNSUUID } from '../../src/services/ios/testmanagerd/xctestconfiguration.js';
+import {TestmanagerdEncoder} from '../../src/services/ios/testmanagerd/testmanagerd-encoder.js';
+import {canonicalizeUuidString} from '../../src/services/ios/testmanagerd/uuid.js';
+import {createNSUUID} from '../../src/services/ios/testmanagerd/xctestconfiguration.js';
 
 /**
  * Testable subclass that exposes private methods for unit testing.
@@ -66,23 +64,15 @@ function buildPrimitiveDictEntry(type: number, value: Buffer): Buffer {
 describe('canonicalizeUuidString', function () {
   it('should normalize dashed, brace, and undashed forms', function () {
     const expected = 'aabbccdd-1122-3344-5566-778899aabbcc';
-    expect(
-      canonicalizeUuidString('AABBCCDD-1122-3344-5566-778899AABBCC'),
-    ).to.equal(expected);
-    expect(
-      canonicalizeUuidString('{aabbccdd-1122-3344-5566-778899aabbcc}'),
-    ).to.equal(expected);
-    expect(canonicalizeUuidString('aabbccdd112233445566778899aabbcc')).to.equal(
-      expected,
-    );
+    expect(canonicalizeUuidString('AABBCCDD-1122-3344-5566-778899AABBCC')).to.equal(expected);
+    expect(canonicalizeUuidString('{aabbccdd-1122-3344-5566-778899aabbcc}')).to.equal(expected);
+    expect(canonicalizeUuidString('aabbccdd112233445566778899aabbcc')).to.equal(expected);
   });
 
   it('should reject invalid input', function () {
     expect(() => canonicalizeUuidString('')).to.throw();
     expect(() => canonicalizeUuidString('not-a-uuid')).to.throw();
-    expect(() =>
-      canonicalizeUuidString('11111111-1111-1111-1111-111'),
-    ).to.throw();
+    expect(() => canonicalizeUuidString('11111111-1111-1111-1111-111')).to.throw();
   });
 });
 
@@ -98,28 +88,17 @@ describe('TestmanagerdEncoder', function () {
     const result = encoder.encode(createNSUUID(uuid));
     const objects = result.$objects;
 
-    const nsUuidObj = objects.find(
-      (o: any) => o && typeof o === 'object' && 'NS.uuidbytes' in o,
-    );
+    const nsUuidObj = objects.find((o: any) => o && typeof o === 'object' && 'NS.uuidbytes' in o);
     expect(nsUuidObj['NS.uuidbytes']).to.be.instanceOf(Buffer);
     expect(nsUuidObj['NS.uuidbytes'].length).to.equal(16);
-    expect(
-      nsUuidObj['NS.uuidbytes'].equals(
-        Buffer.from(uuid.replace(/-/g, ''), 'hex'),
-      ),
-    ).to.be.true;
+    expect(nsUuidObj['NS.uuidbytes'].equals(Buffer.from(uuid.replace(/-/g, ''), 'hex'))).to.be.true;
 
-    const classObj = objects.find(
-      (o: any) => o && typeof o === 'object' && o.$classname === 'NSUUID',
-    );
+    const classObj = objects.find((o: any) => o && typeof o === 'object' && o.$classname === 'NSUUID');
     expect(classObj.$classes).to.deep.equal(['NSUUID', 'NSObject']);
   });
 
   it('should encode NSSet of NSUUID for _IDE_deleteAttachmentsWithUUIDs payload', function () {
-    const uuids = [
-      '11111111-1111-1111-1111-111111111111',
-      '22222222-2222-2222-2222-222222222222',
-    ];
+    const uuids = ['11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222'];
     const result = encoder.encode(new Set(uuids.map((u) => createNSUUID(u))));
     const objects = result.$objects as any[];
     const rootIdx = result.$top.root.value;
@@ -130,13 +109,9 @@ describe('TestmanagerdEncoder', function () {
     expect(classDef.$classes).to.deep.equal(['NSSet', 'NSObject']);
 
     const hexSorted = (buf: Buffer) => buf.toString('hex');
-    const expectedHex = uuids
-      .map((u) => hexSorted(Buffer.from(u.replace(/-/g, ''), 'hex')))
-      .sort();
+    const expectedHex = uuids.map((u) => hexSorted(Buffer.from(u.replace(/-/g, ''), 'hex'))).sort();
     const gotHex = setObj['NS.objects']
-      .map((uid: PlistUID) =>
-        hexSorted(objects[uid.value]['NS.uuidbytes'] as Buffer),
-      )
+      .map((uid: PlistUID) => hexSorted(objects[uid.value]['NS.uuidbytes'] as Buffer))
       .sort();
     expect(gotHex).to.deep.equal(expectedHex);
     for (const uid of setObj['NS.objects'] as PlistUID[]) {
@@ -148,13 +123,11 @@ describe('TestmanagerdEncoder', function () {
   it('should encode XCTCapabilities with referenced dictionary', function () {
     const result = encoder.encode({
       __type: 'XCTCapabilities',
-      capabilities: { cap1: 1, cap2: 2 },
+      capabilities: {cap1: 1, cap2: 2},
     });
     const objects = result.$objects;
 
-    const capObj = objects.find(
-      (o: any) => o && typeof o === 'object' && 'capabilities-dictionary' in o,
-    );
+    const capObj = objects.find((o: any) => o && typeof o === 'object' && 'capabilities-dictionary' in o);
     expect(capObj).to.not.be.undefined;
     expect(capObj['capabilities-dictionary']).to.be.instanceOf(PlistUID);
 
@@ -172,10 +145,7 @@ describe('TestmanagerdEncoder', function () {
     });
 
     for (const result of [empty, missing]) {
-      const capObj = result.$objects.find(
-        (o: any) =>
-          o && typeof o === 'object' && 'capabilities-dictionary' in o,
-      );
+      const capObj = result.$objects.find((o: any) => o && typeof o === 'object' && 'capabilities-dictionary' in o);
       expect(capObj).to.not.be.undefined;
     }
   });
@@ -183,11 +153,8 @@ describe('TestmanagerdEncoder', function () {
 
 describe('isExpectedCloseError', function () {
   it('should return true for EPIPE and ECONNRESET codes', function () {
-    expect(isExpectedCloseError(Object.assign(new Error(), { code: 'EPIPE' })))
-      .to.be.true;
-    expect(
-      isExpectedCloseError(Object.assign(new Error(), { code: 'ECONNRESET' })),
-    ).to.be.true;
+    expect(isExpectedCloseError(Object.assign(new Error(), {code: 'EPIPE'}))).to.be.true;
+    expect(isExpectedCloseError(Object.assign(new Error(), {code: 'ECONNRESET'}))).to.be.true;
   });
 
   it('should return true for expected close messages', function () {
@@ -204,9 +171,7 @@ describe('isExpectedCloseError', function () {
   it('should return false for non-matching inputs', function () {
     expect(isExpectedCloseError(null)).to.be.false;
     expect(isExpectedCloseError('string')).to.be.false;
-    expect(
-      isExpectedCloseError(Object.assign(new Error(), { code: 'ETIMEDOUT' })),
-    ).to.be.false;
+    expect(isExpectedCloseError(Object.assign(new Error(), {code: 'ETIMEDOUT'}))).to.be.false;
     expect(isExpectedCloseError(new Error('Something else'))).to.be.false;
   });
 });
@@ -242,9 +207,7 @@ describe('readPrimitiveDictEntry', function () {
   it('should throw for unknown type', function () {
     const buf = Buffer.alloc(4);
     buf.writeUInt32LE(0xff, 0);
-    expect(() => readPrimitiveDictEntry(buf, 0)).to.throw(
-      'Unknown PrimitiveDict type: 0xff',
-    );
+    expect(() => readPrimitiveDictEntry(buf, 0)).to.throw('Unknown PrimitiveDict type: 0xff');
   });
 });
 
@@ -260,9 +223,7 @@ describe('DvtTestmanagedProxyService auxiliary helpers', function () {
       const val = Buffer.alloc(4);
       val.writeUInt32LE(7, 0);
       const item = buildStandardItem(DTX_CONSTANTS.AUX_TYPE_INT32, val);
-      const result = service.testParseAuxiliaryData(
-        buildStandardAuxBuffer(item),
-      );
+      const result = service.testParseAuxiliaryData(buildStandardAuxBuffer(item));
       expect(result).to.deep.equal([7]);
     });
 
@@ -271,13 +232,8 @@ describe('DvtTestmanagedProxyService auxiliary helpers', function () {
       fakeHeader.writeBigUInt64LE(BigInt(0xdeadbeef), 0);
       fakeHeader.writeBigUInt64LE(BigInt(100), 8);
 
-      const entry = buildPrimitiveDictEntry(
-        DTX_CONSTANTS.PRIMITIVE_TYPE_NULL,
-        Buffer.alloc(0),
-      );
-      const result = service.testParseAuxiliaryData(
-        Buffer.concat([fakeHeader, entry]),
-      );
+      const entry = buildPrimitiveDictEntry(DTX_CONSTANTS.PRIMITIVE_TYPE_NULL, Buffer.alloc(0));
+      const result = service.testParseAuxiliaryData(Buffer.concat([fakeHeader, entry]));
       expect(result).to.deep.equal([null]);
     });
   });
@@ -292,9 +248,7 @@ describe('DvtTestmanagedProxyService auxiliary helpers', function () {
       int64Val.writeBigUInt64LE(BigInt(2), 0);
       const item2 = buildStandardItem(DTX_CONSTANTS.AUX_TYPE_INT64, int64Val);
 
-      const result = service.testParseAuxiliaryStandard(
-        buildStandardAuxBuffer(Buffer.concat([item1, item2])),
-      );
+      const result = service.testParseAuxiliaryStandard(buildStandardAuxBuffer(Buffer.concat([item1, item2])));
       expect(result).to.deep.equal([1, BigInt(2)]);
     });
 
@@ -302,45 +256,27 @@ describe('DvtTestmanagedProxyService auxiliary helpers', function () {
       const plistBuf = createBinaryPlist('hello');
       const lengthBuf = Buffer.alloc(4);
       lengthBuf.writeUInt32LE(plistBuf.length, 0);
-      const item = buildStandardItem(
-        DTX_CONSTANTS.AUX_TYPE_OBJECT,
-        Buffer.concat([lengthBuf, plistBuf]),
-      );
-      const result = service.testParseAuxiliaryStandard(
-        buildStandardAuxBuffer(item),
-      );
+      const item = buildStandardItem(DTX_CONSTANTS.AUX_TYPE_OBJECT, Buffer.concat([lengthBuf, plistBuf]));
+      const result = service.testParseAuxiliaryStandard(buildStandardAuxBuffer(item));
       expect(result).to.deep.equal(['hello']);
     });
   });
 
   describe('parseAuxiliaryPrimitiveDictionary', function () {
     it('should parse multiple entries', function () {
-      const nullEntry = buildPrimitiveDictEntry(
-        DTX_CONSTANTS.PRIMITIVE_TYPE_NULL,
-        Buffer.alloc(0),
-      );
+      const nullEntry = buildPrimitiveDictEntry(DTX_CONSTANTS.PRIMITIVE_TYPE_NULL, Buffer.alloc(0));
       const uint32Val = Buffer.alloc(4);
       uint32Val.writeUInt32LE(77, 0);
-      const uint32Entry = buildPrimitiveDictEntry(
-        DTX_CONSTANTS.PRIMITIVE_TYPE_UINT32,
-        uint32Val,
-      );
-      const result = service.testParseAuxiliaryPrimitiveDictionary(
-        Buffer.concat([nullEntry, uint32Entry]),
-      );
+      const uint32Entry = buildPrimitiveDictEntry(DTX_CONSTANTS.PRIMITIVE_TYPE_UINT32, uint32Val);
+      const result = service.testParseAuxiliaryPrimitiveDictionary(Buffer.concat([nullEntry, uint32Entry]));
       expect(result).to.deep.equal([null, 77]);
     });
 
     it('should stop on unexpected key type', function () {
-      const validEntry = buildPrimitiveDictEntry(
-        DTX_CONSTANTS.PRIMITIVE_TYPE_NULL,
-        Buffer.alloc(0),
-      );
+      const validEntry = buildPrimitiveDictEntry(DTX_CONSTANTS.PRIMITIVE_TYPE_NULL, Buffer.alloc(0));
       const badKey = Buffer.alloc(4);
       badKey.writeUInt32LE(0xff, 0);
-      const result = service.testParseAuxiliaryPrimitiveDictionary(
-        Buffer.concat([validEntry, badKey]),
-      );
+      const result = service.testParseAuxiliaryPrimitiveDictionary(Buffer.concat([validEntry, badKey]));
       expect(result).to.deep.equal([null]);
     });
   });

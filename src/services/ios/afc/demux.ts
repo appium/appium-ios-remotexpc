@@ -1,22 +1,17 @@
-import AsyncLock from 'async-lock';
 import type net from 'node:net';
 
-import { getLogger } from '../../../lib/logger.js';
-import {
-  fatalizeAfcSocket,
-  readAfcHeader,
-  readExact,
-  readUInt64LE,
-  sendAfcPacket,
-} from './codec.js';
-import { AFC_HEADER_SIZE, AFC_OPERATION_TIMEOUT_MS } from './constants.js';
-import { AfcError, AfcOpcode } from './enums.js';
-import { AfcConnectionError } from './errors.js';
+import AsyncLock from 'async-lock';
+
+import {getLogger} from '../../../lib/logger.js';
+import {fatalizeAfcSocket, readAfcHeader, readExact, readUInt64LE, sendAfcPacket} from './codec.js';
+import {AFC_HEADER_SIZE, AFC_OPERATION_TIMEOUT_MS} from './constants.js';
+import {AfcError, AfcOpcode} from './enums.js';
+import {AfcConnectionError} from './errors.js';
 
 const log = getLogger('AfcService');
 
 type PendingResponse = {
-  resolve: (value: { status: AfcError; data: Buffer }) => void;
+  resolve: (value: {status: AfcError; data: Buffer}) => void;
   reject: (err: Error) => void;
 };
 
@@ -60,7 +55,7 @@ export class AfcPacketDemux {
     headerPayload: Buffer = Buffer.alloc(0),
     content: Buffer = Buffer.alloc(0),
     timeoutMs = AFC_OPERATION_TIMEOUT_MS,
-  ): Promise<{ status: AfcError; data: Buffer }> {
+  ): Promise<{status: AfcError; data: Buffer}> {
     if (this.stopped) {
       throw new AfcConnectionError('AFC demux is stopped');
     }
@@ -106,10 +101,7 @@ export class AfcPacketDemux {
       if (!this._isCurrentReader(socket)) {
         return;
       }
-      this._failPending(
-        err instanceof Error ? err : new Error(String(err)),
-        true,
-      );
+      this._failPending(err instanceof Error ? err : new Error(String(err)), true);
     } finally {
       if (this.readerSocket === socket) {
         this.readerActive = false;
@@ -125,33 +117,31 @@ export class AfcPacketDemux {
     pktNum: bigint,
     timeoutMs: number,
     op: AfcOpcode,
-  ): Promise<{ status: AfcError; data: Buffer }> {
-    return new Promise<{ status: AfcError; data: Buffer }>(
-      (resolve, reject) => {
-        const timer = setTimeout(() => {
-          if (!this.pending.has(pktNum)) {
-            return;
-          }
-          this._clearPending(pktNum);
-          reject(
-            new AfcConnectionError(
-              `AFC operation ${AfcOpcode[op] ?? op} timed out after ${timeoutMs}ms (packet ${pktNum})`,
-            ),
-          );
-        }, timeoutMs);
+  ): Promise<{status: AfcError; data: Buffer}> {
+    return new Promise<{status: AfcError; data: Buffer}>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        if (!this.pending.has(pktNum)) {
+          return;
+        }
+        this._clearPending(pktNum);
+        reject(
+          new AfcConnectionError(
+            `AFC operation ${AfcOpcode[op] ?? op} timed out after ${timeoutMs}ms (packet ${pktNum})`,
+          ),
+        );
+      }, timeoutMs);
 
-        this.pending.set(pktNum, {
-          resolve: (value) => {
-            clearTimeout(timer);
-            resolve(value);
-          },
-          reject: (err) => {
-            clearTimeout(timer);
-            reject(err);
-          },
-        });
-      },
-    );
+      this.pending.set(pktNum, {
+        resolve: (value) => {
+          clearTimeout(timer);
+          resolve(value);
+        },
+        reject: (err) => {
+          clearTimeout(timer);
+          reject(err);
+        },
+      });
+    });
   }
 
   private _clearPending(pktNum: bigint): void {
@@ -162,13 +152,9 @@ export class AfcPacketDemux {
     try {
       while (!this.stopped && !socket.destroyed) {
         const header = await readAfcHeader(socket, AFC_OPERATION_TIMEOUT_MS);
-        const payloadLen = Number(
-          header.entireLength - BigInt(AFC_HEADER_SIZE),
-        );
+        const payloadLen = Number(header.entireLength - BigInt(AFC_HEADER_SIZE));
         const payload =
-          payloadLen > 0
-            ? await readExact(socket, payloadLen, AFC_OPERATION_TIMEOUT_MS)
-            : Buffer.alloc(0);
+          payloadLen > 0 ? await readExact(socket, payloadLen, AFC_OPERATION_TIMEOUT_MS) : Buffer.alloc(0);
 
         let status = AfcError.SUCCESS;
         let data = payload;
@@ -181,27 +167,22 @@ export class AfcPacketDemux {
           status = Number(readUInt64LE(payload.subarray(0, 8))) as AfcError;
           data = Buffer.alloc(0);
         } else if (op !== AfcOpcode.DATA) {
-          log.debug(
-            `Unexpected AFC response opcode ${op} for packet ${header.packetNum}`,
-          );
+          log.debug(`Unexpected AFC response opcode ${op} for packet ${header.packetNum}`);
         }
 
         const waiter = this.pending.get(header.packetNum);
         if (waiter) {
           this.pending.delete(header.packetNum);
-          waiter.resolve({ status, data });
+          waiter.resolve({status, data});
         } else {
-          log.warn(
-            `AFC response with no waiter (packet ${header.packetNum}, op ${op})`,
-          );
+          log.warn(`AFC response with no waiter (packet ${header.packetNum}, op ${op})`);
         }
       }
     } catch (err) {
       if (!this._isCurrentReader(socket)) {
         return;
       }
-      const error =
-        err instanceof Error ? err : new AfcConnectionError(String(err));
+      const error = err instanceof Error ? err : new AfcConnectionError(String(err));
       if (!socket.destroyed) {
         fatalizeAfcSocket(socket, error);
       }

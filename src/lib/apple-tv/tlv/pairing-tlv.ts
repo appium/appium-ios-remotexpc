@@ -1,5 +1,5 @@
-import { PairingDataComponentType } from '../constants.js';
-import { encodeTLV8 } from './encoder.js';
+import {PairingDataComponentType} from '../constants.js';
+import {encodeTLV8} from './encoder.js';
 
 /**
  * Creates TLV8-encoded setup data for manual pairing, with default METHOD and STATE.
@@ -8,8 +8,8 @@ import { encodeTLV8 } from './encoder.js';
  */
 export function createSetupManualPairingData(): string {
   const tlv = encodeTLV8([
-    { type: PairingDataComponentType.METHOD, data: Buffer.from([0x00]) },
-    { type: PairingDataComponentType.STATE, data: Buffer.from([0x01]) },
+    {type: PairingDataComponentType.METHOD, data: Buffer.from([0x00])},
+    {type: PairingDataComponentType.STATE, data: Buffer.from([0x01])},
   ]);
 
   return tlv.toString('base64');
@@ -23,8 +23,8 @@ export function createSetupManualPairingData(): string {
  */
 export function createPairVerificationData(x25519PublicKey: Buffer): string {
   const tlv = encodeTLV8([
-    { type: PairingDataComponentType.STATE, data: Buffer.from([0x01]) },
-    { type: PairingDataComponentType.PUBLIC_KEY, data: x25519PublicKey },
+    {type: PairingDataComponentType.STATE, data: Buffer.from([0x01])},
+    {type: PairingDataComponentType.PUBLIC_KEY, data: x25519PublicKey},
   ]);
 
   return tlv.toString('base64');

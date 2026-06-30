@@ -1,31 +1,22 @@
-import { fs, node } from '@appium/support';
-import { expect } from 'chai';
 import _fs from 'node:fs';
 import _fsp from 'node:fs/promises';
 import path from 'node:path';
-import { after, beforeEach, describe, it } from 'node:test';
-import { fileURLToPath } from 'node:url';
+import {after, beforeEach, describe, it} from 'node:test';
+import {fileURLToPath} from 'node:url';
 
-import { StreamZip } from '../../../src/services/ios/zipconduit/stream-zip.js';
+import {fs, node} from '@appium/support';
+import {expect} from 'chai';
 
-const PKG_ROOT = node.getModuleRootSync(
-  'appium-ios-remotexpc',
-  fileURLToPath(import.meta.url),
-);
+import {StreamZip} from '../../../src/services/ios/zipconduit/stream-zip.js';
+
+const PKG_ROOT = node.getModuleRootSync('appium-ios-remotexpc', fileURLToPath(import.meta.url));
 const FIXTURES = path.join(PKG_ROOT, 'test', 'fixtures', 'stream-zip');
 const OK_DIR = path.join(FIXTURES, 'ok');
 const ERR_DIR = path.join(FIXTURES, 'err');
 const SPECIAL_DIR = path.join(FIXTURES, 'special');
 const CONTENT_DIR = path.join(FIXTURES, 'content');
 
-const alphabets = [
-  'Latin',
-  'Ελληνικά',
-  'Русский',
-  'עִבְרִית',
-  '日本語',
-  '汉语',
-];
+const alphabets = ['Latin', 'Ελληνικά', 'Русский', 'עִבְרִית', '日本語', '汉语'];
 
 let testPathTmp: string;
 let testNum = 0;
@@ -51,20 +42,11 @@ function normalizeBufferText(buf: Buffer): string {
   return buf.toString('utf8').replace(/\r\n/g, '\n');
 }
 
-function assertBuffersEqual(
-  actual: Buffer,
-  expected: Buffer,
-  label?: string,
-): void {
-  expect(normalizeBufferText(actual), label).to.equal(
-    normalizeBufferText(expected),
-  );
+function assertBuffersEqual(actual: Buffer, expected: Buffer, label?: string): void {
+  expect(normalizeBufferText(actual), label).to.equal(normalizeBufferText(expected));
 }
 
-async function assertFilesEqual(
-  actualPath: string,
-  expectedPath: string,
-): Promise<void> {
+async function assertFilesEqual(actualPath: string, expectedPath: string): Promise<void> {
   assertBuffersEqual(
     await fs.readFile(actualPath),
     await fs.readFile(expectedPath),
@@ -72,11 +54,8 @@ async function assertFilesEqual(
   );
 }
 
-async function writeStreamToFile(
-  stm: NodeJS.ReadableStream,
-  targetPath: string,
-): Promise<void> {
-  await fs.mkdir(path.dirname(targetPath), { recursive: true });
+async function writeStreamToFile(stm: NodeJS.ReadableStream, targetPath: string): Promise<void> {
+  await fs.mkdir(path.dirname(targetPath), {recursive: true});
   const handle = await _fsp.open(targetPath, 'w');
   try {
     for await (const chunk of stm) {
@@ -88,29 +67,22 @@ async function writeStreamToFile(
   }
 }
 
-async function extractViaStream(
-  zip: StreamZip,
-  entryName: string,
-  targetPath: string,
-): Promise<void> {
+async function extractViaStream(zip: StreamZip, entryName: string, targetPath: string): Promise<void> {
   await writeStreamToFile(await zip.stream(entryName), targetPath);
 }
 
-function openZip(
-  file: string | undefined,
-  options: Record<string, unknown> = {},
-): StreamZip {
-  return new StreamZip({ ...(file ? { file } : {}), ...options });
+function openZip(file: string | undefined, options: Record<string, unknown> = {}): StreamZip {
+  return new StreamZip({...(file ? {file} : {}), ...options});
 }
 
 describe('zipconduit/stream-zip', function () {
   beforeEach(async function () {
     testPathTmp = path.join(basePathTmp, String(testNum++));
-    await fs.mkdir(basePathTmp, { recursive: true });
+    await fs.mkdir(basePathTmp, {recursive: true});
     if (await fs.exists(testPathTmp)) {
       await fs.rimraf(testPathTmp);
     }
-    await fs.mkdir(testPathTmp, { recursive: true });
+    await fs.mkdir(testPathTmp, {recursive: true});
   });
 
   after(async function () {
@@ -119,9 +91,7 @@ describe('zipconduit/stream-zip', function () {
     }
   });
 
-  for (const file of _fs
-    .readdirSync(OK_DIR)
-    .filter((f) => path.extname(f).length === 4)) {
+  for (const file of _fs.readdirSync(OK_DIR).filter((f) => path.extname(f).length === 4)) {
     it(`reads ok/${file}`, async function () {
       let expEntriesCount = 10;
       let expEntriesCountInDocDir = 4;
@@ -159,28 +129,14 @@ describe('zipconduit/stream-zip', function () {
         expect(dirEntry!.isFile).to.be.false;
       }
 
-      await extractViaStream(
-        zip,
-        'README.md',
-        path.join(testPathTmp, 'README.md'),
-      );
-      await assertFilesEqual(
-        path.join(testPathTmp, 'README.md'),
-        fixture(CONTENT_DIR, 'README.md'),
-      );
+      await extractViaStream(zip, 'README.md', path.join(testPathTmp, 'README.md'));
+      await assertFilesEqual(path.join(testPathTmp, 'README.md'), fixture(CONTENT_DIR, 'README.md'));
 
-      await extractViaStream(
-        zip,
-        'README.md',
-        path.join(testPathTmp, 'README-flat'),
-      );
-      await assertFilesEqual(
-        path.join(testPathTmp, 'README-flat'),
-        fixture(CONTENT_DIR, 'README.md'),
-      );
+      await extractViaStream(zip, 'README.md', path.join(testPathTmp, 'README-flat'));
+      await assertFilesEqual(path.join(testPathTmp, 'README-flat'), fixture(CONTENT_DIR, 'README.md'));
 
       const docDir = path.join(testPathTmp, 'doc-extract');
-      await fs.mkdir(docDir, { recursive: true });
+      await fs.mkdir(docDir, {recursive: true});
       let docExtracted = 0;
       for (const [name, zipEntry] of Object.entries(entries)) {
         if (!name.startsWith('doc/') || !zipEntry.isFile) {
@@ -191,10 +147,7 @@ describe('zipconduit/stream-zip', function () {
         docExtracted++;
       }
       expect(docExtracted).to.equal(expEntriesCountInDocDir);
-      await assertFilesEqual(
-        path.join(docDir, 'api_assets/sh.css'),
-        fixture(CONTENT_DIR, 'doc/api_assets/sh.css'),
-      );
+      await assertFilesEqual(path.join(docDir, 'api_assets/sh.css'), fixture(CONTENT_DIR, 'doc/api_assets/sh.css'));
 
       const syncData = await readEntryData(zip, 'README.md');
       const expectedData = await fs.readFile(fixture(CONTENT_DIR, 'README.md'));
@@ -229,7 +182,7 @@ describe('zipconduit/stream-zip', function () {
     const entries = await zip.entries();
     const entry = entries['doc/changelog-foot.html'];
     expect(entry).to.exist;
-    const entryBeforeOpen = { ...entry! };
+    const entryBeforeOpen = {...entry!};
     const entryAfterOpen = await zip.openEntry(entry!);
     expect(entryAfterOpen).to.not.deep.equal(entryBeforeOpen);
     await zip.close();
@@ -237,7 +190,7 @@ describe('zipconduit/stream-zip', function () {
 
   it('opens archives from an existing fd', async function () {
     const fd = await fs.open(fixture(SPECIAL_DIR, 'tiny.zip'), 'r');
-    const zip = openZip(undefined, { fd });
+    const zip = openZip(undefined, {fd});
     const data = await readEntryData(zip, 'BSDmakefile');
     expect(data.toString('utf8').slice(0, 4)).to.equal('all:');
     await zip.close();
@@ -348,9 +301,7 @@ describe('zipconduit/stream-zip', function () {
     const zip = openZip(missingPath);
     await zip.entries().catch((err) => {
       expect(err).to.be.instanceOf(Error);
-      expect(err.message).to.include(
-        `ENOENT: no such file or directory, open '${missingPath}'`,
-      );
+      expect(err.message).to.include(`ENOENT: no such file or directory, open '${missingPath}'`);
     });
     await zip.close();
   });
@@ -368,19 +319,11 @@ describe('zipconduit/stream-zip', function () {
     const num = 100;
     const zip = openZip(fixture(OK_DIR, 'normal.zip'));
     await zip.entries();
-    const files = [
-      'doc/changelog-foot.html',
-      'doc/sh_javascript.min.js',
-      'BSDmakefile',
-      'README.md',
-    ];
+    const files = ['doc/changelog-foot.html', 'doc/sh_javascript.min.js', 'BSDmakefile', 'README.md'];
     await Promise.all(
-      Array.from({ length: num }, async (_, i) => {
+      Array.from({length: num}, async (_, i) => {
         const file = files[Math.floor(Math.random() * files.length)]!;
-        await writeStreamToFile(
-          await zip.stream(file),
-          path.join(testPathTmp, String(i)),
-        );
+        await writeStreamToFile(await zip.stream(file), path.join(testPathTmp, String(i)));
       }),
     );
     await zip.close();

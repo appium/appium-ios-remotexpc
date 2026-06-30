@@ -67,9 +67,7 @@ export function encodeName(name: string): Buffer {
     const bytes = Buffer.from(label, 'utf8');
     if (bytes.length > DNS_MAX_LABEL_OCTETS) {
       const preview =
-        label.length > DNS_LABEL_PREVIEW_MAX_CHARS
-          ? `${label.slice(0, DNS_LABEL_PREVIEW_PREFIX_CHARS)}…`
-          : label;
+        label.length > DNS_LABEL_PREVIEW_MAX_CHARS ? `${label.slice(0, DNS_LABEL_PREVIEW_PREFIX_CHARS)}…` : label;
       throw new Error(
         `DNS label "${preview}" is ${bytes.length} octets in UTF-8; ` +
           `each label in "${trimmed}" must be at most ${DNS_MAX_LABEL_OCTETS} octets`,
@@ -82,10 +80,7 @@ export function encodeName(name: string): Buffer {
 }
 
 /** Decode a wire-format DNS name starting at `offset`. */
-export function decodeName(
-  data: Buffer,
-  offset: number,
-): { name: string; offset: number } {
+export function decodeName(data: Buffer, offset: number): {name: string; offset: number} {
   const labels: string[] = [];
   let jumped = false;
   let end = offset;
@@ -102,24 +97,13 @@ export function decodeName(
       offset += 1;
       break;
     }
-    if (
-      (length & DNS_NAME_COMPRESSION_PREFIX) ===
-      DNS_NAME_COMPRESSION_PREFIX
-    ) {
+    if ((length & DNS_NAME_COMPRESSION_PREFIX) === DNS_NAME_COMPRESSION_PREFIX) {
       if (offset + 1 >= data.length) {
-        throw makeDnsDecodeError(
-          `compression pointer at offset ${offset} is missing its second octet`,
-          data,
-          offset,
-        );
+        throw makeDnsDecodeError(`compression pointer at offset ${offset} is missing its second octet`, data, offset);
       }
       const pointerByte = data[offset + 1];
       if (pointerByte === undefined) {
-        throw makeDnsDecodeError(
-          `compression pointer at offset ${offset} is missing its second octet`,
-          data,
-          offset,
-        );
+        throw makeDnsDecodeError(`compression pointer at offset ${offset} is missing its second octet`, data, offset);
       }
       const pointer = ((length & DNS_NAME_POINTER_MASK) << 8) | pointerByte;
       if (pointer >= data.length) {
@@ -156,15 +140,11 @@ export function decodeName(
     offset = labelEnd;
   }
 
-  return { name: `${labels.join('.')}.`, offset: jumped ? end : offset };
+  return {name: `${labels.join('.')}.`, offset: jumped ? end : offset};
 }
 
 /** Build a DNS query packet with a single question. */
-export function buildQuery(
-  name: string,
-  qtype: number,
-  unicast = false,
-): Buffer {
+export function buildQuery(name: string, qtype: number, unicast = false): Buffer {
   const header = Buffer.alloc(DNS_HEADER_OCTETS);
   header.writeUInt16BE(0, 0);
   header.writeUInt16BE(0, 2);
@@ -191,14 +171,14 @@ export function parseMdnsMessage(data: Buffer): ParsedResourceRecord[] {
   let offset = DNS_HEADER_OCTETS;
 
   for (let i = 0; i < qdcount; i += 1) {
-    const { offset: nameEnd } = decodeName(data, offset);
+    const {offset: nameEnd} = decodeName(data, offset);
     offset = nameEnd + DNS_QUESTION_TAIL_OCTETS;
   }
 
   const records: ParsedResourceRecord[] = [];
   const total = ancount + nscount + arcount;
   for (let i = 0; i < total; i += 1) {
-    const { rr, offset: next } = parseResourceRecord(data, offset);
+    const {rr, offset: next} = parseResourceRecord(data, offset);
     records.push(rr);
     offset = next;
   }
@@ -211,38 +191,22 @@ export function parseMdnsMessage(data: Buffer): ParsedResourceRecord[] {
  * Per RFC 6763, `\DDD` uses three decimal digits for the byte value, not octal.
  */
 export function decodeDnsSdInstanceName(name: string): string {
-  return name.replace(/\\(\d{3})/g, (_match, digits: string) =>
-    String.fromCharCode(parseInt(digits, 10)),
-  );
+  return name.replace(/\\(\d{3})/g, (_match, digits: string) => String.fromCharCode(parseInt(digits, 10)));
 }
 
 /** Build a trailing-dot FQDN from a DNS-SD type and domain (e.g. `local`). */
-export function buildServiceTypeFqdn(
-  serviceType: string,
-  domain: string,
-): string {
-  const type = serviceType.endsWith('.')
-    ? serviceType.slice(0, -1)
-    : serviceType;
+export function buildServiceTypeFqdn(serviceType: string, domain: string): string {
+  const type = serviceType.endsWith('.') ? serviceType.slice(0, -1) : serviceType;
   const zone = domain.endsWith('.') ? domain.slice(0, -1) : domain;
   return `${type}.${zone}.`;
 }
 
-function makeDnsDecodeError(
-  detail: string,
-  data: Buffer,
-  offset: number,
-): Error {
-  return new Error(
-    `Failed to decode DNS name at offset ${offset} in ${data.length}-octet packet: ${detail}`,
-  );
+function makeDnsDecodeError(detail: string, data: Buffer, offset: number): Error {
+  return new Error(`Failed to decode DNS name at offset ${offset} in ${data.length}-octet packet: ${detail}`);
 }
 
-function parseResourceRecord(
-  data: Buffer,
-  offset: number,
-): { rr: ParsedResourceRecord; offset: number } {
-  const { name, offset: nameEnd } = decodeName(data, offset);
+function parseResourceRecord(data: Buffer, offset: number): {rr: ParsedResourceRecord; offset: number} {
+  const {name, offset: nameEnd} = decodeName(data, offset);
   if (nameEnd + DNS_RR_HEADER_OCTETS > data.length) {
     throw new Error('truncated resource record header');
   }
@@ -266,16 +230,13 @@ function parseResourceRecord(
   };
 
   if (rtype === QTYPE_PTR) {
-    const { name: ptrdname } = decodeName(data, rdataStart);
+    const {name: ptrdname} = decodeName(data, rdataStart);
     rr.ptrdname = ptrdname;
   } else if (rtype === QTYPE_SRV && rdlen >= DNS_SRV_HEADER_OCTETS) {
     rr.priority = rdata.readUInt16BE(0);
     rr.weight = rdata.readUInt16BE(2);
     rr.port = rdata.readUInt16BE(DNS_SRV_PORT_OFFSET);
-    const { name: target } = decodeName(
-      data,
-      rdataStart + DNS_SRV_HEADER_OCTETS,
-    );
+    const {name: target} = decodeName(data, rdataStart + DNS_SRV_HEADER_OCTETS);
     rr.target = target;
   } else if (rtype === QTYPE_TXT) {
     const kv: Record<string, string> = {};
@@ -293,9 +254,7 @@ function parseResourceRecord(
       }
       const eq = segment.indexOf('='.charCodeAt(0));
       if (eq >= 0) {
-        kv[segment.subarray(0, eq).toString()] = segment
-          .subarray(eq + 1)
-          .toString();
+        kv[segment.subarray(0, eq).toString()] = segment.subarray(eq + 1).toString();
       } else {
         kv[segment.toString()] = '';
       }
@@ -315,5 +274,5 @@ function parseResourceRecord(
     rr.raw = Buffer.from(rdata);
   }
 
-  return { rr, offset: next };
+  return {rr, offset: next};
 }

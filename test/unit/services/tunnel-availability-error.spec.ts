@@ -1,6 +1,7 @@
-import { expect } from 'chai';
+import {describe, it} from 'node:test';
+
+import {expect} from 'chai';
 import esmock from 'esmock';
-import { describe, it } from 'node:test';
 
 class MockTunnelAvailabilityError extends Error {
   readonly code = 'ERR_TUNNEL_AVAILABILITY';
@@ -11,9 +12,7 @@ class MockTunnelAvailabilityError extends Error {
   }
 }
 
-async function loadServices(
-  tunnelAvailabilityOverrides: Record<string, unknown> = {},
-) {
+async function loadServices(tunnelAvailabilityOverrides: Record<string, unknown> = {}) {
   return await esmock('../../../src/services.js', {
     '../../../src/lib/tunnel/tunnel-availability.js': {
       TunnelAvailabilityError: MockTunnelAvailabilityError,
@@ -32,17 +31,14 @@ async function loadServices(
   });
 }
 
-async function expectTunnelAvailabilityError(
-  action: () => Promise<unknown>,
-  expectedMessage: string,
-) {
+async function expectTunnelAvailabilityError(action: () => Promise<unknown>, expectedMessage: string) {
   try {
     await action();
     expect.fail('Expected action to throw');
   } catch (err) {
     expect(err).to.be.instanceOf(MockTunnelAvailabilityError);
     expect((err as Error).message).to.equal(expectedMessage);
-    expect((err as { code?: string }).code).to.equal('ERR_TUNNEL_AVAILABILITY');
+    expect((err as {code?: string}).code).to.equal('ERR_TUNNEL_AVAILABILITY');
   }
 }
 

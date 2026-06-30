@@ -1,8 +1,9 @@
-import { fs, node } from '@appium/support';
-import { expect } from 'chai';
 import path from 'node:path';
-import { before, describe, it } from 'node:test';
-import { fileURLToPath } from 'node:url';
+import {before, describe, it} from 'node:test';
+import {fileURLToPath} from 'node:url';
+
+import {fs, node} from '@appium/support';
+import {expect} from 'chai';
 
 import {
   createBinaryPlist,
@@ -13,12 +14,9 @@ import {
   parsePlist,
   parseXmlPlist,
 } from '../../../src/lib/plist/index.js';
-import type { PlistDictionary } from '../../../src/lib/types.js';
+import type {PlistDictionary} from '../../../src/lib/types.js';
 
-const PKG_ROOT = node.getModuleRootSync(
-  'appium-ios-remotexpc',
-  fileURLToPath(import.meta.url),
-);
+const PKG_ROOT = node.getModuleRootSync('appium-ios-remotexpc', fileURLToPath(import.meta.url));
 const FIXTURES_PATH = path.join(PKG_ROOT, 'test', 'unit', 'plist', 'fixtures');
 
 describe('Plist Module', function () {
@@ -63,17 +61,12 @@ describe('Plist Module', function () {
       expect(result).to.be.an('object');
       expect(result).to.have.property('stringValue', 'Hello, World!');
       expect(result).to.have.property('integerValue', 42);
-      expect(result)
-        .to.have.property('realValue')
-        .that.is.closeTo(3.14159, 0.00001);
+      expect(result).to.have.property('realValue').that.is.closeTo(3.14159, 0.00001);
       expect(result).to.have.property('booleanTrue', true);
       expect(result).to.have.property('booleanFalse', false);
 
       // Complex types
-      expect(result)
-        .to.have.property('arrayValue')
-        .that.is.an('array')
-        .with.lengthOf(3);
+      expect(result).to.have.property('arrayValue').that.is.an('array').with.lengthOf(3);
       expect(result).to.have.property('dictValue').that.is.an('object');
       expect(result).to.have.property('specialChars', '<Hello & World>');
 
@@ -114,16 +107,11 @@ describe('Plist Module', function () {
       expect(binaryPlist.slice(0, 6).toString()).to.equal('bplist');
 
       // Parse
-      const parsedObj = parseBinaryPlist(sampleBinaryPlistContent) as Record<
-        string,
-        any
-      >;
+      const parsedObj = parseBinaryPlist(sampleBinaryPlistContent) as Record<string, any>;
       expect(parsedObj).to.be.an('object');
       expect(parsedObj).to.have.property('stringValue', 'Hello, World!');
       expect(parsedObj).to.have.property('integerValue', 42);
-      expect(parsedObj)
-        .to.have.property('realValue')
-        .that.is.closeTo(3.14159, 0.00001);
+      expect(parsedObj).to.have.property('realValue').that.is.closeTo(3.14159, 0.00001);
       expect(parsedObj).to.have.property('booleanTrue', true);
       expect(parsedObj).to.have.property('booleanFalse', false);
     });
@@ -132,19 +120,13 @@ describe('Plist Module', function () {
   describe('Unified Plist Functions', function () {
     it('should auto-detect and parse both XML and binary plists', function () {
       // XML parsing
-      const xmlResult = parsePlist(sampleXmlPlistContent) as Record<
-        string,
-        any
-      >;
+      const xmlResult = parsePlist(sampleXmlPlistContent) as Record<string, any>;
       expect(xmlResult).to.be.an('object');
       expect(xmlResult).to.have.property('stringValue', 'Hello, World!');
       expect(xmlResult).to.have.property('integerValue', 42);
 
       // Binary parsing
-      const binaryResult = parsePlist(sampleBinaryPlistContent) as Record<
-        string,
-        any
-      >;
+      const binaryResult = parsePlist(sampleBinaryPlistContent) as Record<string, any>;
       expect(binaryResult).to.be.an('object');
       expect(binaryResult).to.have.property('stringValue', 'Hello, World!');
       expect(binaryResult).to.have.property('integerValue', 42);
@@ -177,7 +159,7 @@ describe('Plist Module', function () {
         emptyArray: [],
         emptyDict: {},
         booleanArray: [true, false, true],
-        mixedArray: [1, 'string', true, null, { key: 'value' }],
+        mixedArray: [1, 'string', true, null, {key: 'value'}],
       };
 
       // Test round-trip through XML format
@@ -189,15 +171,9 @@ describe('Plist Module', function () {
       expect(parsedXmlObj).to.have.property('zero', 0);
       expect(parsedXmlObj).to.have.property('negativeNumber', -42);
       expect(parsedXmlObj).to.have.property('largeNumber', 9007199254740991);
-      expect(parsedXmlObj)
-        .to.have.property('emptyArray')
-        .that.is.an('array')
-        .with.lengthOf(0);
+      expect(parsedXmlObj).to.have.property('emptyArray').that.is.an('array').with.lengthOf(0);
       expect(parsedXmlObj).to.have.property('emptyDict').that.is.an('object');
-      expect(parsedXmlObj)
-        .to.have.property('booleanArray')
-        .that.is.an('array')
-        .with.lengthOf(3);
+      expect(parsedXmlObj).to.have.property('booleanArray').that.is.an('array').with.lengthOf(3);
 
       // Empty object test
       const emptyObj = {};

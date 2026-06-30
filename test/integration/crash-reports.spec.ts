@@ -1,15 +1,16 @@
-import { logger } from '@appium/support';
-import { expect } from 'chai';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { after, afterEach, before, beforeEach, describe, it } from 'node:test';
+import {after, afterEach, before, beforeEach, describe, it} from 'node:test';
 
-import { Services } from '../../src/index.js';
-import type { CrashReportsService } from '../../src/index.js';
-import { AfcService } from '../../src/services/ios/afc/index.js';
-import { CrashReportsService as CrashReportsServiceClass } from '../../src/services/ios/crash-reports/index.js';
-import { requireDeviceUdid } from './helpers/device.js';
+import {logger} from '@appium/support';
+import {expect} from 'chai';
+
+import {Services} from '../../src/index.js';
+import type {CrashReportsService} from '../../src/index.js';
+import {AfcService} from '../../src/services/ios/afc/index.js';
+import {CrashReportsService as CrashReportsServiceClass} from '../../src/services/ios/crash-reports/index.js';
+import {requireDeviceUdid} from './helpers/device.js';
 
 const log = logger.getLogger('WebInspectorService.test');
 log.level = 'debug';
@@ -17,7 +18,7 @@ log.level = 'debug';
 const TEST_REPORT_STEM = 'remotexpc-integration-test';
 
 async function listFilesRecursive(dir: string): Promise<string[]> {
-  const entries = await fs.readdir(dir, { withFileTypes: true });
+  const entries = await fs.readdir(dir, {withFileTypes: true});
   const files: string[] = [];
   for (const entry of entries) {
     const fullPath = path.join(dir, entry.name);
@@ -38,15 +39,8 @@ function testReportRemoteName(tag: string): string {
   return `${TEST_REPORT_STEM}-${tag}-2020-01-01-120000.ips`;
 }
 
-async function writeTestCrashReport(
-  udid: string,
-  remoteFileName: string,
-): Promise<void> {
-  const afc = new AfcService(
-    udid,
-    true,
-    CrashReportsServiceClass.RSD_COPY_MOBILE_NAME,
-  );
+async function writeTestCrashReport(udid: string, remoteFileName: string): Promise<void> {
+  const afc = new AfcService(udid, true, CrashReportsServiceClass.RSD_COPY_MOBILE_NAME);
   const localPath = path.join(os.tmpdir(), remoteFileName);
   const stem = path.posix.basename(remoteFileName, '.ips');
   const content =
@@ -62,7 +56,7 @@ async function writeTestCrashReport(
   }
 }
 
-describe('Crash Reports Service', { timeout: 120000 }, function () {
+describe('Crash Reports Service', {timeout: 120000}, function () {
   let udid: string;
 
   let crashReportsService: CrashReportsService;
@@ -107,7 +101,7 @@ describe('Crash Reports Service', { timeout: 120000 }, function () {
 
     afterEach(async function () {
       try {
-        await fs.rm(tempDir, { recursive: true, force: true });
+        await fs.rm(tempDir, {recursive: true, force: true});
       } catch {}
     });
 
@@ -128,13 +122,11 @@ describe('Crash Reports Service', { timeout: 120000 }, function () {
       await writeTestCrashReport(udid, remoteName);
       const match = testReportGlob();
 
-      await crashReportsService.pull(tempDir, '/', { match });
+      await crashReportsService.pull(tempDir, '/', {match});
 
       const files = await listFilesRecursive(tempDir);
       expect(files.length).to.be.greaterThan(0);
-      expect(
-        files.every((file) => path.basename(file).includes(TEST_REPORT_STEM)),
-      ).to.be.true;
+      expect(files.every((file) => path.basename(file).includes(TEST_REPORT_STEM))).to.be.true;
     });
   });
 
@@ -147,7 +139,7 @@ describe('Crash Reports Service', { timeout: 120000 }, function () {
 
     afterEach(async function () {
       try {
-        await fs.rm(tempDir, { recursive: true, force: true });
+        await fs.rm(tempDir, {recursive: true, force: true});
       } catch {}
     });
 
@@ -167,9 +159,7 @@ describe('Crash Reports Service', { timeout: 120000 }, function () {
 
       const files = await listFilesRecursive(tempDir);
       expect(files.length).to.be.greaterThan(0);
-      expect(
-        files.every((file) => path.basename(file).includes(TEST_REPORT_STEM)),
-      ).to.be.true;
+      expect(files.every((file) => path.basename(file).includes(TEST_REPORT_STEM))).to.be.true;
 
       const afterEntries = await crashReportsService.ls('/', -1);
       expect(afterEntries).to.not.include(remotePath);
@@ -181,14 +171,9 @@ describe('Crash Reports Service', { timeout: 120000 }, function () {
       await crashReportsService.clear();
 
       const afterEntries = await crashReportsService.ls('/', 2);
-      const unexpectedEntries = afterEntries.filter(
-        (entry) => !entry.includes('com.apple.appstored'),
-      );
+      const unexpectedEntries = afterEntries.filter((entry) => !entry.includes('com.apple.appstored'));
 
-      expect(
-        unexpectedEntries,
-        `Unexpected crash report entries found: ${unexpectedEntries.join(', ')}`,
-      ).to.be.empty;
+      expect(unexpectedEntries, `Unexpected crash report entries found: ${unexpectedEntries.join(', ')}`).to.be.empty;
     });
 
     it('should be idempotent, clearing empty directory should not error', async function () {

@@ -1,11 +1,11 @@
-import { type Socket } from 'node:net';
-import { type TLSSocket } from 'node:tls';
+import {type Socket} from 'node:net';
+import {type TLSSocket} from 'node:tls';
 
-import { getLogger } from '../logger.js';
-import type { PlistDictionary } from '../types.js';
-import { LengthBasedSplitter } from './length-based-splitter.js';
-import { PlistServiceDecoder } from './plist-decoder.js';
-import { PlistServiceEncoder } from './plist-encoder.js';
+import {getLogger} from '../logger.js';
+import type {PlistDictionary} from '../types.js';
+import {LengthBasedSplitter} from './length-based-splitter.js';
+import {PlistServiceDecoder} from './plist-decoder.js';
+import {PlistServiceEncoder} from './plist-encoder.js';
 
 const log = getLogger('Plist');
 const errorLog = getLogger('PlistError');
@@ -86,9 +86,7 @@ export class PlistService {
 
     // Message queue for async receiving
     this._messageQueue = [];
-    this._decoder.on('data', (data: PlistMessage) =>
-      this._messageQueue.push(data),
-    );
+    this._decoder.on('data', (data: PlistMessage) => this._messageQueue.push(data));
 
     // Handle errors
     this.setupErrorHandlers();
@@ -100,10 +98,7 @@ export class PlistService {
    * @param timeout Response timeout in ms
    * @returns Promise resolving to the received message
    */
-  public async sendPlistAndReceive(
-    data: PlistMessage,
-    timeout = 5000,
-  ): Promise<PlistMessage> {
+  public async sendPlistAndReceive(data: PlistMessage, timeout = 5000): Promise<PlistMessage> {
     this.sendPlist(data);
     return this.receivePlist(timeout);
   }
@@ -147,9 +142,7 @@ export class PlistService {
       // Set up timeout
       const timeoutId = setTimeout(() => {
         clearInterval(checkInterval);
-        reject(
-          new Error(`Timed out waiting for plist response after ${timeout}ms`),
-        );
+        reject(new Error(`Timed out waiting for plist response after ${timeout}ms`));
       }, timeout);
     });
   }
@@ -180,9 +173,7 @@ export class PlistService {
       this._socket.end();
     } catch (error) {
       // Log the error but don't rethrow it to ensure cleanup completes
-      log.error(
-        `Error closing socket: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      log.error(`Error closing socket: ${error instanceof Error ? error.message : String(error)}`);
 
       // If ending fails, destroy the socket
       this._socket.destroy();
@@ -221,10 +212,7 @@ export class PlistService {
     errorLog.debug(`PlistService Error: ${error.message}`);
 
     // If this is an XML parsing error, it might be a binary plist
-    if (
-      error.message.includes('Invalid XML') ||
-      error.message.includes('XML parsing')
-    ) {
+    if (error.message.includes('Invalid XML') || error.message.includes('XML parsing')) {
       errorLog.debug('This might be a binary plist with a non-standard format');
     }
   }

@@ -1,8 +1,8 @@
-import { createHmac } from 'node:crypto';
+import {createHmac} from 'node:crypto';
 
-import { getLogger } from '../../logger.js';
-import { HKDF_HASH_ALGORITHM, HKDF_HASH_LENGTH } from '../constants.js';
-import { CryptographyError } from '../errors.js';
+import {getLogger} from '../../logger.js';
+import {HKDF_HASH_ALGORITHM, HKDF_HASH_LENGTH} from '../constants.js';
+import {CryptographyError} from '../errors.js';
 
 const log = getLogger('HKDF');
 
@@ -26,7 +26,7 @@ const MAX_OUTPUT_LENGTH = 255 * HKDF_HASH_LENGTH;
  * @throws CryptographyError if derivation fails or parameters are invalid
  */
 export function hkdf(params: HKDFParams): Buffer {
-  const { ikm, salt, info, length } = params;
+  const {ikm, salt, info, length} = params;
 
   if (!ikm || ikm.length === 0) {
     throw new CryptographyError('Input key material (IKM) cannot be empty');
@@ -41,9 +41,7 @@ export function hkdf(params: HKDFParams): Buffer {
   }
 
   if (length > MAX_OUTPUT_LENGTH) {
-    throw new CryptographyError(
-      `Output length cannot exceed ${MAX_OUTPUT_LENGTH} bytes`,
-    );
+    throw new CryptographyError(`Output length cannot exceed ${MAX_OUTPUT_LENGTH} bytes`);
   }
 
   try {

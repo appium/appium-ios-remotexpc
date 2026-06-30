@@ -1,7 +1,7 @@
-import { createCipheriv, createDecipheriv } from 'node:crypto';
+import {createCipheriv, createDecipheriv} from 'node:crypto';
 
-import { getLogger } from '../../logger.js';
-import { CryptographyError } from '../errors.js';
+import {getLogger} from '../../logger.js';
+import {CryptographyError} from '../errors.js';
 
 const log = getLogger('ChaCha20Poly1305');
 
@@ -24,10 +24,8 @@ interface DecryptionAttempt {
  * @returns Buffer containing encrypted data concatenated with authentication tag
  * @throws CryptographyError if encryption fails or required parameters are missing
  */
-export function encryptChaCha20Poly1305(
-  params: ChaCha20Poly1305Params,
-): Buffer {
-  const { plaintext, key, nonce, aad } = params;
+export function encryptChaCha20Poly1305(params: ChaCha20Poly1305Params): Buffer {
+  const {plaintext, key, nonce, aad} = params;
 
   if (!plaintext) {
     throw new CryptographyError('Plaintext is required for encryption');
@@ -45,7 +43,7 @@ export function encryptChaCha20Poly1305(
     const cipher = createCipheriv('chacha20-poly1305', key, nonce) as any;
 
     if (aad) {
-      cipher.setAAD(aad, { plaintextLength: plaintext.length });
+      cipher.setAAD(aad, {plaintextLength: plaintext.length});
     }
 
     const encrypted = Buffer.concat([cipher.update(plaintext), cipher.final()]);
@@ -55,9 +53,7 @@ export function encryptChaCha20Poly1305(
   } catch (error) {
     log.error('ChaCha20-Poly1305 encryption failed:', error);
     const message = error instanceof Error ? error.message : String(error);
-    throw new CryptographyError(
-      `ChaCha20-Poly1305 encryption failed: ${message}`,
-    );
+    throw new CryptographyError(`ChaCha20-Poly1305 encryption failed: ${message}`);
   }
 }
 
@@ -67,10 +63,8 @@ export function encryptChaCha20Poly1305(
  * @returns Buffer containing decrypted plaintext
  * @throws CryptographyError if all decryption attempts fail or required parameters are missing
  */
-export function decryptChaCha20Poly1305(
-  params: ChaCha20Poly1305Params,
-): Buffer {
-  const { ciphertext, key, nonce, aad } = params;
+export function decryptChaCha20Poly1305(params: ChaCha20Poly1305Params): Buffer {
+  const {ciphertext, key, nonce, aad} = params;
 
   if (!ciphertext) {
     throw new CryptographyError('Ciphertext is required for decryption');
@@ -85,45 +79,34 @@ export function decryptChaCha20Poly1305(
   }
 
   if (ciphertext.length < 16) {
-    throw new CryptographyError(
-      'Ciphertext too short to contain authentication tag',
-    );
+    throw new CryptographyError('Ciphertext too short to contain authentication tag');
   }
 
   // ChaCha20-Poly1305 in Node.js only supports 16-byte authentication tags
   const tagLength = 16;
   const decryptionAttempts: DecryptionAttempt[] = [
-    { tagLen: tagLength, aad },
-    { tagLen: tagLength, aad: Buffer.alloc(0) },
-    { tagLen: tagLength, aad: undefined },
+    {tagLen: tagLength, aad},
+    {tagLen: tagLength, aad: Buffer.alloc(0)},
+    {tagLen: tagLength, aad: undefined},
   ];
 
   let lastError: Error | undefined;
 
   for (const attempt of decryptionAttempts) {
     try {
-      const encrypted = ciphertext.subarray(
-        0,
-        ciphertext.length - attempt.tagLen,
-      );
+      const encrypted = ciphertext.subarray(0, ciphertext.length - attempt.tagLen);
       const authTag = ciphertext.subarray(ciphertext.length - attempt.tagLen);
 
       const decipher = createDecipheriv('chacha20-poly1305', key, nonce) as any;
       decipher.setAuthTag(authTag);
 
       if (attempt.aad !== undefined) {
-        decipher.setAAD(attempt.aad, { plaintextLength: encrypted.length });
+        decipher.setAAD(attempt.aad, {plaintextLength: encrypted.length});
       }
 
-      const decrypted = Buffer.concat([
-        decipher.update(encrypted),
-        decipher.final(),
-      ]);
+      const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
 
-      log.debug(
-        'Decryption successful with AAD:',
-        attempt.aad ? 'provided' : 'none',
-      );
+      log.debug('Decryption successful with AAD:', attempt.aad ? 'provided' : 'none');
       return decrypted;
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));

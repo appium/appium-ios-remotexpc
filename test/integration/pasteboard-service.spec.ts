@@ -1,16 +1,17 @@
-import { expect } from 'chai';
-import { after, before, describe, it } from 'node:test';
+import {after, before, describe, it} from 'node:test';
 
-import { type PasteboardService } from '../../src/index.js';
+import {expect} from 'chai';
+
+import {type PasteboardService} from '../../src/index.js';
 import * as Services from '../../src/services.js';
-import { requireDeviceUdid } from './helpers/device.js';
+import {requireDeviceUdid} from './helpers/device.js';
 
 const PNG_1X1 = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=',
   'base64',
 );
 
-describe('PasteboardService', { timeout: 60000 }, function () {
+describe('PasteboardService', {timeout: 60000}, function () {
   let pasteboardService: PasteboardService | null = null;
   let udid: string;
 

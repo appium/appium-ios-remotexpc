@@ -1,5 +1,5 @@
-import { TLV8Error } from '../errors.js';
-import type { PairingDataComponentTypeValue, TLV8Item } from '../types.js';
+import {TLV8Error} from '../errors.js';
+import type {PairingDataComponentTypeValue, TLV8Item} from '../types.js';
 
 /**
  * Decodes a TLV8-formatted buffer into an array of TLV8 items.
@@ -14,9 +14,7 @@ export function decodeTLV8(buffer: Buffer): TLV8Item[] {
 
   while (offset < buffer.length) {
     if (offset + 2 > buffer.length) {
-      throw new TLV8Error(
-        `Invalid TLV8: insufficient data for type and length at offset ${offset}`,
-      );
+      throw new TLV8Error(`Invalid TLV8: insufficient data for type and length at offset ${offset}`);
     }
 
     const type = buffer[offset] as PairingDataComponentTypeValue;
@@ -24,15 +22,13 @@ export function decodeTLV8(buffer: Buffer): TLV8Item[] {
     offset += 2;
 
     if (offset + length > buffer.length) {
-      throw new TLV8Error(
-        `Invalid TLV8: insufficient data for value at offset ${offset}`,
-      );
+      throw new TLV8Error(`Invalid TLV8: insufficient data for value at offset ${offset}`);
     }
 
     const data = buffer.subarray(offset, offset + length);
     offset += length;
 
-    items.push({ type, data });
+    items.push({type, data});
   }
 
   return items;
@@ -46,21 +42,16 @@ export function decodeTLV8(buffer: Buffer): TLV8Item[] {
  * @param buffer - A Node.js Buffer containing TLV8 encoded data
  * @returns A dictionary of type-value mappings
  */
-export function decodeTLV8ToDict(
-  buffer: Buffer,
-): Partial<Record<PairingDataComponentTypeValue, Buffer>> {
+export function decodeTLV8ToDict(buffer: Buffer): Partial<Record<PairingDataComponentTypeValue, Buffer>> {
   const items = decodeTLV8(buffer);
   const result: Partial<Record<PairingDataComponentTypeValue, Buffer[]>> = {};
 
-  for (const { type, data } of items) {
+  for (const {type, data} of items) {
     const bucket = (result[type] ??= []);
     bucket.push(data);
   }
 
   return Object.fromEntries(
-    Object.entries(result).map(([type, buffers]) => [
-      type,
-      Buffer.concat(buffers as Buffer[]),
-    ]),
+    Object.entries(result).map(([type, buffers]) => [type, Buffer.concat(buffers as Buffer[])]),
   ) as Partial<Record<PairingDataComponentTypeValue, Buffer>>;
 }

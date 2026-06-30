@@ -1,4 +1,4 @@
-import type { DTXMessageHeader } from './dtx-message.js';
+import type {DTXMessageHeader} from './dtx-message.js';
 
 /**
  * Handles message fragmentation for DTX channels

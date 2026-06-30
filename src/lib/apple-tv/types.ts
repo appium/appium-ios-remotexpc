@@ -61,15 +61,7 @@ export interface TLV8Item {
 export type PairingDataComponentTypeValue = number;
 
 // Represents any valid Opack2 data type
-export type Opack2Value =
-  | null
-  | undefined
-  | boolean
-  | number
-  | string
-  | Buffer
-  | Opack2Array
-  | Opack2Dictionary;
+export type Opack2Value = null | undefined | boolean | number | string | Buffer | Opack2Array | Opack2Dictionary;
 
 // Represents an array of Opack2 values
 export interface Opack2Array extends Array<Opack2Value> {}

@@ -1,16 +1,14 @@
-import { BaseItem, strongbox } from '@appium/strongbox';
-import { util } from '@appium/support';
-import { basename } from 'node:path';
+import {basename} from 'node:path';
 
-import {
-  APPLETV_PAIRING_PREFIX,
-  STRONGBOX_CONTAINER_NAME,
-} from '../../../constants.js';
-import { getLogger } from '../../logger.js';
-import { createXmlPlist, parseXmlPlist } from '../../plist/index.js';
-import { PairingError } from '../errors.js';
-import type { PairingConfig } from '../types.js';
-import type { PairRecord, PairingStorageInterface } from './types.js';
+import {BaseItem, strongbox} from '@appium/strongbox';
+import {util} from '@appium/support';
+
+import {APPLETV_PAIRING_PREFIX, STRONGBOX_CONTAINER_NAME} from '../../../constants.js';
+import {getLogger} from '../../logger.js';
+import {createXmlPlist, parseXmlPlist} from '../../plist/index.js';
+import {PairingError} from '../errors.js';
+import type {PairingConfig} from '../types.js';
+import type {PairRecord, PairingStorageInterface} from './types.js';
 
 const log = getLogger('PairingStorage');
 
@@ -31,12 +29,7 @@ export class PairingStorage implements PairingStorageInterface {
   ): Promise<string> {
     try {
       const itemName = `${APPLETV_PAIRING_PREFIX}${deviceId}`;
-      const plistContent = this.createPlistContent(
-        ltpk,
-        ltsk,
-        remoteUnlockHostKey,
-        remotePairingUdid,
-      );
+      const plistContent = this.createPlistContent(ltpk, ltsk, remoteUnlockHostKey, remotePairingUdid);
 
       const item = await this.box.createItemWithValue(itemName, plistContent);
       const itemPath = item.id;
@@ -46,11 +39,7 @@ export class PairingStorage implements PairingStorageInterface {
       return itemPath;
     } catch (error) {
       log.error('Save pairing record error:', error);
-      throw new PairingError(
-        'Failed to save pairing record',
-        'SAVE_ERROR',
-        error,
-      );
+      throw new PairingError('Failed to save pairing record', 'SAVE_ERROR', error);
     }
   }
 
@@ -85,9 +74,7 @@ export class PairingStorage implements PairingStorageInterface {
         publicKey,
         remoteUnlockHostKey: (parsed.remote_unlock_host_key as string) || '',
         remotePairingUdid:
-          typeof parsed.remote_pairing_udid === 'string'
-            ? parsed.remote_pairing_udid.toUpperCase()
-            : undefined,
+          typeof parsed.remote_pairing_udid === 'string' ? parsed.remote_pairing_udid.toUpperCase() : undefined,
       };
     } catch (error) {
       log.error(`Failed to load pair record for ${deviceId}:`, error);
@@ -110,9 +97,7 @@ export class PairingStorage implements PairingStorageInterface {
         }
       }
 
-      log.debug(
-        `Found ${util.pluralize('pair record', deviceIds.size, true)}: ${[...deviceIds].join(', ')}`,
-      );
+      log.debug(`Found ${util.pluralize('pair record', deviceIds.size, true)}: ${[...deviceIds].join(', ')}`);
       return [...deviceIds];
     } catch (error) {
       log.debug('Error getting available device IDs:', error);

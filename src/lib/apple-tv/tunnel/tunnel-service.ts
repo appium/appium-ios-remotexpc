@@ -1,29 +1,27 @@
-import { util } from '@appium/support';
 import * as net from 'node:net';
 
-import { createDiscoveryBackend } from '../../discovery/discovery-backend-factory.js';
-import { getLogger } from '../../logger.js';
+import {util} from '@appium/support';
+
+import {createDiscoveryBackend} from '../../discovery/discovery-backend-factory.js';
+import {getLogger} from '../../logger.js';
 import {
   DEFAULT_PAIRING_CONFIG,
   REMOTE_PAIRING_DISCOVERY_DOMAIN,
   REMOTE_PAIRING_VERIFIED_DISCOVERY_SERVICE_TYPE,
 } from '../constants.js';
-import { enrichDiscoveredDevicesWithDevicectl } from '../devicectl-enrichment.js';
-import { toAppleTVDevices } from '../discovered-device-mapper.js';
-import {
-  decryptChaCha20Poly1305,
-  encryptChaCha20Poly1305,
-} from '../encryption/index.js';
-import { PairingError } from '../errors.js';
-import { NetworkClient } from '../network/index.js';
-import type { NetworkClientInterface } from '../network/types.js';
-import { PairVerificationProtocol } from '../pairing-protocol/index.js';
-import type { VerificationKeys } from '../pairing-protocol/pair-verification-protocol.js';
-import { PairingStorage } from '../storage/pairing-storage.js';
-import type { PairRecord } from '../storage/types.js';
-import type { AppleTVDevice } from '../types.js';
-import { RemotedController } from './remoted-controller.js';
-import type { TcpListenerInfo } from './types.js';
+import {enrichDiscoveredDevicesWithDevicectl} from '../devicectl-enrichment.js';
+import {toAppleTVDevices} from '../discovered-device-mapper.js';
+import {decryptChaCha20Poly1305, encryptChaCha20Poly1305} from '../encryption/index.js';
+import {PairingError} from '../errors.js';
+import {NetworkClient} from '../network/index.js';
+import type {NetworkClientInterface} from '../network/types.js';
+import {PairVerificationProtocol} from '../pairing-protocol/index.js';
+import type {VerificationKeys} from '../pairing-protocol/pair-verification-protocol.js';
+import {PairingStorage} from '../storage/pairing-storage.js';
+import type {PairRecord} from '../storage/types.js';
+import type {AppleTVDevice} from '../types.js';
+import {RemotedController} from './remoted-controller.js';
+import type {TcpListenerInfo} from './types.js';
 
 const log = getLogger('TunnelService');
 const appleTVLog = getLogger('AppleTVTunnelService');
@@ -95,11 +93,9 @@ export class TunnelService {
     const encryptedData = response.message?.streamEncrypted?._0;
 
     if (!encryptedData) {
-      throw new PairingError(
-        'Failed to receive encrypted response from device',
-        'ENCRYPTED_RESPONSE_MISSING',
-        { response },
-      );
+      throw new PairingError('Failed to receive encrypted response from device', 'ENCRYPTED_RESPONSE_MISSING', {
+        response,
+      });
     }
 
     const responseNonce = Buffer.alloc(12);
@@ -115,14 +111,10 @@ export class TunnelService {
     const createListenerResponse = responseJson?.response?._1?.createListener;
 
     if (!createListenerResponse?.port) {
-      log.error(
-        `Invalid createListener response: ${JSON.stringify(responseJson, null, 2)}`,
-      );
-      throw new PairingError(
-        'TCP listener creation failed: missing port in response',
-        'LISTENER_PORT_MISSING',
-        { response: responseJson },
-      );
+      log.error(`Invalid createListener response: ${JSON.stringify(responseJson, null, 2)}`);
+      throw new PairingError('TCP listener creation failed: missing port in response', 'LISTENER_PORT_MISSING', {
+        response: responseJson,
+      });
     }
 
     log.debug(`TCP Listener created on port: ${createListenerResponse.port}`);
@@ -162,11 +154,8 @@ export class AppleTVTunnelService {
   /**
    * Discovers Apple TV devices advertising Remote Pairing on the local network.
    */
-  async discoverDevices(
-    options: AppleTVDiscoveryOptions = {},
-  ): Promise<AppleTVDevice[]> {
-    const timeoutMs =
-      options.timeoutMs ?? DEFAULT_PAIRING_CONFIG.discoveryTimeout;
+  async discoverDevices(options: AppleTVDiscoveryOptions = {}): Promise<AppleTVDevice[]> {
+    const timeoutMs = options.timeoutMs ?? DEFAULT_PAIRING_CONFIG.discoveryTimeout;
 
     // The tunnel flow must use the trusted `_remotepairing._tcp` service.
     // The PIN-setup `_remotepairing-manual-pairing._tcp` service does not
@@ -178,8 +167,7 @@ export class AppleTVTunnelService {
       domain: REMOTE_PAIRING_DISCOVERY_DOMAIN,
     });
     const discoveredDevices = await backend.discoverDevices(timeoutMs);
-    const enrichedDevices =
-      await enrichDiscoveredDevicesWithDevicectl(discoveredDevices);
+    const enrichedDevices = await enrichDiscoveredDevicesWithDevicectl(discoveredDevices);
     const devices = toAppleTVDevices(enrichedDevices);
     if (devices.length === 0) {
       throw new Error('No devices found via discovery backend');
@@ -206,20 +194,12 @@ export class AppleTVTunnelService {
     }
 
     let identifiersToTry = await this.validateAndGetPairRecords(deviceId);
-    if (
-      !deviceId &&
-      specificDeviceIdentifier &&
-      identifiersToTry.includes(specificDeviceIdentifier)
-    ) {
+    if (!deviceId && specificDeviceIdentifier && identifiersToTry.includes(specificDeviceIdentifier)) {
       identifiersToTry = [specificDeviceIdentifier];
     }
-    const devicesToProcess = this.selectDevicesToProcess(
-      devices,
-      specificDeviceIdentifier,
-      identifiersToTry,
-    );
+    const devicesToProcess = this.selectDevicesToProcess(devices, specificDeviceIdentifier, identifiersToTry);
 
-    const failedAttempts: { identifier: string; error: string }[] = [];
+    const failedAttempts: {identifier: string; error: string}[] = [];
 
     // Suspend macOS' remoted daemon for the duration of the tunnel handshake.
     // While remoted holds the trusted tunnel for a paired device, the device
@@ -229,9 +209,7 @@ export class AppleTVTunnelService {
     try {
       for (const device of devicesToProcess) {
         for (const identifier of identifiersToTry) {
-          appleTVLog.debug(
-            `\n--- Attempting connection with pair record: ${identifier} ---`,
-          );
+          appleTVLog.debug(`\n--- Attempting connection with pair record: ${identifier} ---`);
           appleTVLog.debug(`Device: ${device.ip}:${device.port}`);
 
           const pairRecord = await this.storage.load(identifier);
@@ -244,12 +222,7 @@ export class AppleTVTunnelService {
             continue;
           }
 
-          const result = await this.attemptDeviceConnection(
-            device,
-            identifier,
-            pairRecord,
-            failedAttempts,
-          );
+          const result = await this.attemptDeviceConnection(device, identifier, pairRecord, failedAttempts);
 
           if (result) {
             return result;
@@ -262,9 +235,7 @@ export class AppleTVTunnelService {
 
     this.logFailureSummary(failedAttempts);
 
-    throw new Error(
-      'Failed to establish tunnel with any pair record. All authentication attempts failed.',
-    );
+    throw new Error('Failed to establish tunnel with any pair record. All authentication attempts failed.');
   }
 
   /**
@@ -272,9 +243,7 @@ export class AppleTVTunnelService {
    */
   private logDiscoveredDevices(devices: AppleTVDevice[]): void {
     appleTVLog.debug('Step 1: Device Discovery success');
-    appleTVLog.debug(
-      `Found ${util.pluralize('device', devices.length, true)} via discovery backend`,
-    );
+    appleTVLog.debug(`Found ${util.pluralize('device', devices.length, true)} via discovery backend`);
 
     if (devices.length > 0) {
       appleTVLog.info('\nDiscovered Apple TV devices:');
@@ -300,9 +269,7 @@ export class AppleTVTunnelService {
       return devices;
     }
 
-    const filteredDevices = devices.filter(
-      (device) => device.identifier === specificDeviceIdentifier,
-    );
+    const filteredDevices = devices.filter((device) => device.identifier === specificDeviceIdentifier);
 
     if (filteredDevices.length === 0) {
       if (pairRecordIds.includes(specificDeviceIdentifier)) {
@@ -312,9 +279,7 @@ export class AppleTVTunnelService {
         return devices;
       }
 
-      appleTVLog.error(
-        `\nDevice with identifier ${specificDeviceIdentifier} not found in discovered devices.`,
-      );
+      appleTVLog.error(`\nDevice with identifier ${specificDeviceIdentifier} not found in discovered devices.`);
       appleTVLog.error('Available devices:');
       devices.forEach((device) => {
         appleTVLog.error(`  - ${device.identifier} (${device.name})`);
@@ -324,9 +289,7 @@ export class AppleTVTunnelService {
       );
     }
 
-    appleTVLog.info(
-      `\nFiltered to specific device: ${specificDeviceIdentifier}`,
-    );
+    appleTVLog.info(`\nFiltered to specific device: ${specificDeviceIdentifier}`);
 
     return filteredDevices;
   }
@@ -334,9 +297,7 @@ export class AppleTVTunnelService {
   /**
    * Validates pair records and returns the list of identifiers to try
    */
-  private async validateAndGetPairRecords(
-    deviceId?: string,
-  ): Promise<string[]> {
+  private async validateAndGetPairRecords(deviceId?: string): Promise<string[]> {
     const availableDeviceIds = await this.storage.getAvailableDeviceIds();
 
     if (availableDeviceIds.length === 0) {
@@ -357,7 +318,7 @@ export class AppleTVTunnelService {
     device: AppleTVDevice,
     identifier: string,
     pairRecord: PairRecord,
-    failedAttempts: { identifier: string; error: string }[],
+    failedAttempts: {identifier: string; error: string}[],
   ): Promise<{
     tcpSocket: net.Socket;
     psk: Buffer;
@@ -380,24 +341,17 @@ export class AppleTVTunnelService {
         await this.performHandshake();
 
         const keys = await this.performPairVerification(pairRecord, identifier);
-        appleTVLog.info(
-          `✅ Successfully verified with pair record: ${identifier}`,
-        );
+        appleTVLog.info(`✅ Successfully verified with pair record: ${identifier}`);
 
         const listenerInfo = await this.createTcpListener(keys);
         this.networkClient.disconnect();
 
-        const tcpSocket = await connectToListenerPort(
-          connectionTarget,
-          listenerInfo.port,
-        );
+        const tcpSocket = await connectToListenerPort(connectionTarget, listenerInfo.port);
         const tunnelDevice = this.withTunnelIdentifier(device, pairRecord);
 
         appleTVLog.debug('Step 6: Tunnel Establishment success');
         appleTVLog.info(`🔑 Using pair record: ${identifier}`);
-        appleTVLog.info(
-          `📱 Connected to device: ${tunnelDevice.identifier} (${tunnelDevice.name})`,
-        );
+        appleTVLog.info(`📱 Connected to device: ${tunnelDevice.identifier} (${tunnelDevice.name})`);
         appleTVLog.info(`   Target: ${connectionTarget}:${device.port}`);
 
         return {
@@ -407,18 +361,14 @@ export class AppleTVTunnelService {
         };
       } catch (error: any) {
         const errorMessage = error.message || String(error);
-        appleTVLog.debug(
-          `❌ Failed with pair record ${identifier}: ${errorMessage}`,
-        );
-        failedAttempts.push({ identifier, error: errorMessage });
+        appleTVLog.debug(`❌ Failed with pair record ${identifier}: ${errorMessage}`);
+        failedAttempts.push({identifier, error: errorMessage});
         this.networkClient.disconnect();
         await new Promise((resolve) => setTimeout(resolve, 500));
       }
     } catch (connectionError: any) {
       const errorMessage = connectionError.message || String(connectionError);
-      appleTVLog.debug(
-        `Failed to connect to ${connectionTarget}:${device.port}: ${errorMessage}`,
-      );
+      appleTVLog.debug(`Failed to connect to ${connectionTarget}:${device.port}: ${errorMessage}`);
       failedAttempts.push({
         identifier,
         error: `Connection failed: ${errorMessage}`,
@@ -432,45 +382,29 @@ export class AppleTVTunnelService {
   /**
    * Logs a summary of all failed connection attempts
    */
-  private logFailureSummary(
-    failedAttempts: { identifier: string; error: string }[],
-  ): void {
+  private logFailureSummary(failedAttempts: {identifier: string; error: string}[]): void {
     appleTVLog.error('\n=== Pair Record Verification Summary ===');
     appleTVLog.error(`Total pair records tried: ${failedAttempts.length}`);
-    failedAttempts.forEach(({ identifier, error }) => {
+    failedAttempts.forEach(({identifier, error}) => {
       appleTVLog.error(`  - ${identifier}: ${error}`);
     });
     appleTVLog.error('=======================================\n');
   }
 
-  private resolveTunnelIdentifier(
-    pairRecord: PairRecord,
-    device: AppleTVDevice,
-  ): string {
+  private resolveTunnelIdentifier(pairRecord: PairRecord, device: AppleTVDevice): string {
     if (pairRecord.remotePairingUdid) {
       return pairRecord.remotePairingUdid.toUpperCase();
     }
 
-    if (
-      process.platform === 'darwin' &&
-      device.identifierSource === 'devicectl' &&
-      device.identifier
-    ) {
-      appleTVLog.warn(
-        'Pair record does not include remote_pairing_udid; falling back to devicectl identifier',
-      );
+    if (process.platform === 'darwin' && device.identifierSource === 'devicectl' && device.identifier) {
+      appleTVLog.warn('Pair record does not include remote_pairing_udid; falling back to devicectl identifier');
       return device.identifier.toUpperCase();
     }
 
-    throw new Error(
-      'Pair record does not include remote_pairing_udid and no macOS devicectl fallback is available',
-    );
+    throw new Error('Pair record does not include remote_pairing_udid and no macOS devicectl fallback is available');
   }
 
-  private withTunnelIdentifier(
-    device: AppleTVDevice,
-    pairRecord: PairRecord,
-  ): AppleTVDevice {
+  private withTunnelIdentifier(device: AppleTVDevice, pairRecord: PairRecord): AppleTVDevice {
     return {
       ...device,
       identifier: this.resolveTunnelIdentifier(pairRecord, device),
@@ -486,7 +420,7 @@ export class AppleTVTunnelService {
               _0: {
                 handshake: {
                   _0: {
-                    hostOptions: { attemptPairVerify: true },
+                    hostOptions: {attemptPairVerify: true},
                     wireProtocolVersion: 19,
                   },
                 },
@@ -505,15 +439,10 @@ export class AppleTVTunnelService {
     appleTVLog.debug('Step 2: Initial Connection & Handshake success');
   }
 
-  private async performPairVerification(
-    pairRecord: PairRecord,
-    deviceId: string,
-  ): Promise<VerificationKeys> {
+  private async performPairVerification(pairRecord: PairRecord, deviceId: string): Promise<VerificationKeys> {
     appleTVLog.debug('Step 3: Pair Verification (4-step process)');
 
-    const verificationProtocol = new PairVerificationProtocol(
-      this.networkClient,
-    );
+    const verificationProtocol = new PairVerificationProtocol(this.networkClient);
     verificationProtocol.setSequenceNumber(this.sequenceNumber);
     const keys = await verificationProtocol.verify(pairRecord, deviceId);
 
@@ -526,14 +455,10 @@ export class AppleTVTunnelService {
 
   private async createTcpListener(
     keys: VerificationKeys,
-  ): Promise<{ port: number; serviceName: string; devicePublicKey: string }> {
+  ): Promise<{port: number; serviceName: string; devicePublicKey: string}> {
     appleTVLog.debug('Step 5: TCP Listener Creation (Encrypted Request)');
 
-    const tunnelService = new TunnelService(
-      this.networkClient,
-      keys,
-      this.sequenceNumber,
-    );
+    const tunnelService = new TunnelService(this.networkClient, keys, this.sequenceNumber);
     const listenerInfo = await tunnelService.createTcpListener();
 
     this.sequenceNumber = tunnelService.getSequenceNumber();
@@ -542,12 +467,9 @@ export class AppleTVTunnelService {
   }
 }
 
-function connectToListenerPort(
-  hostname: string,
-  port: number,
-): Promise<net.Socket> {
+function connectToListenerPort(hostname: string, port: number): Promise<net.Socket> {
   return new Promise((resolve, reject) => {
-    const socket = net.connect({ host: hostname, port }, () => {
+    const socket = net.connect({host: hostname, port}, () => {
       resolve(socket);
     });
     socket.once('error', reject);

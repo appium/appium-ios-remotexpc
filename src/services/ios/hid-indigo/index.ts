@@ -1,5 +1,5 @@
-import type { XPCDictionary } from '../../../lib/types.js';
-import { CoreDeviceService } from '../core-device/core-device-service.js';
+import type {XPCDictionary} from '../../../lib/types.js';
+import {CoreDeviceService} from '../core-device/core-device-service.js';
 
 const CLOSE_DELIVERY_DELAY_MS = 100;
 
@@ -27,12 +27,12 @@ const BUTTON_STATES: Record<HidButtonState, number> = {
 };
 
 const NAMED_BUTTONS = {
-  home: { usagePage: 0x0c, usageCode: 0x40, holdSeconds: 0.05 },
-  lock: { usagePage: 0x0c, usageCode: 0x30, holdSeconds: 0.5 },
-  'volume-up': { usagePage: 0x0c, usageCode: 0xe9, holdSeconds: 0.05 },
-  'volume-down': { usagePage: 0x0c, usageCode: 0xea, holdSeconds: 0.05 },
-  mute: { usagePage: 0x0c, usageCode: 0xe2, holdSeconds: 0.05 },
-  siri: { usagePage: 0x0c, usageCode: 0xcf, holdSeconds: 1 },
+  home: {usagePage: 0x0c, usageCode: 0x40, holdSeconds: 0.05},
+  lock: {usagePage: 0x0c, usageCode: 0x30, holdSeconds: 0.5},
+  'volume-up': {usagePage: 0x0c, usageCode: 0xe9, holdSeconds: 0.05},
+  'volume-down': {usagePage: 0x0c, usageCode: 0xea, holdSeconds: 0.05},
+  mute: {usagePage: 0x0c, usageCode: 0xe2, holdSeconds: 0.05},
+  siri: {usagePage: 0x0c, usageCode: 0xcf, holdSeconds: 1},
 } as const;
 
 export type HidButtonName = keyof typeof NAMED_BUTTONS;
@@ -47,36 +47,22 @@ export class HidIndigoService extends CoreDeviceService {
     super(udid, HidIndigoService.RSD_SERVICE_NAME);
   }
 
-  async pressButton(
-    name: HidButtonName,
-    options?: HidButtonPressOptions,
-  ): Promise<void>;
-  async pressButton(
-    usagePage: number,
-    usageCode: number,
-    options?: HidButtonPressOptions,
-  ): Promise<void>;
+  async pressButton(name: HidButtonName, options?: HidButtonPressOptions): Promise<void>;
+  async pressButton(usagePage: number, usageCode: number, options?: HidButtonPressOptions): Promise<void>;
   async pressButton(
     arg1: HidButtonName | number,
     arg2?: HidButtonPressOptions | number,
     arg3?: HidButtonPressOptions,
   ): Promise<void> {
-    const { usagePage, usageCode, options } = resolveButtonArgs(
-      arg1,
-      arg2,
-      arg3,
-    );
+    const {usagePage, usageCode, options} = resolveButtonArgs(arg1, arg2, arg3);
     const pressCount = validatePressCount(options.pressCount ?? 1);
-    const defaultHoldSeconds =
-      typeof arg1 === 'string'
-        ? NAMED_BUTTONS[arg1 as HidButtonName].holdSeconds
-        : 0.05;
+    const defaultHoldSeconds = typeof arg1 === 'string' ? NAMED_BUTTONS[arg1 as HidButtonName].holdSeconds : 0.05;
     const holdMs = (options.holdSeconds ?? defaultHoldSeconds) * 1000;
 
     for (let i = 0; i < pressCount; i++) {
-      await this.sendButton({ usagePage, usageCode, state: 'down' });
+      await this.sendButton({usagePage, usageCode, state: 'down'});
       await delay(holdMs);
-      await this.sendButton({ usagePage, usageCode, state: 'up' });
+      await this.sendButton({usagePage, usageCode, state: 'up'});
       await delay(CLOSE_DELIVERY_DELAY_MS);
     }
   }
@@ -107,10 +93,7 @@ function resolveButtonArgs(
   usageCode: number;
   options: HidButtonPressOptions;
 } {
-  if (
-    typeof arg1 === 'string' &&
-    (arg2 === undefined || typeof arg2 !== 'number')
-  ) {
+  if (typeof arg1 === 'string' && (arg2 === undefined || typeof arg2 !== 'number')) {
     const button = NAMED_BUTTONS[arg1 as HidButtonName];
     return {
       usagePage: button.usagePage,
@@ -127,9 +110,7 @@ function resolveButtonArgs(
     };
   }
 
-  throw new Error(
-    'pressButton expects either a button name plus options, or usagePage and usageCode plus options',
-  );
+  throw new Error('pressButton expects either a button name plus options, or usagePage and usageCode plus options');
 }
 
 function validatePressCount(value: number): number {

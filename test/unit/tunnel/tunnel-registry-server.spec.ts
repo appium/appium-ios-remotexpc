@@ -1,14 +1,9 @@
-import { expect } from 'chai';
-import { afterEach, beforeEach, describe, it } from 'node:test';
+import {afterEach, beforeEach, describe, it} from 'node:test';
 
-import {
-  type TunnelRegistryServer,
-  startTunnelRegistryServer,
-} from '../../../src/lib/tunnel/tunnel-registry-server.js';
-import type {
-  TunnelRegistry,
-  TunnelRegistryEntry,
-} from '../../../src/lib/types.js';
+import {expect} from 'chai';
+
+import {type TunnelRegistryServer, startTunnelRegistryServer} from '../../../src/lib/tunnel/tunnel-registry-server.js';
+import type {TunnelRegistry, TunnelRegistryEntry} from '../../../src/lib/types.js';
 
 describe('TunnelRegistryServer', function () {
   let server: TunnelRegistryServer;
@@ -23,7 +18,7 @@ describe('TunnelRegistryServer', function () {
         address: '127.0.0.1',
         rsdPort: 58783,
         services: {
-          'com.apple.afc.shim.remote': { port: '49374' },
+          'com.apple.afc.shim.remote': {port: '49374'},
         },
         catalogUpdatedAt: Date.now(),
         connectionType: 'USB',
@@ -51,9 +46,7 @@ describe('TunnelRegistryServer', function () {
 
   describe('GET /remotexpc/tunnels', function () {
     it('should return all tunnels', async function () {
-      const response = await fetch(
-        `http://localhost:${testPort}/remotexpc/tunnels`,
-      );
+      const response = await fetch(`http://localhost:${testPort}/remotexpc/tunnels`);
       const data = (await response.json()) as TunnelRegistry;
 
       expect(response.status).to.equal(200);
@@ -65,9 +58,7 @@ describe('TunnelRegistryServer', function () {
 
   describe('GET /remotexpc/tunnels/metadata', function () {
     it('should return registry metadata', async function () {
-      const response = await fetch(
-        `http://localhost:${testPort}/remotexpc/tunnels/metadata`,
-      );
+      const response = await fetch(`http://localhost:${testPort}/remotexpc/tunnels/metadata`);
       const data = (await response.json()) as TunnelRegistry['metadata'] & {
         status: string;
       };
@@ -83,9 +74,7 @@ describe('TunnelRegistryServer', function () {
 
   describe('GET /remotexpc/tunnels/:udid', function () {
     it('should return tunnel by UDID', async function () {
-      const response = await fetch(
-        `http://localhost:${testPort}/remotexpc/tunnels/test-udid-123`,
-      );
+      const response = await fetch(`http://localhost:${testPort}/remotexpc/tunnels/test-udid-123`);
       const data = (await response.json()) as TunnelRegistryEntry;
 
       expect(response.status).to.equal(200);
@@ -94,10 +83,8 @@ describe('TunnelRegistryServer', function () {
     });
 
     it('should return 404 for non-existent UDID', async function () {
-      const response = await fetch(
-        `http://localhost:${testPort}/remotexpc/tunnels/non-existent`,
-      );
-      const data = (await response.json()) as { error: string };
+      const response = await fetch(`http://localhost:${testPort}/remotexpc/tunnels/non-existent`);
+      const data = (await response.json()) as {error: string};
 
       expect(response.status).to.equal(404);
       expect(data).to.have.property('error');
@@ -122,16 +109,11 @@ describe('TunnelRegistryServer', function () {
         },
         metadata: testRegistry.metadata,
       };
-      const pendingServer = await startTunnelRegistryServer(
-        pendingRegistry,
-        pendingPort,
-      );
+      const pendingServer = await startTunnelRegistryServer(pendingRegistry, pendingPort);
 
       try {
-        const response = await fetch(
-          `http://localhost:${pendingPort}/remotexpc/tunnels/pending-udid?waitMs=0`,
-        );
-        const data = (await response.json()) as { error: string };
+        const response = await fetch(`http://localhost:${pendingPort}/remotexpc/tunnels/pending-udid?waitMs=0`);
+        const data = (await response.json()) as {error: string};
 
         expect(response.status).to.equal(404);
         expect(data.error).to.include('Tunnel not found');
@@ -154,34 +136,25 @@ describe('TunnelRegistryServer', function () {
         metadata: testRegistry.metadata,
       };
 
-      const refreshServices = async (
-        udid: string,
-        entry: TunnelRegistryEntry,
-      ) => ({
+      const refreshServices = async (udid: string, entry: TunnelRegistryEntry) => ({
         ...entry,
         services: {
-          'com.apple.dvt.shim.remote': { port: '62078' },
+          'com.apple.dvt.shim.remote': {port: '62078'},
         },
         catalogUpdatedAt: Date.now(),
       });
 
-      const refreshServer = await startTunnelRegistryServer(
-        refreshRegistry,
-        refreshPort,
-        { refreshServices },
-      );
+      const refreshServer = await startTunnelRegistryServer(refreshRegistry, refreshPort, {refreshServices});
 
       try {
         const response = await fetch(
           `http://localhost:${refreshPort}/remotexpc/tunnels/refresh-udid/refresh-services`,
-          { method: 'POST' },
+          {method: 'POST'},
         );
         const data = (await response.json()) as TunnelRegistryEntry;
 
         expect(response.status).to.equal(200);
-        expect(data.services['com.apple.dvt.shim.remote']?.port).to.equal(
-          '62078',
-        );
+        expect(data.services['com.apple.dvt.shim.remote']?.port).to.equal('62078');
       } finally {
         await refreshServer.stop();
       }
@@ -190,9 +163,7 @@ describe('TunnelRegistryServer', function () {
 
   describe('GET /remotexpc/tunnels/device/:deviceId', function () {
     it('should return tunnel by device ID', async function () {
-      const response = await fetch(
-        `http://localhost:${testPort}/remotexpc/tunnels/device/1`,
-      );
+      const response = await fetch(`http://localhost:${testPort}/remotexpc/tunnels/device/1`);
       const data = (await response.json()) as TunnelRegistryEntry;
 
       expect(response.status).to.equal(200);
@@ -201,10 +172,8 @@ describe('TunnelRegistryServer', function () {
     });
 
     it('should return 404 for non-existent device ID', async function () {
-      const response = await fetch(
-        `http://localhost:${testPort}/remotexpc/tunnels/device/999`,
-      );
-      const data = (await response.json()) as { error: string };
+      const response = await fetch(`http://localhost:${testPort}/remotexpc/tunnels/device/999`);
+      const data = (await response.json()) as {error: string};
 
       expect(response.status).to.equal(404);
       expect(data).to.have.property('error');
@@ -212,10 +181,8 @@ describe('TunnelRegistryServer', function () {
     });
 
     it('should return 400 for invalid device ID', async function () {
-      const response = await fetch(
-        `http://localhost:${testPort}/remotexpc/tunnels/device/invalid`,
-      );
-      const data = (await response.json()) as { error: string };
+      const response = await fetch(`http://localhost:${testPort}/remotexpc/tunnels/device/invalid`);
+      const data = (await response.json()) as {error: string};
 
       expect(response.status).to.equal(400);
       expect(data).to.have.property('error');
@@ -230,14 +197,11 @@ describe('TunnelRegistryServer', function () {
         rsdPort: 58784,
       };
 
-      const response = await fetch(
-        `http://localhost:${testPort}/remotexpc/tunnels/test-udid-123`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updateData),
-        },
-      );
+      const response = await fetch(`http://localhost:${testPort}/remotexpc/tunnels/test-udid-123`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(updateData),
+      });
       const data = (await response.json()) as {
         success: boolean;
         tunnel: TunnelRegistryEntry;
@@ -254,15 +218,12 @@ describe('TunnelRegistryServer', function () {
         udid: 'different-udid',
       };
 
-      const response = await fetch(
-        `http://localhost:${testPort}/remotexpc/tunnels/test-udid-123`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updateData),
-        },
-      );
-      const data = (await response.json()) as { error: string };
+      const response = await fetch(`http://localhost:${testPort}/remotexpc/tunnels/test-udid-123`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(updateData),
+      });
+      const data = (await response.json()) as {error: string};
 
       expect(response.status).to.equal(400);
       expect(data).to.have.property('error');
@@ -270,15 +231,12 @@ describe('TunnelRegistryServer', function () {
     });
 
     it('should return 400 for invalid JSON', async function () {
-      const response = await fetch(
-        `http://localhost:${testPort}/remotexpc/tunnels/test-udid-123`,
-        {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: 'invalid json',
-        },
-      );
-      const data = (await response.json()) as { error: string };
+      const response = await fetch(`http://localhost:${testPort}/remotexpc/tunnels/test-udid-123`, {
+        method: 'PUT',
+        headers: {'Content-Type': 'application/json'},
+        body: 'invalid json',
+      });
+      const data = (await response.json()) as {error: string};
 
       expect(response.status).to.equal(400);
       expect(data).to.have.property('error');
@@ -287,10 +245,8 @@ describe('TunnelRegistryServer', function () {
 
   describe('Unknown routes', function () {
     it('should return 404 for unknown routes', async function () {
-      const response = await fetch(
-        `http://localhost:${testPort}/unknown/route`,
-      );
-      const data = (await response.json()) as { error: string };
+      const response = await fetch(`http://localhost:${testPort}/unknown/route`);
+      const data = (await response.json()) as {error: string};
 
       expect(response.status).to.equal(404);
       expect(data).to.have.property('error', 'Not found');

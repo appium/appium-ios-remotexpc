@@ -1,9 +1,9 @@
-import { getLogger } from '../../../../lib/logger.js';
-import { parseBinaryPlist } from '../../../../lib/plist/index.js';
-import type { ProcessInfo } from '../../../../lib/types.js';
-import { MessageAux } from '../dtx-message.js';
-import { hasNSErrorIndicators } from '../utils.js';
-import { BaseInstrument } from './base-instrument.js';
+import {getLogger} from '../../../../lib/logger.js';
+import {parseBinaryPlist} from '../../../../lib/plist/index.js';
+import type {ProcessInfo} from '../../../../lib/types.js';
+import {MessageAux} from '../dtx-message.js';
+import {hasNSErrorIndicators} from '../utils.js';
+import {BaseInstrument} from './base-instrument.js';
 
 const log = getLogger('DeviceInfo');
 
@@ -26,8 +26,7 @@ const log = getLogger('DeviceInfo');
  * - nameForGid(gid): Get group name for GID
  */
 export class DeviceInfo extends BaseInstrument {
-  static readonly IDENTIFIER =
-    'com.apple.instruments.server.services.deviceinfo';
+  static readonly IDENTIFIER = 'com.apple.instruments.server.services.deviceinfo';
 
   /**
    * List directory contents at the specified path.
@@ -36,10 +35,7 @@ export class DeviceInfo extends BaseInstrument {
    * @throws {Error} If the directory doesn't exist or cannot be accessed
    */
   async ls(path: string): Promise<string[]> {
-    const result = await this.requestInformation(
-      'directoryListingForPath_',
-      path,
-    );
+    const result = await this.requestInformation('directoryListingForPath_', path);
 
     if (result === null || result === undefined) {
       throw new Error(`Failed to list directory: ${path}`);
@@ -170,10 +166,7 @@ export class DeviceInfo extends BaseInstrument {
    * @returns The username string
    */
   async nameForUid(uid: number): Promise<string> {
-    return this.expectStringResult(
-      await this.requestInformation('nameForUID_', uid),
-      `nameForUid(${uid})`,
-    );
+    return this.expectStringResult(await this.requestInformation('nameForUID_', uid), `nameForUid(${uid})`);
   }
 
   /**
@@ -183,10 +176,7 @@ export class DeviceInfo extends BaseInstrument {
    * @throws {Error} When the selector is unavailable or lookup fails
    */
   async nameForGid(gid: number): Promise<string> {
-    return this.expectStringResult(
-      await this.requestInformation('nameForGID_', gid),
-      `nameForGid(${gid})`,
-    );
+    return this.expectStringResult(await this.requestInformation('nameForGID_', gid), `nameForGid(${gid})`);
   }
 
   /**
@@ -216,23 +206,18 @@ export class DeviceInfo extends BaseInstrument {
   }
 
   private expectStringArrayResult(result: unknown, context: string): string[] {
-    if (
-      Array.isArray(result) &&
-      result.every((item) => typeof item === 'string')
-    ) {
+    if (Array.isArray(result) && result.every((item) => typeof item === 'string')) {
       return result;
     }
 
     if (hasNSErrorIndicators(result)) {
       const description =
-        (result as { NSUserInfo?: { NSLocalizedDescription?: string } })
-          .NSUserInfo?.NSLocalizedDescription ?? JSON.stringify(result);
+        (result as {NSUserInfo?: {NSLocalizedDescription?: string}}).NSUserInfo?.NSLocalizedDescription ??
+        JSON.stringify(result);
       throw new Error(`${context}: ${description}`);
     }
 
-    throw new Error(
-      `${context}: expected string array, got ${typeof result} (${JSON.stringify(result)})`,
-    );
+    throw new Error(`${context}: expected string array, got ${typeof result} (${JSON.stringify(result)})`);
   }
 
   private expectStringResult(result: unknown, context: string): string {
@@ -242,14 +227,12 @@ export class DeviceInfo extends BaseInstrument {
 
     if (hasNSErrorIndicators(result)) {
       const description =
-        (result as { NSUserInfo?: { NSLocalizedDescription?: string } })
-          .NSUserInfo?.NSLocalizedDescription ?? JSON.stringify(result);
+        (result as {NSUserInfo?: {NSLocalizedDescription?: string}}).NSUserInfo?.NSLocalizedDescription ??
+        JSON.stringify(result);
       throw new Error(`${context}: ${description}`);
     }
 
-    throw new Error(
-      `${context}: expected string, got ${typeof result} (${JSON.stringify(result)})`,
-    );
+    throw new Error(`${context}: expected string, got ${typeof result} (${JSON.stringify(result)})`);
   }
 
   /**
@@ -259,16 +242,12 @@ export class DeviceInfo extends BaseInstrument {
    * @returns The information object or value returned by the selector
    * @private
    */
-  private async requestInformation(
-    selectorName: string,
-    arg?: any,
-  ): Promise<any> {
+  private async requestInformation(selectorName: string, arg?: any): Promise<any> {
     await this.initialize();
     const channel = this.requireChannel();
 
     const call = channel.call(selectorName);
-    const args =
-      arg !== undefined ? new MessageAux().appendObj(arg) : undefined;
+    const args = arg !== undefined ? new MessageAux().appendObj(arg) : undefined;
 
     await call(args);
     return channel.receivePlist();

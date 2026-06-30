@@ -1,30 +1,26 @@
-import { expect } from 'chai';
-import { describe, it } from 'node:test';
+import {describe, it} from 'node:test';
 
-import { ZIP_LOCAL_FILE_HEADER_SIGNATURE } from '../../../src/services/ios/zipconduit/constants.js';
+import {expect} from 'chai';
+
+import {ZIP_LOCAL_FILE_HEADER_SIGNATURE} from '../../../src/services/ios/zipconduit/constants.js';
 import {
   SIGNING_ERROR,
   createInitTransfer,
   createMetaInfPlist,
   evaluateProgress,
 } from '../../../src/services/ios/zipconduit/plists.js';
-import {
-  createMetaInfBytes,
-  transferDirectory,
-} from '../../../src/services/ios/zipconduit/zip-utils.js';
+import {createMetaInfBytes, transferDirectory} from '../../../src/services/ios/zipconduit/zip-utils.js';
 
 describe('zipconduit/plists', function () {
   it('creates InitTransfer matching Xcode-style options', function () {
     const init = createInitTransfer('/tmp/MyApp.ipa');
     expect(init.MediaSubdir).to.equal('PublicStaging/MyApp.ipa');
     expect(init.InstallTransferredDirectory).to.equal(1);
-    expect(init.InstallOptionsDictionary.InstallDeltaTypeKey).to.equal(
-      'InstallDeltaTypeSparseIPAFiles',
-    );
+    expect(init.InstallOptionsDictionary.InstallDeltaTypeKey).to.equal('InstallDeltaTypeSparseIPAFiles');
   });
 
   it('evaluates DataComplete status', function () {
-    const result = evaluateProgress({ Status: 'DataComplete' });
+    const result = evaluateProgress({Status: 'DataComplete'});
     expect(result.done).to.be.true;
     expect(result.percent).to.equal(100);
   });

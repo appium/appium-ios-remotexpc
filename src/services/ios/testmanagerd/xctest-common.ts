@@ -1,4 +1,4 @@
-import { decodeNSKeyedArchiver } from '../dvt/nskeyedarchiver-decoder.js';
+import {decodeNSKeyedArchiver} from '../dvt/nskeyedarchiver-decoder.js';
 
 // #region Constants
 
@@ -6,8 +6,7 @@ import { decodeNSKeyedArchiver } from '../dvt/nskeyedarchiver-decoder.js';
 export const XCODE_VERSION = 36;
 
 /** Testmanagerd channel identifier for XCTest session management */
-export const TESTMANAGERD_CHANNEL =
-  'dtxproxy:XCTestManager_IDEInterface:XCTestManager_DaemonConnectionInterface';
+export const TESTMANAGERD_CHANNEL = 'dtxproxy:XCTestManager_IDEInterface:XCTestManager_DaemonConnectionInterface';
 
 /** Default XCTCapabilities sent to the exec session. */
 export const DEFAULT_EXEC_CAPABILITIES: Record<string, number> = {
@@ -40,10 +39,8 @@ export const SELECTOR = {
   logDebugMessage: '_XCT_logDebugMessage:',
   testRunnerReady: '_XCT_testRunnerReadyWithCapabilities:',
   testBundleReady: '_XCT_testBundleReadyWithProtocolVersion:minimumVersion:',
-  testCaseStarted:
-    '_XCT_testCaseDidStartWithIdentifier:testCaseRunConfiguration:',
-  testCaseFailed:
-    '_XCT_testCaseDidFailForTestClass:method:withMessage:file:line:',
+  testCaseStarted: '_XCT_testCaseDidStartWithIdentifier:testCaseRunConfiguration:',
+  testCaseFailed: '_XCT_testCaseDidFailForTestClass:method:withMessage:file:line:',
   testCaseFinished: '_XCT_testCaseWithIdentifier:didFinishWithStatus:duration:',
   testSuiteStarted: '_XCT_testSuiteWithIdentifier:didStartAt:',
   testSuiteFinished:
@@ -67,12 +64,7 @@ export const DEFAULT_LAUNCH_ENV: Record<string, string> = {
 };
 
 /** Transport error codes that indicate connection-level failures. */
-export const TRANSPORT_ERROR_CODES = new Set([
-  'ECONNRESET',
-  'ETIMEDOUT',
-  'EPIPE',
-  'ECONNREFUSED',
-]);
+export const TRANSPORT_ERROR_CODES = new Set(['ECONNRESET', 'ETIMEDOUT', 'EPIPE', 'ECONNREFUSED']);
 
 // #endregion
 
@@ -99,7 +91,7 @@ export function createDeferred<T>(): DeferredPromise<T> {
     resolve = _resolve;
     reject = _reject;
   });
-  return { promise, resolve, reject };
+  return {promise, resolve, reject};
 }
 
 /** Extract the xctest module name from a bundle identifier. */
@@ -127,11 +119,7 @@ export function resolveTestIdentifier(value: any): string {
 
   // Try decoding NSKeyedArchiver if it's an archived object
   let decoded = value;
-  if (
-    value &&
-    typeof value === 'object' &&
-    value.$archiver === 'NSKeyedArchiver'
-  ) {
+  if (value && typeof value === 'object' && value.$archiver === 'NSKeyedArchiver') {
     try {
       decoded = decodeNSKeyedArchiver(value);
     } catch {
@@ -193,14 +181,14 @@ export const XCTestEventType = {
 
 /** Discriminated union of typed XCTest callback events. */
 export type XCTestEvent =
-  | { type: 'log'; message: string }
-  | { type: 'testRunnerReady' }
+  | {type: 'log'; message: string}
+  | {type: 'testRunnerReady'}
   | {
       type: 'testBundleReady';
       protocolVersion: number;
       minimumVersion: number;
     }
-  | { type: 'testCaseStarted'; identifier: string }
+  | {type: 'testCaseStarted'; identifier: string}
   | {
       type: 'testCaseFailed';
       testClass: string;
@@ -215,7 +203,7 @@ export type XCTestEvent =
       status: string;
       duration: number;
     }
-  | { type: 'testSuiteStarted'; identifier: string }
+  | {type: 'testSuiteStarted'; identifier: string}
   | {
       type: 'testSuiteFinished';
       identifier: string;
@@ -227,8 +215,8 @@ export type XCTestEvent =
       testDuration: number;
       totalDuration: number;
     }
-  | { type: 'testPlanFinished' }
-  | { type: 'unknown'; selector: string };
+  | {type: 'testPlanFinished'}
+  | {type: 'unknown'; selector: string};
 
 /** Stages of the XCTest run lifecycle, used for error context. */
 export type XCTestRunStage =
@@ -343,7 +331,7 @@ export class XCTestRunError extends Error {
       cause?: unknown;
     },
   ) {
-    super(message, { cause: options.cause });
+    super(message, {cause: options.cause});
     this.name = 'XCTestRunError';
     this.stage = options.stage;
     this.selector = options.selector;
@@ -352,22 +340,16 @@ export class XCTestRunError extends Error {
 }
 
 /** Parse a raw callback selector + auxiliaries into a typed event. */
-export function parseCallback(
-  selector: string,
-  auxiliaries: any[],
-): XCTestEvent {
+export function parseCallback(selector: string, auxiliaries: any[]): XCTestEvent {
   switch (selector) {
     case SELECTOR.logDebugMessage:
       return {
         type: 'log',
-        message:
-          typeof auxiliaries[0] === 'string'
-            ? auxiliaries[0]
-            : JSON.stringify(auxiliaries[0]),
+        message: typeof auxiliaries[0] === 'string' ? auxiliaries[0] : JSON.stringify(auxiliaries[0]),
       };
 
     case SELECTOR.testRunnerReady:
-      return { type: 'testRunnerReady' };
+      return {type: 'testRunnerReady'};
 
     case SELECTOR.testBundleReady:
       return {
@@ -387,14 +369,8 @@ export function parseCallback(
         type: 'testCaseFailed',
         testClass: resolveTestIdentifier(auxiliaries[0]),
         method: resolveTestIdentifier(auxiliaries[1]),
-        message:
-          typeof auxiliaries[2] === 'string'
-            ? auxiliaries[2]
-            : String(auxiliaries[2] ?? ''),
-        file:
-          typeof auxiliaries[3] === 'string'
-            ? auxiliaries[3]
-            : String(auxiliaries[3] ?? ''),
+        message: typeof auxiliaries[2] === 'string' ? auxiliaries[2] : String(auxiliaries[2] ?? ''),
+        file: typeof auxiliaries[3] === 'string' ? auxiliaries[3] : String(auxiliaries[3] ?? ''),
         line: Number(auxiliaries[4] ?? 0),
       };
 
@@ -427,10 +403,10 @@ export function parseCallback(
       };
 
     case SELECTOR.testPlanFinished:
-      return { type: 'testPlanFinished' };
+      return {type: 'testPlanFinished'};
 
     default:
-      return { type: 'unknown', selector };
+      return {type: 'unknown', selector};
   }
 }
 

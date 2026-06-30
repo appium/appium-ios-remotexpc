@@ -1,7 +1,7 @@
-import { Transform, type TransformCallback } from 'node:stream';
+import {Transform, type TransformCallback} from 'node:stream';
 
-import { parsePlist } from '../plist/index.js';
-import type { PlistDictionary } from '../types.js';
+import {parsePlist} from '../plist/index.js';
+import type {PlistDictionary} from '../types.js';
 
 const HEADER_LENGTH = 16;
 
@@ -21,14 +21,10 @@ export class UsbmuxDecoder extends Transform {
   private _buffer: Buffer = Buffer.alloc(0);
 
   constructor() {
-    super({ objectMode: true });
+    super({objectMode: true});
   }
 
-  _transform(
-    chunk: Buffer,
-    encoding: BufferEncoding,
-    callback: TransformCallback,
-  ): void {
+  _transform(chunk: Buffer, encoding: BufferEncoding, callback: TransformCallback): void {
     // Append the new chunk to the internal buffer
     this._buffer = Buffer.concat([this._buffer, chunk]);
 
@@ -61,6 +57,6 @@ export class UsbmuxDecoder extends Transform {
     };
 
     const payload = data.slice(HEADER_LENGTH);
-    this.push({ header, payload: parsePlist(payload) } as DecodedUsbmux);
+    this.push({header, payload: parsePlist(payload)} as DecodedUsbmux);
   }
 }

@@ -1,18 +1,16 @@
-import { logger } from '@appium/support';
-import { after, before, describe, it } from 'node:test';
+import {after, before, describe, it} from 'node:test';
 
-import type {
-  PowerAssertionOptions,
-  PowerAssertionService,
-} from '../../src/index.js';
-import { PowerAssertionType } from '../../src/index.js';
+import {logger} from '@appium/support';
+
+import type {PowerAssertionOptions, PowerAssertionService} from '../../src/index.js';
+import {PowerAssertionType} from '../../src/index.js';
 import * as Services from '../../src/services.js';
-import { requireDeviceUdid } from './helpers/device.js';
+import {requireDeviceUdid} from './helpers/device.js';
 
 const log = logger.getLogger('PowerAssertionService.test');
 log.level = 'debug';
 
-describe('PowerAssertionService Integration', { timeout: 30000 }, function () {
+describe('PowerAssertionService Integration', {timeout: 30000}, function () {
   let powerAssertionService: PowerAssertionService;
   let udid: string;
 

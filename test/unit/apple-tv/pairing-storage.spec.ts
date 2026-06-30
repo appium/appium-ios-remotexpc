@@ -1,6 +1,7 @@
-import { expect } from 'chai';
+import {describe, it} from 'node:test';
+
+import {expect} from 'chai';
 import esmock from 'esmock';
-import { describe, it } from 'node:test';
 
 function slugify(value: string): string {
   return value
@@ -32,24 +33,21 @@ describe('PairingStorage', function () {
       ],
     };
 
-    const { PairingStorage } = await esmock(
-      '../../../src/lib/apple-tv/storage/pairing-storage.js',
-      {
-        '@appium/strongbox': {
-          strongbox: () => box,
-          BaseItem: class {
-            id: string;
+    const {PairingStorage} = await esmock('../../../src/lib/apple-tv/storage/pairing-storage.js', {
+      '@appium/strongbox': {
+        strongbox: () => box,
+        BaseItem: class {
+          id: string;
 
-            constructor(
-              public readonly name: string,
-              parent: { container: string },
-            ) {
-              this.id = `${parent.container}/${slugify(name)}`;
-            }
-          },
+          constructor(
+            public readonly name: string,
+            parent: {container: string},
+          ) {
+            this.id = `${parent.container}/${slugify(name)}`;
+          }
         },
       },
-    );
+    });
 
     const storage = new PairingStorage({
       timeout: 1,
@@ -57,9 +55,6 @@ describe('PairingStorage', function () {
       maxRetries: 1,
     });
 
-    expect(await storage.getAvailableDeviceIds()).to.deep.equal([
-      'device-1',
-      'device-2',
-    ]);
+    expect(await storage.getAvailableDeviceIds()).to.deep.equal(['device-1', 'device-2']);
   });
 });

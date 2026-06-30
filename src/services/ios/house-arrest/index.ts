@@ -1,6 +1,6 @@
-import { getLogger } from '../../../lib/logger.js';
+import {getLogger} from '../../../lib/logger.js';
 import AfcService from '../afc/index.js';
-import { BaseService } from '../base-service.js';
+import {BaseService} from '../base-service.js';
 
 const log = getLogger('HouseArrestService');
 
@@ -11,8 +11,7 @@ const VEND_DOCUMENTS = 'VendDocuments';
  * House Arrest service for accessing application containers over RSD.
  */
 export class HouseArrestService extends BaseService {
-  static readonly RSD_SERVICE_NAME =
-    'com.apple.mobile.house_arrest.shim.remote';
+  static readonly RSD_SERVICE_NAME = 'com.apple.mobile.house_arrest.shim.remote';
 
   /**
    * Vend into the application container and return an AfcService.
@@ -47,17 +46,13 @@ export class HouseArrestService extends BaseService {
   private async _vend(bundleId: string, command: string): Promise<AfcService> {
     log.debug(`Vending into ${bundleId} with command: ${command}`);
 
-    const connection = await this.startLockdownService(
-      HouseArrestService.RSD_SERVICE_NAME,
-    );
+    const connection = await this.startLockdownService(HouseArrestService.RSD_SERVICE_NAME);
 
     try {
       // receive StartService response
       const startServiceResponse = await connection.receive();
       if (startServiceResponse?.Request !== 'StartService') {
-        log.warn(
-          `Expected StartService response, got: ${JSON.stringify(startServiceResponse)}`,
-        );
+        log.warn(`Expected StartService response, got: ${JSON.stringify(startServiceResponse)}`);
       }
 
       const response = await connection.sendPlistRequest({
@@ -65,15 +60,13 @@ export class HouseArrestService extends BaseService {
         Identifier: bundleId,
       });
 
-      const { Error: error, Status: status } = response;
+      const {Error: error, Status: status} = response;
 
       if (error === 'ApplicationLookupFailed') {
         throw new Error(`Application not installed: ${bundleId}`);
       }
       if (error === 'InstallationLookupFailed' && command === VEND_DOCUMENTS) {
-        throw new Error(
-          `App '${bundleId}' may not have iTunes File Sharing enabled. Try vendContainer() instead.`,
-        );
+        throw new Error(`App '${bundleId}' may not have iTunes File Sharing enabled. Try vendContainer() instead.`);
       }
       if (error) {
         throw new Error(`House Arrest vend failed: ${error}`);

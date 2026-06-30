@@ -1,8 +1,3 @@
-import {
-  type PairRecord,
-  getPairRecord,
-  processPlistResponse,
-  savePairRecord,
-} from './pair-record.js';
+import {type PairRecord, getPairRecord, processPlistResponse, savePairRecord} from './pair-record.js';
 
-export { getPairRecord, processPlistResponse, savePairRecord, type PairRecord };
+export {getPairRecord, processPlistResponse, savePairRecord, type PairRecord};

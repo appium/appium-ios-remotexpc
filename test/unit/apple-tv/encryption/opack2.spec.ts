@@ -1,8 +1,9 @@
-import { expect } from 'chai';
-import { describe, it } from 'node:test';
+import {describe, it} from 'node:test';
 
-import { Opack2 } from '../../../../src/lib/apple-tv/encryption/opack2.js';
-import { AppleTVError } from '../../../../src/lib/apple-tv/errors.js';
+import {expect} from 'chai';
+
+import {Opack2} from '../../../../src/lib/apple-tv/encryption/opack2.js';
+import {AppleTVError} from '../../../../src/lib/apple-tv/errors.js';
 
 describe('Apple TV Encryption - Opack2', function () {
   describe('loads', function () {
@@ -23,9 +24,7 @@ describe('Apple TV Encryption - Opack2', function () {
 
       const decoded = Opack2.loads(info) as Record<string, unknown>;
 
-      expect(decoded.remotepairing_udid).to.equal(
-        'synthetic-remote-pairing-udid',
-      );
+      expect(decoded.remotepairing_udid).to.equal('synthetic-remote-pairing-udid');
       expect(decoded.remotepairing_serial_number).to.equal('SYNTHETIC123');
       expect(decoded.model).to.equal('AppleTV-Test');
       expect(decoded.name).to.equal('Test Apple TV');
@@ -90,10 +89,7 @@ describe('Apple TV Encryption - Opack2', function () {
 
     it('should throw for numbers too large', function () {
       const tooLarge = Number.MAX_SAFE_INTEGER + 1;
-      expect(() => Opack2.dumps(tooLarge)).to.throw(
-        AppleTVError,
-        'Number too large for OPACK2 encoding',
-      );
+      expect(() => Opack2.dumps(tooLarge)).to.throw(AppleTVError, 'Number too large for OPACK2 encoding');
     });
   });
 
@@ -161,13 +157,13 @@ describe('Apple TV Encryption - Opack2', function () {
     });
 
     it('should encode small objects', function () {
-      const obj = { a: 1, b: 2 };
+      const obj = {a: 1, b: 2};
       const result = Opack2.dumps(obj);
       expect(result[0]).to.equal(0xe2);
     });
 
     it('should handle objects with undefined values', function () {
-      const obj: { a: number; b: undefined; c: number } = {
+      const obj: {a: number; b: undefined; c: number} = {
         a: 1,
         b: undefined,
         c: 3,

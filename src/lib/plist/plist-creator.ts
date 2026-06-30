@@ -3,8 +3,8 @@
  * @param obj - The JavaScript object to convert
  * @returns - XML plist string
  */
-import type { PlistDictionary, PlistValue } from '../types.js';
-import { escapeXml } from './utils.js';
+import type {PlistDictionary, PlistValue} from '../types.js';
+import {escapeXml} from './utils.js';
 
 /**
  * Convert a JavaScript dictionary into an XML plist string.

@@ -1,8 +1,8 @@
 import net from 'node:net';
 
-import { BasePlistService } from './base-plist-service.js';
-import type { PlistServiceOptions } from './lib/plist/plist-service.js';
-import type { PlistDictionary } from './lib/types.js';
+import {BasePlistService} from './base-plist-service.js';
+import type {PlistServiceOptions} from './lib/plist/plist-service.js';
+import type {PlistDictionary} from './lib/types.js';
 
 export interface ServiceConnectionOptions {
   keepAlive?: boolean;
@@ -30,16 +30,13 @@ export class ServiceConnection extends BasePlistService {
     const createConnectionTimeout = options?.createConnectionTimeout ?? 30000;
 
     return new Promise<ServiceConnection>((resolve, reject) => {
-      const socket = net.createConnection(
-        { host: hostname, port: Number(port) },
-        () => {
-          socket.setTimeout(0);
-          if (keepAlive) {
-            socket.setKeepAlive(true);
-          }
-          resolve(new ServiceConnection(socket, options));
-        },
-      );
+      const socket = net.createConnection({host: hostname, port: Number(port)}, () => {
+        socket.setTimeout(0);
+        if (keepAlive) {
+          socket.setKeepAlive(true);
+        }
+        resolve(new ServiceConnection(socket, options));
+      });
 
       socket.setTimeout(createConnectionTimeout, () => {
         socket.destroy();
@@ -53,10 +50,7 @@ export class ServiceConnection extends BasePlistService {
   /**
    * Sends a plist request to the device and returns the response
    */
-  sendPlistRequest(
-    requestObj: PlistDictionary,
-    timeout = 10000,
-  ): Promise<PlistDictionary> {
+  sendPlistRequest(requestObj: PlistDictionary, timeout = 10000): Promise<PlistDictionary> {
     return this.sendAndReceive(requestObj, timeout);
   }
 

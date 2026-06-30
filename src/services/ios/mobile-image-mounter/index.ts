@@ -1,17 +1,17 @@
-import { createHash } from 'node:crypto';
-import { type Stats, promises as fs } from 'node:fs';
-import { performance } from 'node:perf_hooks';
-import { Readable } from 'node:stream';
+import {createHash} from 'node:crypto';
+import {type Stats, promises as fs} from 'node:fs';
+import {performance} from 'node:perf_hooks';
+import {Readable} from 'node:stream';
 
-import { getLogger } from '../../../lib/logger.js';
-import { parseXmlPlist } from '../../../lib/plist/index.js';
-import { getManifestFromTSS } from '../../../lib/tss/index.js';
+import {getLogger} from '../../../lib/logger.js';
+import {parseXmlPlist} from '../../../lib/plist/index.js';
+import {getManifestFromTSS} from '../../../lib/tss/index.js';
 import type {
   MobileImageMounterService as MobileImageMounterServiceInterface,
   PlistDictionary,
 } from '../../../lib/types.js';
-import { type ServiceConnection } from '../../../service-connection.js';
-import { BaseService } from '../base-service.js';
+import {type ServiceConnection} from '../../../service-connection.js';
+import {BaseService} from '../base-service.js';
 
 const log = getLogger('MobileImageMounterService');
 
@@ -39,12 +39,8 @@ interface BaseResponse {
  * - Check if personalized images are mounted
  * - Unmount images when needed
  */
-class MobileImageMounterService
-  extends BaseService
-  implements MobileImageMounterServiceInterface
-{
-  static readonly RSD_SERVICE_NAME =
-    'com.apple.mobile.mobile_image_mounter.shim.remote';
+class MobileImageMounterService extends BaseService implements MobileImageMounterServiceInterface {
+  static readonly RSD_SERVICE_NAME = 'com.apple.mobile.mobile_image_mounter.shim.remote';
 
   // Constants
   private static readonly FILE_TYPE_IMAGE = 'image';
@@ -69,9 +65,7 @@ class MobileImageMounterService
    * @param imageType Type of image to lookup (defaults to 'Personalized')
    * @returns Array of signatures of mounted images
    */
-  async lookup(
-    imageType = MobileImageMounterService.IMAGE_TYPE,
-  ): Promise<Buffer[]> {
+  async lookup(imageType = MobileImageMounterService.IMAGE_TYPE): Promise<Buffer[]> {
     const response = (await this.sendRequest({
       Command: 'LookupImage',
       ImageType: imageType,
@@ -115,18 +109,9 @@ class MobileImageMounterService
 
     // Validate files and read content
     await Promise.all([
-      this.assertIsFile(
-        imageFilePath,
-        MobileImageMounterService.FILE_TYPE_IMAGE,
-      ),
-      this.assertIsFile(
-        buildManifestFilePath,
-        MobileImageMounterService.FILE_TYPE_BUILD_MANIFEST,
-      ),
-      this.assertIsFile(
-        trustCacheFilePath,
-        MobileImageMounterService.FILE_TYPE_TRUST_CACHE,
-      ),
+      this.assertIsFile(imageFilePath, MobileImageMounterService.FILE_TYPE_IMAGE),
+      this.assertIsFile(buildManifestFilePath, MobileImageMounterService.FILE_TYPE_BUILD_MANIFEST),
+      this.assertIsFile(trustCacheFilePath, MobileImageMounterService.FILE_TYPE_TRUST_CACHE),
     ]);
 
     const [image, trustCache, buildManifestContent] = await Promise.all([
@@ -135,19 +120,10 @@ class MobileImageMounterService
       fs.readFile(buildManifestFilePath, 'utf8'),
     ]);
 
-    const buildManifest = parseXmlPlist(
-      buildManifestContent,
-    ) as PlistDictionary;
-    const manifest = await this.getOrRetrieveManifestFromTSS(
-      image,
-      buildManifest,
-    );
+    const buildManifest = parseXmlPlist(buildManifestContent) as PlistDictionary;
+    const manifest = await this.getOrRetrieveManifestFromTSS(image, buildManifest);
 
-    await this.uploadImage(
-      MobileImageMounterService.IMAGE_TYPE,
-      image,
-      manifest,
-    );
+    await this.uploadImage(MobileImageMounterService.IMAGE_TYPE, image, manifest);
 
     const extras: Record<string, any> = {
       ImageTrustCache: trustCache,
@@ -157,25 +133,17 @@ class MobileImageMounterService
       extras.ImageInfoPlist = infoPlist;
     }
 
-    await this.mountImage(
-      MobileImageMounterService.IMAGE_TYPE,
-      manifest,
-      extras,
-    );
+    await this.mountImage(MobileImageMounterService.IMAGE_TYPE, manifest, extras);
 
     const end = performance.now();
-    log.info(
-      `Successfully mounted personalized image in ${(end - start).toFixed(2)} ms`,
-    );
+    log.info(`Successfully mounted personalized image in ${(end - start).toFixed(2)} ms`);
   }
 
   /**
    * Unmount image from device
    * @param mountPath Mount path to unmount (defaults to '/System/Developer')
    */
-  async unmountImage(
-    mountPath = MobileImageMounterService.MOUNT_PATH,
-  ): Promise<void> {
+  async unmountImage(mountPath = MobileImageMounterService.MOUNT_PATH): Promise<void> {
     const response = (await this.sendRequest({
       Command: 'UnmountImage',
       MountPath: mountPath,
@@ -188,9 +156,7 @@ class MobileImageMounterService
       throw new Error(`No mounted image found at path: ${mountPath}`);
     }
     if (response.Error === 'InternalError') {
-      throw new Error(
-        `Internal error occurred while unmounting: ${JSON.stringify(response)}`,
-      );
+      throw new Error(`Internal error occurred while unmounting: ${JSON.stringify(response)}`);
     }
 
     this.checkIfError(response);
@@ -219,7 +185,7 @@ class MobileImageMounterService
    * @returns Personalization nonce as Buffer
    */
   async queryNonce(personalizedImageType?: string): Promise<Buffer> {
-    const request: PlistDictionary = { Command: 'QueryNonce' };
+    const request: PlistDictionary = {Command: 'QueryNonce'};
     if (personalizedImageType) {
       request.PersonalizedImageType = personalizedImageType;
     }
@@ -251,7 +217,7 @@ class MobileImageMounterService
    * @returns List of mounted devices
    */
   async copyDevices(): Promise<any[]> {
-    const response = await this.sendRequest({ Command: 'CopyDevices' });
+    const response = await this.sendRequest({Command: 'CopyDevices'});
     return (response.EntryList as any[]) || [];
   }
 
@@ -261,10 +227,7 @@ class MobileImageMounterService
    * @param signature The image signature/hash
    * @returns Personalization manifest as Buffer
    */
-  async queryPersonalizationManifest(
-    imageType: string,
-    signature: Buffer,
-  ): Promise<Buffer> {
+  async queryPersonalizationManifest(imageType: string, signature: Buffer): Promise<Buffer> {
     try {
       const response = await this.sendRequest({
         Command: 'QueryPersonalizationManifest',
@@ -277,23 +240,15 @@ class MobileImageMounterService
       const manifest = response.ImageSignature;
 
       if (!manifest || !Buffer.isBuffer(manifest)) {
-        throw new Error(
-          'MissingManifestError: Personalization manifest not found on device',
-        );
+        throw new Error('MissingManifestError: Personalization manifest not found on device');
       }
 
       return manifest;
     } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message.includes('MissingManifestError')
-      ) {
+      if (error instanceof Error && error.message.includes('MissingManifestError')) {
         throw error;
       }
-      throw new Error(
-        'MissingManifestError: Personalization manifest not found on device',
-        { cause: error },
-      );
+      throw new Error('MissingManifestError: Personalization manifest not found on device', {cause: error});
     }
   }
 
@@ -320,18 +275,14 @@ class MobileImageMounterService
     this.checkIfError(receiveBytesResult);
 
     if (receiveBytesResult.Status !== 'ReceiveBytesAck') {
-      throw new Error(
-        `Unexpected return from mobile_image_mounter: ${JSON.stringify(receiveBytesResult)}`,
-      );
+      throw new Error(`Unexpected return from mobile_image_mounter: ${JSON.stringify(receiveBytesResult)}`);
     }
 
     const conn = await this.connectToMobileImageMounterService();
     const socket = conn.getSocket();
 
     await new Promise<void>((resolve, reject) => {
-      socket.write(image, (error?: Error | null) =>
-        error ? reject(error) : resolve(),
-      );
+      socket.write(image, (error?: Error | null) => (error ? reject(error) : resolve()));
     });
 
     const uploadResult = await conn.receive(timeout);
@@ -348,11 +299,7 @@ class MobileImageMounterService
    * @param signature The image signature/manifest
    * @param extras Additional parameters for mounting
    */
-  async mountImage(
-    imageType: string,
-    signature: Buffer,
-    extras?: Record<string, any>,
-  ): Promise<void> {
+  async mountImage(imageType: string, signature: Buffer, extras?: Record<string, any>): Promise<void> {
     const request = {
       Command: 'MountImage',
       ImageType: imageType,
@@ -380,10 +327,7 @@ class MobileImageMounterService
     log.debug('Image mounted successfully');
   }
 
-  private async sendRequest(
-    request: PlistDictionary,
-    timeout?: number,
-  ): Promise<PlistDictionary> {
+  private async sendRequest(request: PlistDictionary, timeout?: number): Promise<PlistDictionary> {
     const isNewConnection = !this.connection || this.isConnectionDestroyed();
     const conn = await this.connectToMobileImageMounterService();
     const res = await conn.sendPlistRequest(request, timeout);
@@ -418,19 +362,11 @@ class MobileImageMounterService
     });
   }
 
-  private async getOrRetrieveManifestFromTSS(
-    image: Buffer,
-    buildManifest: PlistDictionary,
-  ): Promise<Buffer> {
+  private async getOrRetrieveManifestFromTSS(image: Buffer, buildManifest: PlistDictionary): Promise<Buffer> {
     try {
       const imageHash = await this.hashLargeBufferAsync(image);
-      const manifest = await this.queryPersonalizationManifest(
-        'DeveloperDiskImage',
-        imageHash,
-      );
-      log.debug(
-        'Successfully retrieved existing personalization manifest from device',
-      );
+      const manifest = await this.queryPersonalizationManifest('DeveloperDiskImage', imageHash);
+      log.debug('Successfully retrieved existing personalization manifest from device');
       return manifest;
     } catch (error) {
       if ((error as Error).message?.includes('MissingManifestError')) {
@@ -438,11 +374,7 @@ class MobileImageMounterService
 
         const identifiers = await this.queryPersonalizationIdentifiers();
 
-        const manifest = await getManifestFromTSS(
-          identifiers,
-          buildManifest,
-          (type: string) => this.queryNonce(type),
-        );
+        const manifest = await getManifestFromTSS(identifiers, buildManifest, (type: string) => this.queryNonce(type));
 
         log.debug('Successfully generated manifest from TSS');
         return manifest;
@@ -465,9 +397,7 @@ class MobileImageMounterService
       return this.connection;
     }
 
-    const newConnection = await this.startLockdownService(
-      MobileImageMounterService.RSD_SERVICE_NAME,
-    );
+    const newConnection = await this.startLockdownService(MobileImageMounterService.RSD_SERVICE_NAME);
 
     this.connection = newConnection;
     return newConnection;
@@ -490,10 +420,7 @@ class MobileImageMounterService
     }
   }
 
-  private async assertIsFile(
-    filePath: string,
-    fileType: string,
-  ): Promise<Stats> {
+  private async assertIsFile(filePath: string, fileType: string): Promise<Stats> {
     try {
       const fileStat = await fs.stat(filePath);
       if (!fileStat.isFile()) {
@@ -512,4 +439,4 @@ class MobileImageMounterService
 }
 
 export default MobileImageMounterService;
-export { MobileImageMounterService };
+export {MobileImageMounterService};

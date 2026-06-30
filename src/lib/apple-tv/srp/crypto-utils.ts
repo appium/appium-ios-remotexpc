@@ -1,11 +1,7 @@
-import { createHash } from 'node:crypto';
+import {createHash} from 'node:crypto';
 
-import { SRP_HASH_ALGORITHM } from '../constants.js';
-import {
-  bigIntToBuffer,
-  bigIntToMinimalBuffer,
-  bufferToBigInt,
-} from '../utils/buffer-utils.js';
+import {SRP_HASH_ALGORITHM} from '../constants.js';
+import {bigIntToBuffer, bigIntToMinimalBuffer, bufferToBigInt} from '../utils/buffer-utils.js';
 
 /**
  * Computes a cryptographic hash of the provided input buffers.
@@ -64,11 +60,7 @@ export function calculateK(N: bigint, g: bigint, keyLength: number): bigint {
  * @returns The calculated x value as a bigint
  * @throws {Error} If parameters are invalid
  */
-export function calculateX(
-  salt: Buffer,
-  username: string,
-  password: string,
-): bigint {
+export function calculateX(salt: Buffer, username: string, password: string): bigint {
   if (!Buffer.isBuffer(salt) || salt.length === 0) {
     throw new Error('Salt must be a non-empty Buffer');
   }
@@ -76,9 +68,7 @@ export function calculateX(
     throw new Error('Username and password must be non-empty strings');
   }
 
-  const usernamePasswordHash = hash(
-    Buffer.from(`${username}:${password}`, 'utf8'),
-  );
+  const usernamePasswordHash = hash(Buffer.from(`${username}:${password}`, 'utf8'));
   const xHash = hash(salt, usernamePasswordHash);
 
   return bufferToBigInt(xHash);

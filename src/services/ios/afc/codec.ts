@@ -1,17 +1,11 @@
 import net from 'node:net';
 
-import { createPlist } from '../../../lib/plist/plist-creator.js';
-import { parsePlist } from '../../../lib/plist/unified-plist-parser.js';
-import type { PlistDictionary } from '../../../lib/types.js';
-import {
-  AFCMAGIC,
-  AFC_HEADER_SIZE,
-  AFC_OPERATION_TIMEOUT_MS,
-  MAXIMUM_READ_SIZE,
-  NULL_BYTE,
-} from './constants.js';
-import { AfcError, type AfcFopenMode, AfcOpcode } from './enums.js';
-import { AfcConnectionError } from './errors.js';
+import {createPlist} from '../../../lib/plist/plist-creator.js';
+import {parsePlist} from '../../../lib/plist/unified-plist-parser.js';
+import type {PlistDictionary} from '../../../lib/types.js';
+import {AFCMAGIC, AFC_HEADER_SIZE, AFC_OPERATION_TIMEOUT_MS, MAXIMUM_READ_SIZE, NULL_BYTE} from './constants.js';
+import {AfcError, type AfcFopenMode, AfcOpcode} from './enums.js';
+import {AfcConnectionError} from './errors.js';
 
 export interface AfcHeader {
   magic: Buffer;
@@ -72,12 +66,7 @@ export function cstr(str: string): Buffer {
 /**
  * Build an AFC packet header with explicit entire_length and this_length values.
  */
-export function encodeHeaderExplicit(
-  op: AfcOpcode,
-  packetNum: bigint,
-  entireLen: number,
-  thisLen: number,
-): Buffer {
+export function encodeHeaderExplicit(op: AfcOpcode, packetNum: bigint, entireLen: number, thisLen: number): Buffer {
   const header = Buffer.alloc(AFC_HEADER_SIZE);
   AFCMAGIC.copy(header, 0);
   writeUInt64LE(BigInt(entireLen)).copy(header, 8);
@@ -90,11 +79,7 @@ export function encodeHeaderExplicit(
 /**
  * Build an AFC packet header for a single contiguous payload after the header.
  */
-export function encodeHeader(
-  op: AfcOpcode,
-  packetNum: bigint,
-  payloadLen: number,
-): Buffer {
+export function encodeHeader(op: AfcOpcode, packetNum: bigint, payloadLen: number): Buffer {
   const entireLen = AFC_HEADER_SIZE + payloadLen;
   return encodeHeaderExplicit(op, packetNum, entireLen, entireLen);
 }
@@ -118,11 +103,7 @@ export function fatalizeAfcSocket(socket: net.Socket, error: Error): void {
  * Read exactly `n` bytes from a socket, waiting up to timeoutMs.
  * On timeout the socket is destroyed; further reads throw AfcConnectionError.
  */
-export async function readExact(
-  socket: net.Socket,
-  n: number,
-  timeoutMs = 30000,
-): Promise<Buffer> {
+export async function readExact(socket: net.Socket, n: number, timeoutMs = 30000): Promise<Buffer> {
   const state = ensureSocketState(socket);
 
   if (state.buffer.length >= n) {
@@ -132,15 +113,13 @@ export async function readExact(
   }
 
   return await new Promise<Buffer>((resolve, reject) => {
-    const waiter: SocketWaiter = { n, resolve, reject };
+    const waiter: SocketWaiter = {n, resolve, reject};
     state.waiters.push(waiter);
     waiter.timer = setTimeout(() => {
       const idx = state.waiters.indexOf(waiter);
       if (idx >= 0) {
         state.waiters.splice(idx, 1);
-        const err = new AfcConnectionError(
-          `readExact timeout after ${timeoutMs}ms`,
-        );
+        const err = new AfcConnectionError(`readExact timeout after ${timeoutMs}ms`);
         fatalizeAfcSocket(socket, err);
         reject(err);
       }
@@ -151,16 +130,11 @@ export async function readExact(
 /**
  * Read and decode an AFC response header from the socket.
  */
-export async function readAfcHeader(
-  socket: net.Socket,
-  timeoutMs = AFC_OPERATION_TIMEOUT_MS,
-): Promise<AfcHeader> {
+export async function readAfcHeader(socket: net.Socket, timeoutMs = AFC_OPERATION_TIMEOUT_MS): Promise<AfcHeader> {
   const buf = await readExact(socket, AFC_HEADER_SIZE, timeoutMs);
   const magic = buf.subarray(0, 8);
   if (!magic.equals(AFCMAGIC)) {
-    const err = new AfcConnectionError(
-      `Invalid AFC magic: ${magic.toString('hex')}`,
-    );
+    const err = new AfcConnectionError(`Invalid AFC magic: ${magic.toString('hex')}`);
     fatalizeAfcSocket(socket, err);
     throw err;
   }
@@ -180,21 +154,15 @@ export async function readAfcHeader(
 /**
  * Read and decode a full AFC response (header plus payload).
  */
-export async function readAfcResponse(
-  socket: net.Socket,
-  timeoutMs = AFC_OPERATION_TIMEOUT_MS,
-): Promise<AfcResponse> {
+export async function readAfcResponse(socket: net.Socket, timeoutMs = AFC_OPERATION_TIMEOUT_MS): Promise<AfcResponse> {
   const header = await readAfcHeader(socket, timeoutMs);
   const payloadLen = Number(header.entireLength - BigInt(AFC_HEADER_SIZE));
-  const payload =
-    payloadLen > 0
-      ? await readExact(socket, payloadLen, timeoutMs)
-      : Buffer.alloc(0);
+  const payload = payloadLen > 0 ? await readExact(socket, payloadLen, timeoutMs) : Buffer.alloc(0);
   const op = Number(header.operation) as AfcOpcode;
 
   if (op === AfcOpcode.STATUS) {
     const status = Number(readUInt64LE(payload.subarray(0, 8))) as AfcError;
-    return { status, data: Buffer.alloc(0), operation: op, rawHeader: header };
+    return {status, data: Buffer.alloc(0), operation: op, rawHeader: header};
   }
 
   return {
@@ -208,10 +176,7 @@ export async function readAfcResponse(
 /**
  * Write a buffer to the socket, waiting for drain only when the kernel buffer is full.
  */
-export async function writeBufferToSocket(
-  socket: net.Socket,
-  data: Buffer,
-): Promise<void> {
+export async function writeBufferToSocket(socket: net.Socket, data: Buffer): Promise<void> {
   assertSocketReadable(socket);
   if (!data.length) {
     return;
@@ -230,9 +195,7 @@ export async function writeBufferToSocket(
     };
     const onClosed = () => {
       cleanup();
-      reject(
-        new AfcConnectionError('AFC socket closed while waiting for drain'),
-      );
+      reject(new AfcConnectionError('AFC socket closed while waiting for drain'));
     };
     const cleanup = () => {
       socket.off('drain', onDrain);
@@ -296,12 +259,7 @@ export function parseKeyValueNullList(buf: Buffer): Record<string, string> {
   if (arr.length % 2 !== 0) {
     throw new Error('Invalid key/value AFC list (odd number of entries)');
   }
-  return Object.fromEntries(
-    Array.from({ length: arr.length / 2 }, (_, i) => [
-      arr[i * 2],
-      arr[i * 2 + 1],
-    ]),
-  );
+  return Object.fromEntries(Array.from({length: arr.length / 2}, (_, i) => [arr[i * 2], arr[i * 2 + 1]]));
 }
 
 /**
@@ -314,10 +272,7 @@ export function buildFopenPayload(mode: AfcFopenMode, path: string): Buffer {
 /**
  * Build AFC payload for READ operation.
  */
-export function buildReadPayload(
-  handle: bigint | number,
-  size: bigint | number,
-): Buffer {
+export function buildReadPayload(handle: bigint | number, size: bigint | number): Buffer {
   return Buffer.concat([writeUInt64LE(handle), writeUInt64LE(BigInt(size))]);
 }
 
@@ -359,21 +314,14 @@ export function buildRenamePayload(src: string, dst: string): Buffer {
 /**
  * Build AFC payload for LINK_PATH operation.
  */
-export function buildLinkPayload(
-  type: number,
-  target: string,
-  source: string,
-): Buffer {
+export function buildLinkPayload(type: number, target: string, source: string): Buffer {
   return Buffer.concat([writeUInt64LE(type), cstr(target), cstr(source)]);
 }
 
 /**
  * Send a single length-prefixed XML plist on the socket.
  */
-export async function sendOnePlist(
-  socket: net.Socket,
-  request: PlistDictionary,
-): Promise<void> {
+export async function sendOnePlist(socket: net.Socket, request: PlistDictionary): Promise<void> {
   const xml = createPlist(request);
   const body = Buffer.from(xml, 'utf8');
   const header = Buffer.alloc(4);
@@ -394,9 +342,7 @@ export async function recvOnePlist(socket: net.Socket): Promise<any> {
 /**
  * Perform RSD check-in handshake for raw service sockets.
  */
-export async function rsdHandshakeForRawService(
-  socket: net.Socket,
-): Promise<void> {
+export async function rsdHandshakeForRawService(socket: net.Socket): Promise<void> {
   const request = {
     Label: 'appium-internal',
     ProtocolVersion: '2',
@@ -407,9 +353,7 @@ export async function rsdHandshakeForRawService(
   const header = Buffer.alloc(4);
   header.writeUInt32BE(body.length, 0);
   await new Promise<void>((resolve, reject) => {
-    socket.write(Buffer.concat([header, body]), (err) =>
-      err ? reject(err) : resolve(),
-    );
+    socket.write(Buffer.concat([header, body]), (err) => (err ? reject(err) : resolve()));
   });
 
   const first = await recvOnePlist(socket);
@@ -434,12 +378,12 @@ export async function rsdHandshakeForRawService(
 export async function createRawServiceSocket(
   host: string,
   port: number,
-  options: { timeoutMs?: number; performHandshake?: boolean } = {},
+  options: {timeoutMs?: number; performHandshake?: boolean} = {},
 ): Promise<net.Socket> {
-  const { timeoutMs = 10000, performHandshake = true } = options;
+  const {timeoutMs = 10000, performHandshake = true} = options;
 
   const socket = await new Promise<net.Socket>((resolve, reject) => {
-    const conn = net.createConnection({ host, port }, () => {
+    const conn = net.createConnection({host, port}, () => {
       conn.setKeepAlive(true);
       conn.setNoDelay(true);
       resolve(conn);
@@ -487,9 +431,7 @@ export function cleanupServiceSocket(socket: net.Socket, error?: Error): void {
 
 function assertSocketReadable(socket: net.Socket): void {
   if (FATAL_SOCKETS.has(socket)) {
-    throw new AfcConnectionError(
-      'AFC connection is closed (prior read timeout or fatal I/O error)',
-    );
+    throw new AfcConnectionError('AFC connection is closed (prior read timeout or fatal I/O error)');
   }
   if (socket.destroyed) {
     throw new AfcConnectionError('AFC socket is destroyed');

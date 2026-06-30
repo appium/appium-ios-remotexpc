@@ -1,11 +1,12 @@
-import { logger } from '@appium/support';
-import { expect } from 'chai';
-import { after, before, describe, it } from 'node:test';
+import {after, before, describe, it} from 'node:test';
 
-import type { DVTInstruments, NetworkEvent } from '../../../src/index.js';
-import { NetworkMessageType } from '../../../src/index.js';
+import {logger} from '@appium/support';
+import {expect} from 'chai';
+
+import type {DVTInstruments, NetworkEvent} from '../../../src/index.js';
+import {NetworkMessageType} from '../../../src/index.js';
 import * as Services from '../../../src/services.js';
-import { requireDeviceUdid } from '../helpers/device.js';
+import {requireDeviceUdid} from '../helpers/device.js';
 
 const log = logger.getLogger('NetworkMonitor.test');
 log.level = 'debug';
@@ -15,27 +16,25 @@ async function findEventOfType<K extends NetworkEvent['type']>(
   eventType: K,
   maxAttempts: number = 50,
   timeoutMs: number = 10000,
-): Promise<Extract<NetworkEvent, { type: K }>> {
+): Promise<Extract<NetworkEvent, {type: K}>> {
   const startTime = Date.now();
   let eventCount = 0;
 
   for await (const event of networkMonitor.events()) {
     if (event.type === eventType) {
-      return event as Extract<NetworkEvent, { type: K }>;
+      return event as Extract<NetworkEvent, {type: K}>;
     }
 
     eventCount++;
     if (eventCount >= maxAttempts || Date.now() - startTime > timeoutMs) {
-      throw new Error(
-        `Failed to receive ${eventType} event within ${maxAttempts} attempts or ${timeoutMs}ms timeout`,
-      );
+      throw new Error(`Failed to receive ${eventType} event within ${maxAttempts} attempts or ${timeoutMs}ms timeout`);
     }
   }
 
   throw new Error(`Event stream ended without receiving ${eventType} event`);
 }
 
-describe('NetworkMonitor', { timeout: 60000 }, function () {
+describe('NetworkMonitor', {timeout: 60000}, function () {
   let dvtServiceConnection: DVTInstruments | null = null;
   let udid: string;
 
@@ -68,15 +67,7 @@ describe('NetworkMonitor', { timeout: 60000 }, function () {
       const result = await Promise.race([
         nextPromise,
         new Promise<IteratorResult<NetworkEvent>>((resolve, reject) =>
-          setTimeout(
-            () =>
-              reject(
-                new Error(
-                  'Network monitor iterator did not stop after stopMonitoring',
-                ),
-              ),
-            5000,
-          ),
+          setTimeout(() => reject(new Error('Network monitor iterator did not stop after stopMonitoring')), 5000),
         ),
       ]);
 
@@ -85,12 +76,7 @@ describe('NetworkMonitor', { timeout: 60000 }, function () {
           iterator.next(),
           new Promise<IteratorResult<NetworkEvent>>((resolve, reject) =>
             setTimeout(
-              () =>
-                reject(
-                  new Error(
-                    'Network monitor iterator did not terminate after stopMonitoring',
-                  ),
-                ),
+              () => reject(new Error('Network monitor iterator did not terminate after stopMonitoring')),
               5000,
             ),
           ),
@@ -130,15 +116,9 @@ describe('NetworkMonitor', { timeout: 60000 }, function () {
     it('should receive interface detection events', async function () {
       const networkMonitor = dvtServiceConnection!.networkMonitor;
 
-      const interfaceEvent = await findEventOfType(
-        networkMonitor,
-        NetworkMessageType.INTERFACE_DETECTION,
-        250,
-      );
+      const interfaceEvent = await findEventOfType(networkMonitor, NetworkMessageType.INTERFACE_DETECTION, 250);
 
-      expect(interfaceEvent.type).to.equal(
-        NetworkMessageType.INTERFACE_DETECTION,
-      );
+      expect(interfaceEvent.type).to.equal(NetworkMessageType.INTERFACE_DETECTION);
       expect(interfaceEvent).to.have.property('interfaceIndex');
       expect(interfaceEvent).to.have.property('name');
     });
@@ -146,11 +126,7 @@ describe('NetworkMonitor', { timeout: 60000 }, function () {
     it('should receive connection detection events', async function () {
       const networkMonitor = dvtServiceConnection!.networkMonitor;
 
-      const connectionEvent = await findEventOfType(
-        networkMonitor,
-        NetworkMessageType.CONNECTION_DETECTION,
-        30,
-      );
+      const connectionEvent = await findEventOfType(networkMonitor, NetworkMessageType.CONNECTION_DETECTION, 30);
 
       expect(connectionEvent.localAddress).to.have.property('address');
       expect(connectionEvent.localAddress).to.have.property('port');
@@ -163,11 +139,7 @@ describe('NetworkMonitor', { timeout: 60000 }, function () {
     it('should receive connection update events', async function () {
       const networkMonitor = dvtServiceConnection!.networkMonitor;
 
-      const updateEvent = await findEventOfType(
-        networkMonitor,
-        NetworkMessageType.CONNECTION_UPDATE,
-        200,
-      );
+      const updateEvent = await findEventOfType(networkMonitor, NetworkMessageType.CONNECTION_UPDATE, 200);
 
       expect(updateEvent).to.have.property('rxPackets');
       expect(updateEvent).to.have.property('rxBytes');

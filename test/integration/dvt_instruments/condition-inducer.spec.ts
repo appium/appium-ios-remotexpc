@@ -1,15 +1,16 @@
-import { logger } from '@appium/support';
-import { expect } from 'chai';
-import { after, before, describe, it } from 'node:test';
+import {after, before, describe, it} from 'node:test';
 
-import type { ConditionGroup, DVTInstruments } from '../../../src/index.js';
+import {logger} from '@appium/support';
+import {expect} from 'chai';
+
+import type {ConditionGroup, DVTInstruments} from '../../../src/index.js';
 import * as Services from '../../../src/services.js';
-import { requireDeviceUdid } from '../helpers/device.js';
+import {requireDeviceUdid} from '../helpers/device.js';
 
 const log = logger.getLogger('ConditionInducer.test');
 log.level = 'debug';
 
-describe('Condition Inducer Instrument', { timeout: 30000 }, function () {
+describe('Condition Inducer Instrument', {timeout: 30000}, function () {
   let dvtServiceConnection: DVTInstruments | null = null;
   let udid: string;
 
@@ -33,8 +34,7 @@ describe('Condition Inducer Instrument', { timeout: 30000 }, function () {
 
   describe('List Available Conditions', () => {
     it('should list all available condition inducers', async () => {
-      const groups: ConditionGroup[] =
-        await dvtServiceConnection!.conditionInducer.list();
+      const groups: ConditionGroup[] = await dvtServiceConnection!.conditionInducer.list();
 
       expect(groups).to.be.an('array');
       expect(groups.length).to.be.greaterThan(0);
@@ -55,17 +55,13 @@ describe('Condition Inducer Instrument', { timeout: 30000 }, function () {
     });
 
     it('should find network condition profiles', async () => {
-      const groups: ConditionGroup[] =
-        await dvtServiceConnection!.conditionInducer.list();
+      const groups: ConditionGroup[] = await dvtServiceConnection!.conditionInducer.list();
 
       // Look for network-related conditions
       const hasNetworkConditions = groups.some(
         (group) =>
           group.identifier.toLowerCase().includes('network') ||
-          (group.profiles &&
-            group.profiles.some((p) =>
-              p.identifier.toLowerCase().includes('network'),
-            )),
+          (group.profiles && group.profiles.some((p) => p.identifier.toLowerCase().includes('network'))),
       );
       expect(hasNetworkConditions).to.be.true;
     });
@@ -82,36 +78,27 @@ describe('Condition Inducer Instrument', { timeout: 30000 }, function () {
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       // verify whether isActive is true for the network profile identifier - SlowNetworkCondition
-      const groups: ConditionGroup[] =
-        await dvtServiceConnection!.conditionInducer.list();
+      const groups: ConditionGroup[] = await dvtServiceConnection!.conditionInducer.list();
 
-      const networkGroup = groups.find(
-        (g) => g.identifier === 'SlowNetworkCondition',
-      );
-      const networkProfileIdentifierStatus = networkGroup
-        ? networkGroup.isActive
-        : false;
+      const networkGroup = groups.find((g) => g.identifier === 'SlowNetworkCondition');
+      const networkProfileIdentifierStatus = networkGroup ? networkGroup.isActive : false;
 
       expect(networkProfileIdentifierStatus).to.be.true;
 
       await dvtServiceConnection!.conditionInducer.disable();
 
       // check that disable works
-      const groupsAfterDisable: ConditionGroup[] =
-        await dvtServiceConnection!.conditionInducer.list();
-      const networkGroupAfterDisable = groupsAfterDisable.find(
-        (g) => g.identifier === 'SlowNetworkCondition',
-      );
-      const networkProfileIdentifierStatusAfterDisable =
-        networkGroupAfterDisable ? networkGroupAfterDisable.isActive : false;
+      const groupsAfterDisable: ConditionGroup[] = await dvtServiceConnection!.conditionInducer.list();
+      const networkGroupAfterDisable = groupsAfterDisable.find((g) => g.identifier === 'SlowNetworkCondition');
+      const networkProfileIdentifierStatusAfterDisable = networkGroupAfterDisable
+        ? networkGroupAfterDisable.isActive
+        : false;
       expect(networkProfileIdentifierStatusAfterDisable).to.be.false;
     });
 
     it('should handle invalid profile identifier gracefully', async () => {
       try {
-        await dvtServiceConnection!.conditionInducer.set(
-          'invalid.profile.identifier.12345',
-        );
+        await dvtServiceConnection!.conditionInducer.set('invalid.profile.identifier.12345');
         expect.fail('Should have thrown an error for invalid profile');
       } catch (error: any) {
         expect(error).to.exist;

@@ -1,14 +1,10 @@
-import { expect } from 'chai';
-import { createConnection } from 'node:net';
-import { after, before, describe, it } from 'node:test';
+import {createConnection} from 'node:net';
+import {after, before, describe, it} from 'node:test';
 
-import {
-  DevicePortForwarder,
-  connectViaTunnel,
-  connectViaUsbmux,
-  createUsbmux,
-} from '../../src/index.js';
-import { requireDeviceUdid } from './helpers/device.js';
+import {expect} from 'chai';
+
+import {DevicePortForwarder, connectViaTunnel, connectViaUsbmux, createUsbmux} from '../../src/index.js';
+import {requireDeviceUdid} from './helpers/device.js';
 
 /**
  * Integration tests for {@link DevicePortForwarder} with usbmux and tunnel registry
@@ -56,11 +52,7 @@ async function assertUpstreamConnects(
     const timer = setTimeout(() => {
       cleanupListeners();
       clientSocket.destroy();
-      reject(
-        new Error(
-          `Timed out after ${timeoutMs}ms waiting for upstream (check tunnel listener / device port)`,
-        ),
-      );
+      reject(new Error(`Timed out after ${timeoutMs}ms waiting for upstream (check tunnel listener / device port)`));
     }, timeoutMs);
 
     const cleanupListeners = (): void => {
@@ -78,17 +70,13 @@ async function assertUpstreamConnects(
     const onUpstreamErr = (err: unknown): void => {
       cleanupListeners();
       clientSocket.destroy();
-      reject(
-        err instanceof Error
-          ? err
-          : new Error(`Upstream connect failed: ${String(err)}`),
-      );
+      reject(err instanceof Error ? err : new Error(`Upstream connect failed: ${String(err)}`));
     };
 
     forwarder.once('upstreamConnected', onUpstreamOk);
     forwarder.once('upstreamConnectError', onUpstreamErr);
 
-    const clientSocket = createConnection({ host: localHost, port: localPort });
+    const clientSocket = createConnection({host: localHost, port: localPort});
     clientSocket.once('error', (err: Error) => {
       cleanupListeners();
       clientSocket.destroy();
@@ -105,13 +93,9 @@ async function resolveUdid(requestedUdid?: string): Promise<string> {
       throw new Error('No devices found via usbmux.');
     }
     if (requestedUdid) {
-      const match = devices.find(
-        (device) => device.Properties.SerialNumber === requestedUdid,
-      );
+      const match = devices.find((device) => device.Properties.SerialNumber === requestedUdid);
       if (!match) {
-        throw new Error(
-          `Requested UDID not found via usbmux: ${requestedUdid}`,
-        );
+        throw new Error(`Requested UDID not found via usbmux: ${requestedUdid}`);
       }
       return requestedUdid;
     }
@@ -121,16 +105,10 @@ async function resolveUdid(requestedUdid?: string): Promise<string> {
   }
 }
 
-describe('Port forwarding (usbmux)', { timeout: 30000 }, function () {
+describe('Port forwarding (usbmux)', {timeout: 30000}, function () {
   const localHost = process.env.PORT_FORWARD_HOST ?? '127.0.0.1';
-  const localPort = Number.parseInt(
-    process.env.PORT_FORWARD_LOCAL_PORT ?? '18100',
-    10,
-  );
-  const devicePort = Number.parseInt(
-    process.env.PORT_FORWARD_DEVICE_PORT ?? '',
-    10,
-  );
+  const localPort = Number.parseInt(process.env.PORT_FORWARD_LOCAL_PORT ?? '18100', 10);
+  const devicePort = Number.parseInt(process.env.PORT_FORWARD_DEVICE_PORT ?? '', 10);
   let requestedUdid: string;
 
   let forwarder: DevicePortForwarder | undefined;
@@ -164,18 +142,14 @@ describe('Port forwarding (usbmux)', { timeout: 30000 }, function () {
   });
 });
 
-describe('Port forwarding (tunnel)', { timeout: 30000 }, function () {
+describe('Port forwarding (tunnel)', {timeout: 30000}, function () {
   const localHost = process.env.PORT_FORWARD_HOST ?? '127.0.0.1';
   const localPort = Number.parseInt(
-    process.env.PORT_FORWARD_TUNNEL_LOCAL_PORT ??
-      process.env.PORT_FORWARD_LOCAL_PORT ??
-      '18101',
+    process.env.PORT_FORWARD_TUNNEL_LOCAL_PORT ?? process.env.PORT_FORWARD_LOCAL_PORT ?? '18101',
     10,
   );
   const devicePort = Number.parseInt(
-    process.env.PORT_FORWARD_TUNNEL_DEVICE_PORT ??
-      process.env.PORT_FORWARD_DEVICE_PORT ??
-      '',
+    process.env.PORT_FORWARD_TUNNEL_DEVICE_PORT ?? process.env.PORT_FORWARD_DEVICE_PORT ?? '',
     10,
   );
   const requestedUdid = requireDeviceUdid();

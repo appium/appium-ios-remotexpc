@@ -18,8 +18,8 @@
     "build:es": "tsc",
     "build": "run-s clean:* build:es",
     "clean:build": "rimraf ./build",
-    "format:check": "prettier --check \"{src,test}/**/*.{ts,tsx}\"",
-    "format": "prettier --write \"{src,test}/**/*.{ts,tsx}\"",
+    "format:check": "oxfmt check \"{src,test}/**/*.{ts,tsx}\"",
+    "format": "oxfmt \"{src,test}/**/*.{ts,tsx}\"",
     "lint:fix": "eslint src scripts --fix",
     "lint": "eslint src scripts",
     "pair-appletv": "sudo node scripts/pair-appletv.mjs",
@@ -84,7 +84,6 @@
     "@appium/tsconfig": "^1.1.2",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/git": "^10.0.1",
-    "@trivago/prettier-plugin-sort-imports": "^6.0.2",
     "@types/async-lock": "^1.4.2",
     "@types/chai": "^5.2.1",
     "@types/node": "^25.0.2",
@@ -94,7 +93,7 @@
     "esmock": "^2.7.3",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.2",
-    "prettier": "^3.9.1",
+    "oxfmt": "^0.x",
     "rimraf": "^6.0.1",
     "semantic-release": "^25.0.2",
     "sinon": "^22.0.0",
@@ -124,7 +123,7 @@
   "lint-staged": {
     "*.ts": [
       "eslint --fix",
-      "prettier --write"
+      "oxfmt"
     ]
   }
 }

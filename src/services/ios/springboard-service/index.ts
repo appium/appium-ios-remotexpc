@@ -1,9 +1,6 @@
-import {
-  type PlistDictionary,
-  type SpringboardService as SpringboardInterface,
-} from '../../../lib/types.js';
-import { type ServiceConnection } from '../../../service-connection.js';
-import { BaseService } from '../base-service.js';
+import {type PlistDictionary, type SpringboardService as SpringboardInterface} from '../../../lib/types.js';
+import {type ServiceConnection} from '../../../service-connection.js';
+import {BaseService} from '../base-service.js';
 
 enum InterfaceOrientation {
   PORTRAIT = 1, // 0 degrees (default)
@@ -13,8 +10,7 @@ enum InterfaceOrientation {
 }
 
 class SpringBoardService extends BaseService implements SpringboardInterface {
-  static readonly RSD_SERVICE_NAME =
-    'com.apple.springboardservices.shim.remote';
+  static readonly RSD_SERVICE_NAME = 'com.apple.springboardservices.shim.remote';
   private _conn: ServiceConnection | null = null;
 
   async getIconState(): Promise<PlistDictionary> {
@@ -95,9 +91,7 @@ class SpringBoardService extends BaseService implements SpringboardInterface {
     }
   }
 
-  async getWallpaperPreviewImage(
-    wallpaperName: 'homescreen' | 'lockscreen',
-  ): Promise<Buffer> {
+  async getWallpaperPreviewImage(wallpaperName: 'homescreen' | 'lockscreen'): Promise<Buffer> {
     try {
       const req = {
         command: 'getWallpaperPreviewImage',
@@ -107,10 +101,7 @@ class SpringBoardService extends BaseService implements SpringboardInterface {
       return res.pngData as Buffer;
     } catch (error) {
       if (error instanceof Error) {
-        throw new Error(
-          `Failed to get wallpaper preview image: ${error.message}`,
-          { cause: error },
-        );
+        throw new Error(`Failed to get wallpaper preview image: ${error.message}`, {cause: error});
       }
       throw error;
     }
@@ -124,10 +115,7 @@ class SpringBoardService extends BaseService implements SpringboardInterface {
       return await this.sendRequestAndReceive(req);
     } catch (error) {
       if (error instanceof Error) {
-        throw new Error(
-          `Failed to get homescreen icon metrics: ${error.message}`,
-          { cause: error },
-        );
+        throw new Error(`Failed to get homescreen icon metrics: ${error.message}`, {cause: error});
       }
       throw error;
     }
@@ -142,10 +130,7 @@ class SpringBoardService extends BaseService implements SpringboardInterface {
       return res.interfaceOrientation as InterfaceOrientation;
     } catch (error) {
       if (error instanceof Error) {
-        throw new Error(
-          `Failed to get interface orientation: ${error.message}`,
-          { cause: error },
-        );
+        throw new Error(`Failed to get interface orientation: ${error.message}`, {cause: error});
       }
       throw error;
     }
@@ -176,15 +161,11 @@ class SpringBoardService extends BaseService implements SpringboardInterface {
     if (this._conn) {
       return this._conn;
     }
-    this._conn = await this.startLockdownService(
-      SpringBoardService.RSD_SERVICE_NAME,
-    );
+    this._conn = await this.startLockdownService(SpringBoardService.RSD_SERVICE_NAME);
     return this._conn;
   }
 
-  private async sendRequestAndReceive(
-    request: PlistDictionary,
-  ): Promise<PlistDictionary> {
+  private async sendRequestAndReceive(request: PlistDictionary): Promise<PlistDictionary> {
     if (!this._conn) {
       this._conn = await this.connectToSpringboardService();
     }
@@ -194,4 +175,4 @@ class SpringBoardService extends BaseService implements SpringboardInterface {
   }
 }
 
-export { SpringBoardService, InterfaceOrientation };
+export {SpringBoardService, InterfaceOrientation};

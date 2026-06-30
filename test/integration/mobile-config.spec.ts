@@ -1,16 +1,17 @@
-import { logger } from '@appium/support';
-import { expect } from 'chai';
-import { after, before, describe, it } from 'node:test';
+import {after, before, describe, it} from 'node:test';
 
-import type { MobileConfigService } from '../../src/lib/types.js';
+import {logger} from '@appium/support';
+import {expect} from 'chai';
+
+import type {MobileConfigService} from '../../src/lib/types.js';
 import * as Services from '../../src/services.js';
-import { requireDeviceUdid } from './helpers/device.js';
+import {requireDeviceUdid} from './helpers/device.js';
 
 const log = logger.getLogger('MobileConfigService.test');
 // Set MobileConfigService logger to info level
 log.level = 'info';
 
-describe('MobileConfigService', { timeout: 60000 }, function () {
+describe('MobileConfigService', {timeout: 60000}, function () {
   let mobileConfigService: MobileConfigService;
   let udid: string;
 
@@ -38,9 +39,7 @@ describe('MobileConfigService', { timeout: 60000 }, function () {
   it('install profile', async function () {
     try {
       // Make sure to provide a valid .mobileconfig file path
-      await mobileConfigService.installProfileFromPath(
-        'pathto/your.mobileconfig',
-      );
+      await mobileConfigService.installProfileFromPath('pathto/your.mobileconfig');
       // This only installs on the iPhone, to use it must be installed manually
     } catch (error) {
       log.error('Error while installing profile:', (error as Error).message);

@@ -1,22 +1,18 @@
-import { Transform, type TransformCallback } from 'node:stream';
+import {Transform, type TransformCallback} from 'node:stream';
 
-import type { PlistDictionary } from '../types.js';
-import { UTF8_ENCODING } from './constants.js';
-import { createPlist } from './plist-creator.js';
+import type {PlistDictionary} from '../types.js';
+import {UTF8_ENCODING} from './constants.js';
+import {createPlist} from './plist-creator.js';
 
 /**
  * Encodes JavaScript objects to plist format with length prefix
  */
 export class PlistServiceEncoder extends Transform {
   constructor() {
-    super({ objectMode: true });
+    super({objectMode: true});
   }
 
-  _transform(
-    data: PlistDictionary,
-    encoding: BufferEncoding,
-    callback: TransformCallback,
-  ): void {
+  _transform(data: PlistDictionary, encoding: BufferEncoding, callback: TransformCallback): void {
     try {
       // Convert object to plist
       const plist = createPlist(data);

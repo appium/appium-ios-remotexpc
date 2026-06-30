@@ -1,10 +1,11 @@
-import { expect } from 'chai';
-import { EventEmitter } from 'node:events';
-import { describe, it } from 'node:test';
+import {EventEmitter} from 'node:events';
+import {describe, it} from 'node:test';
 
-import { decodeMessage } from '../../../src/lib/remote-xpc/xpc-protocol.js';
-import type { XPCDictionary } from '../../../src/lib/types.js';
-import { PasteboardService } from '../../../src/services/ios/pasteboard/index.js';
+import {expect} from 'chai';
+
+import {decodeMessage} from '../../../src/lib/remote-xpc/xpc-protocol.js';
+import type {XPCDictionary} from '../../../src/lib/types.js';
+import {PasteboardService} from '../../../src/services/ios/pasteboard/index.js';
 
 type Responder = (sentBody: XPCDictionary) => XPCDictionary | null;
 
@@ -18,7 +19,7 @@ class FakeTransport extends EventEmitter {
   }
 
   sendDataFrame(payload: Buffer): void {
-    const { message } = decodeMessage(payload);
+    const {message} = decodeMessage(payload);
     const body = message.body as XPCDictionary;
     this.sentBodies.push(body);
     const reply = this.responder(body);
@@ -47,7 +48,7 @@ describe('PasteboardService', function () {
     it('getText sends PULL with the default allResolved data policy', async function () {
       const reply = {
         command: 'PULL_REPLY',
-        pasteboard: { items: [buildTextItem('hello')] },
+        pasteboard: {items: [buildTextItem('hello')]},
       };
       const fake = new FakeTransport(() => reply);
       const service = new TestPasteboardService(fake);
@@ -57,18 +58,16 @@ describe('PasteboardService', function () {
       expect(fake.sentBodies[0]).to.deep.equal({
         command: 'PULL',
         pasteboardName: 'general',
-        dataPolicy: { allResolved: {} },
+        dataPolicy: {allResolved: {}},
       });
-      expect(fake.sentBodies[0]).not.to.have.property(
-        'CoreDevice.featureIdentifier',
-      );
+      expect(fake.sentBodies[0]).not.to.have.property('CoreDevice.featureIdentifier');
       expect(result).to.equal('hello');
     });
 
     it('setText sends SET with a text item', async function () {
       const reply = {
         command: 'SET_REPLY',
-        pasteboard: { items: [] as XPCDictionary[] },
+        pasteboard: {items: [] as XPCDictionary[]},
       };
       const fake = new FakeTransport(() => reply);
       const service = new TestPasteboardService(fake);
@@ -85,7 +84,7 @@ describe('PasteboardService', function () {
     it('getText extracts text from the raw PULL reply', async function () {
       const fake = new FakeTransport(() => ({
         command: 'PULL_REPLY',
-        pasteboard: { items: [buildTextItem('hello')] },
+        pasteboard: {items: [buildTextItem('hello')]},
       }));
       const service = new TestPasteboardService(fake);
 
@@ -93,7 +92,7 @@ describe('PasteboardService', function () {
     });
 
     it('setUrl sends SET with URL and text UTIs', async function () {
-      const fake = new FakeTransport(() => ({ command: 'SET_REPLY' }));
+      const fake = new FakeTransport(() => ({command: 'SET_REPLY'}));
       const service = new TestPasteboardService(fake);
 
       await service.setUrl('https://example.test/path');
@@ -108,18 +107,16 @@ describe('PasteboardService', function () {
     it('getUrl extracts URL text from the raw PULL reply', async function () {
       const fake = new FakeTransport(() => ({
         command: 'PULL_REPLY',
-        pasteboard: { items: [buildUrlItem('https://example.test/path')] },
+        pasteboard: {items: [buildUrlItem('https://example.test/path')]},
       }));
       const service = new TestPasteboardService(fake);
 
-      expect((await service.getUrl())?.toString()).to.equal(
-        'https://example.test/path',
-      );
+      expect((await service.getUrl())?.toString()).to.equal('https://example.test/path');
     });
 
     it('setImage sends SET with a PNG payload', async function () {
       const image = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
-      const fake = new FakeTransport(() => ({ command: 'SET_REPLY' }));
+      const fake = new FakeTransport(() => ({command: 'SET_REPLY'}));
       const service = new TestPasteboardService(fake);
 
       await service.setImage(image);
@@ -135,7 +132,7 @@ describe('PasteboardService', function () {
       const image = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
       const fake = new FakeTransport(() => ({
         command: 'PULL_REPLY',
-        pasteboard: { items: [buildImageItem(image)] },
+        pasteboard: {items: [buildImageItem(image)]},
       }));
       const service = new TestPasteboardService(fake);
 
@@ -149,9 +146,9 @@ function buildTextItem(text: string): XPCDictionary {
   return {
     types: ['public.utf8-plain-text', 'public.plain-text', 'public.text'],
     data: {
-      'public.utf8-plain-text': { data: Buffer.from(payload) },
-      'public.plain-text': { data: Buffer.from(payload) },
-      'public.text': { data: Buffer.from(payload) },
+      'public.utf8-plain-text': {data: Buffer.from(payload)},
+      'public.plain-text': {data: Buffer.from(payload)},
+      'public.text': {data: Buffer.from(payload)},
     },
   };
 }
@@ -159,17 +156,12 @@ function buildTextItem(text: string): XPCDictionary {
 function buildUrlItem(url: string): XPCDictionary {
   const payload = Buffer.from(url, 'utf8');
   return {
-    types: [
-      'public.url',
-      'public.utf8-plain-text',
-      'public.plain-text',
-      'public.text',
-    ],
+    types: ['public.url', 'public.utf8-plain-text', 'public.plain-text', 'public.text'],
     data: {
-      'public.url': { data: Buffer.from(payload) },
-      'public.utf8-plain-text': { data: Buffer.from(payload) },
-      'public.plain-text': { data: Buffer.from(payload) },
-      'public.text': { data: Buffer.from(payload) },
+      'public.url': {data: Buffer.from(payload)},
+      'public.utf8-plain-text': {data: Buffer.from(payload)},
+      'public.plain-text': {data: Buffer.from(payload)},
+      'public.text': {data: Buffer.from(payload)},
     },
   };
 }
@@ -178,7 +170,7 @@ function buildImageItem(image: Buffer): XPCDictionary {
   return {
     types: ['public.png'],
     data: {
-      'public.png': { data: Buffer.from(image) },
+      'public.png': {data: Buffer.from(image)},
     },
   };
 }

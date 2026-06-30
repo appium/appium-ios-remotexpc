@@ -1,17 +1,18 @@
-import { logger } from '@appium/support';
-import { expect } from 'chai';
-import { after, before, describe, it } from 'node:test';
+import {after, before, describe, it} from 'node:test';
 
-import type { SpringboardService } from '../../src/lib/types.js';
+import {logger} from '@appium/support';
+import {expect} from 'chai';
+
+import type {SpringboardService} from '../../src/lib/types.js';
 import * as Services from '../../src/services.js';
-import { InterfaceOrientation } from '../../src/services/ios/springboard-service/index.js';
-import { requireDeviceUdid } from './helpers/device.js';
+import {InterfaceOrientation} from '../../src/services/ios/springboard-service/index.js';
+import {requireDeviceUdid} from './helpers/device.js';
 
 const log = logger.getLogger('SpringBoardService.test');
 // Set SpringBoardService logger to info level
 log.level = 'info';
 
-describe('SpringBoardService', { timeout: 60000 }, function () {
+describe('SpringBoardService', {timeout: 60000}, function () {
   let springboardService: SpringboardService;
   let udid: string;
 
@@ -77,25 +78,18 @@ describe('SpringBoardService', { timeout: 60000 }, function () {
 
       try {
         const pngData = await springboardService.getIconPNGData(bundleId);
-        log.debug(
-          `Retrieved PNG data for ${bundleId}, size: ${pngData.length} bytes`,
-        );
+        log.debug(`Retrieved PNG data for ${bundleId}, size: ${pngData.length} bytes`);
 
         expect(pngData).to.be.instanceOf(Buffer);
         expect(pngData.length).to.be.greaterThan(0);
 
         // Verify it's actually PNG data by checking the PNG signature
-        const pngSignature = Buffer.from([
-          0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
-        ]);
+        const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
         expect(pngData.subarray(0, 8)).to.deep.equal(pngSignature);
 
         expect(pngData.length).to.be.greaterThan(10000); // Typical icon size
       } catch (error) {
-        log.error(
-          `Error getting PNG data for ${bundleId}:`,
-          (error as Error).message,
-        );
+        log.error(`Error getting PNG data for ${bundleId}:`, (error as Error).message);
         throw error;
       }
     });
@@ -104,8 +98,7 @@ describe('SpringBoardService', { timeout: 60000 }, function () {
       const invalidBundleId = 'com.invalid.nonexistent.app';
 
       try {
-        const invalid =
-          await springboardService.getIconPNGData(invalidBundleId);
+        const invalid = await springboardService.getIconPNGData(invalidBundleId);
 
         // Invalid bundle IDs will return some default icon data
         // also have length between 7000 and 10000 bytes
@@ -113,15 +106,10 @@ describe('SpringBoardService', { timeout: 60000 }, function () {
         expect(invalid.length).to.be.lessThan(10000);
 
         // Verify it's actually PNG data by checking the PNG signature
-        const pngSignature = Buffer.from([
-          0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
-        ]);
+        const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
         expect(invalid.subarray(0, 8)).to.deep.equal(pngSignature);
       } catch (error) {
-        log.error(
-          `Error getting PNG data for ${invalidBundleId}:`,
-          (error as Error).message,
-        );
+        log.error(`Error getting PNG data for ${invalidBundleId}:`, (error as Error).message);
         throw error;
       }
     });
@@ -131,10 +119,7 @@ describe('SpringBoardService', { timeout: 60000 }, function () {
     it('should retrieve homescreen icon metrics', async function () {
       try {
         const metrics = await springboardService.getHomescreenIconMetrics();
-        log.debug(
-          'Retrieved homescreen icon metrics:',
-          JSON.stringify(metrics, null, 2),
-        );
+        log.debug('Retrieved homescreen icon metrics:', JSON.stringify(metrics, null, 2));
 
         expect(metrics).to.be.an('object');
         expect(metrics).to.not.be.empty;
@@ -142,10 +127,7 @@ describe('SpringBoardService', { timeout: 60000 }, function () {
           expect(key.startsWith('homeScreen')).to.be.true;
         });
       } catch (error) {
-        log.error(
-          'Error getting homescreen icon metrics:',
-          (error as Error).message,
-        );
+        log.error('Error getting homescreen icon metrics:', (error as Error).message);
         throw error;
       }
     });
@@ -158,10 +140,7 @@ describe('SpringBoardService', { timeout: 60000 }, function () {
         log.debug('Retrieved interface orientation:', orientation);
         expect(orientation).to.be.oneOf(Object.values(InterfaceOrientation));
       } catch (error) {
-        log.error(
-          'Error getting interface orientation:',
-          (error as Error).message,
-        );
+        log.error('Error getting interface orientation:', (error as Error).message);
         throw error;
       }
     });
@@ -171,25 +150,17 @@ describe('SpringBoardService', { timeout: 60000 }, function () {
     it('get homescreen wallpaper preview image', async function () {
       try {
         const wallpaperName = 'homescreen';
-        const pngData =
-          await springboardService.getWallpaperPreviewImage(wallpaperName);
-        log.debug(
-          `Retrieved wallpaper preview image for ${wallpaperName}, size: ${pngData.length} bytes`,
-        );
+        const pngData = await springboardService.getWallpaperPreviewImage(wallpaperName);
+        log.debug(`Retrieved wallpaper preview image for ${wallpaperName}, size: ${pngData.length} bytes`);
 
         expect(pngData.length).to.be.greaterThan(0);
         expect(pngData).to.be.instanceOf(Buffer);
 
         // Verify it's actually PNG data by checking the PNG signature
-        const pngSignature = Buffer.from([
-          0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
-        ]);
+        const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
         expect(pngData.subarray(0, 8)).to.deep.equal(pngSignature);
       } catch (error) {
-        log.error(
-          'Error getting wallpaper preview image:',
-          (error as Error).message,
-        );
+        log.error('Error getting wallpaper preview image:', (error as Error).message);
         throw error;
       }
     });
@@ -197,25 +168,17 @@ describe('SpringBoardService', { timeout: 60000 }, function () {
     it('get lockscreen wallpaper preview image', async function () {
       try {
         const wallpaperName = 'lockscreen';
-        const pngData =
-          await springboardService.getWallpaperPreviewImage(wallpaperName);
-        log.debug(
-          `Retrieved wallpaper preview image for ${wallpaperName}, size: ${pngData.length} bytes`,
-        );
+        const pngData = await springboardService.getWallpaperPreviewImage(wallpaperName);
+        log.debug(`Retrieved wallpaper preview image for ${wallpaperName}, size: ${pngData.length} bytes`);
 
         expect(pngData.length).to.be.greaterThan(0);
         expect(pngData).to.be.instanceOf(Buffer);
 
         // Verify it's actually PNG data by checking the PNG signature
-        const pngSignature = Buffer.from([
-          0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
-        ]);
+        const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
         expect(pngData.subarray(0, 8)).to.deep.equal(pngSignature);
       } catch (error) {
-        log.error(
-          'Error getting wallpaper preview image:',
-          (error as Error).message,
-        );
+        log.error('Error getting wallpaper preview image:', (error as Error).message);
         throw error;
       }
     });
@@ -236,10 +199,7 @@ describe('SpringBoardService', { timeout: 60000 }, function () {
         // Verify that we get consistent results
         expect(iconState1).to.deep.equal(iconState2);
       } catch (error) {
-        log.error(
-          'Error testing connection persistence:',
-          (error as Error).message,
-        );
+        log.error('Error testing connection persistence:', (error as Error).message);
         throw error;
       }
     });
