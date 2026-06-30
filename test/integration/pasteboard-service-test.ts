@@ -52,7 +52,8 @@ describe('PasteboardService', function () {
     try {
       await pasteboardService!.setUrl(url);
 
-      expect(await pasteboardService!.getUrl()).to.equal(url);
+      // getUrl() returns a URL object; compare its string form.
+      expect((await pasteboardService!.getUrl())?.toString()).to.equal(url);
     } finally {
       if (originalText !== undefined) {
         await pasteboardService!.setText(originalText);
