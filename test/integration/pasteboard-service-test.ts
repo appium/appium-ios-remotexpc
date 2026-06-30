@@ -12,7 +12,7 @@ describe('PasteboardService', function () {
   this.timeout(60000);
 
   let pasteboardService: PasteboardService | null = null;
-  const udid = process.env.UDID || '00008030-001E290A3EF2402E';
+  const udid = process.env.UDID || '';
 
   before(async function () {
     if (!udid) {
