@@ -1,0 +1,76 @@
+import { logger } from '@appium/support';
+import { expect } from 'chai';
+import { after, before, describe, it } from 'node:test';
+
+import type { DVTInstruments } from '../../../src/lib/types.js';
+import * as Services from '../../../src/services.js';
+import { requireDeviceUdid } from '../helpers/device.js';
+
+const log = logger.getLogger('Graphics.test');
+log.level = 'debug';
+
+describe('Graphics', { timeout: 30000 }, function () {
+  let dvtServiceConnection: DVTInstruments | null = null;
+  let udid: string;
+
+  before(async () => {
+    udid = requireDeviceUdid();
+
+    dvtServiceConnection = await Services.startDVTService(udid);
+  });
+
+  after(async () => {
+    if (dvtServiceConnection) {
+      try {
+        await dvtServiceConnection.dvtService.close();
+      } catch {}
+    }
+  });
+
+  describe('Graphics Sampling', () => {
+    it('should receive graphics logs through async iterator', async () => {
+      const graphics = dvtServiceConnection!.graphics;
+      const messages: unknown[] = [];
+      const maxMessages = 5;
+
+      for await (const msg of graphics.messages()) {
+        // Skip null messages which are sent initially
+        if (msg === null) {
+          log.debug('Skipping null message');
+          continue;
+        }
+
+        log.info('Graphics message:', JSON.stringify(msg));
+        messages.push(msg);
+
+        if (messages.length >= maxMessages) {
+          break;
+        }
+      }
+
+      expect(messages).to.have.lengthOf(maxMessages);
+
+      // Verify we received valid messages
+      for (const msg of messages) {
+        expect(msg).to.exist;
+        expect(msg).to.be.an('object');
+      }
+    });
+
+    it('should handle break in iteration properly', async () => {
+      const graphics = dvtServiceConnection!.graphics;
+
+      let iterationCount = 0;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      for await (const _msg of graphics.messages()) {
+        iterationCount++;
+
+        if (iterationCount === 2) {
+          break;
+        }
+      }
+
+      expect(iterationCount).to.equal(2);
+    });
+  });
+});

@@ -1,0 +1,336 @@
+import { logger } from '@appium/support';
+import { expect } from 'chai';
+import { type TestContext, after, before, describe, it } from 'node:test';
+
+import type { WebInspectorService } from '../../src/index.js';
+import * as Services from '../../src/services.js';
+import { requireDeviceUdid } from './helpers/device.js';
+
+const log = logger.getLogger('WebInspectorService.test');
+log.level = 'debug';
+
+describe('WebInspectorService', { timeout: 60000 }, function () {
+  let service: WebInspectorService;
+  let udid: string;
+  const sessionId = 'test-session-' + Date.now();
+  let realAppId: string | null = null;
+  let realPageId: number | null = null;
+
+  before(async function () {
+    udid = requireDeviceUdid();
+
+    service = await Services.startWebInspectorService(udid);
+  });
+
+  after(async function () {
+    if (service) {
+      await service.close();
+    }
+  });
+
+  it('should connect and have valid connection ID', function () {
+    expect(service).to.not.be.null;
+    const connectionId = service.getConnectionId();
+    expect(connectionId).to.be.a('string');
+    expect(connectionId.length).to.be.greaterThan(0);
+  });
+
+  it('should send messages', async function () {
+    await service.getConnectedApplications();
+    await service.requestApplicationLaunch('com.apple.mobilesafari');
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  });
+
+  it('should receive messages', async function () {
+    const messages: any[] = [];
+
+    // Start listening in background
+    const listenTask = (async () => {
+      for await (const msg of service.listenMessage()) {
+        messages.push(msg);
+      }
+    })();
+
+    await service.getConnectedApplications();
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    expect(messages.length).to.be.greaterThan(0);
+    expect(messages[0]).to.have.property('__selector');
+    expect(messages[0]).to.have.property('__argument');
+
+    await service.stopListeningAsync();
+    await listenTask;
+  });
+
+  describe('Safari Integration', function () {
+    before(async function () {
+      // Find Safari app and page
+      const messages: any[] = [];
+      let foundSafari = false;
+
+      // Start listening in background
+      const listenTask = (async () => {
+        for await (const message of service.listenMessage()) {
+          messages.push(message);
+
+          // Find Safari application
+          if (message.__selector === '_rpc_reportConnectedApplicationList:') {
+            const arg = message.__argument;
+            if (
+              arg &&
+              typeof arg === 'object' &&
+              !Buffer.isBuffer(arg) &&
+              !Array.isArray(arg)
+            ) {
+              const apps = (arg as any).WIRApplicationDictionaryKey;
+              if (apps) {
+                for (const [appId, appData] of Object.entries(apps)) {
+                  if (
+                    (appData as any).WIRApplicationBundleIdentifierKey ===
+                    'com.apple.mobilesafari'
+                  ) {
+                    realAppId = appId;
+                    foundSafari = true;
+                  }
+                }
+              }
+            }
+          }
+
+          // Find Safari page
+          if (
+            message.__selector === '_rpc_applicationSentListing:' &&
+            realAppId
+          ) {
+            const arg = message.__argument;
+            if (
+              arg &&
+              typeof arg === 'object' &&
+              !Buffer.isBuffer(arg) &&
+              !Array.isArray(arg)
+            ) {
+              const appId = (arg as any).WIRApplicationIdentifierKey;
+              if (appId === realAppId) {
+                const listing = (arg as any).WIRListingKey;
+                if (listing) {
+                  const pageIds = Object.keys(listing);
+                  if (pageIds.length > 0) {
+                    realPageId = parseInt(pageIds[0], 10);
+                  }
+                }
+              }
+            }
+          }
+        }
+      })();
+
+      await service.getConnectedApplications();
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      if (realAppId) {
+        await service.forwardGetListing(realAppId);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+
+      await service.stopListeningAsync();
+      await listenTask;
+
+      if (!foundSafari || !realAppId || !realPageId) {
+        throw new Error(
+          'Safari not found. Ensure Safari is open with a webpage loaded.',
+        );
+      }
+    });
+
+    it('should setup inspector socket', async function (ctx: TestContext) {
+      if (!realAppId || !realPageId) {
+        ctx.skip();
+        return;
+      }
+
+      const messages: any[] = [];
+
+      const listenTask = (async () => {
+        for await (const msg of service.listenMessage()) {
+          messages.push(msg);
+        }
+      })();
+
+      // Give the listener time to initialize
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      await service.forwardSocketSetup(sessionId, realAppId, realPageId, false);
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+
+      log.info(messages);
+      expect(messages.length).to.be.greaterThan(0);
+      await service.stopListeningAsync();
+      await listenTask;
+    });
+
+    it('should send CDP commands and receive responses', async function (ctx: TestContext) {
+      if (!realAppId || !realPageId) {
+        ctx.skip();
+        return;
+      }
+
+      const cdpResponses: any[] = [];
+
+      // Start listening in background
+      const listenTask = (async () => {
+        for await (const message of service.listenMessage()) {
+          if (message.__selector === '_rpc_applicationSentData:') {
+            const arg = message.__argument;
+            if (
+              arg &&
+              typeof arg === 'object' &&
+              !Buffer.isBuffer(arg) &&
+              !Array.isArray(arg)
+            ) {
+              const dataKey = (arg as any).WIRMessageDataKey;
+              if (dataKey) {
+                try {
+                  const dataString = Buffer.isBuffer(dataKey)
+                    ? dataKey.toString('utf-8')
+                    : dataKey;
+                  cdpResponses.push(JSON.parse(dataString));
+                } catch (e) {
+                  // Ignore parse errors
+                }
+              }
+            }
+          }
+        }
+      })();
+
+      // Setup socket
+      await service.forwardSocketSetup(sessionId, realAppId, realPageId, false);
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+
+      // Get target ID
+      const targetEvent = cdpResponses.find(
+        (msg) => msg.method === 'Target.targetCreated',
+      );
+
+      if (!targetEvent) {
+        log.error(
+          'CDP responses received:',
+          JSON.stringify(cdpResponses, null, 2),
+        );
+        throw new Error('Target.targetCreated event not received');
+      }
+
+      const targetId = targetEvent.params?.targetInfo?.targetId;
+      expect(targetId).to.be.a('string');
+
+      // Send CDP command via Target.sendMessageToTarget
+      await service.forwardSocketData(sessionId, realAppId, realPageId, {
+        id: 100,
+        method: 'Target.sendMessageToTarget',
+        params: {
+          targetId,
+          message: JSON.stringify({
+            id: 1,
+            method: 'Runtime.evaluate',
+            params: { expression: '1 + 1', returnByValue: true },
+          }),
+        },
+      });
+
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // Parse nested responses
+      const dispatchMessages = cdpResponses.filter(
+        (msg) => msg.method === 'Target.dispatchMessageFromTarget',
+      );
+
+      expect(dispatchMessages.length).to.be.greaterThan(0);
+
+      const nestedResponse = JSON.parse(dispatchMessages[0].params.message);
+      expect(nestedResponse.result).to.exist;
+      expect(nestedResponse.result.result.value).to.equal(2);
+
+      await service.stopListeningAsync();
+      await listenTask;
+    });
+
+    it('should highlight webview on device', async function (ctx: TestContext) {
+      if (!realAppId || !realPageId) {
+        ctx.skip();
+        return;
+      }
+
+      const messages: any[] = [];
+
+      const listenTask = (async () => {
+        for await (const msg of service.listenMessage()) {
+          messages.push(msg);
+        }
+      })();
+
+      log.info(messages);
+      await service.forwardIndicateWebView(realAppId, realPageId, true);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await service.forwardIndicateWebView(realAppId, realPageId, false);
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      await service.stopListeningAsync();
+      await listenTask;
+    });
+  });
+
+  it('should handle automation session request', async function () {
+    const messages: any[] = [];
+
+    const listenTask = (async () => {
+      for await (const msg of service.listenMessage()) {
+        messages.push(msg);
+      }
+    })();
+
+    await service.forwardAutomationSessionRequest(
+      'automation-session-' + Date.now(),
+      'com.apple.mobilesafari',
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await service.stopListeningAsync();
+    await listenTask;
+  });
+
+  it('should stop and restart listening', async function () {
+    let count = 0;
+
+    let listenTask = (async () => {
+      for await (const _ of service.listenMessage()) {
+        count++;
+      }
+    })();
+
+    await service.getConnectedApplications();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    const firstCount = count;
+
+    await service.stopListeningAsync();
+    await listenTask;
+
+    await service.getConnectedApplications();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    expect(count).to.equal(firstCount); // No new messages
+
+    // Second listening session
+    listenTask = (async () => {
+      for await (const _ of service.listenMessage()) {
+        count++;
+      }
+    })();
+
+    await service.getConnectedApplications();
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    expect(count).to.be.greaterThan(firstCount);
+    await service.stopListeningAsync();
+    await listenTask;
+  });
+});
