@@ -1,5 +1,6 @@
 import { expect } from 'chai';
 import net from 'node:net';
+import { describe, it } from 'node:test';
 
 import { readUInt64LE } from '../../../src/services/ios/afc/codec.js';
 import { AFC_HEADER_SIZE } from '../../../src/services/ios/afc/constants.js';

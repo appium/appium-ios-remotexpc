@@ -1,6 +1,7 @@
 import { expect } from 'chai';
 import { once } from 'node:events';
 import { type AddressInfo, createConnection, createServer } from 'node:net';
+import { after, before, describe, it } from 'node:test';
 
 import { readExact } from '../../../src/services/ios/afc/codec.js';
 import { AfcConnectionError } from '../../../src/services/ios/afc/errors.js';

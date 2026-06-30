@@ -1,4 +1,5 @@
 import { expect } from 'chai';
+import { afterEach, beforeEach, describe, it } from 'node:test';
 
 import {
   type TunnelRegistryServer,

@@ -1,4 +1,5 @@
 import { expect } from 'chai';
+import { beforeEach, describe, it } from 'node:test';
 
 import type { NetworkAddress } from '../../../../src/index.js';
 import { NetworkMonitor } from '../../../../src/services/ios/dvt/instruments/network-monitor.js';

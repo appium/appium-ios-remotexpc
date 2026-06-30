@@ -1,5 +1,6 @@
 import { expect } from 'chai';
 import esmock from 'esmock';
+import { describe, it } from 'node:test';
 
 const TEST_UDID = 'test-udid';
 const REGISTRY_PORT = 12_345;

@@ -1,4 +1,5 @@
 import { expect } from 'chai';
+import { describe, it } from 'node:test';
 
 import { TLV8Error } from '../../../../src/lib/apple-tv/errors.js';
 import {

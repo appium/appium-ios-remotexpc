@@ -1,5 +1,6 @@
 import { expect } from 'chai';
 import esmock from 'esmock';
+import { describe, it } from 'node:test';
 import * as sinon from 'sinon';
 
 describe('tunnel-rsd-discovery', function () {

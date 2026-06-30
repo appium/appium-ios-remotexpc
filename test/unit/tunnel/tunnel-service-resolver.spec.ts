@@ -1,5 +1,6 @@
 import { expect } from 'chai';
 import esmock from 'esmock';
+import { describe, it } from 'node:test';
 import * as sinon from 'sinon';
 
 import type { TunnelRegistryEntry } from '../../../src/lib/types.js';

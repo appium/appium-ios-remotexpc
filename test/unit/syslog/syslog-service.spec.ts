@@ -1,6 +1,7 @@
 import { expect } from 'chai';
 import esmock from 'esmock';
 import { PassThrough } from 'node:stream';
+import { describe, it } from 'node:test';
 
 import { SyslogLogLevel } from '../../../src/services/ios/syslog-service/syslog-entry-parser.js';
 

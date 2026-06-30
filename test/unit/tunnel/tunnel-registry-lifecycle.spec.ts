@@ -1,6 +1,7 @@
 import { expect } from 'chai';
 import { once } from 'node:events';
 import { type AddressInfo, createConnection, createServer } from 'node:net';
+import { describe, it } from 'node:test';
 
 import {
   watchTunnelRegistryOnDead,

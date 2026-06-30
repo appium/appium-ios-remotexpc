@@ -1,5 +1,6 @@
 import { expect } from 'chai';
 import { EventEmitter } from 'node:events';
+import { describe, it } from 'node:test';
 
 import {
   HID_BUTTON_STATE_DOWN,

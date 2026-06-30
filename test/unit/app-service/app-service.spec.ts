@@ -1,6 +1,7 @@
 import { expect } from 'chai';
 import { EventEmitter } from 'node:events';
 import { constants as osConstants } from 'node:os';
+import { describe, it } from 'node:test';
 
 import { CoreDeviceError } from '../../../src/index.js';
 import { decodeMessage } from '../../../src/lib/remote-xpc/xpc-protocol.js';

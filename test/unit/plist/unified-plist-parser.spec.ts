@@ -1,15 +1,19 @@
+import { fs, node } from '@appium/support';
 import { expect } from 'chai';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import path from 'node:path';
+import { before, describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import { isBinaryPlist } from '../../../src/lib/plist/binary-plist-parser.js';
 import { parsePlist } from '../../../src/lib/plist/unified-plist-parser.js';
 import type { PlistDictionary } from '../../../src/lib/types.js';
 
 // Get the directory name
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const FIXTURES_PATH = path.join(__dirname, 'fixtures');
+const PKG_ROOT = node.getModuleRootSync(
+  'appium-ios-remotexpc',
+  fileURLToPath(import.meta.url),
+);
+const FIXTURES_PATH = path.join(PKG_ROOT, 'test', 'unit', 'plist', 'fixtures');
 
 describe('Unified Plist Parser', function () {
   let sampleXmlPlistPath: string;
@@ -17,12 +21,12 @@ describe('Unified Plist Parser', function () {
   let sampleBinaryPlistPath: string;
   let sampleBinaryPlistContent: Buffer;
 
-  before(function () {
+  before(async function () {
     sampleXmlPlistPath = path.join(FIXTURES_PATH, 'sample.xml.plist');
-    sampleXmlPlistContent = fs.readFileSync(sampleXmlPlistPath, 'utf8');
+    sampleXmlPlistContent = await fs.readFile(sampleXmlPlistPath, 'utf8');
 
     sampleBinaryPlistPath = path.join(FIXTURES_PATH, 'sample.binary.plist');
-    sampleBinaryPlistContent = fs.readFileSync(sampleBinaryPlistPath);
+    sampleBinaryPlistContent = await fs.readFile(sampleBinaryPlistPath);
   });
 
   describe('Format Detection and Parsing', function () {
@@ -151,14 +155,14 @@ describe('Unified Plist Parser', function () {
     it('should handle XML with extra whitespace', function () {
       const xmlWithWhitespace = `
         <?xml version="1.0" encoding="UTF-8"?>
-        
+
         <plist version="1.0">
           <dict>
             <key>  spaced  key  </key>
             <string>  spaced  value  </string>
           </dict>
         </plist>
-        
+
       `;
 
       const result = parsePlist(xmlWithWhitespace) as PlistDictionary;
