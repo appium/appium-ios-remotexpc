@@ -12,7 +12,7 @@ describe('PasteboardService', function () {
   this.timeout(60000);
 
   let pasteboardService: PasteboardService | null = null;
-  const udid = process.env.UDID || '';
+  const udid = process.env.UDID || '00008030-001E290A3EF2402E';
 
   before(async function () {
     if (!udid) {
@@ -52,7 +52,8 @@ describe('PasteboardService', function () {
     try {
       await pasteboardService!.setUrl(url);
 
-      expect(await pasteboardService!.getUrl()).to.equal(url);
+      // getUrl() returns a URL object; compare its string form.
+      expect((await pasteboardService!.getUrl())?.toString()).to.equal(url);
     } finally {
       if (originalText !== undefined) {
         await pasteboardService!.setText(originalText);

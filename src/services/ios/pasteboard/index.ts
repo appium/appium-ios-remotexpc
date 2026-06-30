@@ -50,20 +50,17 @@ export class PasteboardService extends CoreDeviceService {
 
   /**
    * Pull the pasteboard and return the first decodable URL string.
-   *
-   * Returns the stored string as-is (symmetric with {@link setUrl}), or
-   * `undefined` if there is no item that parses as a valid URL.
    */
-  async getUrl(
-    pasteboardName = GENERAL_PASTEBOARD,
-  ): Promise<string | undefined> {
+  async getUrl(pasteboardName = GENERAL_PASTEBOARD): Promise<URL | undefined> {
     const urlString = PasteboardService.extractString(
       await this.get(pasteboardName),
       URL_UTIS,
     );
-    return urlString !== undefined && URL.canParse(urlString)
-      ? urlString
-      : undefined;
+    try {
+      return urlString ? new URL(urlString) : undefined;
+    } catch {
+      return undefined;
+    }
   }
 
   /**
