@@ -1,25 +1,40 @@
 {
   "name": "appium-ios-remotexpc",
   "version": "5.6.1",
+  "description": "",
+  "keywords": [],
+  "bugs": {
+    "url": "https://github.com/appium/appium-ios-remotexpc/issues"
+  },
+  "license": "Apache-2.0",
+  "author": "Appium Contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/appium/appium-ios-remotexpc.git"
+  },
+  "files": [
+    "src",
+    "scripts",
+    "build/src",
+    "!.DS_Store",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "type": "module",
   "main": "build/src/index.js",
   "types": "build/src/index.d.ts",
-  "type": "module",
   "exports": {
     ".": {
       "import": "./build/src/index.js",
       "types": "./build/src/index.d.ts"
     }
   },
-  "engines": {
-    "node": "^20.19.0 || ^22.12.0 || >=24.0.0",
-    "npm": ">=10"
-  },
   "scripts": {
     "build:es": "tsc",
     "build": "run-s clean:* build:es",
     "clean:build": "rimraf ./build",
-    "format:check": "oxfmt check \"{src,test}/**/*.{ts,tsx}\" \"./scripts/**/*.mjs\"",
-    "format": "oxfmt \"{src,test}/**/*.{ts,tsx}\" \"./scripts/**/*.mjs\"",
+    "format:check": "oxfmt --check .",
+    "format": "oxfmt .",
     "lint:fix": "eslint src scripts --fix",
     "lint": "eslint src scripts",
     "pair-appletv": "sudo node scripts/pair-appletv.mjs",
@@ -68,17 +83,19 @@
     "test": "npm run test:unit",
     "tunnel-creation": "sudo node scripts/tunnel-creation.mjs"
   },
-  "keywords": [],
-  "author": "Appium Contributors",
-  "license": "Apache-2.0",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/appium/appium-ios-remotexpc.git"
+  "dependencies": {
+    "@appium/strongbox": "^1.1.2",
+    "@appium/support": "^7.2.2",
+    "@xmldom/xmldom": "^0.x",
+    "appium-ios-tuntap": "^1.0.0",
+    "async-lock": "^1.4.1",
+    "axios": "^1.15.1",
+    "commander": "^14.0.1",
+    "minimatch": "^10.1.1",
+    "node-devicectl": "^1.2.0",
+    "npm-run-all2": "^8.0.4",
+    "path-to-regexp": "^8.3.0"
   },
-  "bugs": {
-    "url": "https://github.com/appium/appium-ios-remotexpc/issues"
-  },
-  "description": "",
   "devDependencies": {
     "@appium/eslint-config-appium-ts": "^3.0.0",
     "@appium/tsconfig": "^1.1.2",
@@ -99,31 +116,14 @@
     "sinon": "^22.0.0",
     "typescript": "^6.0.2"
   },
-  "dependencies": {
-    "@appium/strongbox": "^1.1.2",
-    "@appium/support": "^7.2.2",
-    "@xmldom/xmldom": "^0.x",
-    "appium-ios-tuntap": "^1.0.0",
-    "async-lock": "^1.4.1",
-    "axios": "^1.15.1",
-    "commander": "^14.0.1",
-    "minimatch": "^10.1.1",
-    "node-devicectl": "^1.2.0",
-    "npm-run-all2": "^8.0.4",
-    "path-to-regexp": "^8.3.0"
-  },
-  "files": [
-    "src",
-    "scripts",
-    "build/src",
-    "!.DS_Store",
-    "CHANGELOG.md",
-    "LICENSE"
-  ],
   "lint-staged": {
     "*.ts": [
       "eslint --fix",
       "oxfmt"
     ]
+  },
+  "engines": {
+    "node": "^20.19.0 || ^22.12.0 || >=24.0.0",
+    "npm": ">=10"
   }
 }

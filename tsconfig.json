@@ -8,12 +8,6 @@
     "outDir": "build",
     "types": ["node", "chai"]
   },
-  "include": [
-    "src",
-    "scripts",
-    "test"
-  ],
-  "exclude": [
-    "build"
-  ]
+  "include": ["src", "scripts", "test"],
+  "exclude": ["build"]
 }

@@ -13,10 +13,5 @@
   "bracketSpacing": false,
   "sortImports": true,
 
-  "ignorePatterns": [
-    "**/node_modules",
-    "**/*-lock.json",
-    "**/build/**",
-    "**/coverage/**"
-  ]
+  "ignorePatterns": ["**/build/**", "**/coverage/**", "**/fixtures/**", "**/*.md"]
 }
