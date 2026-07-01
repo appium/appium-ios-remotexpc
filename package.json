@@ -1,6 +1,6 @@
 {
   "name": "appium-ios-remotexpc",
-  "version": "5.6.1",
+  "version": "5.6.2",
   "description": "",
   "keywords": [],
   "bugs": {
@@ -103,8 +103,8 @@
     "@semantic-release/git": "^10.0.1",
     "@types/async-lock": "^1.4.2",
     "@types/chai": "^5.2.1",
-    "@types/node": "^25.0.2",
-    "@types/sinon": "^21.0.0",
+    "@types/node": "^26.0.1",
+    "@types/sinon": "^22.0.0",
     "chai": "^6.0.1",
     "conventional-changelog-conventionalcommits": "^9.1.0",
     "esmock": "^2.7.3",

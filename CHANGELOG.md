@@ -1,3 +1,9 @@
+## [5.6.2](https://github.com/appium/appium-ios-remotexpc/compare/v5.6.1...v5.6.2) (2026-07-01)
+
+### Miscellaneous Chores
+
+* Replace prettier with oxfmt ([#260](https://github.com/appium/appium-ios-remotexpc/issues/260)) ([4bae3e6](https://github.com/appium/appium-ios-remotexpc/commit/4bae3e643c736b5d6a844b1211b53bcbc715d609))
+
 ## [5.6.1](https://github.com/appium/appium-ios-remotexpc/compare/v5.6.0...v5.6.1) (2026-06-30)
 
 ### Miscellaneous Chores
