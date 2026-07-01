@@ -63,8 +63,10 @@ describe('zipconduit/zip-utils', function () {
   it('writes a directory local header', async function () {
     const chunks: Buffer[] = [];
     const socket = {
+      // eslint-disable-next-line promise/prefer-await-to-callbacks
       write(data: Buffer, cb?: (err?: Error | null) => void) {
         chunks.push(data);
+        // eslint-disable-next-line promise/prefer-await-to-callbacks
         cb?.(null);
         return true;
       },

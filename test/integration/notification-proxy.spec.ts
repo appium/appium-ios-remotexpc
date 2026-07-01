@@ -81,7 +81,7 @@ describe('NotificationProxyService', {timeout: 60000}, function () {
       if (error instanceof Error) {
         expect(error.message).to.equal('You must call observe() before posting notifications.');
       } else {
-        throw new Error('Unexpected error type');
+        throw new Error('Unexpected error type', {cause: error});
       }
     }
   });

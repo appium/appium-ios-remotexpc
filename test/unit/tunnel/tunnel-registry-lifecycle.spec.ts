@@ -106,7 +106,9 @@ describe('watchTunnelRegistrySockets', function () {
 describe('watchTunnelRegistryOnDead', function () {
   it('removes registry entry when registerOnDead handler is invoked', async function () {
     const registry = makeRegistry('dev-3');
-    let onDeadHandler = (_reason: string) => {};
+    let onDeadHandler = (reason: string) => {
+      void reason;
+    };
 
     let removedUdid: string | undefined;
     const {stop} = watchTunnelRegistryOnDead({
@@ -135,7 +137,9 @@ describe('watchTunnelRegistryOnDead', function () {
 
   it('stop() ignores subsequent onDead notifications', async function () {
     const registry = makeRegistry('dev-4');
-    let onDeadHandler = (_reason: string) => {};
+    let onDeadHandler = (reason: string) => {
+      void reason;
+    };
 
     const {stop} = watchTunnelRegistryOnDead({
       registry,
