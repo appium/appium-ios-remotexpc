@@ -90,10 +90,10 @@
     "appium-ios-tuntap": "^1.0.0",
     "async-lock": "^1.4.1",
     "axios": "^1.15.1",
-    "commander": "^14.0.1",
+    "commander": "^15.0.0",
     "minimatch": "^10.1.1",
     "node-devicectl": "^1.2.0",
-    "npm-run-all2": "^8.0.4",
+    "npm-run-all2": "^9.0.2",
     "path-to-regexp": "^8.3.0"
   },
   "devDependencies": {
@@ -106,7 +106,7 @@
     "@types/node": "^26.0.1",
     "@types/sinon": "^22.0.0",
     "chai": "^6.0.1",
-    "conventional-changelog-conventionalcommits": "^9.1.0",
+    "conventional-changelog-conventionalcommits": "^10.2.0",
     "esmock": "^2.7.3",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.2",
