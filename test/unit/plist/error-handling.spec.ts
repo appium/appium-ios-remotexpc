@@ -1,9 +1,10 @@
-import { expect } from 'chai';
-import { describe, it } from 'node:test';
+import {describe, it} from 'node:test';
 
-import { parsePlist as parseXmlPlist } from '../../../src/lib/plist/plist-parser.js';
-import { parsePlist as unifiedParsePlist } from '../../../src/lib/plist/unified-plist-parser.js';
-import type { PlistDictionary } from '../../../src/lib/types.js';
+import {expect} from 'chai';
+
+import {parsePlist as parseXmlPlist} from '../../../src/lib/plist/plist-parser.js';
+import {parsePlist as unifiedParsePlist} from '../../../src/lib/plist/unified-plist-parser.js';
+import type {PlistDictionary} from '../../../src/lib/types.js';
 
 describe('XML Error Handling', function () {
   describe('Unicode Replacement Character Handling', function () {
@@ -48,8 +49,7 @@ describe('XML Error Handling', function () {
 
   describe('Unclosed Tags Handling', function () {
     it('should handle unclosed plist tag', function () {
-      const xml =
-        '<?xml version="1.0" encoding="UTF-8"?><plist><dict><key>test</key><string>value</string></dict>';
+      const xml = '<?xml version="1.0" encoding="UTF-8"?><plist><dict><key>test</key><string>value</string></dict>';
 
       try {
         parseXmlPlist(xml);
@@ -60,8 +60,7 @@ describe('XML Error Handling', function () {
     });
 
     it('should handle unclosed dict tag', function () {
-      const xml =
-        '<?xml version="1.0" encoding="UTF-8"?><plist><dict><key>test</key><string>value</string></plist>';
+      const xml = '<?xml version="1.0" encoding="UTF-8"?><plist><dict><key>test</key><string>value</string></plist>';
 
       try {
         parseXmlPlist(xml);

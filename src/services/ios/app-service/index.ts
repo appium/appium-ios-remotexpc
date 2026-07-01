@@ -1,27 +1,18 @@
-import { createPlist } from '../../../lib/plist/index.js';
-import type {
-  PlistDictionary,
-  XPCDictionary,
-  XPCValue,
-} from '../../../lib/types.js';
-import {
-  type CoreDeviceInvokeOptions,
-  CoreDeviceService,
-} from '../core-device/core-device-service.js';
+import {createPlist} from '../../../lib/plist/index.js';
+import type {PlistDictionary, XPCDictionary, XPCValue} from '../../../lib/types.js';
+import {type CoreDeviceInvokeOptions, CoreDeviceService} from '../core-device/core-device-service.js';
 
 const FEATURE_LIST_APPS = 'com.apple.coredevice.feature.listapps';
-const FEATURE_LAUNCH_APPLICATION =
-  'com.apple.coredevice.feature.launchapplication';
+const FEATURE_LAUNCH_APPLICATION = 'com.apple.coredevice.feature.launchapplication';
 const FEATURE_LIST_PROCESSES = 'com.apple.coredevice.feature.listprocesses';
 const FEATURE_UNINSTALL_APP = 'com.apple.coredevice.feature.uninstallapp';
 const FEATURE_SEND_SIGNAL = 'com.apple.coredevice.feature.sendsignaltoprocess';
-const FEATURE_MONITOR_PROCESS_TERMINATION =
-  'com.apple.coredevice.feature.monitorprocesstermination';
+const FEATURE_MONITOR_PROCESS_TERMINATION = 'com.apple.coredevice.feature.monitorprocesstermination';
 
 /** A process as reported by the device (pid + executable location). */
 export interface AppServiceProcessToken {
   processIdentifier: number;
-  executableURL?: { relative?: string; [key: string]: unknown };
+  executableURL?: {relative?: string; [key: string]: unknown};
   [key: string]: unknown;
 }
 
@@ -150,7 +141,7 @@ export class AppService extends CoreDeviceService {
         includeAppGroupIdentifiers: options.includeAppGroupIdentifiers ?? false,
         includeContainerPaths: options.includeContainerPaths ?? false,
       },
-      { timeoutMs: options.timeoutMs },
+      {timeoutMs: options.timeoutMs},
     );
     return asArray(output) as InstalledApp[];
   }
@@ -161,13 +152,8 @@ export class AppService extends CoreDeviceService {
    * Throws a {@link CoreDeviceError} if the bundle id is not installed (the
    * device reports e.g. "The requested application … is not installed.").
    */
-  async launchApplication(
-    bundleId: string,
-    options: LaunchApplicationOptions = {},
-  ): Promise<LaunchedApplication> {
-    const platformOptions = createPlist(
-      (options.platformSpecificOptions ?? {}) as PlistDictionary,
-    );
+  async launchApplication(bundleId: string, options: LaunchApplicationOptions = {}): Promise<LaunchedApplication> {
+    const platformOptions = createPlist((options.platformSpecificOptions ?? {}) as PlistDictionary);
     const platformOptionsBuffer = Buffer.isBuffer(platformOptions)
       ? platformOptions
       : Buffer.from(platformOptions, 'utf8');
@@ -177,7 +163,7 @@ export class AppService extends CoreDeviceService {
         FEATURE_LAUNCH_APPLICATION,
         {
           applicationSpecifier: {
-            bundleIdentifier: { _0: bundleId },
+            bundleIdentifier: {_0: bundleId},
           },
           options: {
             arguments: options.arguments ?? [],
@@ -185,12 +171,12 @@ export class AppService extends CoreDeviceService {
             standardIOUsesPseudoterminals: true,
             startStopped: options.startSuspended ?? false,
             terminateExisting: options.terminateExisting ?? true,
-            user: { shortName: 'mobile' },
+            user: {shortName: 'mobile'},
             platformSpecificOptions: platformOptionsBuffer,
           },
           standardIOIdentifiers: {},
         },
-        { timeoutMs: options.timeoutMs },
+        {timeoutMs: options.timeoutMs},
       ),
     );
 
@@ -215,13 +201,10 @@ export class AppService extends CoreDeviceService {
    * Throws a {@link CoreDeviceError} if the pid is not running (the device
    * reports `com.apple.dt.CoreDeviceError`).
    */
-  async sendSignalToProcess(
-    pid: number,
-    signal: number,
-  ): Promise<XPCDictionary> {
+  async sendSignalToProcess(pid: number, signal: number): Promise<XPCDictionary> {
     return asDict(
       await this.invoke(FEATURE_SEND_SIGNAL, {
-        process: { processIdentifier: pid },
+        process: {processIdentifier: pid},
         signal,
       }),
     );
@@ -232,7 +215,7 @@ export class AppService extends CoreDeviceService {
    * device resolves successfully even if the app is not installed.
    */
   async uninstallApp(bundleId: string): Promise<void> {
-    await this.invoke(FEATURE_UNINSTALL_APP, { bundleIdentifier: bundleId });
+    await this.invoke(FEATURE_UNINSTALL_APP, {bundleIdentifier: bundleId});
   }
 
   /**
@@ -241,16 +224,9 @@ export class AppService extends CoreDeviceService {
    * the device resolves immediately rather than waiting. Pass `timeoutMs` via
    * `options` to bound how long to wait for a still-running process to exit.
    */
-  async monitorProcessTermination(
-    pid: number,
-    options: CoreDeviceInvokeOptions = {},
-  ): Promise<XPCDictionary> {
+  async monitorProcessTermination(pid: number, options: CoreDeviceInvokeOptions = {}): Promise<XPCDictionary> {
     return asDict(
-      await this.invoke(
-        FEATURE_MONITOR_PROCESS_TERMINATION,
-        { processToken: { processIdentifier: pid } },
-        options,
-      ),
+      await this.invoke(FEATURE_MONITOR_PROCESS_TERMINATION, {processToken: {processIdentifier: pid}}, options),
     );
   }
 }

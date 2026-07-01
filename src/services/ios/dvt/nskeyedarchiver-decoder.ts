@@ -1,4 +1,4 @@
-import { getLogger } from '../../../lib/logger.js';
+import {getLogger} from '../../../lib/logger.js';
 
 const log = getLogger('NSKeyedArchiverDecoder');
 const MAX_DECODE_DEPTH = 1000;
@@ -37,10 +37,7 @@ export class NSKeyedArchiverDecoder {
     }
 
     return (
-      '$archiver' in data &&
-      data.$archiver === 'NSKeyedArchiver' &&
-      '$objects' in data &&
-      Array.isArray(data.$objects)
+      '$archiver' in data && data.$archiver === 'NSKeyedArchiver' && '$objects' in data && Array.isArray(data.$objects)
     );
   }
 
@@ -80,11 +77,7 @@ export class NSKeyedArchiverDecoder {
   /**
    * Decode an object at a specific index
    */
-  private decodeObject(
-    index: number,
-    visited: Set<number> = new Set(),
-    depth: number = 0,
-  ): any {
+  private decodeObject(index: number, visited: Set<number> = new Set(), depth: number = 0): any {
     // Prevent stack overflow with depth limit
     if (depth > MAX_DECODE_DEPTH) {
       log.warn(`Maximum decode depth exceeded at index ${index}`);
@@ -135,12 +128,7 @@ export class NSKeyedArchiverDecoder {
 
     // Handle NSDictionary (NS.keys + NS.objects) - check this FIRST before NSArray
     if ('NS.keys' in obj && 'NS.objects' in obj) {
-      const result = this.decodeDictionary(
-        obj['NS.keys'],
-        obj['NS.objects'],
-        visited,
-        depth,
-      );
+      const result = this.decodeDictionary(obj['NS.keys'], obj['NS.objects'], visited, depth);
       this.decoded.set(index, result);
       visited.delete(index);
       return result;
@@ -165,12 +153,7 @@ export class NSKeyedArchiverDecoder {
         // Could be a reference or primitive
         if (value < this.objects.length && value >= 0) {
           const referenced = this.objects[value];
-          if (
-            referenced &&
-            typeof referenced === 'object' &&
-            referenced !== '$null' &&
-            !visited.has(value)
-          ) {
+          if (referenced && typeof referenced === 'object' && referenced !== '$null' && !visited.has(value)) {
             result[key] = this.decodeObject(value, visited, depth + 1);
           } else {
             result[key] = value;
@@ -198,11 +181,7 @@ export class NSKeyedArchiverDecoder {
   /**
    * Decode an NSArray
    */
-  private decodeArray(
-    refs: any,
-    visited: Set<number> = new Set(),
-    depth: number = 0,
-  ): any[] {
+  private decodeArray(refs: any, visited: Set<number> = new Set(), depth: number = 0): any[] {
     if (!Array.isArray(refs)) {
       return [];
     }
@@ -220,12 +199,7 @@ export class NSKeyedArchiverDecoder {
   /**
    * Decode an NSDictionary
    */
-  private decodeDictionary(
-    keyRefs: any,
-    valueRefs: any,
-    visited: Set<number> = new Set(),
-    depth: number = 0,
-  ): any {
+  private decodeDictionary(keyRefs: any, valueRefs: any, visited: Set<number> = new Set(), depth: number = 0): any {
     if (!Array.isArray(keyRefs) || !Array.isArray(valueRefs)) {
       return {};
     }
@@ -238,12 +212,7 @@ export class NSKeyedArchiverDecoder {
 
       // Object keys are strings in JS. Coerce primitive keys (e.g. the integer
       // pids used by the sysmontap `Processes` map) so they are not dropped.
-      if (
-        typeof key === 'string' ||
-        typeof key === 'number' ||
-        typeof key === 'bigint' ||
-        typeof key === 'boolean'
-      ) {
+      if (typeof key === 'string' || typeof key === 'number' || typeof key === 'bigint' || typeof key === 'boolean') {
         result[String(key)] = value;
       }
     }

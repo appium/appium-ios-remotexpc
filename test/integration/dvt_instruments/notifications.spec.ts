@@ -1,16 +1,17 @@
-import { logger } from '@appium/support';
-import { expect } from 'chai';
-import { after, before, describe, it } from 'node:test';
+import {after, before, describe, it} from 'node:test';
+
+import {logger} from '@appium/support';
+import {expect} from 'chai';
 import sinon from 'sinon';
 
-import type { DVTInstruments } from '../../../src/lib/types.js';
+import type {DVTInstruments} from '../../../src/lib/types.js';
 import * as Services from '../../../src/services.js';
-import { requireDeviceUdid } from '../helpers/device.js';
+import {requireDeviceUdid} from '../helpers/device.js';
 
 const log = logger.getLogger('notifications.test');
 log.level = 'debug';
 
-describe('Notifications', { timeout: 30000 }, function () {
+describe('Notifications', {timeout: 30000}, function () {
   let dvtServiceConnection: DVTInstruments | null = null;
   let udid: string;
 
@@ -60,10 +61,7 @@ describe('Notifications', { timeout: 30000 }, function () {
       // Stub a stream and capture output
       const stubStream = (stream: NodeJS.WriteStream) => {
         const original = stream.write.bind(stream);
-        sandbox.stub(stream, 'write').callsFake(function (
-          chunk: any,
-          ...args: any[]
-        ) {
+        sandbox.stub(stream, 'write').callsFake(function (chunk: any, ...args: any[]) {
           logCalls.push(chunk.toString());
           return original(chunk, ...args);
         } as any);

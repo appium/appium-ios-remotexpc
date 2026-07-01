@@ -4,38 +4,38 @@
 version: 2
 updates:
   # Enable npm dependency updates
-  - package-ecosystem: "npm"
-    directory: "/"
+  - package-ecosystem: 'npm'
+    directory: '/'
     schedule:
-      interval: "weekly"
+      interval: 'weekly'
     # Specify which branches to update
-    target-branch: "main"
+    target-branch: 'main'
     # Set version update strategy
-    versioning-strategy: "auto"
+    versioning-strategy: 'auto'
     # Set review requirements
     open-pull-requests-limit: 10
     # Group all dev dependencies together
     groups:
       dev-dependencies:
         patterns:
-          - "*"
+          - '*'
         exclude-patterns:
-          - "@types/*"  # Keep type definitions separate
+          - '@types/*' # Keep type definitions separate
     # Labels for pull requests
     labels:
-      - "dependencies"
-      - "npm"
+      - 'dependencies'
+      - 'npm'
 
   # Enable GitHub Actions updates
-  - package-ecosystem: "github-actions"
-    directory: "/"
+  - package-ecosystem: 'github-actions'
+    directory: '/'
     schedule:
-      interval: "monthly"
-    target-branch: "main"
+      interval: 'monthly'
+    target-branch: 'main'
     commit-message:
-      prefix: "ci"
-      include: "scope"
+      prefix: 'ci'
+      include: 'scope'
     # Labels for pull requests
     labels:
-      - "dependencies"
-      - "github-actions"
+      - 'dependencies'
+      - 'github-actions'

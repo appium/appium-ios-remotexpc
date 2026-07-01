@@ -1,5 +1,6 @@
-import { expect } from 'chai';
-import { describe, it } from 'node:test';
+import {describe, it} from 'node:test';
+
+import {expect} from 'chai';
 
 import {
   cstr,
@@ -11,12 +12,8 @@ import {
   readUInt64LE,
   writeUInt64LE,
 } from '../../../src/services/ios/afc/codec.js';
-import {
-  AFCMAGIC,
-  AFC_FOPEN_TEXTUAL_MODES,
-  AFC_HEADER_SIZE,
-} from '../../../src/services/ios/afc/constants.js';
-import { AfcFopenMode } from '../../../src/services/ios/afc/enums.js';
+import {AFCMAGIC, AFC_FOPEN_TEXTUAL_MODES, AFC_HEADER_SIZE} from '../../../src/services/ios/afc/constants.js';
+import {AfcFopenMode} from '../../../src/services/ios/afc/enums.js';
 
 describe('AFC Codec Utilities', function () {
   it('should expose correct header size and magic', function () {
@@ -97,7 +94,7 @@ describe('AFC Codec Utilities', function () {
     ];
     const buf = Buffer.concat(parts);
     const kv = parseKeyValueNullList(buf);
-    expect(kv).to.deep.equal({ st_size: '5', st_ifmt: 'S_IFREG' });
+    expect(kv).to.deep.equal({st_size: '5', st_ifmt: 'S_IFREG'});
   });
 
   it('should map textual fopen modes correctly', function () {

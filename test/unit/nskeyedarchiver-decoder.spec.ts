@@ -1,10 +1,8 @@
-import { expect } from 'chai';
-import { describe, it } from 'node:test';
+import {describe, it} from 'node:test';
 
-import {
-  NSKeyedArchiverDecoder,
-  decodeNSKeyedArchiver,
-} from '../../src/services/ios/dvt/index.js';
+import {expect} from 'chai';
+
+import {NSKeyedArchiverDecoder, decodeNSKeyedArchiver} from '../../src/services/ios/dvt/index.js';
 
 describe('NSKeyedArchiver Decoder', () => {
   describe('isNSKeyedArchive', () => {
@@ -12,7 +10,7 @@ describe('NSKeyedArchiver Decoder', () => {
       const validArchive = {
         $version: 100000,
         $archiver: 'NSKeyedArchiver',
-        $top: { root: 1 },
+        $top: {root: 1},
         $objects: ['$null', 'test'],
       };
 
@@ -24,8 +22,7 @@ describe('NSKeyedArchiver Decoder', () => {
       expect(NSKeyedArchiverDecoder.isNSKeyedArchive(undefined)).to.be.false;
       expect(NSKeyedArchiverDecoder.isNSKeyedArchive('string')).to.be.false;
       expect(NSKeyedArchiverDecoder.isNSKeyedArchive([])).to.be.false;
-      expect(NSKeyedArchiverDecoder.isNSKeyedArchive({ someKey: 'value' })).to
-        .be.false;
+      expect(NSKeyedArchiverDecoder.isNSKeyedArchive({someKey: 'value'})).to.be.false;
     });
   });
 
@@ -34,7 +31,7 @@ describe('NSKeyedArchiver Decoder', () => {
       const archive = {
         $version: 100000,
         $archiver: 'NSKeyedArchiver',
-        $top: { root: 1 },
+        $top: {root: 1},
         $objects: ['$null', 'Hello World'],
       };
 
@@ -46,7 +43,7 @@ describe('NSKeyedArchiver Decoder', () => {
       const archive = {
         $version: 100000,
         $archiver: 'NSKeyedArchiver',
-        $top: { root: 1 },
+        $top: {root: 1},
         $objects: [
           '$null',
           {
@@ -56,7 +53,7 @@ describe('NSKeyedArchiver Decoder', () => {
           'item1',
           'item2',
           'item3',
-          { $classname: 'NSArray' },
+          {$classname: 'NSArray'},
         ],
       };
 
@@ -68,7 +65,7 @@ describe('NSKeyedArchiver Decoder', () => {
       const archive = {
         $version: 100000,
         $archiver: 'NSKeyedArchiver',
-        $top: { root: 1 },
+        $top: {root: 1},
         $objects: [
           '$null',
           {
@@ -80,7 +77,7 @@ describe('NSKeyedArchiver Decoder', () => {
           'key2',
           'value1',
           'value2',
-          { $classname: 'NSDictionary' },
+          {$classname: 'NSDictionary'},
         ],
       };
 
@@ -95,7 +92,7 @@ describe('NSKeyedArchiver Decoder', () => {
       const archive = {
         $version: 100000,
         $archiver: 'NSKeyedArchiver',
-        $top: { root: 1 },
+        $top: {root: 1},
         $objects: [
           '$null',
           {
@@ -117,8 +114,8 @@ describe('NSKeyedArchiver Decoder', () => {
           'group1',
           'test1',
           'group2',
-          { $classname: 'NSDictionary' },
-          { $classname: 'NSArray' },
+          {$classname: 'NSDictionary'},
+          {$classname: 'NSArray'},
         ],
       };
 
@@ -136,7 +133,7 @@ describe('NSKeyedArchiver Decoder', () => {
     });
 
     it('should return non-archived data as-is', () => {
-      const plainData = { key: 'value' };
+      const plainData = {key: 'value'};
       const result = decodeNSKeyedArchiver(plainData);
       expect(result).to.deep.equal(plainData);
 
@@ -159,7 +156,7 @@ describe('NSKeyedArchiver Decoder', () => {
       const archive = {
         $version: 100000,
         $archiver: 'NSKeyedArchiver',
-        $top: { root: 1 },
+        $top: {root: 1},
         $objects: [
           '$null',
           {
@@ -213,8 +210,8 @@ describe('NSKeyedArchiver Decoder', () => {
           '3G Network',
           'GPUPerformanceStateMin',
           'Minimum GPU Performance',
-          { $classname: 'NSDictionary' },
-          { $classname: 'NSArray' },
+          {$classname: 'NSDictionary'},
+          {$classname: 'NSArray'},
         ],
       };
 
@@ -229,14 +226,8 @@ describe('NSKeyedArchiver Decoder', () => {
       expect(result[0]).to.have.property('profiles');
       expect(result[0].profiles).to.be.an('array');
       expect(result[0].profiles).to.have.lengthOf(1);
-      expect(result[0].profiles[0]).to.have.property(
-        'identifier',
-        'NetworkLink3G',
-      );
-      expect(result[0].profiles[0]).to.have.property(
-        'description',
-        '3G Network',
-      );
+      expect(result[0].profiles[0]).to.have.property('identifier', 'NetworkLink3G');
+      expect(result[0].profiles[0]).to.have.property('description', '3G Network');
 
       // Check second group
       expect(result[1]).to.have.property('identifier', 'GPUPerformanceState');
@@ -244,14 +235,8 @@ describe('NSKeyedArchiver Decoder', () => {
       expect(result[1]).to.have.property('profiles');
       expect(result[1].profiles).to.be.an('array');
       expect(result[1].profiles).to.have.lengthOf(1);
-      expect(result[1].profiles[0]).to.have.property(
-        'identifier',
-        'GPUPerformanceStateMin',
-      );
-      expect(result[1].profiles[0]).to.have.property(
-        'description',
-        'Minimum GPU Performance',
-      );
+      expect(result[1].profiles[0]).to.have.property('identifier', 'GPUPerformanceStateMin');
+      expect(result[1].profiles[0]).to.have.property('description', 'Minimum GPU Performance');
     });
   });
 });

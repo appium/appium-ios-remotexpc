@@ -1,16 +1,14 @@
-import { timing } from '@appium/support';
 import crypto from 'node:crypto';
-import { EventEmitter } from 'node:events';
+import {EventEmitter} from 'node:events';
 
-import { getLogger } from '../../../lib/logger.js';
-import { createBinaryPlist } from '../../../lib/plist/index.js';
-import type {
-  TestmanagerdService,
-  XCTestServices,
-} from '../../../lib/types.js';
+import {timing} from '@appium/support';
+
+import {getLogger} from '../../../lib/logger.js';
+import {createBinaryPlist} from '../../../lib/plist/index.js';
+import type {TestmanagerdService, XCTestServices} from '../../../lib/types.js';
 import * as Services from '../../../services.js';
-import { MessageAux } from '../dvt/dtx-message.js';
-import { type InstallationProxyService } from '../installation-proxy/index.js';
+import {MessageAux} from '../dvt/dtx-message.js';
+import {type InstallationProxyService} from '../installation-proxy/index.js';
 import {
   DEFAULT_EXEC_CAPABILITIES,
   DEFAULT_LAUNCH_ENV,
@@ -32,10 +30,7 @@ import {
   isTransportError,
   parseCallback,
 } from './xctest-common.js';
-import {
-  XCTestConfigurationEncoder,
-  type XCTestConfigurationParams,
-} from './xctestconfiguration.js';
+import {XCTestConfigurationEncoder, type XCTestConfigurationParams} from './xctestconfiguration.js';
 
 const log = getLogger('XCUITestService');
 
@@ -115,22 +110,17 @@ export class XCUITestService extends EventEmitter<XCUITestServiceEvents> {
   async initExecSession(): Promise<void> {
     log.info('Initializing exec session...');
 
-    const execChannel =
-      await this.execConnection.makeChannel(TESTMANAGERD_CHANNEL);
+    const execChannel = await this.execConnection.makeChannel(TESTMANAGERD_CHANNEL);
     this.execChannelCode = execChannel.getCode();
 
     const args = new MessageAux();
-    args.appendObj({ __type: 'NSUUID', uuid: this._sessionIdentifier });
+    args.appendObj({__type: 'NSUUID', uuid: this._sessionIdentifier});
     args.appendObj({
       __type: 'XCTCapabilities',
       capabilities: DEFAULT_EXEC_CAPABILITIES,
     });
 
-    await this.execConnection.sendMessage(
-      this.execChannelCode,
-      SELECTOR.initiateSession,
-      { args },
-    );
+    await this.execConnection.sendMessage(this.execChannelCode, SELECTOR.initiateSession, {args});
 
     const [result] = await this.execConnection.recvPlist(this.execChannelCode);
     log.debug('Exec session initiated:', result);
@@ -149,9 +139,7 @@ export class XCUITestService extends EventEmitter<XCUITestServiceEvents> {
    */
   startExecCallbackListener(testBundlePath: string): void {
     if (this.callbackListenerPromise) {
-      log.debug(
-        'Exec callback listener already running. Restarting with fresh configuration.',
-      );
+      log.debug('Exec callback listener already running. Restarting with fresh configuration.');
       this.listenerAbortController?.abort();
       void (async () => {
         try {
@@ -170,7 +158,7 @@ export class XCUITestService extends EventEmitter<XCUITestServiceEvents> {
     this.configReplyDeferred = createDeferred<void>();
     this.finishedDeferred = createDeferred<'passed' | 'failed'>();
     this.listenerAbortController = new AbortController();
-    const { signal } = this.listenerAbortController;
+    const {signal} = this.listenerAbortController;
 
     const MAX_CONSECUTIVE_EMPTY_POLLS = 60; // ~60s of silence = dead connection
 
@@ -179,10 +167,7 @@ export class XCUITestService extends EventEmitter<XCUITestServiceEvents> {
       try {
         while (!signal.aborted) {
           try {
-            const result = await this.execConnection.recvPlistWithTimeout(
-              this.execChannelCode,
-              1000,
-            );
+            const result = await this.execConnection.recvPlistWithTimeout(this.execChannelCode, 1000);
 
             if (!result) {
               consecutiveEmptyPolls++;
@@ -206,18 +191,11 @@ export class XCUITestService extends EventEmitter<XCUITestServiceEvents> {
             const [selector, auxiliaries] = result;
             this.handleCallback(selector, auxiliaries);
 
-            const needsReply = this.execConnection.lastMessageExpectsReply(
-              this.execChannelCode,
-            );
+            const needsReply = this.execConnection.lastMessageExpectsReply(this.execChannelCode);
 
             if (selector === SELECTOR.testRunnerReady && this.configPayload) {
-              log.info(
-                'Test runner ready. Sending XCTestConfiguration response...',
-              );
-              await this.execConnection.sendReply(
-                this.execChannelCode,
-                this.configPayload,
-              );
+              log.info('Test runner ready. Sending XCTestConfiguration response...');
+              await this.execConnection.sendReply(this.execChannelCode, this.configPayload);
               log.info('XCTestConfiguration response sent');
               this.configReplyDeferred?.resolve();
             } else if (needsReply) {
@@ -227,10 +205,7 @@ export class XCUITestService extends EventEmitter<XCUITestServiceEvents> {
 
             if (selector === SELECTOR.testPlanFinished) {
               this._running = false;
-              const status =
-                this._lastTestSummary && this._lastTestSummary.failureCount > 0
-                  ? 'failed'
-                  : 'passed';
+              const status = this._lastTestSummary && this._lastTestSummary.failureCount > 0 ? 'failed' : 'passed';
               this.finishedDeferred?.resolve(status);
               break;
             }
@@ -238,8 +213,7 @@ export class XCUITestService extends EventEmitter<XCUITestServiceEvents> {
             if (signal.aborted) {
               break;
             }
-            this._lastListenerError =
-              err instanceof Error ? err : new Error(String(err));
+            this._lastListenerError = err instanceof Error ? err : new Error(String(err));
             this._running = false;
 
             // Unblock startExecutingTestPlan if it's waiting for config reply
@@ -247,13 +221,9 @@ export class XCUITestService extends EventEmitter<XCUITestServiceEvents> {
             this.configReplyDeferred = null;
 
             if (isTransportError(err)) {
-              log.debug(
-                `Exec listener transport error: ${this._lastListenerError.message}`,
-              );
+              log.debug(`Exec listener transport error: ${this._lastListenerError.message}`);
             } else {
-              log.debug(
-                `Exec listener protocol error: ${this._lastListenerError.message}`,
-              );
+              log.debug(`Exec listener protocol error: ${this._lastListenerError.message}`);
             }
 
             this.finishedDeferred?.resolve('failed');
@@ -282,8 +252,7 @@ export class XCUITestService extends EventEmitter<XCUITestServiceEvents> {
     this._testProcessPid = pid;
 
     // Init control session with capabilities
-    const controlChannel =
-      await this.controlConnection.makeChannel(TESTMANAGERD_CHANNEL);
+    const controlChannel = await this.controlConnection.makeChannel(TESTMANAGERD_CHANNEL);
     this.controlChannelCode = controlChannel.getCode();
 
     log.debug('Initiating control session with capabilities...');
@@ -294,15 +263,11 @@ export class XCUITestService extends EventEmitter<XCUITestServiceEvents> {
       capabilities: {},
     });
 
-    await this.controlConnection.sendMessage(
-      this.controlChannelCode,
-      SELECTOR.initiateControlSession,
-      { args: controlArgs },
-    );
+    await this.controlConnection.sendMessage(this.controlChannelCode, SELECTOR.initiateControlSession, {
+      args: controlArgs,
+    });
 
-    const [controlResult] = await this.controlConnection.recvPlist(
-      this.controlChannelCode,
-    );
+    const [controlResult] = await this.controlConnection.recvPlist(this.controlChannelCode);
     log.debug('Control session initiated:', controlResult);
 
     // Authorize test session
@@ -311,15 +276,9 @@ export class XCUITestService extends EventEmitter<XCUITestServiceEvents> {
     const authArgs = new MessageAux();
     authArgs.appendObj(pid);
 
-    await this.controlConnection.sendMessage(
-      this.controlChannelCode,
-      SELECTOR.authorizeTestSession,
-      { args: authArgs },
-    );
+    await this.controlConnection.sendMessage(this.controlChannelCode, SELECTOR.authorizeTestSession, {args: authArgs});
 
-    const [authResult] = await this.controlConnection.recvPlist(
-      this.controlChannelCode,
-    );
+    const [authResult] = await this.controlConnection.recvPlist(this.controlChannelCode);
     log.debug('Authorization result:', authResult);
   }
 
@@ -332,9 +291,7 @@ export class XCUITestService extends EventEmitter<XCUITestServiceEvents> {
    */
   async startExecutingTestPlan(): Promise<void> {
     if (this.configReplyDeferred) {
-      log.debug(
-        'Waiting for XCTestConfiguration reply before starting test plan...',
-      );
+      log.debug('Waiting for XCTestConfiguration reply before starting test plan...');
       await this.configReplyDeferred.promise;
     }
 
@@ -359,9 +316,7 @@ export class XCUITestService extends EventEmitter<XCUITestServiceEvents> {
    */
   async waitForCompletion(): Promise<'passed' | 'failed'> {
     if (!this.finishedDeferred) {
-      throw new Error(
-        'startExecCallbackListener must be called before waitForCompletion',
-      );
+      throw new Error('startExecCallbackListener must be called before waitForCompletion');
     }
     return await this.finishedDeferred.promise;
   }
@@ -470,9 +425,7 @@ export class XCUITestService extends EventEmitter<XCUITestServiceEvents> {
         break;
 
       case XCTestEventType.TestBundleReady:
-        log.debug(
-          `Test bundle ready. Protocol: ${event.protocolVersion}, Min: ${event.minimumVersion}`,
-        );
+        log.debug(`Test bundle ready. Protocol: ${event.protocolVersion}, Min: ${event.minimumVersion}`);
         break;
 
       case XCTestEventType.TestCaseStarted:
@@ -486,9 +439,7 @@ export class XCUITestService extends EventEmitter<XCUITestServiceEvents> {
         break;
 
       case XCTestEventType.TestCaseFinished:
-        log.debug(
-          `Test case finished: ${event.identifier} - status: ${event.status} (${event.duration}s)`,
-        );
+        log.debug(`Test case finished: ${event.identifier} - status: ${event.status} (${event.duration}s)`);
         break;
 
       case XCTestEventType.TestSuiteStarted:
@@ -587,7 +538,7 @@ export class XCTestRunner extends EventEmitter<XCTestRunnerEvents> {
     const services = await this.startServices();
 
     this.emit('step', 'lookup_apps');
-    const { targetPath, testBundlePath, xctestName } = await this.lookupApps();
+    const {targetPath, testBundlePath, xctestName} = await this.lookupApps();
 
     this.xcuitest = new XCUITestService({
       controlConnection: services.controlTestmanagerd,
@@ -614,7 +565,7 @@ export class XCTestRunner extends EventEmitter<XCTestRunnerEvents> {
     } catch (err) {
       throw new XCTestRunError(
         `Failed to initialize exec session: ${err instanceof Error ? err.message : String(err)}`,
-        { stage: 'init_exec', cause: err },
+        {stage: 'init_exec', cause: err},
       );
     }
 
@@ -635,23 +586,21 @@ export class XCTestRunner extends EventEmitter<XCTestRunnerEvents> {
         killExisting: this.options.killExisting ?? true,
       });
     } catch (err) {
-      throw new XCTestRunError(
-        `Failed to launch test runner: ${err instanceof Error ? err.message : String(err)}`,
-        { stage: 'launch_runner', cause: err },
-      );
+      throw new XCTestRunError(`Failed to launch test runner: ${err instanceof Error ? err.message : String(err)}`, {
+        stage: 'launch_runner',
+        cause: err,
+      });
     }
 
     this.xcuitest.startExecCallbackListener(testBundlePath);
 
     this.emit('step', 'authorize');
     try {
-      await this.xcuitest.initControlSessionAndAuthorize(
-        Math.abs(this.launchedPid),
-      );
+      await this.xcuitest.initControlSessionAndAuthorize(Math.abs(this.launchedPid));
     } catch (err) {
       throw new XCTestRunError(
         `Failed to authorize test session: ${err instanceof Error ? err.message : String(err)}`,
-        { stage: 'authorize', cause: err },
+        {stage: 'authorize', cause: err},
       );
     }
 
@@ -659,16 +608,14 @@ export class XCTestRunner extends EventEmitter<XCTestRunnerEvents> {
     try {
       await this.xcuitest.startExecutingTestPlan();
     } catch (err) {
-      throw new XCTestRunError(
-        `Failed to start test plan: ${err instanceof Error ? err.message : String(err)}`,
-        { stage: 'start_plan', cause: err },
-      );
+      throw new XCTestRunError(`Failed to start test plan: ${err instanceof Error ? err.message : String(err)}`, {
+        stage: 'start_plan',
+        cause: err,
+      });
     }
   }
 
-  private async executeAndWait(
-    timer: InstanceType<typeof timing.Timer>,
-  ): Promise<XCTestRunResult> {
+  private async executeAndWait(timer: InstanceType<typeof timing.Timer>): Promise<XCTestRunResult> {
     const timeoutMs = this.options.timeoutMs ?? 180000;
     const xcuitest = this.xcuitest;
     if (!xcuitest) {
@@ -679,13 +626,8 @@ export class XCTestRunner extends EventEmitter<XCTestRunnerEvents> {
     const sessionId = xcuitest.sessionIdentifier;
 
     this.emit('step', 'wait_finish');
-    const timeout = new Promise<'timed_out'>((resolve) =>
-      setTimeout(() => resolve('timed_out'), timeoutMs),
-    );
-    const raceResult = await Promise.race([
-      xcuitest.waitForCompletion(),
-      timeout,
-    ]);
+    const timeout = new Promise<'timed_out'>((resolve) => setTimeout(() => resolve('timed_out'), timeoutMs));
+    const raceResult = await Promise.race([xcuitest.waitForCompletion(), timeout]);
 
     const durationMs = Math.round(timer.getDuration().asMilliSeconds);
     const testSummary = xcuitest.lastTestSummary ?? undefined;
@@ -730,10 +672,10 @@ export class XCTestRunner extends EventEmitter<XCTestRunnerEvents> {
       this.installationProxy = services.installationProxy ?? null;
       return services;
     } catch (err) {
-      throw new XCTestRunError(
-        `Failed to start XCTest services: ${err instanceof Error ? err.message : String(err)}`,
-        { stage: 'start_services', cause: err },
-      );
+      throw new XCTestRunError(`Failed to start XCTest services: ${err instanceof Error ? err.message : String(err)}`, {
+        stage: 'start_services',
+        cause: err,
+      });
     }
   }
 
@@ -744,34 +686,25 @@ export class XCTestRunner extends EventEmitter<XCTestRunnerEvents> {
     xctestName: string;
   }> {
     if (!this.installationProxy) {
-      throw new XCTestRunError(
-        'Installation proxy not available for app lookup',
-        { stage: 'lookup_apps' },
-      );
+      throw new XCTestRunError('Installation proxy not available for app lookup', {stage: 'lookup_apps'});
     }
 
     try {
       const appLookup = await this.installationProxy.lookup(
         [this.options.testRunnerBundleId, this.options.appUnderTestBundleId],
-        { returnAttributes: ['Path', 'CFBundleExecutable'] },
+        {returnAttributes: ['Path', 'CFBundleExecutable']},
       );
       this.installationProxy.close();
       this.installationProxy = null;
 
-      const runnerApp = appLookup[this.options.testRunnerBundleId] as
-        InstalledAppInfo | undefined;
+      const runnerApp = appLookup[this.options.testRunnerBundleId] as InstalledAppInfo | undefined;
       if (!runnerApp?.Path) {
-        throw new Error(
-          `Runner app not found: ${this.options.testRunnerBundleId}`,
-        );
+        throw new Error(`Runner app not found: ${this.options.testRunnerBundleId}`);
       }
 
-      const targetApp = appLookup[this.options.appUnderTestBundleId] as
-        InstalledAppInfo | undefined;
+      const targetApp = appLookup[this.options.appUnderTestBundleId] as InstalledAppInfo | undefined;
       if (!targetApp?.Path) {
-        throw new Error(
-          `Target app not found: ${this.options.appUnderTestBundleId}`,
-        );
+        throw new Error(`Target app not found: ${this.options.appUnderTestBundleId}`);
       }
 
       const xctestName = getXctestNameFromBundleId(this.options.xctestBundleId);
@@ -779,14 +712,14 @@ export class XCTestRunner extends EventEmitter<XCTestRunnerEvents> {
       const targetPath = targetApp.Path;
       const testBundlePath = `${runnerPath}/PlugIns/${xctestName}.xctest`;
 
-      return { runnerPath, targetPath, testBundlePath, xctestName };
+      return {runnerPath, targetPath, testBundlePath, xctestName};
     } catch (err) {
       if (err instanceof XCTestRunError) {
         throw err;
       }
       throw new XCTestRunError(
         `Failed to look up installed apps: ${err instanceof Error ? err.message : String(err)}`,
-        { stage: 'lookup_apps', cause: err },
+        {stage: 'lookup_apps', cause: err},
       );
     }
   }
@@ -798,9 +731,7 @@ export function createXCTestRunner(options: XCTestRunnerOptions): XCTestRunner {
 }
 
 /** High-level API to run an XCTest bundle. */
-export async function runXCTest(
-  options: XCTestRunnerOptions,
-): Promise<XCTestRunResult> {
+export async function runXCTest(options: XCTestRunnerOptions): Promise<XCTestRunResult> {
   const runner = createXCTestRunner(options);
   return await runner.run();
 }

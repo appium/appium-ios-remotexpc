@@ -1,9 +1,9 @@
-import { createInterface } from 'node:readline';
+import {createInterface} from 'node:readline';
 
-import { getLogger } from '../../logger.js';
-import { PairingError } from '../errors.js';
-import { NETWORK_CONSTANTS } from '../network/constants.js';
-import type { UserInputInterface } from '../pairing-protocol/types.js';
+import {getLogger} from '../../logger.js';
+import {PairingError} from '../errors.js';
+import {NETWORK_CONSTANTS} from '../network/constants.js';
+import type {UserInputInterface} from '../pairing-protocol/types.js';
 
 const log = getLogger('UserInputService');
 

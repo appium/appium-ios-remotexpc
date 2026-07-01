@@ -1,6 +1,6 @@
-import { getLogger } from '../../../../lib/logger.js';
-import { MessageAux } from '../dtx-message.js';
-import { BaseInstrument } from './base-instrument.js';
+import {getLogger} from '../../../../lib/logger.js';
+import {MessageAux} from '../dtx-message.js';
+import {BaseInstrument} from './base-instrument.js';
 
 const log = getLogger('EnergyMonitor');
 
@@ -37,8 +37,7 @@ export type EnergyMonitorSample = Record<string, EnergyMetrics>;
  * ```
  */
 export class EnergyMonitor extends BaseInstrument {
-  static readonly IDENTIFIER =
-    'com.apple.xcode.debug-gauge-data-providers.Energy';
+  static readonly IDENTIFIER = 'com.apple.xcode.debug-gauge-data-providers.Energy';
 
   private sampling = false;
   private stopRequested = false;
@@ -56,10 +55,7 @@ export class EnergyMonitor extends BaseInstrument {
     await this.initialize();
     const channel = this.requireChannel();
     this.stopRequested = false;
-    await channel.call('startSamplingForPIDs_')(
-      new MessageAux().appendObj(pids),
-      false,
-    );
+    await channel.call('startSamplingForPIDs_')(new MessageAux().appendObj(pids), false);
     this.sampling = true;
   }
 
@@ -78,10 +74,7 @@ export class EnergyMonitor extends BaseInstrument {
 
     if (this.channel) {
       try {
-        await this.channel.call('stopSamplingForPIDs_')(
-          new MessageAux().appendObj(pids),
-          false,
-        );
+        await this.channel.call('stopSamplingForPIDs_')(new MessageAux().appendObj(pids), false);
       } catch (error) {
         log.debug(
           'energy monitor stopSampling() could not notify the device:',
@@ -109,9 +102,7 @@ export class EnergyMonitor extends BaseInstrument {
    * Stops when the generator is returned/thrown, when {@link stopSampling} is
    * called, or when the underlying DVT connection is closed.
    */
-  async *monitor(
-    pids: number[],
-  ): AsyncGenerator<EnergyMonitorSample, void, undefined> {
+  async *monitor(pids: number[]): AsyncGenerator<EnergyMonitorSample, void, undefined> {
     log.debug('Energy monitoring started');
     // Stop any prior session so monitor() always owns a clean lifecycle.
     await this.stopSampling(pids);
@@ -129,10 +120,7 @@ export class EnergyMonitor extends BaseInstrument {
           if (this.stopRequested || this.isAbortError(err)) {
             break;
           }
-          log.debug(
-            'energy monitor read error:',
-            err instanceof Error ? err.message : err,
-          );
+          log.debug('energy monitor read error:', err instanceof Error ? err.message : err);
           break;
         } finally {
           if (this.receiveAbortController === abortController) {
@@ -150,21 +138,13 @@ export class EnergyMonitor extends BaseInstrument {
     }
   }
 
-  private async sampleOnce(
-    pids: number[],
-    signal?: AbortSignal,
-  ): Promise<EnergyMonitorSample> {
+  private async sampleOnce(pids: number[], signal?: AbortSignal): Promise<EnergyMonitorSample> {
     const channel = this.requireChannel();
-    await channel.call('sampleAttributes_forPIDs_')(
-      new MessageAux().appendObj({}).appendObj(pids),
-    );
+    await channel.call('sampleAttributes_forPIDs_')(new MessageAux().appendObj({}).appendObj(pids));
     return await channel.receivePlist(signal);
   }
 
   private isAbortError(err: unknown): boolean {
-    return (
-      err instanceof DOMException ||
-      (err instanceof Error && err.name === 'AbortError')
-    );
+    return err instanceof DOMException || (err instanceof Error && err.name === 'AbortError');
   }
 }

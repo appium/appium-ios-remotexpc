@@ -1,15 +1,16 @@
-import { logger } from '@appium/support';
-import { expect } from 'chai';
-import { type TestContext, after, before, describe, it } from 'node:test';
+import {type TestContext, after, before, describe, it} from 'node:test';
 
-import type { DVTInstruments } from '../../../src/index.js';
+import {logger} from '@appium/support';
+import {expect} from 'chai';
+
+import type {DVTInstruments} from '../../../src/index.js';
 import * as Services from '../../../src/services.js';
-import { requireDeviceUdid } from '../helpers/device.js';
+import {requireDeviceUdid} from '../helpers/device.js';
 
 const log = logger.getLogger('DeviceInfo.test');
 log.level = 'debug';
 
-describe('DeviceInfo Instrument', { timeout: 30000 }, function () {
+describe('DeviceInfo Instrument', {timeout: 30000}, function () {
   let dvtServiceConnection: DVTInstruments | null = null;
   let udid: string;
 
@@ -61,9 +62,7 @@ describe('DeviceInfo Instrument', { timeout: 30000 }, function () {
       const processes = await dvtServiceConnection!.deviceInfo.proclist();
       const firstProcess = processes[0];
 
-      const isRunning = await dvtServiceConnection!.deviceInfo.isRunningPid(
-        firstProcess.pid,
-      );
+      const isRunning = await dvtServiceConnection!.deviceInfo.isRunningPid(firstProcess.pid);
 
       expect(isRunning).to.be.true;
     });
@@ -73,9 +72,7 @@ describe('DeviceInfo Instrument', { timeout: 30000 }, function () {
       const springboard = processes.find((p) => p.name === 'SpringBoard');
 
       if (springboard) {
-        const execPath = await dvtServiceConnection!.deviceInfo.execnameForPid(
-          springboard.pid,
-        );
+        const execPath = await dvtServiceConnection!.deviceInfo.execnameForPid(springboard.pid);
 
         expect(execPath).to.be.a('string');
         expect(execPath.length).to.be.greaterThan(0);
@@ -88,16 +85,14 @@ describe('DeviceInfo Instrument', { timeout: 30000 }, function () {
 
   describe('System Information', () => {
     it('should get hardware information', async () => {
-      const hwInfo =
-        await dvtServiceConnection!.deviceInfo.hardwareInformation();
+      const hwInfo = await dvtServiceConnection!.deviceInfo.hardwareInformation();
 
       expect(hwInfo).to.be.an('object');
       expect(Object.keys(hwInfo).length).to.be.greaterThan(0);
     });
 
     it('should get network information', async () => {
-      const netInfo =
-        await dvtServiceConnection!.deviceInfo.networkInformation();
+      const netInfo = await dvtServiceConnection!.deviceInfo.networkInformation();
 
       expect(netInfo).to.be.an('object');
       expect(Object.keys(netInfo).length).to.be.greaterThan(0);
@@ -111,8 +106,7 @@ describe('DeviceInfo Instrument', { timeout: 30000 }, function () {
     });
 
     it('should get mach kernel name', async () => {
-      const kernelName =
-        await dvtServiceConnection!.deviceInfo.machKernelName();
+      const kernelName = await dvtServiceConnection!.deviceInfo.machKernelName();
 
       expect(kernelName).to.be.a('string');
       expect(kernelName.length).to.be.greaterThan(0);
@@ -153,17 +147,13 @@ describe('DeviceInfo Instrument', { timeout: 30000 }, function () {
     it('should get group name for GID', async function (ctx: TestContext) {
       try {
         // mobile (501) is the common app-owner group on iOS
-        const groupName =
-          await dvtServiceConnection!.deviceInfo.nameForGid(501);
+        const groupName = await dvtServiceConnection!.deviceInfo.nameForGid(501);
 
         expect(groupName).to.be.a('string');
         expect(groupName.length).to.be.greaterThan(0);
       } catch (error) {
         const message = (error as Error).message;
-        if (
-          message.includes('nameForGID') &&
-          message.includes('does not respond')
-        ) {
+        if (message.includes('nameForGID') && message.includes('does not respond')) {
           ctx.skip();
         }
         throw error;
@@ -177,12 +167,8 @@ describe('DeviceInfo Instrument', { timeout: 30000 }, function () {
       const springboard = processes.find((p) => p.name === 'SpringBoard');
 
       if (springboard) {
-        const execPath = await dvtServiceConnection!.deviceInfo.execnameForPid(
-          springboard.pid,
-        );
-        const isRunning = await dvtServiceConnection!.deviceInfo.isRunningPid(
-          springboard.pid,
-        );
+        const execPath = await dvtServiceConnection!.deviceInfo.execnameForPid(springboard.pid);
+        const isRunning = await dvtServiceConnection!.deviceInfo.isRunningPid(springboard.pid);
 
         expect(isRunning).to.be.true;
         expect(execPath).to.be.a('string');

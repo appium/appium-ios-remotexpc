@@ -1,10 +1,11 @@
-import { expect } from 'chai';
-import { type Server, type Socket } from 'node:net';
-import { afterEach, beforeEach, describe, it } from 'node:test';
+import {type Server, type Socket} from 'node:net';
+import {afterEach, beforeEach, describe, it} from 'node:test';
 
-import { type Device, Usbmux } from '../../../src/lib/usbmux/index.js';
-import { prioritizeUsbOverNetworkForDuplicateUdids } from '../../../src/lib/usbmux/utils.js';
-import { UDID, fixtures, getServerWithFixtures } from '../fixtures/index.js';
+import {expect} from 'chai';
+
+import {type Device, Usbmux} from '../../../src/lib/usbmux/index.js';
+import {prioritizeUsbOverNetworkForDuplicateUdids} from '../../../src/lib/usbmux/utils.js';
+import {UDID, fixtures, getServerWithFixtures} from '../fixtures/index.js';
 
 const DUP_UDID = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 
@@ -12,7 +13,7 @@ function mockUsbmuxDevice(
   deviceId: number,
   serialNumber: string,
   connectionType: 'USB' | 'Network',
-  opts?: { connectionSpeed?: number; productId?: number },
+  opts?: {connectionSpeed?: number; productId?: number},
 ): Device {
   const connectionSpeed = opts?.connectionSpeed ?? 480000000;
   const productId = opts?.productId ?? 4776;
@@ -60,14 +61,14 @@ describe('usbmux', function () {
   });
 
   it('should read usbmux message', async function () {
-    ({ server, socket } = await getServerWithFixtures(fixtures.DEVICE_LIST));
+    ({server, socket} = await getServerWithFixtures(fixtures.DEVICE_LIST));
     usbmux = new Usbmux(socket);
     const devices = await usbmux.listDevices();
     expect(devices.length).to.equal(1);
   });
 
   it('should fail due to timeout', async function () {
-    ({ server, socket } = await getServerWithFixtures());
+    ({server, socket} = await getServerWithFixtures());
     usbmux = new Usbmux(socket);
 
     await usbmux.listDevices(-1).catch((err) => {
@@ -76,7 +77,7 @@ describe('usbmux', function () {
   });
 
   it('should find correct device', async function () {
-    ({ server, socket } = await getServerWithFixtures(fixtures.DEVICE_LIST));
+    ({server, socket} = await getServerWithFixtures(fixtures.DEVICE_LIST));
     usbmux = new Usbmux(socket);
 
     const device = await usbmux.findDevice(UDID);
@@ -115,18 +116,8 @@ describe('usbmux', function () {
       connectionSpeed: 0,
       productId: 0,
     });
-    const sorted = prioritizeUsbOverNetworkForDuplicateUdids([
-      aNet,
-      bUsb,
-      aUsb,
-      cNet,
-    ]);
+    const sorted = prioritizeUsbOverNetworkForDuplicateUdids([aNet, bUsb, aUsb, cNet]);
     expect(sorted.map((d) => d.DeviceID)).to.deep.equal([1, 10, 2, 20]);
-    expect(sorted.map((d) => d.Properties.SerialNumber)).to.deep.equal([
-      'dup-a',
-      'only-b',
-      'dup-a',
-      'only-c',
-    ]);
+    expect(sorted.map((d) => d.Properties.SerialNumber)).to.deep.equal(['dup-a', 'only-b', 'dup-a', 'only-c']);
   });
 });

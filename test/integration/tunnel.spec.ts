@@ -1,13 +1,11 @@
-import { expect } from 'chai';
-import { afterEach, before, describe, it } from 'node:test';
+import {afterEach, before, describe, it} from 'node:test';
 
-import type { SyslogService as ISyslogService } from '../../src/lib/types.js';
-import {
-  startSyslogBinaryService,
-  startSyslogTextService,
-} from '../../src/services.js';
-import type { Service } from '../../src/services/ios/base-service.js';
-import { requireDeviceUdid } from './helpers/device.js';
+import {expect} from 'chai';
+
+import type {SyslogService as ISyslogService} from '../../src/lib/types.js';
+import {startSyslogBinaryService, startSyslogTextService} from '../../src/services.js';
+import type {Service} from '../../src/services/ios/base-service.js';
+import {requireDeviceUdid} from './helpers/device.js';
 
 function registerCommonSyslogTests(
   getService: () => ISyslogService,
@@ -30,7 +28,7 @@ function registerCommonSyslogTests(
   });
 }
 
-describe('Tunnel and Syslog Service', { timeout: 60000 }, function () {
+describe('Tunnel and Syslog Service', {timeout: 60000}, function () {
   let udid: string;
 
   before(function () {
@@ -42,8 +40,7 @@ describe('Tunnel and Syslog Service', { timeout: 60000 }, function () {
     let serviceDescriptor: Service;
 
     before(async function () {
-      ({ syslogService, serviceDescriptor } =
-        await startSyslogBinaryService(udid));
+      ({syslogService, serviceDescriptor} = await startSyslogBinaryService(udid));
     });
 
     afterEach(async function () {
@@ -55,7 +52,7 @@ describe('Tunnel and Syslog Service', { timeout: 60000 }, function () {
     registerCommonSyslogTests(
       () => syslogService,
       () => serviceDescriptor,
-      () => ({ pid: -1 }),
+      () => ({pid: -1}),
     );
 
     it('should capture and emit syslog messages', async function () {
@@ -63,7 +60,7 @@ describe('Tunnel and Syslog Service', { timeout: 60000 }, function () {
       syslogService.on('message', (message: string) => {
         messages.push(message);
       });
-      await syslogService.start(serviceDescriptor, { pid: -1 });
+      await syslogService.start(serviceDescriptor, {pid: -1});
       await new Promise((resolve) => setTimeout(resolve, 3000));
       await syslogService.stop();
       expect(messages.length).to.be.greaterThan(0);
@@ -75,8 +72,7 @@ describe('Tunnel and Syslog Service', { timeout: 60000 }, function () {
     let serviceDescriptor: Service;
 
     before(async function () {
-      ({ syslogService, serviceDescriptor } =
-        await startSyslogTextService(udid));
+      ({syslogService, serviceDescriptor} = await startSyslogTextService(udid));
     });
 
     afterEach(async function () {
@@ -88,7 +84,7 @@ describe('Tunnel and Syslog Service', { timeout: 60000 }, function () {
     registerCommonSyslogTests(
       () => syslogService,
       () => serviceDescriptor,
-      () => ({ pid: -1, textMode: true }),
+      () => ({pid: -1, textMode: true}),
     );
   });
 });

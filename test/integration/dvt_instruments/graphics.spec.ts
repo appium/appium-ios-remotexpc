@@ -1,15 +1,16 @@
-import { logger } from '@appium/support';
-import { expect } from 'chai';
-import { after, before, describe, it } from 'node:test';
+import {after, before, describe, it} from 'node:test';
 
-import type { DVTInstruments } from '../../../src/lib/types.js';
+import {logger} from '@appium/support';
+import {expect} from 'chai';
+
+import type {DVTInstruments} from '../../../src/lib/types.js';
 import * as Services from '../../../src/services.js';
-import { requireDeviceUdid } from '../helpers/device.js';
+import {requireDeviceUdid} from '../helpers/device.js';
 
 const log = logger.getLogger('Graphics.test');
 log.level = 'debug';
 
-describe('Graphics', { timeout: 30000 }, function () {
+describe('Graphics', {timeout: 30000}, function () {
   let dvtServiceConnection: DVTInstruments | null = null;
   let udid: string;
 

@@ -1,5 +1,5 @@
-import type { XPCDictionary, XPCValue } from '../../../lib/types.js';
-import { CoreDeviceService } from '../core-device/core-device-service.js';
+import type {XPCDictionary, XPCValue} from '../../../lib/types.js';
+import {CoreDeviceService} from '../core-device/core-device-service.js';
 import {
   GENERAL_PASTEBOARD,
   IMAGE_UTIS,
@@ -9,12 +9,7 @@ import {
   TEXT_UTIS,
   URL_UTIS,
 } from './constants.js';
-import type {
-  PasteboardDataInclusionPolicy,
-  PasteboardItem,
-  PasteboardPullReply,
-  PasteboardSnapshot,
-} from './types.js';
+import type {PasteboardDataInclusionPolicy, PasteboardItem, PasteboardPullReply, PasteboardSnapshot} from './types.js';
 
 /**
  * Client for `com.apple.coredevice.pasteboardservice`.
@@ -29,22 +24,14 @@ export class PasteboardService extends CoreDeviceService {
   /**
    * Pull the pasteboard and return the first decodable UTF-8 text item.
    */
-  async getText(
-    pasteboardName = GENERAL_PASTEBOARD,
-  ): Promise<string | undefined> {
-    return PasteboardService.extractString(
-      await this.get(pasteboardName),
-      TEXT_UTIS,
-    );
+  async getText(pasteboardName = GENERAL_PASTEBOARD): Promise<string | undefined> {
+    return PasteboardService.extractString(await this.get(pasteboardName), TEXT_UTIS);
   }
 
   /**
    * Replace the pasteboard with a single UTF-8 text item.
    */
-  async setText(
-    text: string,
-    pasteboardName = GENERAL_PASTEBOARD,
-  ): Promise<void> {
+  async setText(text: string, pasteboardName = GENERAL_PASTEBOARD): Promise<void> {
     await this.set([PasteboardService.buildTextItem(text)], pasteboardName);
   }
 
@@ -52,10 +39,7 @@ export class PasteboardService extends CoreDeviceService {
    * Pull the pasteboard and return the first decodable URL string.
    */
   async getUrl(pasteboardName = GENERAL_PASTEBOARD): Promise<URL | undefined> {
-    const urlString = PasteboardService.extractString(
-      await this.get(pasteboardName),
-      URL_UTIS,
-    );
+    const urlString = PasteboardService.extractString(await this.get(pasteboardName), URL_UTIS);
     try {
       return urlString ? new URL(urlString) : undefined;
     } catch {
@@ -66,14 +50,8 @@ export class PasteboardService extends CoreDeviceService {
   /**
    * Replace the pasteboard with a single URL value.
    */
-  async setUrl(
-    url: string | URL,
-    pasteboardName = GENERAL_PASTEBOARD,
-  ): Promise<void> {
-    await this.set(
-      [PasteboardService.buildUrlItem(String(url))],
-      pasteboardName,
-    );
+  async setUrl(url: string | URL, pasteboardName = GENERAL_PASTEBOARD): Promise<void> {
+    await this.set([PasteboardService.buildUrlItem(String(url))], pasteboardName);
   }
 
   /**
@@ -81,13 +59,8 @@ export class PasteboardService extends CoreDeviceService {
    *
    * Reads image data advertised as PNG, JPEG, TIFF, or generic image UTIs.
    */
-  async getImage(
-    pasteboardName = GENERAL_PASTEBOARD,
-  ): Promise<Buffer | undefined> {
-    return PasteboardService.extractData(
-      await this.get(pasteboardName),
-      IMAGE_UTIS,
-    );
+  async getImage(pasteboardName = GENERAL_PASTEBOARD): Promise<Buffer | undefined> {
+    return PasteboardService.extractData(await this.get(pasteboardName), IMAGE_UTIS);
   }
 
   /**
@@ -96,23 +69,15 @@ export class PasteboardService extends CoreDeviceService {
    * The bytes must be PNG data; the pasteboard item is advertised as
    * `public.png`.
    */
-  async setImage(
-    image: Buffer | Uint8Array,
-    pasteboardName = GENERAL_PASTEBOARD,
-  ): Promise<void> {
+  async setImage(image: Buffer | Uint8Array, pasteboardName = GENERAL_PASTEBOARD): Promise<void> {
     await this.set([PasteboardService.buildImageItem(image)], pasteboardName);
   }
 
-  private static buildTextItem(
-    text: string,
-    utis: readonly string[] = TEXT_UTIS,
-  ): PasteboardItem {
+  private static buildTextItem(text: string, utis: readonly string[] = TEXT_UTIS): PasteboardItem {
     const payload = Buffer.from(text, 'utf8');
     return {
       types: [...utis],
-      data: Object.fromEntries(
-        utis.map((uti) => [uti, { data: Buffer.from(payload) }]),
-      ),
+      data: Object.fromEntries(utis.map((uti) => [uti, {data: Buffer.from(payload)}])),
     };
   }
 
@@ -120,9 +85,7 @@ export class PasteboardService extends CoreDeviceService {
     const payload = Buffer.from(url, 'utf8');
     return {
       types: [...URL_UTIS],
-      data: Object.fromEntries(
-        URL_UTIS.map((uti) => [uti, { data: Buffer.from(payload) }]),
-      ),
+      data: Object.fromEntries(URL_UTIS.map((uti) => [uti, {data: Buffer.from(payload)}])),
     };
   }
 
@@ -130,7 +93,7 @@ export class PasteboardService extends CoreDeviceService {
     return {
       types: [PASTEBOARD_UTI.PNG],
       data: {
-        [PASTEBOARD_UTI.PNG]: { data: Buffer.from(image) },
+        [PASTEBOARD_UTI.PNG]: {data: Buffer.from(image)},
       },
     };
   }
@@ -187,7 +150,7 @@ export class PasteboardService extends CoreDeviceService {
         pasteboardName,
         dataPolicy,
       },
-      { actionIdentifier: PASTEBOARD_COMMAND.PULL },
+      {actionIdentifier: PASTEBOARD_COMMAND.PULL},
     )) as PasteboardPullReply;
   }
 
@@ -210,9 +173,7 @@ export class PasteboardService extends CoreDeviceService {
   }
 }
 
-function pickSnapshot(
-  snapshotOrReply: XPCDictionary | PasteboardSnapshot | PasteboardPullReply,
-): PasteboardSnapshot {
+function pickSnapshot(snapshotOrReply: XPCDictionary | PasteboardSnapshot | PasteboardPullReply): PasteboardSnapshot {
   const pasteboard = asDictionary(snapshotOrReply.pasteboard);
   return (pasteboard ?? snapshotOrReply) as PasteboardSnapshot;
 }

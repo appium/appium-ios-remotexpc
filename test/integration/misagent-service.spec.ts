@@ -1,15 +1,16 @@
-import { logger } from '@appium/support';
-import { expect } from 'chai';
-import { after, before, describe, it } from 'node:test';
+import {after, before, describe, it} from 'node:test';
 
-import { type MisagentService } from '../../src/lib/types.js';
+import {logger} from '@appium/support';
+import {expect} from 'chai';
+
+import {type MisagentService} from '../../src/lib/types.js';
 import * as Services from '../../src/services.js';
-import { requireDeviceUdid } from './helpers/device.js';
+import {requireDeviceUdid} from './helpers/device.js';
 
 const log = logger.getLogger('MisagentService.test');
 log.level = 'info';
 
-describe('MisagentService', { timeout: 60000 }, function () {
+describe('MisagentService', {timeout: 60000}, function () {
   let misagentService: MisagentService;
   let udid: string;
 
@@ -25,9 +26,7 @@ describe('MisagentService', { timeout: 60000 }, function () {
     it('should install a valid provisioning profile', async function () {
       try {
         // Make sure to provide a valid .mobileprovision file path
-        await misagentService.installProfileFromPath(
-          'pathto/your.mobileprovision',
-        );
+        await misagentService.installProfileFromPath('pathto/your.mobileprovision');
       } catch (error) {
         log.error('Error installing profile:', (error as Error).message);
         throw error;
@@ -57,9 +56,7 @@ describe('MisagentService', { timeout: 60000 }, function () {
     it('should remove an installed profile', async function () {
       try {
         // Use a valid UUID from the installed profiles
-        await misagentService.removeProfile(
-          '12345678-90AB-CDEF-1234-567890ABCDEF',
-        );
+        await misagentService.removeProfile('12345678-90AB-CDEF-1234-567890ABCDEF');
       } catch (error) {
         log.error('Error removing profile:', (error as Error).message);
         throw error;

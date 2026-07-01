@@ -1,26 +1,10 @@
-import { randomBytes } from 'node:crypto';
+import {randomBytes} from 'node:crypto';
 
-import { getLogger } from '../../logger.js';
-import {
-  SRP_GENERATOR,
-  SRP_KEY_LENGTH_BYTES,
-  SRP_PRIME_3072,
-  SRP_PRIVATE_KEY_BITS,
-  SRP_USERNAME,
-} from '../constants.js';
-import { SRPError } from '../errors.js';
-import {
-  bigIntToBuffer,
-  bufferToBigInt,
-  modPow,
-} from '../utils/buffer-utils.js';
-import {
-  calculateK,
-  calculateM1,
-  calculateU,
-  calculateX,
-  hash,
-} from './crypto-utils.js';
+import {getLogger} from '../../logger.js';
+import {SRP_GENERATOR, SRP_KEY_LENGTH_BYTES, SRP_PRIME_3072, SRP_PRIVATE_KEY_BITS, SRP_USERNAME} from '../constants.js';
+import {SRPError} from '../errors.js';
+import {bigIntToBuffer, bufferToBigInt, modPow} from '../utils/buffer-utils.js';
+import {calculateK, calculateM1, calculateU, calculateX, hash} from './crypto-utils.js';
 
 const log = getLogger('SRPClient');
 
@@ -135,17 +119,13 @@ export class SRPClient {
     this.throwIfDisposed();
 
     if (!value || value.length !== SRP_KEY_LENGTH_BYTES) {
-      throw new SRPError(
-        `Server public key must be ${SRP_KEY_LENGTH_BYTES} bytes, got ${value?.length || 0}`,
-      );
+      throw new SRPError(`Server public key must be ${SRP_KEY_LENGTH_BYTES} bytes, got ${value?.length || 0}`);
     }
 
     this._B = bufferToBigInt(value);
 
     if (this._B <= SRPClient.ONE || this._B >= this.N_MINUS_ONE) {
-      throw new SRPError(
-        'Invalid server public key B: must be in range (1, N-1)',
-      );
+      throw new SRPError('Invalid server public key B: must be in range (1, N-1)');
     }
 
     // Additional security check
@@ -167,9 +147,7 @@ export class SRPClient {
     this.throwIfDisposed();
 
     if (this._A === SRPClient.ZERO) {
-      throw new SRPError(
-        'Client keys not generated yet. Set salt and serverPublicKey properties first.',
-      );
+      throw new SRPError('Client keys not generated yet. Set salt and serverPublicKey properties first.');
     }
 
     return bigIntToBuffer(this._A, SRP_KEY_LENGTH_BYTES);
@@ -190,20 +168,10 @@ export class SRPClient {
     }
 
     if (!this._salt || !this._K || !this._B) {
-      throw new SRPError(
-        'Cannot compute proof: salt, session key, and server public key must be set',
-      );
+      throw new SRPError('Cannot compute proof: salt, session key, and server public key must be set');
     }
 
-    return calculateM1(
-      this.N,
-      this.g,
-      this.username,
-      this._salt,
-      this._A,
-      this._B,
-      this._K,
-    );
+    return calculateM1(this.N, this.g, this.username, this._salt, this._A, this._B, this._K);
   }
 
   /**
@@ -318,9 +286,7 @@ export class SRPClient {
       return;
     }
 
-    throw new SRPError(
-      `Failed to generate secure client keys after ${SRPClient.MAX_KEY_GENERATION_ATTEMPTS} attempts`,
-    );
+    throw new SRPError(`Failed to generate secure client keys after ${SRPClient.MAX_KEY_GENERATION_ATTEMPTS} attempts`);
   }
 
   /**
@@ -368,9 +334,7 @@ export class SRPClient {
    */
   private validateIdentitySet(): void {
     if (!this.password) {
-      throw new SRPError(
-        'Password must be set before performing operations. Call setIdentity() first.',
-      );
+      throw new SRPError('Password must be set before performing operations. Call setIdentity() first.');
     }
   }
 

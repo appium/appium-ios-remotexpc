@@ -1,10 +1,7 @@
-import { getLogger } from '../../../lib/logger.js';
-import type {
-  PlistDictionary,
-  PowerAssertionService as PowerAssertionServiceInterface,
-} from '../../../lib/types.js';
-import { type ServiceConnection } from '../../../service-connection.js';
-import { BaseService } from '../base-service.js';
+import {getLogger} from '../../../lib/logger.js';
+import type {PlistDictionary, PowerAssertionService as PowerAssertionServiceInterface} from '../../../lib/types.js';
+import {type ServiceConnection} from '../../../service-connection.js';
+import {BaseService} from '../base-service.js';
 
 const log = getLogger('PowerAssertionService');
 
@@ -30,12 +27,8 @@ export interface PowerAssertionOptions {
 /**
  * PowerAssertionService provides an API to create power assertions.
  */
-class PowerAssertionService
-  extends BaseService
-  implements PowerAssertionServiceInterface
-{
-  static readonly RSD_SERVICE_NAME =
-    'com.apple.mobile.assertion_agent.shim.remote';
+class PowerAssertionService extends BaseService implements PowerAssertionServiceInterface {
+  static readonly RSD_SERVICE_NAME = 'com.apple.mobile.assertion_agent.shim.remote';
 
   private _conn: ServiceConnection | null = null;
 
@@ -51,9 +44,7 @@ class PowerAssertionService
 
     const request = this.buildCreateAssertionRequest(options);
     await this._conn.sendPlistRequest(request);
-    log.info(
-      `Power assertion created: type="${options.type}", name="${options.name}", timeout=${options.timeout}s`,
-    );
+    log.info(`Power assertion created: type="${options.type}", name="${options.name}", timeout=${options.timeout}s`);
   }
 
   /**
@@ -69,14 +60,10 @@ class PowerAssertionService
 
   private async connectToPowerAssertionService(): Promise<ServiceConnection> {
     log.debug('Connecting to power assertion service');
-    return await this.startLockdownService(
-      PowerAssertionService.RSD_SERVICE_NAME,
-    );
+    return await this.startLockdownService(PowerAssertionService.RSD_SERVICE_NAME);
   }
 
-  private buildCreateAssertionRequest(
-    options: PowerAssertionOptions,
-  ): PlistDictionary {
+  private buildCreateAssertionRequest(options: PowerAssertionOptions): PlistDictionary {
     const request: PlistDictionary = {
       CommandKey: 'CommandCreateAssertion',
       AssertionTypeKey: options.type,
@@ -92,4 +79,4 @@ class PowerAssertionService
   }
 }
 
-export { PowerAssertionService };
+export {PowerAssertionService};

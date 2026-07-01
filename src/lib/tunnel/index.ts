@@ -1,3 +1,5 @@
+import type {Socket} from 'node:net';
+
 import {
   type TunnelConnection,
   type TunnelLockdownTlsCredentials,
@@ -5,9 +7,8 @@ import {
   connectToTunnelLockdown,
   connectToTunnelPsk,
 } from 'appium-ios-tuntap';
-import type { Socket } from 'node:net';
 
-import { getLogger } from '../logger.js';
+import {getLogger} from '../logger.js';
 
 const log = getLogger('TunnelManager');
 
@@ -55,13 +56,9 @@ class TunnelManagerService {
   async getTunnel(
     tcpSocket: Socket,
     credentials: TunnelLockdownTlsCredentials,
-    options?: { onDead?: (reason: string) => void },
+    options?: {onDead?: (reason: string) => void},
   ): Promise<TunnelConnection> {
-    const tunnel = await connectToTunnelLockdown(
-      tcpSocket,
-      credentials,
-      options,
-    );
+    const tunnel = await connectToTunnelLockdown(tcpSocket, credentials, options);
     return this.registerTunnel(tunnel, 'tunnel');
   }
 
@@ -71,7 +68,7 @@ class TunnelManagerService {
   async getTunnelPsk(
     tcpSocket: Socket,
     credentials: TunnelPskTlsCredentials,
-    options?: { onDead?: (reason: string) => void },
+    options?: {onDead?: (reason: string) => void},
   ): Promise<TunnelConnection> {
     const tunnel = await connectToTunnelPsk(tcpSocket, credentials, options);
     return this.registerTunnel(tunnel, 'Apple TV tunnel');
@@ -147,10 +144,7 @@ class TunnelManagerService {
     return this.closeAllTunnels();
   }
 
-  private async registerTunnel(
-    tunnel: TunnelConnection,
-    kindLabel: string,
-  ): Promise<TunnelConnection> {
+  private async registerTunnel(tunnel: TunnelConnection, kindLabel: string): Promise<TunnelConnection> {
     const existingTunnel = this.tunnelRegistry.get(tunnel.Address);
     if (existingTunnel?.isActive) {
       log.info(`Reusing existing tunnel for address: ${tunnel.Address}`);
@@ -165,9 +159,7 @@ class TunnelManagerService {
           return existingTunnel.tunnel;
         }
       } catch (error) {
-        log.warn(
-          `Error checking tunnel functionality: ${error}, creating a new one`,
-        );
+        log.warn(`Error checking tunnel functionality: ${error}, creating a new one`);
         existingTunnel.isActive = false;
       }
     }
@@ -185,8 +177,8 @@ class TunnelManagerService {
 
 // Create and export the singleton instance
 export const TunnelManager = new TunnelManagerService();
-export { discoverServices, servicesToCatalog } from './tunnel-rsd-discovery.js';
-export { TunnelReadinessCoordinator } from './tunnel-readiness.js';
+export {discoverServices, servicesToCatalog} from './tunnel-rsd-discovery.js';
+export {TunnelReadinessCoordinator} from './tunnel-readiness.js';
 export {
   watchTunnelRegistrySockets,
   watchTunnelRegistryOnDead,
@@ -196,4 +188,4 @@ export {
   type WatchTunnelRegistryOnDeadOptions,
 } from './tunnel-registry-lifecycle.js';
 // Re-export TunnelConnection type from appium-ios-tuntap
-export type { TunnelConnection };
+export type {TunnelConnection};

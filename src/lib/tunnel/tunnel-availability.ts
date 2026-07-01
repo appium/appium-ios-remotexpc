@@ -1,22 +1,19 @@
-import { BaseItem, strongbox } from '@appium/strongbox';
 import * as net from 'node:net';
 
-import { TUNNEL_CONTAINER_NAME } from '../../constants.js';
-import type { TunnelRegistryEntry } from '../types.js';
+import {BaseItem, strongbox} from '@appium/strongbox';
+
+import {TUNNEL_CONTAINER_NAME} from '../../constants.js';
+import type {TunnelRegistryEntry} from '../types.js';
 import {
   TUNNEL_REGISTRY_API_BASE_PATH,
   TUNNEL_REGISTRY_HOST,
   TUNNEL_REGISTRY_HTTP_TIMEOUT_MS,
   TUNNEL_REGISTRY_PORT_PROBE_TIMEOUT_MS,
 } from './constants.js';
-import { TunnelAvailabilityError } from './errors.js';
-import {
-  TunnelApiClient,
-  type TunnelApiClientOptions,
-  type TunnelEndpoint,
-} from './tunnel-api-client.js';
+import {TunnelAvailabilityError} from './errors.js';
+import {TunnelApiClient, type TunnelApiClientOptions, type TunnelEndpoint} from './tunnel-api-client.js';
 
-export { TunnelAvailabilityError };
+export {TunnelAvailabilityError};
 
 const TUNNEL_REGISTRY_PORT = 'tunnelRegistryPort';
 
@@ -35,7 +32,7 @@ export async function getTunnelForDevice(
 ): Promise<TunnelEndpoint> {
   const client = await createValidatedStrictRegistryClient();
   const waitMs = options.waitMs ?? 0;
-  const entry = await client.getTunnelByUdid(udid, { waitMs });
+  const entry = await client.getTunnelByUdid(udid, {waitMs});
 
   if (!entry) {
     throw new TunnelAvailabilityError(
@@ -78,24 +75,15 @@ export function mapEntryToEndpoint(entry: TunnelRegistryEntry): TunnelEndpoint {
 
 /** Whether a registry entry has a non-empty discovered RSD service catalog. */
 export function isTunnelEntryReady(entry: TunnelRegistryEntry): boolean {
-  return (
-    entry.services !== undefined &&
-    typeof entry.services === 'object' &&
-    Object.keys(entry.services).length > 0
-  );
+  return entry.services !== undefined && typeof entry.services === 'object' && Object.keys(entry.services).length > 0;
 }
 
 async function readTunnelRegistryPort(): Promise<number> {
   const box = strongbox(TUNNEL_CONTAINER_NAME);
   const item = new BaseItem(TUNNEL_REGISTRY_PORT, box);
   const tunnelRegistryPort = await item.read();
-  if (
-    tunnelRegistryPort === undefined ||
-    String(tunnelRegistryPort).trim() === ''
-  ) {
-    throw new TunnelAvailabilityError(
-      'Tunnel registry port not found. Please run the tunnel creation script first',
-    );
+  if (tunnelRegistryPort === undefined || String(tunnelRegistryPort).trim() === '') {
+    throw new TunnelAvailabilityError('Tunnel registry port not found. Please run the tunnel creation script first');
   }
   const stored = String(tunnelRegistryPort).trim();
   const port = Number.parseInt(stored, 10);
@@ -107,14 +95,12 @@ async function readTunnelRegistryPort(): Promise<number> {
   return port;
 }
 
-async function assertRegistryPortAcceptingConnections(
-  port: number,
-): Promise<void> {
+async function assertRegistryPortAcceptingConnections(port: number): Promise<void> {
   const registryAddress = `${TUNNEL_REGISTRY_HOST}:${port}`;
   const unreachableMessage = `Tunnel registry at ${registryAddress} is not reachable. Please run the tunnel creation script first`;
 
   await new Promise<void>((resolve, reject) => {
-    const socket = net.connect({ host: TUNNEL_REGISTRY_HOST, port });
+    const socket = net.connect({host: TUNNEL_REGISTRY_HOST, port});
     const timer = setTimeout(() => {
       socket.destroy();
       reject(new TunnelAvailabilityError(unreachableMessage));
@@ -136,25 +122,18 @@ async function assertRegistryPortAcceptingConnections(
     socket.once('connect', () => finish());
     socket.once('error', (err: NodeJS.ErrnoException) => {
       if (err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND') {
-        finish(new TunnelAvailabilityError(unreachableMessage, { cause: err }));
+        finish(new TunnelAvailabilityError(unreachableMessage, {cause: err}));
         return;
       }
       finish(
-        new TunnelAvailabilityError(
-          `Tunnel registry port probe failed for ${registryAddress}: ${err.message}`,
-          { cause: err },
-        ),
+        new TunnelAvailabilityError(`Tunnel registry port probe failed for ${registryAddress}: ${err.message}`, {
+          cause: err,
+        }),
       );
     });
   });
 }
 
-function createTunnelRegistryClient(
-  port: number,
-  options: TunnelApiClientOptions = {},
-): TunnelApiClient {
-  return new TunnelApiClient(
-    `http://${TUNNEL_REGISTRY_HOST}:${port}${TUNNEL_REGISTRY_API_BASE_PATH}`,
-    options,
-  );
+function createTunnelRegistryClient(port: number, options: TunnelApiClientOptions = {}): TunnelApiClient {
+  return new TunnelApiClient(`http://${TUNNEL_REGISTRY_HOST}:${port}${TUNNEL_REGISTRY_API_BASE_PATH}`, options);
 }

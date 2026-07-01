@@ -1,6 +1,6 @@
-import { posix as path } from 'node:path';
+import {posix as path} from 'node:path';
 
-import { getLogger } from '../../../lib/logger.js';
+import {getLogger} from '../../../lib/logger.js';
 
 const log = getLogger('SyslogParser');
 
@@ -118,9 +118,7 @@ export function getLogLevelName(level: number): string {
  */
 export function parseSyslogEntry(data: Buffer): SyslogEntry {
   if (data.length < OFFSET_VARIABLE_FIELDS) {
-    throw new Error(
-      `Entry data too short: ${data.length} bytes (need at least ${OFFSET_VARIABLE_FIELDS})`,
-    );
+    throw new Error(`Entry data too short: ${data.length} bytes (need at least ${OFFSET_VARIABLE_FIELDS})`);
   }
 
   const pid = data.readUInt32LE(OFFSET_PID);
@@ -146,33 +144,21 @@ export function parseSyslogEntry(data: Buffer): SyslogEntry {
   offset = filenameEnd + 1;
 
   // Parse image_name (imageNameSize bytes, minus the null terminator)
-  const imageName =
-    imageNameSize > 1
-      ? decodeUtf8(data.subarray(offset, offset + imageNameSize - 1))
-      : '';
+  const imageName = imageNameSize > 1 ? decodeUtf8(data.subarray(offset, offset + imageNameSize - 1)) : '';
   offset += imageNameSize;
 
   // Parse message (messageSize bytes, minus the null terminator)
-  const message =
-    messageSize > 1
-      ? decodeUtf8(data.subarray(offset, offset + messageSize - 1))
-      : '';
+  const message = messageSize > 1 ? decodeUtf8(data.subarray(offset, offset + messageSize - 1)) : '';
   offset += messageSize;
 
   // Parse label (subsystem + category, optional)
   let label: SyslogLabel | undefined;
   if (subsystemSize > 0 || categorySize > 0) {
-    const subsystem =
-      subsystemSize > 1
-        ? decodeUtf8(data.subarray(offset, offset + subsystemSize - 1))
-        : '';
+    const subsystem = subsystemSize > 1 ? decodeUtf8(data.subarray(offset, offset + subsystemSize - 1)) : '';
     offset += subsystemSize;
-    const category =
-      categorySize > 1
-        ? decodeUtf8(data.subarray(offset, offset + categorySize - 1))
-        : '';
+    const category = categorySize > 1 ? decodeUtf8(data.subarray(offset, offset + categorySize - 1)) : '';
     // offset += categorySize;
-    label = { subsystem, category };
+    label = {subsystem, category};
   }
 
   return {
@@ -277,18 +263,14 @@ export class SyslogProtocolParser {
   addData(data: Buffer): void {
     // If incoming data itself is too large, give up and reset
     if (data.length > MAX_BUFFER_SIZE) {
-      log.debug(
-        `Incoming data exceeds ${MAX_BUFFER_SIZE} bytes, resetting buffer`,
-      );
+      log.debug(`Incoming data exceeds ${MAX_BUFFER_SIZE} bytes, resetting buffer`);
       this.reset();
       return;
     }
 
     // If adding new data would exceed limit, clear buffer first to avoid corruption
     if (this.buffer.length + data.length > MAX_BUFFER_SIZE) {
-      log.debug(
-        `Buffer would exceed ${MAX_BUFFER_SIZE} bytes, resetting buffer`,
-      );
+      log.debug(`Buffer would exceed ${MAX_BUFFER_SIZE} bytes, resetting buffer`);
       this.reset();
     }
 
@@ -336,10 +318,7 @@ export class SyslogProtocolParser {
         break; // Wait for more data
       }
 
-      const entryData = this.buffer.subarray(
-        MIN_HEADER_SIZE,
-        MIN_HEADER_SIZE + entryLength,
-      );
+      const entryData = this.buffer.subarray(MIN_HEADER_SIZE, MIN_HEADER_SIZE + entryLength);
       this.buffer = this.buffer.subarray(totalSize);
 
       try {
@@ -361,10 +340,7 @@ export class SyslogProtocolParser {
  * Matches the standard os_trace_relay output format.
  */
 export function formatSyslogEntry(entry: SyslogEntry): string {
-  const ts = formatTimestamp(
-    entry.timestampSeconds,
-    entry.timestampMicroseconds,
-  );
+  const ts = formatTimestamp(entry.timestampSeconds, entry.timestampMicroseconds);
   const processName = path.basename(entry.filename);
   const imageName = path.basename(entry.imageName);
 
@@ -390,10 +366,7 @@ export function formatSyslogEntry(entry: SyslogEntry): string {
  *   Label        → cyan
  */
 export function formatSyslogEntryColored(entry: SyslogEntry): string {
-  const ts = formatTimestamp(
-    entry.timestampSeconds,
-    entry.timestampMicroseconds,
-  );
+  const ts = formatTimestamp(entry.timestampSeconds, entry.timestampMicroseconds);
   const processName = path.basename(entry.filename);
   const imageName = path.basename(entry.imageName);
   const levelColor = LOG_LEVEL_COLORS[entry.level] ?? WHITE;

@@ -1,11 +1,9 @@
-import { expect } from 'chai';
-import { beforeEach, describe, it } from 'node:test';
+import {beforeEach, describe, it} from 'node:test';
 
-import {
-  createEd25519Signature,
-  generateEd25519KeyPair,
-} from '../../../../src/lib/apple-tv/encryption/ed25519.js';
-import { CryptographyError } from '../../../../src/lib/apple-tv/errors.js';
+import {expect} from 'chai';
+
+import {createEd25519Signature, generateEd25519KeyPair} from '../../../../src/lib/apple-tv/encryption/ed25519.js';
+import {CryptographyError} from '../../../../src/lib/apple-tv/errors.js';
 
 describe('Apple TV Encryption - Ed25519', function () {
   describe('generateEd25519KeyPair', function () {
@@ -77,10 +75,7 @@ describe('Apple TV Encryption - Ed25519', function () {
       const data = Buffer.from('test', 'utf8');
       const shortKey = Buffer.alloc(16);
 
-      expect(() => createEd25519Signature(data, shortKey)).to.throw(
-        CryptographyError,
-        'Private key must be 32 bytes',
-      );
+      expect(() => createEd25519Signature(data, shortKey)).to.throw(CryptographyError, 'Private key must be 32 bytes');
     });
   });
 });

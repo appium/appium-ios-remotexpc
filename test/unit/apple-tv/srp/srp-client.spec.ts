@@ -1,13 +1,11 @@
-import { expect } from 'chai';
-import { randomBytes } from 'node:crypto';
-import { afterEach, beforeEach, describe, it } from 'node:test';
+import {randomBytes} from 'node:crypto';
+import {afterEach, beforeEach, describe, it} from 'node:test';
 
-import {
-  SRP_KEY_LENGTH_BYTES,
-  SRP_USERNAME,
-} from '../../../../src/lib/apple-tv/constants.js';
-import { SRPError } from '../../../../src/lib/apple-tv/errors.js';
-import { SRPClient } from '../../../../src/lib/apple-tv/srp/srp-client.js';
+import {expect} from 'chai';
+
+import {SRP_KEY_LENGTH_BYTES, SRP_USERNAME} from '../../../../src/lib/apple-tv/constants.js';
+import {SRPError} from '../../../../src/lib/apple-tv/errors.js';
+import {SRPClient} from '../../../../src/lib/apple-tv/srp/srp-client.js';
 
 describe('Apple TV SRP - SRP Client', function () {
   let client: SRPClient;
@@ -92,10 +90,7 @@ describe('Apple TV SRP - SRP Client', function () {
 
       expect(function () {
         client.serverPublicKey = wrongSizeKey;
-      }).to.throw(
-        SRPError,
-        `Server public key must be ${SRP_KEY_LENGTH_BYTES} bytes, got 100`,
-      );
+      }).to.throw(SRPError, `Server public key must be ${SRP_KEY_LENGTH_BYTES} bytes, got 100`);
     });
 
     it('should throw error for B = 0', function () {
@@ -103,10 +98,7 @@ describe('Apple TV SRP - SRP Client', function () {
 
       expect(function () {
         client.serverPublicKey = zeroB;
-      }).to.throw(
-        SRPError,
-        'Invalid server public key B: must be in range (1, N-1)',
-      );
+      }).to.throw(SRPError, 'Invalid server public key B: must be in range (1, N-1)');
     });
 
     it('should throw error when client is disposed', function () {
@@ -126,10 +118,7 @@ describe('Apple TV SRP - SRP Client', function () {
     it('should throw error when keys not generated', function () {
       expect(function () {
         client.publicKey;
-      }).to.throw(
-        SRPError,
-        'Client keys not generated yet. Set salt and serverPublicKey properties first.',
-      );
+      }).to.throw(SRPError, 'Client keys not generated yet. Set salt and serverPublicKey properties first.');
     });
 
     it('should return public key after keys are generated', function () {
@@ -177,10 +166,7 @@ describe('Apple TV SRP - SRP Client', function () {
 
       expect(function () {
         newClient.computeProof();
-      }).to.throw(
-        SRPError,
-        'Password must be set before performing operations. Call setIdentity() first.',
-      );
+      }).to.throw(SRPError, 'Password must be set before performing operations. Call setIdentity() first.');
     });
 
     it('should throw error when salt not set', function () {
@@ -251,10 +237,7 @@ describe('Apple TV SRP - SRP Client', function () {
 
       expect(function () {
         newClient.sessionKey;
-      }).to.throw(
-        SRPError,
-        'Password must be set before performing operations. Call setIdentity() first.',
-      );
+      }).to.throw(SRPError, 'Password must be set before performing operations. Call setIdentity() first.');
     });
 
     it('should throw error when session key not computed', function () {

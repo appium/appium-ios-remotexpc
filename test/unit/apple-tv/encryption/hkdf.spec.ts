@@ -1,11 +1,9 @@
-import { expect } from 'chai';
-import { describe, it } from 'node:test';
+import {describe, it} from 'node:test';
 
-import {
-  type HKDFParams,
-  hkdf,
-} from '../../../../src/lib/apple-tv/encryption/hkdf.js';
-import { CryptographyError } from '../../../../src/lib/apple-tv/errors.js';
+import {expect} from 'chai';
+
+import {type HKDFParams, hkdf} from '../../../../src/lib/apple-tv/encryption/hkdf.js';
+import {CryptographyError} from '../../../../src/lib/apple-tv/errors.js';
 
 describe('Apple TV Encryption - HKDF', function () {
   const defaultIkm = Buffer.from('input key material', 'utf8');
@@ -112,10 +110,7 @@ describe('Apple TV Encryption - HKDF', function () {
         length: 32,
       };
 
-      expect(() => hkdf(params)).to.throw(
-        CryptographyError,
-        'Input key material (IKM) cannot be empty',
-      );
+      expect(() => hkdf(params)).to.throw(CryptographyError, 'Input key material (IKM) cannot be empty');
     });
 
     it('should throw when info is missing', function () {
@@ -126,10 +121,7 @@ describe('Apple TV Encryption - HKDF', function () {
         length: 32,
       };
 
-      expect(() => hkdf(params)).to.throw(
-        CryptographyError,
-        'Info parameter is required',
-      );
+      expect(() => hkdf(params)).to.throw(CryptographyError, 'Info parameter is required');
     });
 
     it('should throw when length is zero', function () {
@@ -140,10 +132,7 @@ describe('Apple TV Encryption - HKDF', function () {
         length: 0,
       };
 
-      expect(() => hkdf(params)).to.throw(
-        CryptographyError,
-        'Output length must be positive',
-      );
+      expect(() => hkdf(params)).to.throw(CryptographyError, 'Output length must be positive');
     });
 
     it('should throw when length exceeds maximum', function () {
@@ -154,10 +143,7 @@ describe('Apple TV Encryption - HKDF', function () {
         length: 16321,
       };
 
-      expect(() => hkdf(params)).to.throw(
-        CryptographyError,
-        'Output length cannot exceed 16320 bytes',
-      );
+      expect(() => hkdf(params)).to.throw(CryptographyError, 'Output length cannot exceed 16320 bytes');
     });
   });
 });

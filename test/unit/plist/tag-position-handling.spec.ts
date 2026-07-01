@@ -1,12 +1,10 @@
-import { expect } from 'chai';
-import { describe, it } from 'node:test';
+import {describe, it} from 'node:test';
 
-import { parsePlist as parseXmlPlist } from '../../../src/lib/plist/plist-parser.js';
-import {
-  cleanXmlWithReplacementChar,
-  findTagsAroundPosition,
-} from '../../../src/lib/plist/utils.js';
-import type { PlistDictionary } from '../../../src/lib/types.js';
+import {expect} from 'chai';
+
+import {parsePlist as parseXmlPlist} from '../../../src/lib/plist/plist-parser.js';
+import {cleanXmlWithReplacementChar, findTagsAroundPosition} from '../../../src/lib/plist/utils.js';
+import type {PlistDictionary} from '../../../src/lib/types.js';
 
 describe('Tag Position Handling', function () {
   describe('findTagsAroundPosition', function () {
@@ -14,7 +12,7 @@ describe('Tag Position Handling', function () {
       const xml = '<root><child>text</child></root>';
 
       const position = xml.indexOf('text') + 2;
-      const { beforeTag, afterTag } = findTagsAroundPosition(xml, position);
+      const {beforeTag, afterTag} = findTagsAroundPosition(xml, position);
 
       expect(beforeTag).to.not.be.null;
       expect(beforeTag?.tagName).to.equal('child');
@@ -29,7 +27,7 @@ describe('Tag Position Handling', function () {
       const xml = '<root><child>text</child> <next>more</next></root>';
 
       const position = xml.indexOf('</child>') + '</child>'.length;
-      const { beforeTag, afterTag } = findTagsAroundPosition(xml, position);
+      const {beforeTag, afterTag} = findTagsAroundPosition(xml, position);
 
       expect(beforeTag).to.not.be.null;
       expect(beforeTag?.tagName).to.equal('child');
@@ -48,7 +46,7 @@ describe('Tag Position Handling', function () {
       const xml = '<root><child>text</child>�<next>more</next></root>';
 
       const position = xml.indexOf('�');
-      const { beforeTag, afterTag } = findTagsAroundPosition(xml, position);
+      const {beforeTag, afterTag} = findTagsAroundPosition(xml, position);
 
       expect(beforeTag).to.not.be.null;
       expect(beforeTag?.tagName).to.equal('child');
@@ -61,16 +59,13 @@ describe('Tag Position Handling', function () {
       const cleanedXml = cleanXmlWithReplacementChar(xml, position);
 
       expect(cleanedXml).to.not.include('�');
-      expect(cleanedXml).to.equal(
-        '<root><child>text</child><next>more</next></root>',
-      );
+      expect(cleanedXml).to.equal('<root><child>text</child><next>more</next></root>');
     });
   });
 
   describe('XML Cleaning with Unclosed Tags', function () {
     it('should handle XML with unclosed tags', function () {
-      const xml =
-        '<?xml version="1.0" encoding="UTF-8"?><plist><dict><key>test</key><string>value</string></dict>';
+      const xml = '<?xml version="1.0" encoding="UTF-8"?><plist><dict><key>test</key><string>value</string></dict>';
 
       try {
         parseXmlPlist(xml);

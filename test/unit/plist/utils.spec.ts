@@ -1,5 +1,6 @@
-import { expect } from 'chai';
-import { describe, it } from 'node:test';
+import {describe, it} from 'node:test';
+
+import {expect} from 'chai';
 
 import {
   ensureString,
@@ -54,8 +55,7 @@ describe('Plist Utils', function () {
       const bufferWithoutReplacement = Buffer.from('normal string', 'utf8');
 
       expect(hasUnicodeReplacementCharacter(bufferWithReplacement)).to.be.true;
-      expect(hasUnicodeReplacementCharacter(bufferWithoutReplacement)).to.be
-        .false;
+      expect(hasUnicodeReplacementCharacter(bufferWithoutReplacement)).to.be.false;
     });
   });
 
@@ -95,10 +95,7 @@ describe('Plist Utils', function () {
     });
 
     it('should work with Buffer inputs', function () {
-      const buffer = Buffer.from(
-        'garbage data<?xml version="1.0"?><root></root>',
-        'utf8',
-      );
+      const buffer = Buffer.from('garbage data<?xml version="1.0"?><root></root>', 'utf8');
       const expected = '<?xml version="1.0"?><root></root>';
       expect(trimBeforeXmlDeclaration(buffer)).to.equal(expected);
     });
@@ -118,8 +115,7 @@ describe('Plist Utils', function () {
     });
 
     it('should handle multiple additional declarations', function () {
-      const input =
-        '<?xml version="1.0"?><root><?xml version="1.1"?><?xml version="1.2"?></root>';
+      const input = '<?xml version="1.0"?><root><?xml version="1.1"?><?xml version="1.2"?></root>';
       const expected = '<?xml version="1.0"?><root></root>';
       expect(fixMultipleXmlDeclarations(input)).to.equal(expected);
     });
@@ -135,10 +131,7 @@ describe('Plist Utils', function () {
     });
 
     it('should work with Buffer inputs', function () {
-      const buffer = Buffer.from(
-        '<?xml version="1.0"?><root><?xml version="1.1"?></root>',
-        'utf8',
-      );
+      const buffer = Buffer.from('<?xml version="1.0"?><root><?xml version="1.1"?></root>', 'utf8');
       const expected = '<?xml version="1.0"?><root></root>';
       expect(fixMultipleXmlDeclarations(buffer)).to.equal(expected);
     });
@@ -158,10 +151,7 @@ describe('Plist Utils', function () {
     });
 
     it('should work with Buffer inputs', function () {
-      const validBuffer = Buffer.from(
-        '<?xml version="1.0"?><root></root>',
-        'utf8',
-      );
+      const validBuffer = Buffer.from('<?xml version="1.0"?><root></root>', 'utf8');
       const invalidBuffer = Buffer.from('not xml', 'utf8');
 
       expect(isValidXml(validBuffer)).to.be.true;
@@ -200,8 +190,7 @@ describe('Plist Utils', function () {
 
   describe('isXmlPlistContent', function () {
     it('should return true for content with XML declaration', function () {
-      expect(isXmlPlistContent('<?xml version="1.0"?><root></root>')).to.be
-        .true;
+      expect(isXmlPlistContent('<?xml version="1.0"?><root></root>')).to.be.true;
     });
 
     it('should return true for content with plist tag', function () {
@@ -214,10 +203,7 @@ describe('Plist Utils', function () {
     });
 
     it('should work with Buffer inputs', function () {
-      const xmlBuffer = Buffer.from(
-        '<?xml version="1.0"?><root></root>',
-        'utf8',
-      );
+      const xmlBuffer = Buffer.from('<?xml version="1.0"?><root></root>', 'utf8');
       const plistBuffer = Buffer.from('<plist><dict></dict></plist>', 'utf8');
       const nonXmlBuffer = Buffer.from('not xml', 'utf8');
 

@@ -1,5 +1,5 @@
-import type { SendMessageOptions } from '../../../lib/types.js';
-import type { MessageAux } from './dtx-message.js';
+import type {SendMessageOptions} from '../../../lib/types.js';
+import type {MessageAux} from './dtx-message.js';
 
 /**
  * Interface for DTX services that can be used with Channel.
@@ -7,17 +7,10 @@ import type { MessageAux } from './dtx-message.js';
  */
 export interface DTXServiceProvider {
   recvPlist(channel: number, signal?: AbortSignal): Promise<[any, any[]]>;
-  sendMessage(
-    channel: number,
-    selector: string | null,
-    options?: SendMessageOptions,
-  ): Promise<void>;
+  sendMessage(channel: number, selector: string | null, options?: SendMessageOptions): Promise<void>;
 }
 
-export type ChannelMethodCall = (
-  args?: MessageAux,
-  expectsReply?: boolean,
-) => Promise<void>;
+export type ChannelMethodCall = (args?: MessageAux, expectsReply?: boolean) => Promise<void>;
 
 /**
  * Represents a DTX communication channel for a specific instrument service

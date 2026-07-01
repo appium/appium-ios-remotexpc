@@ -1,4 +1,4 @@
-import type { PlistDictionary } from '../../../lib/types.js';
+import type {PlistDictionary} from '../../../lib/types.js';
 
 /**
  * Check whether a value is a non-null plain object.
@@ -18,11 +18,7 @@ export function hasProperties(obj: any, ...props: string[]): boolean {
  * Check whether data appears to be NSKeyedArchiver payload format.
  */
 export function isNSKeyedArchiverFormat(data: any): boolean {
-  return (
-    hasProperties(data, '$objects') &&
-    Array.isArray(data.$objects) &&
-    data.$objects.length > 0
-  );
+  return hasProperties(data, '$objects') && Array.isArray(data.$objects) && data.$objects.length > 0;
 }
 
 /**
@@ -59,10 +55,7 @@ export function extractNSKeyedArchiverObjects(data: any): any[] | null {
 /**
  * Extract NSDictionary from NSKeyedArchiver objects using key/value references
  */
-export function extractNSDictionary(
-  dictObj: any,
-  objects: any[],
-): PlistDictionary {
+export function extractNSDictionary(dictObj: any, objects: any[]): PlistDictionary {
   if (!isNSDictionaryFormat(dictObj)) {
     return {};
   }

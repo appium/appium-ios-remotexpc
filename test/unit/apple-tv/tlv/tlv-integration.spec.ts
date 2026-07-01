@@ -1,21 +1,19 @@
-import { expect } from 'chai';
-import { describe, it } from 'node:test';
+import {describe, it} from 'node:test';
 
-import { TLV8_MAX_FRAGMENT_SIZE } from '../../../../src/lib/apple-tv/constants.js';
-import {
-  decodeTLV8,
-  decodeTLV8ToDict,
-} from '../../../../src/lib/apple-tv/tlv/decoder.js';
-import { encodeTLV8 } from '../../../../src/lib/apple-tv/tlv/encoder.js';
-import type { TLV8Item } from '../../../../src/lib/apple-tv/types.js';
+import {expect} from 'chai';
+
+import {TLV8_MAX_FRAGMENT_SIZE} from '../../../../src/lib/apple-tv/constants.js';
+import {decodeTLV8, decodeTLV8ToDict} from '../../../../src/lib/apple-tv/tlv/decoder.js';
+import {encodeTLV8} from '../../../../src/lib/apple-tv/tlv/encoder.js';
+import type {TLV8Item} from '../../../../src/lib/apple-tv/types.js';
 
 describe('TLV8 Integration Tests', function () {
   describe('Round-trip encoding and decoding', function () {
     it('should maintain data integrity for simple items', function () {
       const originalItems: TLV8Item[] = [
-        { type: 0x01, data: Buffer.from([0x42, 0x43, 0x44]) },
-        { type: 0x02, data: Buffer.from([0x45, 0x46]) },
-        { type: 0x03, data: Buffer.from([0x47]) },
+        {type: 0x01, data: Buffer.from([0x42, 0x43, 0x44])},
+        {type: 0x02, data: Buffer.from([0x45, 0x46])},
+        {type: 0x03, data: Buffer.from([0x47])},
       ];
 
       const encoded = encodeTLV8(originalItems);
@@ -30,7 +28,7 @@ describe('TLV8 Integration Tests', function () {
         largeData[i] = i % 256;
       }
 
-      const originalItems: TLV8Item[] = [{ type: 0x05, data: largeData }];
+      const originalItems: TLV8Item[] = [{type: 0x05, data: largeData}];
 
       const encoded = encodeTLV8(originalItems);
       const decoded = decodeTLV8(encoded);
@@ -50,9 +48,9 @@ describe('TLV8 Integration Tests', function () {
       const mediumData = Buffer.alloc(100, 0xdd);
 
       const originalItems: TLV8Item[] = [
-        { type: 0x01, data: smallData },
-        { type: 0x02, data: largeData },
-        { type: 0x03, data: mediumData },
+        {type: 0x01, data: smallData},
+        {type: 0x02, data: largeData},
+        {type: 0x03, data: mediumData},
       ];
 
       const encoded = encodeTLV8(originalItems);
@@ -60,21 +58,21 @@ describe('TLV8 Integration Tests', function () {
 
       expect(decoded).to.have.lengthOf(4);
 
-      expect(decoded[0]).to.deep.equal({ type: 0x01, data: smallData });
+      expect(decoded[0]).to.deep.equal({type: 0x01, data: smallData});
 
       expect(decoded[1].type).to.equal(0x02);
       expect(decoded[1].data.length).to.equal(255);
       expect(decoded[2].type).to.equal(0x02);
       expect(decoded[2].data.length).to.equal(45);
 
-      expect(decoded[3]).to.deep.equal({ type: 0x03, data: mediumData });
+      expect(decoded[3]).to.deep.equal({type: 0x03, data: mediumData});
     });
   });
 
   describe('Round-trip with decodeTLV8ToDict', function () {
     it('should correctly reassemble fragmented data in dictionary', function () {
       const largeData = Buffer.alloc(512, 0xee);
-      const originalItems: TLV8Item[] = [{ type: 0x10, data: largeData }];
+      const originalItems: TLV8Item[] = [{type: 0x10, data: largeData}];
 
       const encoded = encodeTLV8(originalItems);
       const decodedDict = decodeTLV8ToDict(encoded);
@@ -88,9 +86,9 @@ describe('TLV8 Integration Tests', function () {
       const data3 = Buffer.alloc(400, 0x33);
 
       const originalItems: TLV8Item[] = [
-        { type: 0x01, data: data1 },
-        { type: 0x02, data: data2 },
-        { type: 0x03, data: data3 },
+        {type: 0x01, data: data1},
+        {type: 0x02, data: data2},
+        {type: 0x03, data: data3},
       ];
 
       const encoded = encodeTLV8(originalItems);
@@ -109,7 +107,7 @@ describe('TLV8 Integration Tests', function () {
         boundaryData[i] = i % 256;
       }
 
-      const items: TLV8Item[] = [{ type: 0x42, data: boundaryData }];
+      const items: TLV8Item[] = [{type: 0x42, data: boundaryData}];
 
       const encoded = encodeTLV8(items);
       const decoded = decodeTLV8(encoded);
@@ -132,11 +130,10 @@ describe('TLV8 Integration Tests', function () {
 
     it('should preserve exact byte sequences through round-trip', function () {
       const problematicData = Buffer.from([
-        0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0x01, 0x02, 0x03, 0x00, 0xff, 0x00,
-        0xff,
+        0x00, 0x00, 0x00, 0xff, 0xff, 0xff, 0x01, 0x02, 0x03, 0x00, 0xff, 0x00, 0xff,
       ]);
 
-      const items: TLV8Item[] = [{ type: 0x77, data: problematicData }];
+      const items: TLV8Item[] = [{type: 0x77, data: problematicData}];
 
       const encoded = encodeTLV8(items);
       const decoded = decodeTLV8(encoded);

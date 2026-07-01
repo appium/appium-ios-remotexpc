@@ -1,6 +1,6 @@
-import { getLogger } from '../../../../lib/logger.js';
-import { MessageAux } from '../dtx-message.js';
-import { BaseInstrument } from './base-instrument.js';
+import {getLogger} from '../../../../lib/logger.js';
+import {MessageAux} from '../dtx-message.js';
+import {BaseInstrument} from './base-instrument.js';
 
 const log = getLogger('LocationSimulation');
 
@@ -16,8 +16,7 @@ export interface LocationCoordinates {
  * Location simulation service for simulating device GPS location
  */
 export class LocationSimulation extends BaseInstrument {
-  static readonly IDENTIFIER =
-    'com.apple.instruments.server.services.LocationSimulation';
+  static readonly IDENTIFIER = 'com.apple.instruments.server.services.LocationSimulation';
 
   /**
    * Set the simulated GPS location
@@ -27,16 +26,12 @@ export class LocationSimulation extends BaseInstrument {
     await this.initialize();
     const channel = this.requireChannel();
 
-    const args = new MessageAux()
-      .appendObj(coordinates.latitude)
-      .appendObj(coordinates.longitude);
+    const args = new MessageAux().appendObj(coordinates.latitude).appendObj(coordinates.longitude);
 
     await channel.call('simulateLocationWithLatitude_longitude_')(args);
     await channel.receivePlist();
 
-    log.info(
-      `Location set to: ${coordinates.latitude}, ${coordinates.longitude}`,
-    );
+    log.info(`Location set to: ${coordinates.latitude}, ${coordinates.longitude}`);
   }
 
   /**
@@ -45,7 +40,7 @@ export class LocationSimulation extends BaseInstrument {
    * @param longitude The longitude coordinate
    */
   async setLocation(latitude: number, longitude: number): Promise<void> {
-    await this.set({ latitude, longitude });
+    await this.set({latitude, longitude});
   }
 
   /**

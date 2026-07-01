@@ -145,7 +145,7 @@ export class MessageAux {
    * Append a 32-bit integer
    */
   appendInt(value: number): MessageAux {
-    this.values.push({ type: DTX_CONSTANTS.AUX_TYPE_INT32, value });
+    this.values.push({type: DTX_CONSTANTS.AUX_TYPE_INT32, value});
     return this;
   }
 
@@ -153,7 +153,7 @@ export class MessageAux {
    * Append a 64-bit integer (bigint)
    */
   appendLong(value: bigint): MessageAux {
-    this.values.push({ type: DTX_CONSTANTS.AUX_TYPE_INT64, value });
+    this.values.push({type: DTX_CONSTANTS.AUX_TYPE_INT64, value});
     return this;
   }
 
@@ -161,7 +161,7 @@ export class MessageAux {
    * Append an object (will be archived as NSKeyedArchiver plist)
    */
   appendObj(value: any): MessageAux {
-    this.values.push({ type: DTX_CONSTANTS.AUX_TYPE_OBJECT, value });
+    this.values.push({type: DTX_CONSTANTS.AUX_TYPE_OBJECT, value});
     return this;
   }
 

@@ -1,10 +1,10 @@
 import * as net from 'node:net';
 
-import { getLogger } from '../../logger.js';
-import { NetworkError } from '../errors.js';
-import type { PairingConfig } from '../types.js';
-import { NETWORK_CONSTANTS } from './constants.js';
-import type { NetworkClientInterface } from './types.js';
+import {getLogger} from '../../logger.js';
+import {NetworkError} from '../errors.js';
+import type {PairingConfig} from '../types.js';
+import {NETWORK_CONSTANTS} from './constants.js';
+import type {NetworkClientInterface} from './types.js';
 
 const log = getLogger('NetworkClient');
 
@@ -54,9 +54,7 @@ export class NetworkClient implements NetworkClientInterface {
       this.connectionTimeoutId = setTimeout(() => {
         log.error('Connection attempt timeout');
         this.cleanup();
-        reject(
-          new NetworkError(`Connection timeout after ${this.config.timeout}ms`),
-        );
+        reject(new NetworkError(`Connection timeout after ${this.config.timeout}ms`));
       }, this.config.timeout);
 
       this.socket.connect(port, ip);
@@ -69,7 +67,7 @@ export class NetworkClient implements NetworkClientInterface {
     }
 
     const packet = this.createRPPairingPacket(data);
-    log.debug('Sending packet:', { size: packet.length });
+    log.debug('Sending packet:', {size: packet.length});
 
     return new Promise((resolve, reject) => {
       if (!this.socket) {
@@ -116,21 +114,13 @@ export class NetworkClient implements NetworkClientInterface {
           buffer = Buffer.concat([buffer, chunk]);
 
           if (!headerRead && buffer.length >= NETWORK_CONSTANTS.HEADER_LENGTH) {
-            const magic = buffer
-              .slice(0, NETWORK_CONSTANTS.MAGIC_LENGTH)
-              .toString('ascii');
+            const magic = buffer.slice(0, NETWORK_CONSTANTS.MAGIC_LENGTH).toString('ascii');
             if (magic !== NETWORK_CONSTANTS.MAGIC) {
-              throw new NetworkError(
-                `Invalid protocol magic: expected '${NETWORK_CONSTANTS.MAGIC}', got '${magic}'`,
-              );
+              throw new NetworkError(`Invalid protocol magic: expected '${NETWORK_CONSTANTS.MAGIC}', got '${magic}'`);
             }
-            expectedLength = buffer.readUInt16BE(
-              NETWORK_CONSTANTS.MAGIC_LENGTH,
-            );
+            expectedLength = buffer.readUInt16BE(NETWORK_CONSTANTS.MAGIC_LENGTH);
             headerRead = true;
-            log.debug(
-              `Response header parsed: expecting ${expectedLength} bytes`,
-            );
+            log.debug(`Response header parsed: expecting ${expectedLength} bytes`);
           }
 
           if (
@@ -150,11 +140,7 @@ export class NetworkClient implements NetworkClientInterface {
         } catch (error) {
           log.error('Parse response error:', error);
           cleanup();
-          reject(
-            new NetworkError(
-              `Failed to parse response: ${(error as Error).message}`,
-            ),
-          );
+          reject(new NetworkError(`Failed to parse response: ${(error as Error).message}`));
         }
       };
 
@@ -178,9 +164,7 @@ export class NetworkClient implements NetworkClientInterface {
         timeoutId = setTimeout(() => {
           log.error(`Response timeout after ${this.config.timeout}ms`);
           cleanup();
-          reject(
-            new NetworkError(`Response timeout after ${this.config.timeout}ms`),
-          );
+          reject(new NetworkError(`Response timeout after ${this.config.timeout}ms`));
         }, this.config.timeout);
       } else {
         reject(new NetworkError('Socket not available'));

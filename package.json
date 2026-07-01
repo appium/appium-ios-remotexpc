@@ -1,25 +1,40 @@
 {
   "name": "appium-ios-remotexpc",
   "version": "5.6.1",
+  "description": "",
+  "keywords": [],
+  "bugs": {
+    "url": "https://github.com/appium/appium-ios-remotexpc/issues"
+  },
+  "license": "Apache-2.0",
+  "author": "Appium Contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/appium/appium-ios-remotexpc.git"
+  },
+  "files": [
+    "src",
+    "scripts",
+    "build/src",
+    "!.DS_Store",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "type": "module",
   "main": "build/src/index.js",
   "types": "build/src/index.d.ts",
-  "type": "module",
   "exports": {
     ".": {
       "import": "./build/src/index.js",
       "types": "./build/src/index.d.ts"
     }
   },
-  "engines": {
-    "node": "^20.19.0 || ^22.12.0 || >=24.0.0",
-    "npm": ">=10"
-  },
   "scripts": {
     "build:es": "tsc",
     "build": "run-s clean:* build:es",
     "clean:build": "rimraf ./build",
-    "format:check": "prettier --check \"{src,test}/**/*.{ts,tsx}\"",
-    "format": "prettier --write \"{src,test}/**/*.{ts,tsx}\"",
+    "format:check": "oxfmt --check .",
+    "format": "oxfmt .",
     "lint:fix": "eslint src scripts --fix",
     "lint": "eslint src scripts",
     "pair-appletv": "sudo node scripts/pair-appletv.mjs",
@@ -68,38 +83,6 @@
     "test": "npm run test:unit",
     "tunnel-creation": "sudo node scripts/tunnel-creation.mjs"
   },
-  "keywords": [],
-  "author": "Appium Contributors",
-  "license": "Apache-2.0",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/appium/appium-ios-remotexpc.git"
-  },
-  "bugs": {
-    "url": "https://github.com/appium/appium-ios-remotexpc/issues"
-  },
-  "description": "",
-  "devDependencies": {
-    "@appium/eslint-config-appium-ts": "^3.0.0",
-    "@appium/tsconfig": "^1.1.2",
-    "@semantic-release/changelog": "^6.0.3",
-    "@semantic-release/git": "^10.0.1",
-    "@trivago/prettier-plugin-sort-imports": "^6.0.2",
-    "@types/async-lock": "^1.4.2",
-    "@types/chai": "^5.2.1",
-    "@types/node": "^25.0.2",
-    "@types/sinon": "^21.0.0",
-    "chai": "^6.0.1",
-    "conventional-changelog-conventionalcommits": "^9.1.0",
-    "esmock": "^2.7.3",
-    "husky": "^9.1.7",
-    "lint-staged": "^17.0.2",
-    "prettier": "^3.9.1",
-    "rimraf": "^6.0.1",
-    "semantic-release": "^25.0.2",
-    "sinon": "^22.0.0",
-    "typescript": "^6.0.2"
-  },
   "dependencies": {
     "@appium/strongbox": "^1.1.2",
     "@appium/support": "^7.2.2",
@@ -113,18 +96,34 @@
     "npm-run-all2": "^8.0.4",
     "path-to-regexp": "^8.3.0"
   },
-  "files": [
-    "src",
-    "scripts",
-    "build/src",
-    "!.DS_Store",
-    "CHANGELOG.md",
-    "LICENSE"
-  ],
+  "devDependencies": {
+    "@appium/eslint-config-appium-ts": "^3.0.0",
+    "@appium/tsconfig": "^1.1.2",
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/git": "^10.0.1",
+    "@types/async-lock": "^1.4.2",
+    "@types/chai": "^5.2.1",
+    "@types/node": "^25.0.2",
+    "@types/sinon": "^21.0.0",
+    "chai": "^6.0.1",
+    "conventional-changelog-conventionalcommits": "^9.1.0",
+    "esmock": "^2.7.3",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.2",
+    "oxfmt": "^0.x",
+    "rimraf": "^6.0.1",
+    "semantic-release": "^25.0.2",
+    "sinon": "^22.0.0",
+    "typescript": "^6.0.2"
+  },
   "lint-staged": {
     "*.ts": [
       "eslint --fix",
-      "prettier --write"
+      "oxfmt"
     ]
+  },
+  "engines": {
+    "node": "^20.19.0 || ^22.12.0 || >=24.0.0",
+    "npm": ">=10"
   }
 }

@@ -1,20 +1,14 @@
 import type net from 'node:net';
 
-import { getLogger } from '../../../lib/logger.js';
-import {
-  createBinaryPlist,
-  parseBinaryPlist,
-} from '../../../lib/plist/index.js';
-import type {
-  PlistDictionary,
-  SendMessageOptions,
-} from '../../../lib/types.js';
-import { type ServiceConnection } from '../../../service-connection.js';
-import { BaseService, stripSSL } from '../base-service.js';
-import { ChannelFragmenter } from '../dvt/channel-fragmenter.js';
-import { Channel } from '../dvt/channel.js';
-import { DTXMessage, DTX_CONSTANTS, MessageAux } from '../dvt/dtx-message.js';
-import { decodeNSKeyedArchiver } from '../dvt/nskeyedarchiver-decoder.js';
+import {getLogger} from '../../../lib/logger.js';
+import {createBinaryPlist, parseBinaryPlist} from '../../../lib/plist/index.js';
+import type {PlistDictionary, SendMessageOptions} from '../../../lib/types.js';
+import {type ServiceConnection} from '../../../service-connection.js';
+import {BaseService, stripSSL} from '../base-service.js';
+import {ChannelFragmenter} from '../dvt/channel-fragmenter.js';
+import {Channel} from '../dvt/channel.js';
+import {DTXMessage, DTX_CONSTANTS, MessageAux} from '../dvt/dtx-message.js';
+import {decodeNSKeyedArchiver} from '../dvt/nskeyedarchiver-decoder.js';
 import {
   extractCapabilityStrings,
   extractNSDictionary,
@@ -22,7 +16,7 @@ import {
   hasNSErrorIndicators,
   isNSDictionaryFormat,
 } from '../dvt/utils.js';
-import { TestmanagerdEncoder } from './testmanagerd-encoder.js';
+import {TestmanagerdEncoder} from './testmanagerd-encoder.js';
 
 const log = getLogger('DvtTestmanagedProxyService');
 
@@ -57,10 +51,8 @@ export class DvtTestmanagedProxyService extends BaseService {
   private lastChannelCode: number = 0;
   private curMessageId: number = 0;
   private lastReceivedMessageId: number = 0;
-  private readonly lastReceivedMessageIdByChannel: Map<number, number> =
-    new Map();
-  private readonly lastReceivedExpectsReplyByChannel: Map<number, boolean> =
-    new Map();
+  private readonly lastReceivedMessageIdByChannel: Map<number, number> = new Map();
+  private readonly lastReceivedExpectsReplyByChannel: Map<number, boolean> = new Map();
   private readonly channelCache: Map<string, Channel> = new Map();
   private readonly channelMessages: Map<number, ChannelFragmenter> = new Map();
   private isHandshakeComplete: boolean = false;
@@ -71,10 +63,7 @@ export class DvtTestmanagedProxyService extends BaseService {
 
   constructor(udid: string) {
     super(udid);
-    this.channelMessages.set(
-      DvtTestmanagedProxyService.BROADCAST_CHANNEL,
-      new ChannelFragmenter(),
-    );
+    this.channelMessages.set(DvtTestmanagedProxyService.BROADCAST_CHANNEL, new ChannelFragmenter());
   }
 
   /**
@@ -86,9 +75,7 @@ export class DvtTestmanagedProxyService extends BaseService {
     }
 
     // testmanagerd uses DTX binary protocol, connect without plist-based RSDCheckin
-    this.connection = await this.startLockdownWithoutCheckin(
-      DvtTestmanagedProxyService.RSD_SERVICE_NAME,
-    );
+    this.connection = await this.startLockdownWithoutCheckin(DvtTestmanagedProxyService.RSD_SERVICE_NAME);
     this.socket = this.connection.getSocket();
     stripSSL(this.socket);
 
@@ -138,7 +125,7 @@ export class DvtTestmanagedProxyService extends BaseService {
     args.appendInt(channelCode);
     args.appendObj(identifier);
 
-    await this.sendMessage(0, '_requestChannelWithCode:identifier:', { args });
+    await this.sendMessage(0, '_requestChannelWithCode:identifier:', {args});
 
     const [ret] = await this.recvPlist();
 
@@ -158,12 +145,8 @@ export class DvtTestmanagedProxyService extends BaseService {
    * @param selector The ObjectiveC method selector
    * @param options Optional message options
    */
-  async sendMessage(
-    channel: number,
-    selector: string | null = null,
-    options: SendMessageOptions = {},
-  ): Promise<void> {
-    const { args = null, expectsReply = true } = options;
+  async sendMessage(channel: number, selector: string | null = null, options: SendMessageOptions = {}): Promise<void> {
+    const {args = null, expectsReply = true} = options;
     if (!this.socket) {
       throw new Error('Not connected to testmanagerd service');
     }
@@ -171,9 +154,7 @@ export class DvtTestmanagedProxyService extends BaseService {
     this.curMessageId++;
 
     const auxBuffer = args ? this.buildAuxiliaryData(args) : Buffer.alloc(0);
-    const selectorBuffer = selector
-      ? this.archiveSelector(selector)
-      : Buffer.alloc(0);
+    const selectorBuffer = selector ? this.archiveSelector(selector) : Buffer.alloc(0);
 
     let flags = DTX_CONSTANTS.INSTRUMENTS_MESSAGE_TYPE;
     if (expectsReply) {
@@ -191,22 +172,14 @@ export class DvtTestmanagedProxyService extends BaseService {
       cb: DTX_CONSTANTS.MESSAGE_HEADER_SIZE,
       fragmentId: 0,
       fragmentCount: 1,
-      length:
-        DTX_CONSTANTS.PAYLOAD_HEADER_SIZE +
-        auxBuffer.length +
-        selectorBuffer.length,
+      length: DTX_CONSTANTS.PAYLOAD_HEADER_SIZE + auxBuffer.length + selectorBuffer.length,
       identifier: this.curMessageId,
       conversationIndex: 0,
       channelCode: channel,
       expectsReply: Number(expectsReply),
     });
 
-    const message = Buffer.concat([
-      messageHeader,
-      payloadHeader,
-      auxBuffer,
-      selectorBuffer,
-    ]);
+    const message = Buffer.concat([messageHeader, payloadHeader, auxBuffer, selectorBuffer]);
     const socket = this.socket;
     if (!socket) {
       throw new Error('Not connected to testmanagerd service');
@@ -225,9 +198,7 @@ export class DvtTestmanagedProxyService extends BaseService {
 
   /** Whether the last received message on this channel expects a reply. */
   lastMessageExpectsReply(channel: number): boolean {
-    return (
-      this.lastReceivedExpectsReplyByChannel.get(Math.abs(channel)) ?? false
-    );
+    return this.lastReceivedExpectsReplyByChannel.get(Math.abs(channel)) ?? false;
   }
 
   /**
@@ -237,18 +208,13 @@ export class DvtTestmanagedProxyService extends BaseService {
    * @param channel The channel code
    * @param payload Optional archived payload to include in the reply
    */
-  async sendReply(
-    channel: number,
-    payload: Buffer | null = null,
-  ): Promise<void> {
+  async sendReply(channel: number, payload: Buffer | null = null): Promise<void> {
     if (!this.socket) {
       throw new Error('Not connected to testmanagerd service');
     }
 
     const normalizedChannel = Math.abs(channel);
-    const replyIdentifier =
-      this.lastReceivedMessageIdByChannel.get(normalizedChannel) ??
-      this.lastReceivedMessageId;
+    const replyIdentifier = this.lastReceivedMessageIdByChannel.get(normalizedChannel) ?? this.lastReceivedMessageId;
     if (!replyIdentifier) {
       throw new Error(
         `No received message ID available for channel ${channel}. Call recvPlist/recvMessage before sendReply.`,
@@ -275,11 +241,7 @@ export class DvtTestmanagedProxyService extends BaseService {
       expectsReply: 0,
     });
 
-    const message = Buffer.concat([
-      messageHeader,
-      payloadHeader,
-      payloadBuffer,
-    ]);
+    const message = Buffer.concat([messageHeader, payloadHeader, payloadBuffer]);
     const socket = this.socket;
     if (!socket) {
       throw new Error('Not connected to testmanagerd service');
@@ -360,9 +322,7 @@ export class DvtTestmanagedProxyService extends BaseService {
 
     const payloadHeader = DTXMessage.parsePayloadHeader(packetData);
 
-    const compression =
-      (payloadHeader.flags & DTX_CONSTANTS.COMPRESSION_MASK) >>
-      DTX_CONSTANTS.COMPRESSION_SHIFT;
+    const compression = (payloadHeader.flags & DTX_CONSTANTS.COMPRESSION_MASK) >> DTX_CONSTANTS.COMPRESSION_SHIFT;
     if (compression) {
       log.debug(
         `Skipping compressed DTX message (type=${compression}, flags=0x${payloadHeader.flags.toString(16)}, size=${payloadHeader.totalLength})`,
@@ -374,18 +334,13 @@ export class DvtTestmanagedProxyService extends BaseService {
 
     let aux: any[] = [];
     if (payloadHeader.auxiliaryLength > 0) {
-      const auxBuffer = packetData.subarray(
-        offset,
-        offset + payloadHeader.auxiliaryLength,
-      );
+      const auxBuffer = packetData.subarray(offset, offset + payloadHeader.auxiliaryLength);
       aux = this.parseAuxiliaryData(auxBuffer);
       offset += payloadHeader.auxiliaryLength;
     }
 
-    const objSize =
-      Number(payloadHeader.totalLength) - payloadHeader.auxiliaryLength;
-    const data =
-      objSize > 0 ? packetData.subarray(offset, offset + objSize) : null;
+    const objSize = Number(payloadHeader.totalLength) - payloadHeader.auxiliaryLength;
+    const data = objSize > 0 ? packetData.subarray(offset, offset + objSize) : null;
 
     return [data, aux];
   }
@@ -398,9 +353,7 @@ export class DvtTestmanagedProxyService extends BaseService {
       return;
     }
 
-    const activeCodes = Array.from(this.channelMessages.keys()).filter(
-      (code) => code > 0,
-    );
+    const activeCodes = Array.from(this.channelMessages.keys()).filter((code) => code > 0);
 
     if (activeCodes.length > 0) {
       const args = new MessageAux();
@@ -409,21 +362,16 @@ export class DvtTestmanagedProxyService extends BaseService {
       }
 
       if (this.socket?.destroyed || !this.socket?.writable) {
-        log.debug(
-          'Skipping _channelCanceled_ message because socket is already closed',
-        );
+        log.debug('Skipping _channelCanceled_ message because socket is already closed');
       } else {
         try {
-          await this.sendMessage(
-            DvtTestmanagedProxyService.BROADCAST_CHANNEL,
-            '_channelCanceled:',
-            { args, expectsReply: false },
-          );
+          await this.sendMessage(DvtTestmanagedProxyService.BROADCAST_CHANNEL, '_channelCanceled:', {
+            args,
+            expectsReply: false,
+          });
         } catch (error) {
           if (this.isExpectedCloseError(error)) {
-            log.debug(
-              'Ignoring expected socket-close error while sending _channelCanceled_',
-            );
+            log.debug('Ignoring expected socket-close error while sending _channelCanceled_');
           } else {
             log.debug('Error sending channel canceled message:', error);
           }
@@ -439,10 +387,7 @@ export class DvtTestmanagedProxyService extends BaseService {
     this.channelMessages.clear();
     this.lastReceivedMessageIdByChannel.clear();
     this.lastReceivedExpectsReplyByChannel.clear();
-    this.channelMessages.set(
-      DvtTestmanagedProxyService.BROADCAST_CHANNEL,
-      new ChannelFragmenter(),
-    );
+    this.channelMessages.set(DvtTestmanagedProxyService.BROADCAST_CHANNEL, new ChannelFragmenter());
   }
 
   private async performHandshake(): Promise<void> {
@@ -490,9 +435,7 @@ export class DvtTestmanagedProxyService extends BaseService {
     throw new Error('Invalid handshake response');
   }
 
-  private extractCapabilitiesFromAuxData(
-    capabilitiesData: any,
-  ): PlistDictionary {
+  private extractCapabilitiesFromAuxData(capabilitiesData: any): PlistDictionary {
     const objects = extractNSKeyedArchiverObjects(capabilitiesData);
     if (!objects) {
       return capabilitiesData || {};
@@ -514,10 +457,7 @@ export class DvtTestmanagedProxyService extends BaseService {
 
     try {
       while (this.readBuffer.length >= DTX_CONSTANTS.MESSAGE_HEADER_SIZE) {
-        const headerData = this.readBuffer.subarray(
-          0,
-          DTX_CONSTANTS.MESSAGE_HEADER_SIZE,
-        );
+        const headerData = this.readBuffer.subarray(0, DTX_CONSTANTS.MESSAGE_HEADER_SIZE);
         const header = DTXMessage.parseMessageHeader(headerData);
 
         const totalSize = DTX_CONSTANTS.MESSAGE_HEADER_SIZE + header.length;
@@ -532,10 +472,7 @@ export class DvtTestmanagedProxyService extends BaseService {
     }
   }
 
-  private async recvPacketFragments(
-    channel: number,
-    signal?: AbortSignal,
-  ): Promise<Buffer> {
+  private async recvPacketFragments(channel: number, signal?: AbortSignal): Promise<Buffer> {
     while (true) {
       const fragmenter = this.channelMessages.get(channel);
       if (!fragmenter) {
@@ -547,10 +484,7 @@ export class DvtTestmanagedProxyService extends BaseService {
         return message;
       }
 
-      const headerData = await this.readExact(
-        DTX_CONSTANTS.MESSAGE_HEADER_SIZE,
-        signal,
-      );
+      const headerData = await this.readExact(DTX_CONSTANTS.MESSAGE_HEADER_SIZE, signal);
       const header = DTXMessage.parseMessageHeader(headerData);
 
       const receivedChannel = Math.abs(header.channelCode);
@@ -563,17 +497,11 @@ export class DvtTestmanagedProxyService extends BaseService {
         this.curMessageId = header.identifier;
       }
       this.lastReceivedMessageId = header.identifier;
-      this.lastReceivedMessageIdByChannel.set(
-        receivedChannel,
-        header.identifier,
-      );
+      this.lastReceivedMessageIdByChannel.set(receivedChannel, header.identifier);
 
       // Only fragmentId 0 carries the expectsReply flag reliably.
       if (header.fragmentId === 0) {
-        this.lastReceivedExpectsReplyByChannel.set(
-          receivedChannel,
-          header.expectsReply !== 0,
-        );
+        this.lastReceivedExpectsReplyByChannel.set(receivedChannel, header.expectsReply !== 0);
       }
 
       if (header.fragmentCount > 1 && header.fragmentId === 0) {
@@ -598,22 +526,15 @@ export class DvtTestmanagedProxyService extends BaseService {
         try {
           await this.sendReply(receivedChannel);
         } catch (err: any) {
-          log.debug(
-            `Auto-reply failed on channel ${receivedChannel}: ${err.message}`,
-          );
+          log.debug(`Auto-reply failed on channel ${receivedChannel}: ${err.message}`);
         }
       }
     }
   }
 
-  private async readExact(
-    length: number,
-    signal?: AbortSignal,
-  ): Promise<Buffer> {
+  private async readExact(length: number, signal?: AbortSignal): Promise<Buffer> {
     if (!this.socket) {
-      throw new Error(
-        `${this.constructor.name} is not initialized. Call connect() before sending messages.`,
-      );
+      throw new Error(`${this.constructor.name} is not initialized. Call connect() before sending messages.`);
     }
 
     while (this.readBuffer.length < length) {
@@ -656,16 +577,14 @@ export class DvtTestmanagedProxyService extends BaseService {
 
         const onAbort = () => {
           cleanup();
-          reject(
-            signal?.reason ?? new DOMException('Read aborted', 'AbortError'),
-          );
+          reject(signal?.reason ?? new DOMException('Read aborted', 'AbortError'));
         };
 
         // Register all listeners before any async gap to prevent data race
         socket.once('data', onData);
         socket.once('error', onError);
         socket.once('close', onClose);
-        signal?.addEventListener('abort', onAbort, { once: true });
+        signal?.addEventListener('abort', onAbort, {once: true});
       });
 
       this.readBuffer = Buffer.concat([this.readBuffer, chunk]);
@@ -688,10 +607,7 @@ export class DvtTestmanagedProxyService extends BaseService {
 
       if (hasNSError) {
         const errorMsg =
-          objects.find(
-            (o: any) =>
-              typeof o === 'string' && o.length > MIN_ERROR_DESCRIPTION_LENGTH,
-          ) || 'Unknown error';
+          objects.find((o: any) => typeof o === 'string' && o.length > MIN_ERROR_DESCRIPTION_LENGTH) || 'Unknown error';
         throw new Error(`${context}: ${errorMsg}`);
       }
     }
@@ -788,9 +704,7 @@ export class DvtTestmanagedProxyService extends BaseService {
     // DTX PrimitiveDictionary key-value pairs.
     const result = this.parseAuxiliaryPrimitiveDictionary(buffer.subarray(16));
     if (result.length === 0) {
-      log.debug(
-        `Unknown auxiliary format (magic=0x${magic.toString(16)}, size=${buffer.length}), returning empty`,
-      );
+      log.debug(`Unknown auxiliary format (magic=0x${magic.toString(16)}, size=${buffer.length}), returning empty`);
     }
     return result;
   }
@@ -811,9 +725,7 @@ export class DvtTestmanagedProxyService extends BaseService {
 
       if (keyType !== DTX_CONSTANTS.EMPTY_DICTIONARY) {
         // Not a null key — unexpected, try to skip
-        log.debug(
-          `Unexpected key type 0x${keyType.toString(16)} at offset ${offset - 4}`,
-        );
+        log.debug(`Unexpected key type 0x${keyType.toString(16)} at offset ${offset - 4}`);
         break;
       }
 
@@ -827,10 +739,7 @@ export class DvtTestmanagedProxyService extends BaseService {
         values.push(result.data);
         offset = result.newOffset;
       } catch (error) {
-        log.debug(
-          `Failed to parse PrimitiveDict entry at offset ${offset}:`,
-          error,
-        );
+        log.debug(`Failed to parse PrimitiveDict entry at offset ${offset}:`, error);
         break;
       }
     }
@@ -838,10 +747,7 @@ export class DvtTestmanagedProxyService extends BaseService {
     return values;
   }
 
-  private readPrimitiveDictEntry(
-    buffer: Buffer,
-    offset: number,
-  ): { data: any; newOffset: number } {
+  private readPrimitiveDictEntry(buffer: Buffer, offset: number): {data: any; newOffset: number} {
     return readPrimitiveDictEntry(buffer, offset);
   }
 
@@ -868,10 +774,7 @@ export class DvtTestmanagedProxyService extends BaseService {
         values.push(value.data);
         offset = value.newOffset;
       } catch (error) {
-        log.debug(
-          `Failed to parse auxiliary value at offset ${offset}:`,
-          error,
-        );
+        log.debug(`Failed to parse auxiliary value at offset ${offset}:`, error);
         break;
       }
     }
@@ -879,11 +782,7 @@ export class DvtTestmanagedProxyService extends BaseService {
     return values;
   }
 
-  private parseAuxiliaryValue(
-    buffer: Buffer,
-    type: number,
-    offset: number,
-  ): { data: any; newOffset: number } {
+  private parseAuxiliaryValue(buffer: Buffer, type: number, offset: number): {data: any; newOffset: number} {
     switch (type) {
       case DTX_CONSTANTS.AUX_TYPE_INT32:
         return {
@@ -929,7 +828,7 @@ export function isExpectedCloseError(error: unknown): boolean {
   if (!error || typeof error !== 'object') {
     return false;
   }
-  const err = error as Partial<Error> & { code?: string };
+  const err = error as Partial<Error> & {code?: string};
   if (err.code && EXPECTED_CLOSE_CODES.includes(err.code)) {
     return true;
   }
@@ -940,16 +839,13 @@ export function isExpectedCloseError(error: unknown): boolean {
 /**
  * Read a single PrimitiveDictionary entry from a buffer.
  */
-export function readPrimitiveDictEntry(
-  buffer: Buffer,
-  offset: number,
-): { data: any; newOffset: number } {
+export function readPrimitiveDictEntry(buffer: Buffer, offset: number): {data: any; newOffset: number} {
   const type = buffer.readUInt32LE(offset);
   offset += 4;
 
   switch (type) {
     case DTX_CONSTANTS.PRIMITIVE_TYPE_NULL:
-      return { data: null, newOffset: offset };
+      return {data: null, newOffset: offset};
 
     case DTX_CONSTANTS.PRIMITIVE_TYPE_UINT32:
       return {
@@ -970,7 +866,7 @@ export function readPrimitiveDictEntry(
       const data = buffer.subarray(offset, offset + length);
 
       if (type === DTX_CONSTANTS.PRIMITIVE_TYPE_STRING) {
-        return { data: data.toString('utf8'), newOffset: offset + length };
+        return {data: data.toString('utf8'), newOffset: offset + length};
       }
 
       // For bytearrays, try to decode as NSKeyedArchiver plist
@@ -981,7 +877,7 @@ export function readPrimitiveDictEntry(
       } catch {
         // Not a plist, return raw buffer
       }
-      return { data: parsed, newOffset: offset + length };
+      return {data: parsed, newOffset: offset + length};
     }
 
     default:

@@ -1,5 +1,5 @@
-import { parsePlist } from '../../../lib/plist/index.js';
-import { type PlistDictionary } from '../../../lib/types.js';
+import {parsePlist} from '../../../lib/plist/index.js';
+import {type PlistDictionary} from '../../../lib/types.js';
 
 class ProvisioningProfile {
   buf: Buffer;
@@ -41,4 +41,4 @@ class ProvisioningProfile {
   }
 }
 
-export { ProvisioningProfile };
+export {ProvisioningProfile};

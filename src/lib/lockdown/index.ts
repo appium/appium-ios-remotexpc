@@ -1,14 +1,14 @@
-import type { Socket } from 'node:net';
-import tls, { type ConnectionOptions, type TLSSocket } from 'node:tls';
+import type {Socket} from 'node:net';
+import tls, {type ConnectionOptions, type TLSSocket} from 'node:tls';
 
-import { BasePlistService } from '../../base-plist-service.js';
-import { ServiceConnection } from '../../service-connection.js';
-import { getLogger } from '../logger.js';
-import { type PairRecord } from '../pair-record/index.js';
-import { PlistService } from '../plist/plist-service.js';
-import { resolveTunnelService } from '../tunnel/tunnel-service-resolver.js';
-import type { LockdownDeviceInfo, PlistMessage, PlistValue } from '../types.js';
-import { RelayService, createUsbmux } from '../usbmux/index.js';
+import {BasePlistService} from '../../base-plist-service.js';
+import {ServiceConnection} from '../../service-connection.js';
+import {getLogger} from '../logger.js';
+import {type PairRecord} from '../pair-record/index.js';
+import {PlistService} from '../plist/plist-service.js';
+import {resolveTunnelService} from '../tunnel/tunnel-service-resolver.js';
+import type {LockdownDeviceInfo, PlistMessage, PlistValue} from '../types.js';
+import {RelayService, createUsbmux} from '../usbmux/index.js';
 
 const log = getLogger('Lockdown');
 const tlsManagerLog = getLogger('TLSManager');
@@ -95,10 +95,7 @@ class TLSManager {
   /**
    * Upgrades a socket to TLS
    */
-  async upgradeSocketToTLS(
-    socket: Socket,
-    tlsOptions: Partial<ConnectionOptions> = {},
-  ): Promise<TLSSocket> {
+  async upgradeSocketToTLS(socket: Socket, tlsOptions: Partial<ConnectionOptions> = {}): Promise<TLSSocket> {
     return new Promise((resolve, reject) => {
       socket.pause();
       tlsManagerLog.debug('Upgrading socket to TLS...');
@@ -233,11 +230,7 @@ export class LockdownService extends BasePlistService {
   /**
    * Starts a lockdown session
    */
-  async startSession(
-    hostID: string,
-    systemBUID: string,
-    timeout = DEFAULT_TIMEOUT,
-  ): Promise<SessionInfo> {
+  async startSession(hostID: string, systemBUID: string, timeout = DEFAULT_TIMEOUT): Promise<SessionInfo> {
     log.debug(`Starting lockdown session with HostID: ${hostID}`);
 
     const request: Record<string, PlistValue> = {
@@ -247,10 +240,7 @@ export class LockdownService extends BasePlistService {
       SystemBUID: systemBUID,
     };
 
-    const response = (await this.sendAndReceive(
-      request,
-      timeout,
-    )) as StartSessionResponse;
+    const response = (await this.sendAndReceive(request, timeout)) as StartSessionResponse;
 
     if (response.Request === 'StartSession' && response.SessionID) {
       const sessionInfo: SessionInfo = {
@@ -262,9 +252,7 @@ export class LockdownService extends BasePlistService {
       return sessionInfo;
     }
 
-    throw new LockdownError(
-      `Unexpected session data: ${JSON.stringify(response)}`,
-    );
+    throw new LockdownError(`Unexpected session data: ${JSON.stringify(response)}`);
   }
 
   /**
@@ -278,7 +266,7 @@ export class LockdownService extends BasePlistService {
         log.warn('Invalid pair record for TLS upgrade');
         return;
       }
-      const { HostID, SystemBUID } = pairRecord;
+      const {HostID, SystemBUID} = pairRecord;
       if (!HostID || !SystemBUID) {
         log.warn('Pair record is missing HostID or SystemBUID');
         return;
@@ -302,34 +290,22 @@ export class LockdownService extends BasePlistService {
    * Gets the current socket (TLS or regular)
    */
   public getSocket(): Socket | TLSSocket {
-    return this.isTLS && this.tlsService
-      ? this.tlsService.getSocket()
-      : this.getPlistService().getSocket();
+    return this.isTLS && this.tlsService ? this.tlsService.getSocket() : this.getPlistService().getSocket();
   }
 
   /**
    * Sends a message and receives a response
    */
-  public async sendAndReceive(
-    msg: Record<string, PlistValue>,
-    timeout = DEFAULT_TIMEOUT,
-  ): Promise<PlistMessage> {
-    const service =
-      this.isTLS && this.tlsService ? this.tlsService : this._plistService;
+  public async sendAndReceive(msg: Record<string, PlistValue>, timeout = DEFAULT_TIMEOUT): Promise<PlistMessage> {
+    const service = this.isTLS && this.tlsService ? this.tlsService : this._plistService;
     return service.sendPlistAndReceive(msg, timeout);
   }
 
   /**
    * Reads the device wall clock unix timestamp (seconds) from lockdownd.
    */
-  public async getTimeIntervalSince1970(
-    timeout = DEFAULT_TIMEOUT,
-  ): Promise<number> {
-    const value = await this.getValue<PlistValue>(
-      'TimeIntervalSince1970',
-      undefined,
-      timeout,
-    );
+  public async getTimeIntervalSince1970(timeout = DEFAULT_TIMEOUT): Promise<number> {
+    const value = await this.getValue<PlistValue>('TimeIntervalSince1970', undefined, timeout);
 
     if (typeof value === 'number') {
       return value;
@@ -344,9 +320,7 @@ export class LockdownService extends BasePlistService {
       }
     }
 
-    throw new LockdownError(
-      `Unexpected TimeIntervalSince1970 value type: ${typeof value}`,
-    );
+    throw new LockdownError(`Unexpected TimeIntervalSince1970 value type: ${typeof value}`);
   }
 
   /**
@@ -362,11 +336,7 @@ export class LockdownService extends BasePlistService {
    * Reads the device timezone identifier (for example: "Europe/Berlin").
    */
   public async getTimeZone(timeout = DEFAULT_TIMEOUT): Promise<string> {
-    const value = await this.getValue<PlistValue>(
-      'TimeZone',
-      undefined,
-      timeout,
-    );
+    const value = await this.getValue<PlistValue>('TimeZone', undefined, timeout);
     if (typeof value === 'string') {
       return value;
     }
@@ -378,37 +348,23 @@ export class LockdownService extends BasePlistService {
    * Example value: `26.3.1`.
    */
   public async getProductVersion(timeout = DEFAULT_TIMEOUT): Promise<string> {
-    const value = await this.getValue<PlistValue>(
-      'ProductVersion',
-      undefined,
-      timeout,
-    );
+    const value = await this.getValue<PlistValue>('ProductVersion', undefined, timeout);
     if (typeof value === 'string') {
       return value;
     }
-    throw new LockdownError(
-      `Unexpected ProductVersion value type: ${typeof value}`,
-    );
+    throw new LockdownError(`Unexpected ProductVersion value type: ${typeof value}`);
   }
 
   /**
    * Reads all default lockdownd values (same behavior as GetValue with no key/domain).
    * Useful for retrieving broad device information payloads.
    */
-  public async getDeviceInfo(
-    timeout = DEFAULT_TIMEOUT,
-  ): Promise<LockdownDeviceInfo> {
-    const value = await this.getValue<PlistValue>(
-      undefined,
-      undefined,
-      timeout,
-    );
+  public async getDeviceInfo(timeout = DEFAULT_TIMEOUT): Promise<LockdownDeviceInfo> {
+    const value = await this.getValue<PlistValue>(undefined, undefined, timeout);
     if (value && typeof value === 'object' && !Array.isArray(value)) {
       return value as LockdownDeviceInfo;
     }
-    throw new LockdownError(
-      `Unexpected device info payload type: ${Array.isArray(value) ? 'array' : typeof value}`,
-    );
+    throw new LockdownError(`Unexpected device info payload type: ${Array.isArray(value) ? 'array' : typeof value}`);
   }
 
   /**
@@ -452,9 +408,7 @@ export class LockdownService extends BasePlistService {
   /**
    * Stops the relay service with an optional custom message
    */
-  public stopRelayService(
-    message = 'Stopping relay server associated with LockdownService',
-  ): void {
+  public stopRelayService(message = 'Stopping relay server associated with LockdownService'): void {
     const relay = this.relayService;
     if (relay) {
       log.info(message);
@@ -476,11 +430,7 @@ export class LockdownService extends BasePlistService {
    * @param domain - Optional value domain
    * @param timeout - Request timeout in milliseconds
    */
-  private async getValue<T = PlistValue>(
-    key?: string,
-    domain?: string,
-    timeout = DEFAULT_TIMEOUT,
-  ): Promise<T> {
+  private async getValue<T = PlistValue>(key?: string, domain?: string, timeout = DEFAULT_TIMEOUT): Promise<T> {
     const request: Record<string, PlistValue> = {
       Label: LABEL,
       Request: 'GetValue',
@@ -493,44 +443,28 @@ export class LockdownService extends BasePlistService {
       request.Key = key;
     }
 
-    const response = (await this.sendAndReceive(
-      request,
-      timeout,
-    )) as GetValueResponse;
+    const response = (await this.sendAndReceive(request, timeout)) as GetValueResponse;
 
     if (response.Error) {
-      throw new LockdownError(
-        `Lockdown GetValue failed for key "${key ?? '<all>'}": ${String(response.Error)}`,
-      );
+      throw new LockdownError(`Lockdown GetValue failed for key "${key ?? '<all>'}": ${String(response.Error)}`);
     }
     if (!Object.prototype.hasOwnProperty.call(response, 'Value')) {
-      throw new LockdownError(
-        `Lockdown GetValue missing Value for key "${key ?? '<all>'}"`,
-      );
+      throw new LockdownError(`Lockdown GetValue missing Value for key "${key ?? '<all>'}"`);
     }
 
     const value = response.Value as unknown;
-    if (
-      value &&
-      typeof value === 'object' &&
-      'data' in (value as Record<string, unknown>)
-    ) {
-      return (value as { data: unknown }).data as T;
+    if (value && typeof value === 'object' && 'data' in (value as Record<string, unknown>)) {
+      return (value as {data: unknown}).data as T;
     }
     return value as T;
   }
 
   private validatePairRecord(record: PairRecord): boolean {
-    return Boolean(
-      record?.HostCertificate &&
-      record.HostPrivateKey &&
-      record.HostID &&
-      record.SystemBUID,
-    );
+    return Boolean(record?.HostCertificate && record.HostPrivateKey && record.HostID && record.SystemBUID);
   }
 
   private async performTLSUpgrade(pairRecord: PairRecord): Promise<void> {
-    const { HostCertificate, HostPrivateKey } = pairRecord;
+    const {HostCertificate, HostPrivateKey} = pairRecord;
     if (!HostCertificate || !HostPrivateKey) {
       throw new LockdownError('Pair record missing TLS certificate or key');
     }
@@ -540,10 +474,7 @@ export class LockdownService extends BasePlistService {
       key: HostPrivateKey,
     };
 
-    const tlsSocket = await this.tlsManager.upgradeSocketToTLS(
-      this.getSocket() as Socket,
-      tlsConfig,
-    );
+    const tlsSocket = await this.tlsManager.upgradeSocketToTLS(this.getSocket() as Socket, tlsConfig);
 
     this.tlsService = new PlistService(tlsSocket);
     this.isTLS = true;
@@ -566,11 +497,7 @@ export class LockdownServiceFactory {
   /**
    * Creates a LockdownService for a specific device UDID
    */
-  async createByUDID(
-    udid: string,
-    port = DEFAULT_LOCKDOWN_PORT,
-    autoSecure = true,
-  ): Promise<LockdownServiceInfo> {
+  async createByUDID(udid: string, port = DEFAULT_LOCKDOWN_PORT, autoSecure = true): Promise<LockdownServiceInfo> {
     log.info(`Creating LockdownService for UDID: ${udid}`);
 
     // Find the device
@@ -596,7 +523,7 @@ export class LockdownServiceFactory {
         await service.waitForTLSUpgrade();
       }
 
-      return { lockdownService: service, device };
+      return {lockdownService: service, device};
     } catch (err) {
       // Clean up relay on error
       service?.stopRelayService('Stopping relay after failure');
@@ -609,18 +536,10 @@ export class LockdownServiceFactory {
  * Lockdown over an RSD tunnel. Opens a scoped discovery connection, resolves the remote
  * lockdown port, and returns a `LockdownService` (discovery RSD is closed before return).
  */
-export async function createLockdownServiceForTunnel(
-  udid: string,
-): Promise<LockdownService> {
-  const { host, port: lockdownPort } = await resolveTunnelService(
-    udid,
-    LOCKDOWN_REMOTE_UNTRUSTED,
-  );
+export async function createLockdownServiceForTunnel(udid: string): Promise<LockdownService> {
+  const {host, port: lockdownPort} = await resolveTunnelService(udid, LOCKDOWN_REMOTE_UNTRUSTED);
 
-  const conn = await ServiceConnection.createUsingTCP(
-    host,
-    String(lockdownPort),
-  );
+  const conn = await ServiceConnection.createUsingTCP(host, String(lockdownPort));
   await rsdHandshakeLockdownPlistService(conn);
   return new LockdownService(conn.getSocket(), udid, false);
 }
@@ -640,10 +559,7 @@ export async function createLockdownServiceByUDID(
 /**
  * Upgrade an existing socket connection to TLS using Lockdown-compatible options.
  */
-export function upgradeSocketToTLS(
-  socket: Socket,
-  tlsOptions: Partial<ConnectionOptions> = {},
-): Promise<TLSSocket> {
+export function upgradeSocketToTLS(socket: Socket, tlsOptions: Partial<ConnectionOptions> = {}): Promise<TLSSocket> {
   const tlsManager = new TLSManager();
   return tlsManager.upgradeSocketToTLS(socket, tlsOptions);
 }
@@ -651,9 +567,7 @@ export function upgradeSocketToTLS(
 /**
  * RSD handshake on the remote lockdown TCP socket: RSDCheckin, RSDCheckin echo, StartService.
  */
-async function rsdHandshakeLockdownPlistService(
-  conn: ServiceConnection,
-): Promise<void> {
+async function rsdHandshakeLockdownPlistService(conn: ServiceConnection): Promise<void> {
   const checkin: Record<string, PlistValue> = {
     Label: LABEL,
     ProtocolVersion: '2',
@@ -662,21 +576,15 @@ async function rsdHandshakeLockdownPlistService(
 
   const first = await conn.sendPlistRequest(checkin, DEFAULT_TIMEOUT);
   if (first.Request !== 'RSDCheckin') {
-    throw new LockdownError(
-      `Invalid RSDCheckin response: ${JSON.stringify(first)}`,
-    );
+    throw new LockdownError(`Invalid RSDCheckin response: ${JSON.stringify(first)}`);
   }
 
   const second = await conn.receive(DEFAULT_TIMEOUT);
   if (!second || second.Request !== 'StartService') {
-    throw new LockdownError(
-      `Expected StartService after RSDCheckin, got: ${JSON.stringify(second)}`,
-    );
+    throw new LockdownError(`Expected StartService after RSDCheckin, got: ${JSON.stringify(second)}`);
   }
   if (second.Error) {
     const desc = second.ErrorDescription ?? 'Unknown error';
-    throw new LockdownError(
-      `RSD remote lockdown service failed: ${String(second.Error)} — ${desc}`,
-    );
+    throw new LockdownError(`RSD remote lockdown service failed: ${String(second.Error)} — ${desc}`);
   }
 }

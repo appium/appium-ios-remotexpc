@@ -1,11 +1,12 @@
-import { expect } from 'chai';
-import { after, before, describe, it } from 'node:test';
+import {after, before, describe, it} from 'node:test';
 
-import type { HidIndigoService } from '../../src/index.js';
+import {expect} from 'chai';
+
+import type {HidIndigoService} from '../../src/index.js';
 import * as Services from '../../src/services.js';
-import { requireDeviceUdid } from './helpers/device.js';
+import {requireDeviceUdid} from './helpers/device.js';
 
-describe('HidIndigoService', { timeout: 60000 }, function () {
+describe('HidIndigoService', {timeout: 60000}, function () {
   let hidIndigoService: HidIndigoService | null = null;
   let udid: string;
 
@@ -26,7 +27,7 @@ describe('HidIndigoService', { timeout: 60000 }, function () {
   it('should start the service and dispatch a home button press', async function () {
     expect(hidIndigoService).to.not.be.null;
 
-    await hidIndigoService!.pressButton('home', { holdSeconds: 2 });
+    await hidIndigoService!.pressButton('home', {holdSeconds: 2});
   });
 
   it('should dispatch a double home button press sequence', async function () {

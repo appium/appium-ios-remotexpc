@@ -1,11 +1,8 @@
 import type net from 'node:net';
 
-import { getLogger } from '../../lib/logger.js';
-import {
-  DEFAULT_TUNNEL_SERVICE_WAIT_MS,
-  resolveTunnelService,
-} from '../../lib/tunnel/tunnel-service-resolver.js';
-import { ServiceConnection } from '../../service-connection.js';
+import {getLogger} from '../../lib/logger.js';
+import {DEFAULT_TUNNEL_SERVICE_WAIT_MS, resolveTunnelService} from '../../lib/tunnel/tunnel-service-resolver.js';
+import {ServiceConnection} from '../../service-connection.js';
 
 const log = getLogger('BaseService');
 
@@ -50,10 +47,7 @@ export class BaseService {
     options: Record<string, any> = {},
   ): Promise<ServiceConnection> {
     try {
-      const connection = await this.startLockdownWithoutCheckin(
-        serviceName,
-        options,
-      );
+      const connection = await this.startLockdownWithoutCheckin(serviceName, options);
       const checkin = {
         Label: 'appium-internal',
         ProtocolVersion: '2',
@@ -76,7 +70,7 @@ export class BaseService {
     serviceName: string,
     waitMs: number = DEFAULT_TUNNEL_SERVICE_WAIT_MS,
   ): Promise<[string, number]> {
-    const { host, port } = await resolveTunnelService(this.udid, serviceName, {
+    const {host, port} = await resolveTunnelService(this.udid, serviceName, {
       waitMs,
     });
     return [host, port];

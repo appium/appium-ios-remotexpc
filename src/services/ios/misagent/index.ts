@@ -1,13 +1,11 @@
-import { fs } from '@appium/support';
 import path from 'node:path';
 
-import {
-  type MisagentService as MisagentServiceInterface,
-  type PlistDictionary,
-} from '../../../lib/types.js';
-import { type ServiceConnection } from '../../../service-connection.js';
-import { BaseService } from '../base-service.js';
-import { ProvisioningProfile } from './provisioning-profile.js';
+import {fs} from '@appium/support';
+
+import {type MisagentService as MisagentServiceInterface, type PlistDictionary} from '../../../lib/types.js';
+import {type ServiceConnection} from '../../../service-connection.js';
+import {BaseService} from '../base-service.js';
+import {ProvisioningProfile} from './provisioning-profile.js';
 
 class MisagentService extends BaseService implements MisagentServiceInterface {
   static readonly RSD_SERVICE_NAME = 'com.apple.misagent.shim.remote';
@@ -18,9 +16,7 @@ class MisagentService extends BaseService implements MisagentServiceInterface {
       return this._conn;
     }
 
-    this._conn = await this.startLockdownService(
-      MisagentService.RSD_SERVICE_NAME,
-    );
+    this._conn = await this.startLockdownService(MisagentService.RSD_SERVICE_NAME);
     return this._conn;
   }
 
@@ -31,9 +27,7 @@ class MisagentService extends BaseService implements MisagentServiceInterface {
     }
     const fileExtension = path.extname(filePath).toLowerCase();
     if (fileExtension !== '.mobileprovision') {
-      throw new Error(
-        `Invalid file extension: ${fileExtension}. Only .mobileprovision files are supported.`,
-      );
+      throw new Error(`Invalid file extension: ${fileExtension}. Only .mobileprovision files are supported.`);
     }
     const payload = await fs.readFile(filePath);
     await this.installProfile(payload);
@@ -74,15 +68,12 @@ class MisagentService extends BaseService implements MisagentServiceInterface {
       return [];
     }
 
-    return response.Payload.filter((profileData): profileData is Buffer =>
-      Buffer.isBuffer(profileData),
-    ).map((profileData) => new ProvisioningProfile(profileData));
+    return response.Payload.filter((profileData): profileData is Buffer => Buffer.isBuffer(profileData)).map(
+      (profileData) => new ProvisioningProfile(profileData),
+    );
   }
 
-  private async sendRequest(
-    request: any,
-    errorMessage: string,
-  ): Promise<PlistDictionary> {
+  private async sendRequest(request: any, errorMessage: string): Promise<PlistDictionary> {
     const conn = await this.connectToMisagentService();
     try {
       // Skip StartService response
@@ -103,4 +94,4 @@ class MisagentService extends BaseService implements MisagentServiceInterface {
   }
 }
 
-export { MisagentService };
+export {MisagentService};

@@ -1,7 +1,7 @@
-import { getLogger } from '../../../lib/logger.js';
-import type { PlistDictionary } from '../../../lib/types.js';
-import { type ServiceConnection } from '../../../service-connection.js';
-import { BaseService } from '../base-service.js';
+import {getLogger} from '../../../lib/logger.js';
+import type {PlistDictionary} from '../../../lib/types.js';
+import {type ServiceConnection} from '../../../service-connection.js';
+import {BaseService} from '../base-service.js';
 import type {
   AppInfo,
   ApplicationType,
@@ -28,11 +28,7 @@ export const DEFAULT_RETURN_ATTRIBUTES = [
   'ApplicationType',
 ];
 
-export const SIZE_ATTRIBUTES = [
-  'CFBundleIdentifier',
-  'StaticDiskUsage',
-  'DynamicDiskUsage',
-];
+export const SIZE_ATTRIBUTES = ['CFBundleIdentifier', 'StaticDiskUsage', 'DynamicDiskUsage'];
 
 /**
  * Maximum duration for browse/lookup operations in milliseconds
@@ -50,8 +46,7 @@ export const MAX_INSTALL_DURATION_MS = 10 * 60 * 1000; // 10 minutes
  * InstallationProxyService provides an API to manage app installation and queries
  */
 export class InstallationProxyService extends BaseService {
-  static readonly RSD_SERVICE_NAME =
-    'com.apple.mobile.installation_proxy.shim.remote';
+  static readonly RSD_SERVICE_NAME = 'com.apple.mobile.installation_proxy.shim.remote';
   private readonly timeout: number;
   private connection: ServiceConnection | null = null;
 
@@ -64,10 +59,7 @@ export class InstallationProxyService extends BaseService {
    * Browse installed applications
    */
   async browse(options: BrowseOptions = {}): Promise<AppInfo[]> {
-    const {
-      applicationType = DEFAULT_APPLICATION_TYPE,
-      returnAttributes = DEFAULT_RETURN_ATTRIBUTES,
-    } = options;
+    const {applicationType = DEFAULT_APPLICATION_TYPE, returnAttributes = DEFAULT_RETURN_ATTRIBUTES} = options;
 
     const clientOptions: Record<string, string | string[]> = {
       ApplicationType: applicationType,
@@ -116,10 +108,7 @@ export class InstallationProxyService extends BaseService {
   /**
    * Lookup application information by bundle IDs
    */
-  async lookup(
-    bundleIds?: string[],
-    options: Partial<LookupOptions> = {},
-  ): Promise<Record<string, AppInfo>> {
+  async lookup(bundleIds?: string[], options: Partial<LookupOptions> = {}): Promise<Record<string, AppInfo>> {
     const clientOptions: Record<string, string | string[] | ApplicationType> = {
       ...options,
     };
@@ -134,10 +123,7 @@ export class InstallationProxyService extends BaseService {
     };
 
     const conn = await this.getConnection();
-    const response = (await conn.sendPlistRequest(
-      request,
-      this.timeout,
-    )) as LookupResponse;
+    const response = (await conn.sendPlistRequest(request, this.timeout)) as LookupResponse;
 
     this.checkForError(response);
 
@@ -163,11 +149,7 @@ export class InstallationProxyService extends BaseService {
 
     if (calculateSizes) {
       // Combine default attributes with size attributes in a single call
-      options.returnAttributes = [
-        ...DEFAULT_RETURN_ATTRIBUTES,
-        'StaticDiskUsage',
-        'DynamicDiskUsage',
-      ];
+      options.returnAttributes = [...DEFAULT_RETURN_ATTRIBUTES, 'StaticDiskUsage', 'DynamicDiskUsage'];
     }
 
     if (bundleIds && bundleIds.length > 0) {
@@ -183,12 +165,8 @@ export class InstallationProxyService extends BaseService {
    * @param options Installation options
    * @param progressCallback Optional callback for progress updates
    */
-  async install(
-    packagePath: string,
-    options: InstallOptions = {},
-    progressCallback?: ProgressCallback,
-  ): Promise<void> {
-    const { timeoutMs, ...clientOptions } = options;
+  async install(packagePath: string, options: InstallOptions = {}, progressCallback?: ProgressCallback): Promise<void> {
+    const {timeoutMs, ...clientOptions} = options;
 
     const request: PlistDictionary = {
       Command: 'Install',
@@ -210,7 +188,7 @@ export class InstallationProxyService extends BaseService {
     options: UninstallOptions = {},
     progressCallback?: ProgressCallback,
   ): Promise<void> {
-    const { timeoutMs, ...clientOptions } = options;
+    const {timeoutMs, ...clientOptions} = options;
 
     const request: PlistDictionary = {
       Command: 'Uninstall',
@@ -227,12 +205,8 @@ export class InstallationProxyService extends BaseService {
    * @param options Installation options (including optional timeoutMs)
    * @param progressCallback Optional callback for progress updates
    */
-  async upgrade(
-    packagePath: string,
-    options: InstallOptions = {},
-    progressCallback?: ProgressCallback,
-  ): Promise<void> {
-    const { timeoutMs, ...clientOptions } = options;
+  async upgrade(packagePath: string, options: InstallOptions = {}, progressCallback?: ProgressCallback): Promise<void> {
+    const {timeoutMs, ...clientOptions} = options;
 
     const request: PlistDictionary = {
       Command: 'Upgrade',
@@ -258,11 +232,10 @@ export class InstallationProxyService extends BaseService {
       const appInfo = installedApps[bundleIdentifier];
 
       if (!appInfo) {
-        return { isInstalled: false };
+        return {isInstalled: false};
       }
 
-      const version =
-        appInfo.CFBundleShortVersionString || appInfo.CFBundleVersion;
+      const version = appInfo.CFBundleShortVersionString || appInfo.CFBundleVersion;
 
       return {
         isInstalled: true,
@@ -272,7 +245,7 @@ export class InstallationProxyService extends BaseService {
     } catch (error) {
       log.error(`Error checking if app is installed: ${error}`);
       // If lookup fails, assume app is not installed
-      return { isInstalled: false };
+      return {isInstalled: false};
     }
   }
 
@@ -297,12 +270,9 @@ export class InstallationProxyService extends BaseService {
       return this.connection;
     }
 
-    this.connection = await this.startLockdownService(
-      InstallationProxyService.RSD_SERVICE_NAME,
-      {
-        createConnectionTimeout: this.timeout,
-      },
-    );
+    this.connection = await this.startLockdownService(InstallationProxyService.RSD_SERVICE_NAME, {
+      createConnectionTimeout: this.timeout,
+    });
 
     const startServiceResponse = await this.connection.receive(this.timeout);
 
@@ -311,17 +281,12 @@ export class InstallationProxyService extends BaseService {
     }
 
     if (startServiceResponse.Request !== 'StartService') {
-      throw new Error(
-        `Expected StartService response, got: ${JSON.stringify(startServiceResponse)}`,
-      );
+      throw new Error(`Expected StartService response, got: ${JSON.stringify(startServiceResponse)}`);
     }
 
     if (startServiceResponse.Error) {
-      const errorDesc =
-        startServiceResponse.ErrorDescription ?? 'Unknown error';
-      throw new Error(
-        `Service start failed: ${startServiceResponse.Error} - ${errorDesc}`,
-      );
+      const errorDesc = startServiceResponse.ErrorDescription ?? 'Unknown error';
+      throw new Error(`Service start failed: ${startServiceResponse.Error} - ${errorDesc}`);
     }
 
     return this.connection;
@@ -364,9 +329,7 @@ export class InstallationProxyService extends BaseService {
     }
   }
 
-  private checkForError(
-    response: ProgressResponse | BrowseResponse | LookupResponse,
-  ): void {
+  private checkForError(response: ProgressResponse | BrowseResponse | LookupResponse): void {
     if (!response.Error) {
       return;
     }

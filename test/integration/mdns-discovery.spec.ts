@@ -1,14 +1,15 @@
-import { expect } from 'chai';
-import { type TestContext, after, before, describe, it } from 'node:test';
+import {type TestContext, after, before, describe, it} from 'node:test';
 
-import { REMOTE_PAIRING_MANUAL_DISCOVERY_SERVICE_TYPE } from '../../src/lib/apple-tv/constants.js';
-import { createDiscoveryBackend } from '../../src/lib/discovery/discovery-backend-factory.js';
-import { MdnsTestResponder } from '../helpers/mdns-test-responder.js';
+import {expect} from 'chai';
+
+import {REMOTE_PAIRING_MANUAL_DISCOVERY_SERVICE_TYPE} from '../../src/lib/apple-tv/constants.js';
+import {createDiscoveryBackend} from '../../src/lib/discovery/discovery-backend-factory.js';
+import {MdnsTestResponder} from '../helpers/mdns-test-responder.js';
 
 const TEST_SERVICE_TYPE = '_apptest-remotexpc._tcp';
 const DISCOVERY_TIMEOUT_MS = 3000;
 
-describe('mDNS discovery (e2e)', { timeout: 15000 }, function () {
+describe('mDNS discovery (e2e)', {timeout: 15000}, function () {
   let responder: MdnsTestResponder | undefined;
 
   before(async function () {
@@ -31,7 +32,7 @@ describe('mDNS discovery (e2e)', { timeout: 15000 }, function () {
         host: 'apptest-long.local.',
         port: 49153,
         ipv4: '127.0.0.1',
-        txt: { identifier: 'e2e-long-id' },
+        txt: {identifier: 'e2e-long-id'},
       },
     ]);
   });
@@ -77,26 +78,22 @@ describe('mDNS discovery (e2e)', { timeout: 15000 }, function () {
   });
 });
 
-describe(
-  'mDNS discovery (live _remotepairing._tcp on LAN)',
-  { timeout: 30000 },
-  function () {
-    const enabled = process.env.REMOTE_PAIRING_LIVE_DISCOVERY === '1';
+describe('mDNS discovery (live _remotepairing._tcp on LAN)', {timeout: 30000}, function () {
+  const enabled = process.env.REMOTE_PAIRING_LIVE_DISCOVERY === '1';
 
-    it('discovers at least one Apple device advertising _remotepairing._tcp', async function (ctx: TestContext) {
-      if (!enabled) {
-        ctx.skip();
-        return;
-      }
-      const backend = createDiscoveryBackend(process.platform, {
-        serviceType: '_remotepairing._tcp',
-        domain: 'local',
-      });
-      const devices = await backend.discoverDevices(10000);
-      expect(devices.length).to.be.greaterThan(
-        0,
-        'No _remotepairing._tcp advertisers found on the LAN — Macs and other paired Apple devices count',
-      );
+  it('discovers at least one Apple device advertising _remotepairing._tcp', async function (ctx: TestContext) {
+    if (!enabled) {
+      ctx.skip();
+      return;
+    }
+    const backend = createDiscoveryBackend(process.platform, {
+      serviceType: '_remotepairing._tcp',
+      domain: 'local',
     });
-  },
-);
+    const devices = await backend.discoverDevices(10000);
+    expect(devices.length).to.be.greaterThan(
+      0,
+      'No _remotepairing._tcp advertisers found on the LAN — Macs and other paired Apple devices count',
+    );
+  });
+});

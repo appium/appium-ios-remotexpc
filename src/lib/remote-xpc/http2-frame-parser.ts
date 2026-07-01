@@ -1,4 +1,4 @@
-import { InvalidDataError, WindowUpdateFrame } from './handshake-frames.js';
+import {InvalidDataError, WindowUpdateFrame} from './handshake-frames.js';
 
 const FRAME_HEADER_SIZE = 9;
 const FRAME_TYPE_DATA = 0x00;
@@ -10,9 +10,7 @@ export interface ParsedDataFrame {
   readonly bodyLen: number;
 }
 
-export type ParsedFrame =
-  | { readonly type: 'data'; readonly frame: ParsedDataFrame }
-  | { readonly type: 'other' };
+export type ParsedFrame = {readonly type: 'data'; readonly frame: ParsedDataFrame} | {readonly type: 'other'};
 
 /**
  * Incrementally parse HTTP/2 frames from a byte stream (RFC 7540).
@@ -25,8 +23,7 @@ export class Http2FrameParser {
     const frames: ParsedFrame[] = [];
 
     while (this.buffer.length >= FRAME_HEADER_SIZE) {
-      const length =
-        (this.buffer[0] << 16) | (this.buffer[1] << 8) | this.buffer[2];
+      const length = (this.buffer[0] << 16) | (this.buffer[1] << 8) | this.buffer[2];
       const totalSize = FRAME_HEADER_SIZE + length;
       if (this.buffer.length < totalSize) {
         break;
@@ -44,17 +41,11 @@ export class Http2FrameParser {
 /**
  * Emit WINDOW_UPDATE frames for even-numbered streams, matching `remoted` behavior.
  */
-export function buildWindowUpdateFrames(
-  streamId: number,
-  increment: number,
-): Buffer[] {
+export function buildWindowUpdateFrames(streamId: number, increment: number): Buffer[] {
   if (streamId % 2 !== 0 || increment <= 0) {
     return [];
   }
-  return [
-    new WindowUpdateFrame(0, increment).serialize(),
-    new WindowUpdateFrame(streamId, increment).serialize(),
-  ];
+  return [new WindowUpdateFrame(0, increment).serialize(), new WindowUpdateFrame(streamId, increment).serialize()];
 }
 
 function parseFrame(buffer: Buffer): ParsedFrame {
@@ -65,14 +56,14 @@ function parseFrame(buffer: Buffer): ParsedFrame {
   const body = buffer.subarray(FRAME_HEADER_SIZE, FRAME_HEADER_SIZE + length);
 
   if (type !== FRAME_TYPE_DATA) {
-    return { type: 'other' };
+    return {type: 'other'};
   }
 
   const data = stripDataFramePadding(body, flags);
 
   return {
     type: 'data',
-    frame: { streamId, data, bodyLen: length },
+    frame: {streamId, data, bodyLen: length},
   };
 }
 
@@ -86,9 +77,7 @@ function stripDataFramePadding(body: Buffer, flags: number): Buffer {
   }
 
   if (body.length === 0) {
-    throw new InvalidDataError(
-      'PROTOCOL_ERROR: PADDED DATA frame has empty payload',
-    );
+    throw new InvalidDataError('PROTOCOL_ERROR: PADDED DATA frame has empty payload');
   }
 
   const padLength = body.readUInt8(0);

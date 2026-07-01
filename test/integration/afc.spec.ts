@@ -1,16 +1,17 @@
-import { expect } from 'chai';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { Readable } from 'node:stream';
-import { after, before, describe, it } from 'node:test';
+import {Readable} from 'node:stream';
+import {after, before, describe, it} from 'node:test';
 
-import { Services } from '../../src/index.js';
-import { AfcFileMode } from '../../src/services/ios/afc/enums.js';
+import {expect} from 'chai';
+
+import {Services} from '../../src/index.js';
+import {AfcFileMode} from '../../src/services/ios/afc/enums.js';
 import type AfcService from '../../src/services/ios/afc/index.js';
-import { requireDeviceUdid } from './helpers/device.js';
+import {requireDeviceUdid} from './helpers/device.js';
 
-describe('AFC Service', { timeout: 60000 }, function () {
+describe('AFC Service', {timeout: 60000}, function () {
   let udid: string;
 
   let afc: AfcService;
@@ -89,15 +90,9 @@ describe('AFC Service', { timeout: 60000 }, function () {
   });
 
   it('should push and pull files between local and device', async function () {
-    const localSrcPath = path.join(
-      os.tmpdir(),
-      `afc_push_test_${Date.now()}.txt`,
-    );
+    const localSrcPath = path.join(os.tmpdir(), `afc_push_test_${Date.now()}.txt`);
     const remotePath = `/Downloads/afc_push_test_${Date.now()}.txt`;
-    const localDstPath = path.join(
-      os.tmpdir(),
-      `afc_pull_test_${Date.now()}.txt`,
-    );
+    const localDstPath = path.join(os.tmpdir(), `afc_pull_test_${Date.now()}.txt`);
     const testContent = 'push and pull test content';
 
     try {
@@ -197,14 +192,10 @@ describe('AFC Service', { timeout: 60000 }, function () {
 
       const localDownloads = path.join(os.tmpdir(), 'Downloads');
       await fs.access(path.join(localDownloads, `file1_${ts}.txt`));
-      await fs.access(
-        path.join(localDownloads, `parent_dir/child_dir/file2_${ts}.log`),
-      );
+      await fs.access(path.join(localDownloads, `parent_dir/child_dir/file2_${ts}.log`));
 
       // Verify file contents
-      const localData = await fs.readFile(
-        path.join(localDownloads, `file1_${ts}.txt`),
-      );
+      const localData = await fs.readFile(path.join(localDownloads, `file1_${ts}.txt`));
       expect(Buffer.compare(localData, testData)).to.equal(0);
     } finally {
       try {
@@ -218,7 +209,7 @@ describe('AFC Service', { timeout: 60000 }, function () {
       } catch {}
       try {
         const localDownloads = path.join(os.tmpdir(), 'Downloads');
-        await fs.rm(localDownloads, { recursive: true, force: true });
+        await fs.rm(localDownloads, {recursive: true, force: true});
       } catch {}
     }
   });
@@ -264,7 +255,7 @@ describe('AFC Service', { timeout: 60000 }, function () {
         await afc.rm(file1);
       } catch {}
       try {
-        await fs.rm(localDownloads, { recursive: true, force: true });
+        await fs.rm(localDownloads, {recursive: true, force: true});
       } catch {}
     }
   });
@@ -303,9 +294,7 @@ describe('AFC Service', { timeout: 60000 }, function () {
 
       // Verify matching files exist
       await fs.access(path.join(localTestDir, 'has_match', 'target_data.txt'));
-      await fs.access(
-        path.join(localTestDir, 'also_has_match', 'target_file.txt'),
-      );
+      await fs.access(path.join(localTestDir, 'also_has_match', 'target_file.txt'));
 
       // Verify directories without matching files were not created
       let noMatchDirExists: boolean;

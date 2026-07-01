@@ -1,12 +1,5 @@
-import {
-  DISCOVERY_DEFAULT_DOMAIN,
-  DISCOVERY_DEFAULT_SERVICE_TYPE,
-} from './constants.js';
-import type {
-  DiscoveredDevice,
-  DiscoveryOptions,
-  IDeviceDiscoveryBackend,
-} from './types.js';
+import {DISCOVERY_DEFAULT_DOMAIN, DISCOVERY_DEFAULT_SERVICE_TYPE} from './constants.js';
+import type {DiscoveredDevice, DiscoveryOptions, IDeviceDiscoveryBackend} from './types.js';
 
 /**
  * Common scaffolding for discovery backends.
@@ -45,7 +38,5 @@ export abstract class BaseDiscoveryBackend implements IDeviceDiscoveryBackend {
     return this.options.domain || DISCOVERY_DEFAULT_DOMAIN;
   }
 
-  protected abstract runDiscovery(
-    timeoutMs: number,
-  ): Promise<DiscoveredDevice[]>;
+  protected abstract runDiscovery(timeoutMs: number): Promise<DiscoveredDevice[]>;
 }

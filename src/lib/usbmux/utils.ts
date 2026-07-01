@@ -4,7 +4,7 @@
  */
 export function prioritizeUsbOverNetworkForDuplicateUdids<
   T extends {
-    Properties: { SerialNumber: string; ConnectionType: string };
+    Properties: {SerialNumber: string; ConnectionType: string};
   },
 >(devices: T[]): T[] {
   const result = [...devices];
@@ -35,11 +35,9 @@ export function prioritizeUsbOverNetworkForDuplicateUdids<
 }
 
 /** Stable sort by `wirelessRank` only (ties keep relative order). */
-function stableSortByWirelessRank<
-  T extends { Properties: { ConnectionType: string } },
->(items: T[]): T[] {
+function stableSortByWirelessRank<T extends {Properties: {ConnectionType: string}}>(items: T[]): T[] {
   return items
-    .map((item, indexInSlice) => ({ item, indexInSlice }))
+    .map((item, indexInSlice) => ({item, indexInSlice}))
     .sort((a, b) => {
       const r = wirelessRank(a.item) - wirelessRank(b.item);
       if (r !== 0) {
@@ -47,12 +45,10 @@ function stableSortByWirelessRank<
       }
       return a.indexInSlice - b.indexInSlice;
     })
-    .map(({ item }) => item);
+    .map(({item}) => item);
 }
 
 /** Wireless usbmux rows (same UDID as USB) use ConnectionType `Network`. */
-function wirelessRank<T extends { Properties: { ConnectionType: string } }>(
-  device: T,
-): number {
+function wirelessRank<T extends {Properties: {ConnectionType: string}}>(device: T): number {
   return device.Properties.ConnectionType === 'Network' ? 1 : 0;
 }

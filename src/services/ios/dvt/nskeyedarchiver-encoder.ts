@@ -1,5 +1,5 @@
-import { getLogger } from '../../../lib/logger.js';
-import { PlistUID } from '../../../lib/plist/index.js';
+import {getLogger} from '../../../lib/logger.js';
+import {PlistUID} from '../../../lib/plist/index.js';
 
 const log = getLogger('NSKeyedArchiverEncoder');
 
@@ -21,7 +21,7 @@ export class NSKeyedArchiverEncoder {
     return {
       $version: 100000,
       $archiver: 'NSKeyedArchiver',
-      $top: { root: new PlistUID(rootIndex) },
+      $top: {root: new PlistUID(rootIndex)},
       $objects: this.objects,
     };
   }
@@ -69,9 +69,7 @@ export class NSKeyedArchiverEncoder {
       index = this.archiveDictionary(value);
     } else {
       // Fallback (e.g. symbols, functions) — encode as $null to avoid breaking pipelines
-      log.warn(
-        `Unsupported type for NSKeyedArchiver: ${typeof value}. Encoding as $null`,
-      );
+      log.warn(`Unsupported type for NSKeyedArchiver: ${typeof value}. Encoding as $null`);
       return 0;
     }
 
@@ -84,9 +82,7 @@ export class NSKeyedArchiverEncoder {
     this.objectCache.set(array, index);
 
     // Archive elements
-    const itemUids = array.map(
-      (item) => new PlistUID(this.archiveObject(item)),
-    );
+    const itemUids = array.map((item) => new PlistUID(this.archiveObject(item)));
 
     // Get class UID
     const classUid = this.getClassUid('NSArray', 'NSObject');
@@ -107,9 +103,7 @@ export class NSKeyedArchiverEncoder {
     this.objectCache.set(set, index);
 
     const items = Array.from(set);
-    const itemUids = items.map(
-      (item) => new PlistUID(this.archiveObject(item)),
-    );
+    const itemUids = items.map((item) => new PlistUID(this.archiveObject(item)));
     const classUid = this.getClassUid('NSSet', 'NSObject');
 
     this.objects[index] = {

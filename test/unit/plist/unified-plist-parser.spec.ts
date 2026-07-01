@@ -1,18 +1,16 @@
-import { fs, node } from '@appium/support';
-import { expect } from 'chai';
 import path from 'node:path';
-import { before, describe, it } from 'node:test';
-import { fileURLToPath } from 'node:url';
+import {before, describe, it} from 'node:test';
+import {fileURLToPath} from 'node:url';
 
-import { isBinaryPlist } from '../../../src/lib/plist/binary-plist-parser.js';
-import { parsePlist } from '../../../src/lib/plist/unified-plist-parser.js';
-import type { PlistDictionary } from '../../../src/lib/types.js';
+import {fs, node} from '@appium/support';
+import {expect} from 'chai';
+
+import {isBinaryPlist} from '../../../src/lib/plist/binary-plist-parser.js';
+import {parsePlist} from '../../../src/lib/plist/unified-plist-parser.js';
+import type {PlistDictionary} from '../../../src/lib/types.js';
 
 // Get the directory name
-const PKG_ROOT = node.getModuleRootSync(
-  'appium-ios-remotexpc',
-  fileURLToPath(import.meta.url),
-);
+const PKG_ROOT = node.getModuleRootSync('appium-ios-remotexpc', fileURLToPath(import.meta.url));
 const FIXTURES_PATH = path.join(PKG_ROOT, 'test', 'unit', 'plist', 'fixtures');
 
 describe('Unified Plist Parser', function () {
@@ -32,9 +30,7 @@ describe('Unified Plist Parser', function () {
   describe('Format Detection and Parsing', function () {
     it('should correctly detect and parse XML plists', function () {
       // Test with string input
-      const resultFromString = parsePlist(
-        sampleXmlPlistContent,
-      ) as PlistDictionary;
+      const resultFromString = parsePlist(sampleXmlPlistContent) as PlistDictionary;
       expect(resultFromString).to.be.an('object');
       expect(resultFromString).to.have.property('stringValue', 'Hello, World!');
       expect(resultFromString).to.have.property('integerValue', 42);

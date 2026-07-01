@@ -1,11 +1,12 @@
-import { expect } from 'chai';
-import { after, before, describe, it } from 'node:test';
+import {after, before, describe, it} from 'node:test';
 
-import { Services } from '../../src/index.js';
-import type { DiagnosticsService } from '../../src/lib/types.js';
-import { requireDeviceUdid } from './helpers/device.js';
+import {expect} from 'chai';
 
-describe('Diagnostics Service', { timeout: 60000 }, function () {
+import {Services} from '../../src/index.js';
+import type {DiagnosticsService} from '../../src/lib/types.js';
+import {requireDeviceUdid} from './helpers/device.js';
+
+describe('Diagnostics Service', {timeout: 60000}, function () {
   let diagService: DiagnosticsService;
   let udid: string;
 

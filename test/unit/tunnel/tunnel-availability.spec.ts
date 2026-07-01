@@ -1,6 +1,7 @@
-import { expect } from 'chai';
+import {describe, it} from 'node:test';
+
+import {expect} from 'chai';
 import esmock from 'esmock';
-import { describe, it } from 'node:test';
 
 const TEST_UDID = 'test-udid';
 const REGISTRY_PORT = 12_345;
@@ -62,16 +63,12 @@ async function loadTunnelAvailability(
   if (options.tunnelApiClientMock) {
     dependencyMocks['../../../src/lib/tunnel/tunnel-api-client.js'] = {
       TunnelApiClient: class {
-        getTunnelByUdid =
-          options.tunnelApiClientMock?.getTunnelByUdid ?? (async () => null);
+        getTunnelByUdid = options.tunnelApiClientMock?.getTunnelByUdid ?? (async () => null);
       },
     };
   }
 
-  return await esmock(
-    '../../../src/lib/tunnel/tunnel-availability.js',
-    dependencyMocks,
-  );
+  return await esmock('../../../src/lib/tunnel/tunnel-availability.js', dependencyMocks);
 }
 
 async function expectTunnelAvailabilityError(
@@ -85,13 +82,13 @@ async function expectTunnelAvailabilityError(
   } catch (err) {
     expect(err).to.be.instanceOf(TunnelAvailabilityError);
     expect((err as Error).message).to.equal(expectedMessage);
-    expect((err as { code?: string }).code).to.equal('ERR_TUNNEL_AVAILABILITY');
+    expect((err as {code?: string}).code).to.equal('ERR_TUNNEL_AVAILABILITY');
   }
 }
 
 describe('tunnel-availability', function () {
   it('throws when tunnel registry port is missing in strongbox', async function () {
-    const mod = await loadTunnelAvailability({ tunnelRegistryPort: undefined });
+    const mod = await loadTunnelAvailability({tunnelRegistryPort: undefined});
     await expectTunnelAvailabilityError(
       async () => await mod.getTunnelForDevice(TEST_UDID),
       'Tunnel registry port not found. Please run the tunnel creation script first',
@@ -100,7 +97,7 @@ describe('tunnel-availability', function () {
   });
 
   it('throws when tunnel registry port is not a valid TCP port', async function () {
-    const mod = await loadTunnelAvailability({ tunnelRegistryPort: '70000' });
+    const mod = await loadTunnelAvailability({tunnelRegistryPort: '70000'});
     await expectTunnelAvailabilityError(
       async () => await mod.getTunnelForDevice(TEST_UDID),
       'Tunnel registry port "70000" is invalid; expected an integer between 1 and 65535',

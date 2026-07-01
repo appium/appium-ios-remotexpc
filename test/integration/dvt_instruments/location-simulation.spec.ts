@@ -1,16 +1,17 @@
-import { logger } from '@appium/support';
-import { expect } from 'chai';
-import { after, before, describe, it } from 'node:test';
+import {after, before, describe, it} from 'node:test';
 
-import type { DVTInstruments } from '../../../src/index.js';
+import {logger} from '@appium/support';
+import {expect} from 'chai';
+
+import type {DVTInstruments} from '../../../src/index.js';
 import * as Services from '../../../src/services.js';
-import type { LocationCoordinates } from '../../../src/services/ios/dvt/instruments/location-simulation.js';
-import { requireDeviceUdid } from '../helpers/device.js';
+import type {LocationCoordinates} from '../../../src/services/ios/dvt/instruments/location-simulation.js';
+import {requireDeviceUdid} from '../helpers/device.js';
 
 const log = logger.getLogger('LocationSimulation.test');
 log.level = 'debug';
 
-describe('Location Simulation Instrument', { timeout: 30000 }, function () {
+describe('Location Simulation Instrument', {timeout: 30000}, function () {
   let dvtServiceConnection: DVTInstruments | null = null;
   let udid: string;
 
@@ -59,18 +60,15 @@ describe('Location Simulation Instrument', { timeout: 30000 }, function () {
 
     it('should handle rapid location changes', async () => {
       const locations: LocationCoordinates[] = [
-        { latitude: 37.7749, longitude: -122.4194 }, // San Francisco
-        { latitude: 34.0522, longitude: -118.2437 }, // Los Angeles
-        { latitude: 40.7128, longitude: -74.006 }, // New York
-        { latitude: 41.8781, longitude: -87.6298 }, // Chicago
-        { latitude: 47.6062, longitude: -122.3321 }, // Seattle
+        {latitude: 37.7749, longitude: -122.4194}, // San Francisco
+        {latitude: 34.0522, longitude: -118.2437}, // Los Angeles
+        {latitude: 40.7128, longitude: -74.006}, // New York
+        {latitude: 41.8781, longitude: -87.6298}, // Chicago
+        {latitude: 47.6062, longitude: -122.3321}, // Seattle
       ];
 
       for (const location of locations) {
-        await dvtServiceConnection!.locationSimulation.setLocation(
-          location.latitude,
-          location.longitude,
-        );
+        await dvtServiceConnection!.locationSimulation.setLocation(location.latitude, location.longitude);
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
     });

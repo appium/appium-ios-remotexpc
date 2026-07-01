@@ -1,8 +1,9 @@
-import { expect } from 'chai';
-import { beforeEach, describe, it } from 'node:test';
+import {beforeEach, describe, it} from 'node:test';
 
-import { PlistUID } from '../../src/lib/plist/plist-uid.js';
-import { NSKeyedArchiverEncoder } from '../../src/services/ios/dvt/nskeyedarchiver-encoder.js';
+import {expect} from 'chai';
+
+import {PlistUID} from '../../src/lib/plist/plist-uid.js';
+import {NSKeyedArchiverEncoder} from '../../src/services/ios/dvt/nskeyedarchiver-encoder.js';
 
 describe('NSKeyedArchiver Encoder', function () {
   let encoder: NSKeyedArchiverEncoder;
@@ -23,9 +24,7 @@ describe('NSKeyedArchiver Encoder', function () {
 
     it('should encode null/undefined as $null reference (index 0)', function () {
       expect(encoder.encode(null).$top.root.value).to.equal(0);
-      expect(
-        new NSKeyedArchiverEncoder().encode(undefined).$top.root.value,
-      ).to.equal(0);
+      expect(new NSKeyedArchiverEncoder().encode(undefined).$top.root.value).to.equal(0);
     });
 
     it('should encode a string value', function () {
@@ -51,9 +50,7 @@ describe('NSKeyedArchiver Encoder', function () {
       const rootIdx = result.$top.root.value;
       const arrayObj = result.$objects[rootIdx];
 
-      const items = arrayObj['NS.objects'].map(
-        (uid: PlistUID) => result.$objects[uid.value],
-      );
+      const items = arrayObj['NS.objects'].map((uid: PlistUID) => result.$objects[uid.value]);
       expect(items).to.deep.equal(['a', 'b', 'c']);
 
       const classDef = result.$objects[arrayObj.$class.value];
@@ -66,23 +63,17 @@ describe('NSKeyedArchiver Encoder', function () {
       const rootIdx = result.$top.root.value;
       const arrayObj = result.$objects[rootIdx];
 
-      const items = arrayObj['NS.objects'].map(
-        (uid: PlistUID) => result.$objects[uid.value],
-      );
+      const items = arrayObj['NS.objects'].map((uid: PlistUID) => result.$objects[uid.value]);
       expect(items).to.deep.equal([1, '$null', 'x']);
     });
 
     it('should encode a plain object as NSDictionary with key and value UIDs', function () {
-      const result = encoder.encode({ key1: 'value1', key2: 'value2' });
+      const result = encoder.encode({key1: 'value1', key2: 'value2'});
       const rootIdx = result.$top.root.value;
       const dictObj = result.$objects[rootIdx];
 
-      const keys = dictObj['NS.keys'].map(
-        (uid: PlistUID) => result.$objects[uid.value],
-      );
-      const values = dictObj['NS.objects'].map(
-        (uid: PlistUID) => result.$objects[uid.value],
-      );
+      const keys = dictObj['NS.keys'].map((uid: PlistUID) => result.$objects[uid.value]);
+      const values = dictObj['NS.objects'].map((uid: PlistUID) => result.$objects[uid.value]);
 
       expect(keys).to.deep.equal(['key1', 'key2']);
       expect(values).to.deep.equal(['value1', 'value2']);
@@ -102,15 +93,11 @@ describe('NSKeyedArchiver Encoder', function () {
 
       const classDef = result.$objects[dataObj.$class.value];
       expect(classDef).to.have.property('$classname', 'NSMutableData');
-      expect(classDef.$classes).to.deep.equal([
-        'NSMutableData',
-        'NSData',
-        'NSObject',
-      ]);
+      expect(classDef.$classes).to.deep.equal(['NSMutableData', 'NSData', 'NSObject']);
     });
 
     it('should encode nested dictionaries inside an array', function () {
-      const result = encoder.encode([{ id: 'a' }, { id: 'b' }]);
+      const result = encoder.encode([{id: 'a'}, {id: 'b'}]);
       const rootIdx = result.$top.root.value;
       const arrayObj = result.$objects[rootIdx];
 
@@ -122,19 +109,17 @@ describe('NSKeyedArchiver Encoder', function () {
     });
 
     it('should encode a nested array inside a dictionary', function () {
-      const result = encoder.encode({ items: ['x', 'y'] });
+      const result = encoder.encode({items: ['x', 'y']});
       const rootIdx = result.$top.root.value;
       const dictObj = result.$objects[rootIdx];
 
       const nestedArray = result.$objects[dictObj['NS.objects'][0].value];
-      const items = nestedArray['NS.objects'].map(
-        (uid: PlistUID) => result.$objects[uid.value],
-      );
+      const items = nestedArray['NS.objects'].map((uid: PlistUID) => result.$objects[uid.value]);
       expect(items).to.deep.equal(['x', 'y']);
     });
 
     it('should deduplicate identical object references via the cache', function () {
-      const shared = { reused: true };
+      const shared = {reused: true};
       const result = encoder.encode([shared, shared]);
 
       const rootIdx = result.$top.root.value;
@@ -144,16 +129,14 @@ describe('NSKeyedArchiver Encoder', function () {
     });
 
     it('should handle circular references without infinite recursion', function () {
-      const obj: any = { name: 'root' };
+      const obj: any = {name: 'root'};
       obj.self = obj;
 
       const result = encoder.encode(obj);
       const rootIdx = result.$top.root.value;
       const dictObj = result.$objects[rootIdx];
 
-      const keys = dictObj['NS.keys'].map(
-        (uid: PlistUID) => result.$objects[uid.value],
-      );
+      const keys = dictObj['NS.keys'].map((uid: PlistUID) => result.$objects[uid.value]);
       const valUids = dictObj['NS.objects'];
 
       expect(keys).to.deep.equal(['name', 'self']);
@@ -162,7 +145,7 @@ describe('NSKeyedArchiver Encoder', function () {
     });
 
     it('should reuse class definitions across objects of the same type', function () {
-      const result = encoder.encode([{ a: 1 }, { b: 2 }]);
+      const result = encoder.encode([{a: 1}, {b: 2}]);
       const rootIdx = result.$top.root.value;
       const arrayObj = result.$objects[rootIdx];
 

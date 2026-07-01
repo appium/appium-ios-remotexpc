@@ -1,14 +1,15 @@
-import { expect } from 'chai';
-import { after, before, describe, it } from 'node:test';
+import {after, before, describe, it} from 'node:test';
 
-import { getLogger } from '../../src/lib/logger.js';
+import {expect} from 'chai';
+
+import {getLogger} from '../../src/lib/logger.js';
 import * as Services from '../../src/services.js';
-import type { InstallationProxyService } from '../../src/services/ios/installation-proxy/index.js';
-import { requireDeviceUdid } from './helpers/device.js';
+import type {InstallationProxyService} from '../../src/services/ios/installation-proxy/index.js';
+import {requireDeviceUdid} from './helpers/device.js';
 
 const log = getLogger('InstallationProxyService.test');
 
-describe('InstallationProxyService', { timeout: 60000 }, function () {
+describe('InstallationProxyService', {timeout: 60000}, function () {
   let installationProxyService: InstallationProxyService;
   let udid: string;
 
@@ -16,8 +17,7 @@ describe('InstallationProxyService', { timeout: 60000 }, function () {
     udid = requireDeviceUdid();
 
     try {
-      installationProxyService =
-        await Services.startInstallationProxyService(udid);
+      installationProxyService = await Services.startInstallationProxyService(udid);
       log.debug('Installation Proxy service initialized successfully');
     } catch (error) {
       log.error('Failed to initialize Installation Proxy service:', error);
@@ -65,9 +65,7 @@ describe('InstallationProxyService', { timeout: 60000 }, function () {
         });
         log.debug(`Retrieved ${apps.length} user applications`);
         if (apps.length > 0) {
-          log.debug(
-            `User apps: ${apps.map((a) => a.CFBundleIdentifier).join(', ')}`,
-          );
+          log.debug(`User apps: ${apps.map((a) => a.CFBundleIdentifier).join(', ')}`);
         }
 
         expect(apps).to.be.an('array');
@@ -169,9 +167,7 @@ describe('InstallationProxyService', { timeout: 60000 }, function () {
         // Check if at least one app has size information
         const firstAppId = appIds[0];
         const firstApp = apps[firstAppId];
-        log.debug(
-          `App ${firstAppId} - Static: ${firstApp.StaticDiskUsage}, Dynamic: ${firstApp.DynamicDiskUsage}`,
-        );
+        log.debug(`App ${firstAppId} - Static: ${firstApp.StaticDiskUsage}, Dynamic: ${firstApp.DynamicDiskUsage}`);
       } catch (error) {
         log.error('Error getting apps with sizes:', (error as Error).message);
         throw error;
@@ -181,11 +177,7 @@ describe('InstallationProxyService', { timeout: 60000 }, function () {
     it('should get specific bundle IDs', async function () {
       try {
         const bundleIds = ['com.apple.Preferences'];
-        const apps = await installationProxyService.getApps(
-          'Any',
-          false,
-          bundleIds,
-        );
+        const apps = await installationProxyService.getApps('Any', false, bundleIds);
 
         expect(apps).to.be.an('object');
         expect(apps['com.apple.Preferences']).to.exist;
@@ -200,9 +192,7 @@ describe('InstallationProxyService', { timeout: 60000 }, function () {
     it('should maintain connection across multiple requests', async function () {
       try {
         const apps1 = await installationProxyService.browse();
-        const apps2 = await installationProxyService.lookup([
-          'com.apple.Preferences',
-        ]);
+        const apps2 = await installationProxyService.lookup(['com.apple.Preferences']);
         const apps3 = await installationProxyService.getApps();
 
         expect(apps1).to.be.an('array');
@@ -211,10 +201,7 @@ describe('InstallationProxyService', { timeout: 60000 }, function () {
 
         log.debug('Successfully made multiple requests on same connection');
       } catch (error) {
-        log.error(
-          'Error testing connection persistence:',
-          (error as Error).message,
-        );
+        log.error('Error testing connection persistence:', (error as Error).message);
         throw error;
       }
     });

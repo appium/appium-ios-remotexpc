@@ -1,12 +1,13 @@
-import { expect } from 'chai';
-import { describe, it } from 'node:test';
+import {describe, it} from 'node:test';
+
+import {expect} from 'chai';
 
 import {
   type ChaCha20Poly1305Params,
   decryptChaCha20Poly1305,
   encryptChaCha20Poly1305,
 } from '../../../../src/lib/apple-tv/encryption/chacha20-poly1305.js';
-import { CryptographyError } from '../../../../src/lib/apple-tv/errors.js';
+import {CryptographyError} from '../../../../src/lib/apple-tv/errors.js';
 
 describe('Apple TV Encryption - ChaCha20-Poly1305', function () {
   const validKey = Buffer.alloc(32, 0x42);
@@ -14,10 +15,7 @@ describe('Apple TV Encryption - ChaCha20-Poly1305', function () {
   const plaintext = Buffer.from('Hello, World!', 'utf8');
   const aad = Buffer.from('additional authenticated data', 'utf8');
 
-  const appleTVNonce = Buffer.concat([
-    Buffer.alloc(4),
-    Buffer.from('PS-Msg06'),
-  ]);
+  const appleTVNonce = Buffer.concat([Buffer.alloc(4), Buffer.from('PS-Msg06')]);
 
   describe('encryptChaCha20Poly1305', function () {
     it('should encrypt plaintext without AAD', function () {
@@ -53,10 +51,7 @@ describe('Apple TV Encryption - ChaCha20-Poly1305', function () {
         nonce: validNonce,
       };
 
-      expect(() => encryptChaCha20Poly1305(params)).to.throw(
-        CryptographyError,
-        'Plaintext is required for encryption',
-      );
+      expect(() => encryptChaCha20Poly1305(params)).to.throw(CryptographyError, 'Plaintext is required for encryption');
     });
 
     it('should throw when key is wrong size', function () {
@@ -66,10 +61,7 @@ describe('Apple TV Encryption - ChaCha20-Poly1305', function () {
         nonce: validNonce,
       };
 
-      expect(() => encryptChaCha20Poly1305(params)).to.throw(
-        CryptographyError,
-        'Key must be 32 bytes',
-      );
+      expect(() => encryptChaCha20Poly1305(params)).to.throw(CryptographyError, 'Key must be 32 bytes');
     });
 
     it('should throw when nonce is wrong size', function () {
@@ -79,10 +71,7 @@ describe('Apple TV Encryption - ChaCha20-Poly1305', function () {
         nonce: Buffer.alloc(8),
       };
 
-      expect(() => encryptChaCha20Poly1305(params)).to.throw(
-        CryptographyError,
-        'Nonce must be 12 bytes',
-      );
+      expect(() => encryptChaCha20Poly1305(params)).to.throw(CryptographyError, 'Nonce must be 12 bytes');
     });
   });
 
@@ -224,10 +213,7 @@ describe('Apple TV Encryption - ChaCha20-Poly1305', function () {
     });
 
     it('should handle shared key scenario for encryption and decryption', function () {
-      const sharedKey = Buffer.from(
-        '79f81b432d16662d43bfe8f5af4ae27b79f81b432d16662d43bfe8f5af4ae27b',
-        'hex',
-      );
+      const sharedKey = Buffer.from('79f81b432d16662d43bfe8f5af4ae27b79f81b432d16662d43bfe8f5af4ae27b', 'hex');
 
       const encrypted = encryptChaCha20Poly1305({
         plaintext,

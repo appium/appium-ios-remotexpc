@@ -1,13 +1,10 @@
-import { expect } from 'chai';
-import { EventEmitter } from 'node:events';
-import { describe, it } from 'node:test';
+import {EventEmitter} from 'node:events';
+import {describe, it} from 'node:test';
 
-import {
-  HID_BUTTON_STATE_DOWN,
-  HID_BUTTON_STATE_UP,
-  HidIndigoService,
-} from '../../../src/index.js';
-import { decodeMessage } from '../../../src/lib/remote-xpc/xpc-protocol.js';
+import {expect} from 'chai';
+
+import {HID_BUTTON_STATE_DOWN, HID_BUTTON_STATE_UP, HidIndigoService} from '../../../src/index.js';
+import {decodeMessage} from '../../../src/lib/remote-xpc/xpc-protocol.js';
 
 class FakeTransport extends EventEmitter {
   isConnected = true;
@@ -41,7 +38,7 @@ describe('HidIndigoService', function () {
   it('sends home button down and up events', async function () {
     const service = new TestHidIndigoService('test-udid');
 
-    await service.pressButton('home', { holdSeconds: 0 });
+    await service.pressButton('home', {holdSeconds: 0});
 
     expect(service.sentPayloads).to.have.length(2);
     expect(decodeBody(service.sentPayloads[0])).to.deep.equal({
@@ -99,13 +96,11 @@ describe('HidIndigoService', function () {
 
     // A socket error arriving after the (fire-and-forget) send must not surface
     // as an unhandled 'error' event — the base attaches a permanent listener.
-    expect(() =>
-      service.fake.emit('error', new Error('connection reset')),
-    ).to.not.throw();
+    expect(() => service.fake.emit('error', new Error('connection reset'))).to.not.throw();
   });
 });
 
 function decodeBody(payload: Buffer): Record<string, unknown> {
-  const { message } = decodeMessage(payload);
+  const {message} = decodeMessage(payload);
   return message.body as Record<string, unknown>;
 }

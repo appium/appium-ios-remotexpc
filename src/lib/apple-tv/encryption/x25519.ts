@@ -1,19 +1,12 @@
-import {
-  type KeyObject,
-  createPublicKey,
-  diffieHellman,
-  generateKeyPairSync,
-} from 'node:crypto';
+import {type KeyObject, createPublicKey, diffieHellman, generateKeyPairSync} from 'node:crypto';
 
-import { getLogger } from '../../logger.js';
-import { CryptographyError } from '../errors.js';
+import {getLogger} from '../../logger.js';
+import {CryptographyError} from '../errors.js';
 
 const log = getLogger('X25519');
 
 const X25519_PUBLIC_KEY_LENGTH = 32;
-const X25519_SPKI_PREFIX = Buffer.from([
-  0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x6e, 0x03, 0x21, 0x00,
-]);
+const X25519_SPKI_PREFIX = Buffer.from([0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x6e, 0x03, 0x21, 0x00]);
 
 export interface X25519KeyPair {
   publicKey: Buffer;
@@ -25,7 +18,7 @@ export interface X25519KeyPair {
  */
 export function generateX25519KeyPair(): X25519KeyPair {
   try {
-    const { publicKey, privateKey } = generateKeyPairSync('x25519');
+    const {publicKey, privateKey} = generateKeyPairSync('x25519');
 
     const publicKeyDer = publicKey.export({
       type: 'spki',
@@ -40,30 +33,20 @@ export function generateX25519KeyPair(): X25519KeyPair {
   } catch (error) {
     log.error('Failed to generate X25519 key pair:', error);
     const message = error instanceof Error ? error.message : String(error);
-    throw new CryptographyError(
-      `Failed to generate X25519 key pair: ${message}`,
-    );
+    throw new CryptographyError(`Failed to generate X25519 key pair: ${message}`);
   }
 }
 
 /**
  * Compute the shared secret using local private key and remote public key.
  */
-export function performX25519DiffieHellman(
-  privateKey: KeyObject,
-  devicePublicKey: Buffer,
-): Buffer {
+export function performX25519DiffieHellman(privateKey: KeyObject, devicePublicKey: Buffer): Buffer {
   if (!devicePublicKey || devicePublicKey.length !== X25519_PUBLIC_KEY_LENGTH) {
-    throw new CryptographyError(
-      `Device public key must be ${X25519_PUBLIC_KEY_LENGTH} bytes`,
-    );
+    throw new CryptographyError(`Device public key must be ${X25519_PUBLIC_KEY_LENGTH} bytes`);
   }
 
   try {
-    const devicePublicKeySpki = Buffer.concat([
-      X25519_SPKI_PREFIX,
-      devicePublicKey,
-    ]);
+    const devicePublicKeySpki = Buffer.concat([X25519_SPKI_PREFIX, devicePublicKey]);
 
     const publicKeyObject = createPublicKey({
       key: devicePublicKeySpki,
@@ -78,8 +61,6 @@ export function performX25519DiffieHellman(
   } catch (error) {
     log.error('Failed to perform X25519 Diffie-Hellman:', error);
     const message = error instanceof Error ? error.message : String(error);
-    throw new CryptographyError(
-      `Failed to perform X25519 Diffie-Hellman: ${message}`,
-    );
+    throw new CryptographyError(`Failed to perform X25519 Diffie-Hellman: ${message}`);
   }
 }
