@@ -51,13 +51,13 @@ describe('AFC readExact timeout handling', function () {
     const client = createConnection({host: '127.0.0.1', port});
     await once(client, 'connect');
 
-    const readPromise = async () => {
+    const readPromise = (async () => {
       try {
         return await readExact(client, 40, 50);
       } catch (err) {
         return err;
       }
-    };
+    })();
 
     await new Promise((resolve) => setTimeout(resolve, 60));
     client.write(Buffer.alloc(40, 0xab));
