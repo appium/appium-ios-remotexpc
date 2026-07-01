@@ -170,7 +170,7 @@ describe('WebInspectorService', {timeout: 60000}, function () {
                 try {
                   const dataString = Buffer.isBuffer(dataKey) ? dataKey.toString('utf-8') : dataKey;
                   cdpResponses.push(JSON.parse(dataString));
-                } catch (e) {
+                } catch {
                   // Ignore parse errors
                 }
               }
@@ -268,7 +268,8 @@ describe('WebInspectorService', {timeout: 60000}, function () {
     let count = 0;
 
     let listenTask = (async () => {
-      for await (const _ of service.listenMessage()) {
+      for await (const message of service.listenMessage()) {
+        void message;
         count++;
       }
     })();
@@ -287,7 +288,8 @@ describe('WebInspectorService', {timeout: 60000}, function () {
 
     // Second listening session
     listenTask = (async () => {
-      for await (const _ of service.listenMessage()) {
+      for await (const message of service.listenMessage()) {
+        void message;
         count++;
       }
     })();

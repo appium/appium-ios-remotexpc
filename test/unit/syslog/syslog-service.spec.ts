@@ -52,7 +52,9 @@ describe('SyslogService binary mode', function () {
     const SyslogService = await esmock('../../../src/services/ios/syslog-service/index.js', {
       '../../../src/services/ios/base-service.js': {
         BaseService: class {
-          constructor(_udid: string) {}
+          constructor(udid: string) {
+            void udid;
+          }
           async startLockdownService() {
             return fakeConnection;
           }
