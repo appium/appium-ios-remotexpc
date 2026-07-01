@@ -125,5 +125,9 @@
   "engines": {
     "node": "^20.19.0 || ^22.12.0 || >=24.0.0",
     "npm": ">=10"
+  },
+  "allowScripts": {
+    "appium-ios-tuntap": true,
+    "unrs-resolver": true
   }
 }
