@@ -1,3 +1,9 @@
+## [5.6.3](https://github.com/appium/appium-ios-remotexpc/compare/v5.6.2...v5.6.3) (2026-07-02)
+
+### Miscellaneous Chores
+
+* Add the list of allowed scripts ([#266](https://github.com/appium/appium-ios-remotexpc/issues/266)) ([200d1e9](https://github.com/appium/appium-ios-remotexpc/commit/200d1e902f776aae03e6876686b0a8ca977536de))
+
 ## [5.6.2](https://github.com/appium/appium-ios-remotexpc/compare/v5.6.1...v5.6.2) (2026-07-01)
 
 ### Miscellaneous Chores
