@@ -51,7 +51,6 @@ describe('PasteboardService', {timeout: 60000}, function () {
     try {
       await pasteboardService!.setUrl(url);
 
-      // getUrl() returns a URL object; compare its string form.
       expect((await pasteboardService!.getUrl())?.toString()).to.equal(url);
     } finally {
       if (originalText !== undefined) {
