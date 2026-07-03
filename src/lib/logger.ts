@@ -1,5 +1,5 @@
-import { logger } from '@appium/support';
-import { type AppiumLogger } from '@appium/types';
+import {logger} from '@appium/support';
+import {type AppiumLogger} from '@appium/types';
 
 const LOG_LEVEL = (process.env.APPIUM_IOS_REMOTEXPC_LOG_LEVEL || 'info') as any;
 

@@ -1,10 +1,7 @@
-import { getLogger } from '../../../../lib/logger.js';
-import type {
-  OutputReceivedEvent,
-  ProcessLaunchOptions,
-} from '../../../../lib/types.js';
-import { MessageAux } from '../dtx-message.js';
-import { BaseInstrument } from './base-instrument.js';
+import {getLogger} from '../../../../lib/logger.js';
+import type {OutputReceivedEvent, ProcessLaunchOptions} from '../../../../lib/types.js';
+import {MessageAux} from '../dtx-message.js';
+import {BaseInstrument} from './base-instrument.js';
 
 const log = getLogger('ProcessControl');
 
@@ -13,8 +10,7 @@ const log = getLogger('ProcessControl');
  * Allows launching, killing, signaling, and monitoring processes.
  */
 export class ProcessControl extends BaseInstrument {
-  static readonly IDENTIFIER =
-    'com.apple.instruments.server.services.processcontrol';
+  static readonly IDENTIFIER = 'com.apple.instruments.server.services.processcontrol';
 
   /**
    * Send a signal to a process
@@ -102,9 +98,7 @@ export class ProcessControl extends BaseInstrument {
     const result = await channel.receivePlist();
 
     if (typeof result !== 'number') {
-      throw new Error(
-        `Unexpected response when looking up PID for bundle '${bundleId}': ${result}`,
-      );
+      throw new Error(`Unexpected response when looking up PID for bundle '${bundleId}': ${result}`);
     }
 
     return result;
@@ -140,9 +134,7 @@ export class ProcessControl extends BaseInstrument {
       .appendObj(options.arguments ?? [])
       .appendObj(launchOptions);
 
-    await channel.call(
-      'launchSuspendedProcessWithDevicePath_bundleIdentifier_environment_arguments_options_',
-    )(args);
+    await channel.call('launchSuspendedProcessWithDevicePath_bundleIdentifier_environment_arguments_options_')(args);
 
     const result = await channel.receivePlist();
 
@@ -184,11 +176,7 @@ export class ProcessControl extends BaseInstrument {
               timestamp = timestampRaw;
             } else if (typeof timestampRaw === 'number') {
               timestamp = BigInt(timestampRaw);
-            } else if (
-              timestampRaw &&
-              typeof timestampRaw === 'object' &&
-              'NS.time' in timestampRaw
-            ) {
+            } else if (timestampRaw && typeof timestampRaw === 'object' && 'NS.time' in timestampRaw) {
               // Handle NSDate object with NS.time property
               timestamp = BigInt(Math.floor(timestampRaw['NS.time']));
             }

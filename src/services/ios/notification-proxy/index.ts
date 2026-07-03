@@ -1,11 +1,11 @@
-import { getLogger } from '../../../lib/logger.js';
+import {getLogger} from '../../../lib/logger.js';
 import type {
   NotificationProxyService as NotificationProxyServiceInterface,
   PlistDictionary,
   PlistMessage,
 } from '../../../lib/types.js';
-import { type ServiceConnection } from '../../../service-connection.js';
-import { BaseService } from '../base-service.js';
+import {type ServiceConnection} from '../../../service-connection.js';
+import {BaseService} from '../base-service.js';
 
 const log = getLogger('NotificationProxyService');
 
@@ -25,12 +25,8 @@ export interface PostNotificationRequest extends PlistDictionary {
  * - Post notifications
  * - Expects notifications
  */
-class NotificationProxyService
-  extends BaseService
-  implements NotificationProxyServiceInterface
-{
-  static readonly RSD_SERVICE_NAME =
-    'com.apple.mobile.notification_proxy.shim.remote';
+class NotificationProxyService extends BaseService implements NotificationProxyServiceInterface {
+  static readonly RSD_SERVICE_NAME = 'com.apple.mobile.notification_proxy.shim.remote';
   private readonly timeout: number;
   private _conn: ServiceConnection | null = null;
   private _pendingNotificationsObservationSet: Set<string> = new Set();
@@ -80,9 +76,7 @@ class NotificationProxyService
    * @param timeout Timeout in milliseconds
    * @returns AsyncGenerator yielding PlistMessage objects
    */
-  async *expectNotifications(
-    timeout: number = 120000,
-  ): AsyncGenerator<PlistMessage> {
+  async *expectNotifications(timeout: number = 120000): AsyncGenerator<PlistMessage> {
     if (!this._conn) {
       this._conn = await this.connectToNotificationProxyService();
     }
@@ -90,10 +84,7 @@ class NotificationProxyService
       try {
         const notification = await this._conn.receive(timeout);
         const notificationStr = JSON.stringify(notification);
-        const truncatedStr =
-          notificationStr.length > 500
-            ? `${notificationStr.substring(0, 500)}...`
-            : notificationStr;
+        const truncatedStr = notificationStr.length > 500 ? `${notificationStr.substring(0, 500)}...` : notificationStr;
         log.info(`received response: ${truncatedStr}`);
         yield notification;
       } catch (error) {
@@ -110,7 +101,7 @@ class NotificationProxyService
    */
   async expectNotification(timeout: number = 120000): Promise<PlistMessage> {
     const generator = this.expectNotifications(timeout);
-    const { value, done } = await generator.next();
+    const {value, done} = await generator.next();
     if (done || !value) {
       throw new Error('No notification received');
     }
@@ -142,34 +133,27 @@ class NotificationProxyService
     if (this._conn) {
       return this._conn;
     }
-    this._conn = await this.startLockdownService(
-      NotificationProxyService.RSD_SERVICE_NAME,
-      { createConnectionTimeout: this.timeout },
-    );
+    this._conn = await this.startLockdownService(NotificationProxyService.RSD_SERVICE_NAME, {
+      createConnectionTimeout: this.timeout,
+    });
     return this._conn;
   }
 
-  private createObserveNotificationRequest(
-    notification: string,
-  ): ObserveNotificationRequest {
+  private createObserveNotificationRequest(notification: string): ObserveNotificationRequest {
     return {
       Command: 'ObserveNotification',
       Name: notification,
     };
   }
 
-  private createPostNotificationRequest(
-    notification: string,
-  ): PostNotificationRequest {
+  private createPostNotificationRequest(notification: string): PostNotificationRequest {
     return {
       Command: 'PostNotification',
       Name: notification,
     };
   }
 
-  private async sendPlistDictionary(
-    request: PlistDictionary,
-  ): Promise<PlistDictionary> {
+  private async sendPlistDictionary(request: PlistDictionary): Promise<PlistDictionary> {
     if (!this._conn) {
       this._conn = await this.connectToNotificationProxyService();
     }
@@ -184,4 +168,4 @@ class NotificationProxyService
   }
 }
 
-export { NotificationProxyService };
+export {NotificationProxyService};

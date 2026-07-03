@@ -1,14 +1,11 @@
-import { EventEmitter } from 'node:events';
+import {EventEmitter} from 'node:events';
 import net from 'node:net';
 
-import { getLogger } from '../logger.js';
-import { DataFrame } from './handshake-frames.js';
+import {getLogger} from '../logger.js';
+import {DataFrame} from './handshake-frames.js';
 import Handshake from './handshake.js';
-import {
-  Http2FrameParser,
-  buildWindowUpdateFrames,
-} from './http2-frame-parser.js';
-import { decodeMessage } from './xpc-protocol.js';
+import {Http2FrameParser, buildWindowUpdateFrames} from './http2-frame-parser.js';
+import {decodeMessage} from './xpc-protocol.js';
 
 const log = getLogger('RemoteXpcFramedTransport');
 
@@ -41,9 +38,7 @@ export class RemoteXpcFramedTransport extends EventEmitter {
     return this.connected;
   }
 
-  async connect(
-    options: RemoteXpcFramedTransportConnectOptions,
-  ): Promise<void> {
+  async connect(options: RemoteXpcFramedTransportConnectOptions): Promise<void> {
     if (this.connected) {
       return;
     }
@@ -62,9 +57,7 @@ export class RemoteXpcFramedTransport extends EventEmitter {
     await this.waitForSocketConnect(socket, options.timeoutMs);
 
     if (options.handshakeDelayMs) {
-      await new Promise<void>((resolve) =>
-        setTimeout(resolve, options.handshakeDelayMs),
-      );
+      await new Promise<void>((resolve) => setTimeout(resolve, options.handshakeDelayMs));
     }
 
     try {
@@ -98,16 +91,11 @@ export class RemoteXpcFramedTransport extends EventEmitter {
     this.closing = false;
   }
 
-  private waitForSocketConnect(
-    socket: net.Socket,
-    timeoutMs: number,
-  ): Promise<void> {
+  private waitForSocketConnect(socket: net.Socket, timeoutMs: number): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
         socket.destroy();
-        reject(
-          new Error(`RemoteXPC connection timed out after ${timeoutMs}ms`),
-        );
+        reject(new Error(`RemoteXPC connection timed out after ${timeoutMs}ms`));
       }, timeoutMs);
 
       const cleanupConnectListeners = (): void => {
@@ -156,10 +144,7 @@ export class RemoteXpcFramedTransport extends EventEmitter {
     try {
       frames = this.frameParser.append(chunk);
     } catch (error) {
-      this.emit(
-        'error',
-        error instanceof Error ? error : new Error(String(error)),
-      );
+      this.emit('error', error instanceof Error ? error : new Error(String(error)));
       return;
     }
 
@@ -168,7 +153,7 @@ export class RemoteXpcFramedTransport extends EventEmitter {
         continue;
       }
 
-      const { streamId, data, bodyLen } = frame.frame;
+      const {streamId, data, bodyLen} = frame.frame;
       for (const windowUpdate of buildWindowUpdateFrames(streamId, bodyLen)) {
         this.socket.write(windowUpdate);
       }
@@ -182,7 +167,7 @@ export class RemoteXpcFramedTransport extends EventEmitter {
 
     while (pending.length > 0) {
       try {
-        const { message, bytesConsumed } = decodeMessage(pending);
+        const {message, bytesConsumed} = decodeMessage(pending);
         pending = pending.subarray(bytesConsumed);
         if (message.body) {
           this.emit('message', message.body);
@@ -230,9 +215,7 @@ export class RemoteXpcFramedTransport extends EventEmitter {
         });
       } catch (error) {
         log.error(
-          `Unexpected error during RemoteXPC socket close: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
+          `Unexpected error during RemoteXPC socket close: ${error instanceof Error ? error.message : String(error)}`,
         );
         clearTimeout(closeTimeout);
         socket.destroy();

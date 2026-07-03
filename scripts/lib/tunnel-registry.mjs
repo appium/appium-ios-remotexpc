@@ -1,4 +1,4 @@
-import { discoverServices, servicesToCatalog } from 'appium-ios-remotexpc';
+import {discoverServices, servicesToCatalog} from 'appium-ios-remotexpc';
 
 /**
  * @returns {import('appium-ios-remotexpc').TunnelRegistry}
@@ -41,13 +41,7 @@ export async function refreshServiceCatalog(udid, entry, log) {
  * @param {{info: (message: string) => void, warn: (message: string) => void}} opts.log
  * @returns {Promise<boolean>}
  */
-export async function publishDiscoveredTunnelEntry({
-  registryServer,
-  result,
-  getUdid,
-  buildEntry,
-  log,
-}) {
+export async function publishDiscoveredTunnelEntry({registryServer, result, getUdid, buildEntry, log}) {
   if (!registryServer) {
     throw new Error('Registry server is not started');
   }
@@ -55,16 +49,12 @@ export async function publishDiscoveredTunnelEntry({
   const udid = getUdid(result);
   const rsdPort = result.tunnel.RsdPort;
   if (typeof rsdPort !== 'number' || rsdPort <= 0) {
-    log.warn(
-      `Skipping registry entry for ${udid}: no valid RSD port (got ${String(rsdPort)})`,
-    );
+    log.warn(`Skipping registry entry for ${udid}: no valid RSD port (got ${String(rsdPort)})`);
     return false;
   }
 
   registryServer.markTunnelPending(udid);
-  log.info(
-    `Discovering RSD services for ${udid} at ${result.tunnel.Address}:${rsdPort}...`,
-  );
+  log.info(`Discovering RSD services for ${udid} at ${result.tunnel.Address}:${rsdPort}...`);
 
   const services = await discoverServices(udid, result.tunnel.Address, rsdPort);
   const now = Date.now();
@@ -74,8 +64,6 @@ export async function publishDiscoveredTunnelEntry({
   entry.catalogUpdatedAt = now;
 
   registryServer.upsertReadyEntry(udid, entry);
-  log.info(
-    `Published tunnel catalog for ${udid} (${Object.keys(entry.services).length} services)`,
-  );
+  log.info(`Published tunnel catalog for ${udid} (${Object.keys(entry.services).length} services)`);
   return true;
 }

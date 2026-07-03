@@ -1,12 +1,10 @@
-import type { DiscoveredDevice } from '../discovery/types.js';
-import type { AppleTVDevice } from './types.js';
+import type {DiscoveredDevice} from '../discovery/types.js';
+import type {AppleTVDevice} from './types.js';
 
 /**
  * Convert a discovered device to an AppleTV-specific model when applicable.
  */
-export function toAppleTVDevice(
-  device: DiscoveredDevice,
-): AppleTVDevice | null {
+export function toAppleTVDevice(device: DiscoveredDevice): AppleTVDevice | null {
   if (!isLikelyAppleTV(device)) {
     return null;
   }
@@ -37,9 +35,7 @@ export function toAppleTVDevice(
  * Convert and filter discovered devices into Apple TV device list.
  */
 export function toAppleTVDevices(devices: DiscoveredDevice[]): AppleTVDevice[] {
-  return devices
-    .map((device) => toAppleTVDevice(device))
-    .filter((device): device is AppleTVDevice => Boolean(device));
+  return devices.map((device) => toAppleTVDevice(device)).filter((device): device is AppleTVDevice => Boolean(device));
 }
 
 /**

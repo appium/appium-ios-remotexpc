@@ -1,6 +1,8 @@
-import { expect } from 'chai';
+import {describe, it} from 'node:test';
 
-import { parsePlist as parseXmlPlist } from '../../../src/lib/plist/plist-parser.js';
+import {expect} from 'chai';
+
+import {parsePlist as parseXmlPlist} from '../../../src/lib/plist/plist-parser.js';
 import {
   findFirstReplacementCharacter,
   fixMultipleXmlDeclarations,
@@ -8,11 +10,7 @@ import {
   isValidXml,
   trimBeforeXmlDeclaration,
 } from '../../../src/lib/plist/utils.js';
-import type {
-  PlistArray,
-  PlistDictionary,
-  PlistValue,
-} from '../../../src/lib/types.js';
+import type {PlistArray, PlistDictionary} from '../../../src/lib/types.js';
 
 describe('Plist Parser', function () {
   describe('XML Cleaning Logic', function () {
@@ -56,18 +54,14 @@ describe('Plist Parser', function () {
 
   describe('XML Preprocessing Functions', function () {
     it('should trim content before XML declaration', function () {
-      const xml =
-        'garbage data<?xml version="1.0" encoding="UTF-8"?><plist></plist>';
+      const xml = 'garbage data<?xml version="1.0" encoding="UTF-8"?><plist></plist>';
       const trimmed = trimBeforeXmlDeclaration(xml);
 
-      expect(trimmed).to.equal(
-        '<?xml version="1.0" encoding="UTF-8"?><plist></plist>',
-      );
+      expect(trimmed).to.equal('<?xml version="1.0" encoding="UTF-8"?><plist></plist>');
     });
 
     it('should fix multiple XML declarations', function () {
-      const xml =
-        '<?xml version="1.0" encoding="UTF-8"?><some-tag><?xml version="1.1"?><plist></plist>';
+      const xml = '<?xml version="1.0" encoding="UTF-8"?><some-tag><?xml version="1.1"?><plist></plist>';
       const fixed = fixMultipleXmlDeclarations(xml);
 
       expect(fixed).to.include('<?xml version="1.0" encoding="UTF-8"?>');
@@ -105,9 +99,7 @@ describe('Plist Parser', function () {
 
     it('should handle XML with malformed tags', function () {
       try {
-        parseXmlPlist(
-          '<?xml version="1.0"?><plist><dict><key>test</key><string>value</string></dict>',
-        );
+        parseXmlPlist('<?xml version="1.0"?><plist><dict><key>test</key><string>value</string></dict>');
         expect.fail('Should have thrown an error for malformed tags');
       } catch (error) {
         expect(error).to.exist;
@@ -204,10 +196,7 @@ describe('Plist Parser', function () {
       `;
 
       const result = parseXmlPlist(xml);
-      expect(result).to.have.property(
-        'cdataKey',
-        '<html>This is HTML content</html>',
-      );
+      expect(result).to.have.property('cdataKey', '<html>This is HTML content</html>');
     });
   });
 
@@ -269,10 +258,7 @@ describe('Plist Parser', function () {
 
       const result = parseXmlPlist(xml);
       expect(result).to.have.property('emptyString', '');
-      expect(result)
-        .to.have.property('emptyArray')
-        .that.is.an('array')
-        .with.lengthOf(0);
+      expect(result).to.have.property('emptyArray').that.is.an('array').with.lengthOf(0);
       expect(result).to.have.property('emptyDict').that.is.an('object');
 
       // Type assertion for empty dictionary

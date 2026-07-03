@@ -1,6 +1,6 @@
-import { getLogger } from '../../../../lib/logger.js';
-import { MessageAux } from '../dtx-message.js';
-import { BaseInstrument } from './base-instrument.js';
+import {getLogger} from '../../../../lib/logger.js';
+import {MessageAux} from '../dtx-message.js';
+import {BaseInstrument} from './base-instrument.js';
 
 const log = getLogger('ApplicationListing');
 
@@ -46,8 +46,7 @@ export interface iOSApplication {
  * Application Listing service for retrieving installed applications
  */
 export class ApplicationListing extends BaseInstrument {
-  static readonly IDENTIFIER =
-    'com.apple.instruments.server.services.device.applictionListing';
+  static readonly IDENTIFIER = 'com.apple.instruments.server.services.device.applictionListing';
 
   /**
    * Get the list of installed applications from the device
@@ -59,16 +58,12 @@ export class ApplicationListing extends BaseInstrument {
 
     const args = new MessageAux().appendObj(null).appendObj(null);
 
-    await channel.call('installedApplicationsMatching_registerUpdateToken_')(
-      args,
-    );
+    await channel.call('installedApplicationsMatching_registerUpdateToken_')(args);
 
     const result = await channel.receivePlist();
 
     if (!result) {
-      log.warn(
-        'Received null/undefined response from installedApplicationsMatching',
-      );
+      log.warn('Received null/undefined response from installedApplicationsMatching');
       return [];
     }
 
@@ -76,8 +71,6 @@ export class ApplicationListing extends BaseInstrument {
       return result;
     }
 
-    throw new Error(
-      `Unexpected response format from installedApplicationsMatching: ${JSON.stringify(result)}`,
-    );
+    throw new Error(`Unexpected response format from installedApplicationsMatching: ${JSON.stringify(result)}`);
   }
 }

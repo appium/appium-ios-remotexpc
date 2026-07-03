@@ -1,17 +1,14 @@
-import { generateKeyPairSync, sign } from 'node:crypto';
+import {generateKeyPairSync, sign} from 'node:crypto';
 
-import { getLogger } from '../../logger.js';
-import { CryptographyError } from '../errors.js';
-import type { PairingKeys } from '../types.js';
+import {getLogger} from '../../logger.js';
+import {CryptographyError} from '../errors.js';
+import type {PairingKeys} from '../types.js';
 
 const log = getLogger('Ed25519');
 
 const ED25519_PUBLIC_KEY_LENGTH = 32;
 const ED25519_PRIVATE_KEY_LENGTH = 32;
-const ED25519_PKCS8_PREFIX = Buffer.from(
-  '302e020100300506032b657004220420',
-  'hex',
-);
+const ED25519_PKCS8_PREFIX = Buffer.from('302e020100300506032b657004220420', 'hex');
 
 /**
  * Generates a new Ed25519 key pair for cryptographic operations
@@ -42,9 +39,7 @@ export function generateEd25519KeyPair(): PairingKeys {
   } catch (error) {
     log.error('Failed to generate Ed25519 key pair:', error);
     const message = error instanceof Error ? error.message : String(error);
-    throw new CryptographyError(
-      `Failed to generate Ed25519 key pair: ${message}`,
-    );
+    throw new CryptographyError(`Failed to generate Ed25519 key pair: ${message}`);
   }
 }
 
@@ -55,18 +50,13 @@ export function generateEd25519KeyPair(): PairingKeys {
  * @returns Buffer containing the 64-byte signature
  * @throws CryptographyError if signing fails or private key is invalid
  */
-export function createEd25519Signature(
-  data: Buffer,
-  privateKey: Buffer,
-): Buffer {
+export function createEd25519Signature(data: Buffer, privateKey: Buffer): Buffer {
   if (!data || data.length === 0) {
     throw new CryptographyError('Data to sign cannot be empty');
   }
 
   if (!privateKey || privateKey.length !== ED25519_PRIVATE_KEY_LENGTH) {
-    throw new CryptographyError(
-      `Private key must be ${ED25519_PRIVATE_KEY_LENGTH} bytes`,
-    );
+    throw new CryptographyError(`Private key must be ${ED25519_PRIVATE_KEY_LENGTH} bytes`);
   }
 
   try {
@@ -80,9 +70,7 @@ export function createEd25519Signature(
   } catch (error) {
     log.error('Failed to create Ed25519 signature:', error);
     const message = error instanceof Error ? error.message : String(error);
-    throw new CryptographyError(
-      `Failed to create Ed25519 signature: ${message}`,
-    );
+    throw new CryptographyError(`Failed to create Ed25519 signature: ${message}`);
   }
 }
 

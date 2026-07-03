@@ -1,7 +1,7 @@
-import type { Readable } from 'node:stream';
+import type {Readable} from 'node:stream';
 
-import { TRANSFER_CHUNK_SIZE } from './constants.js';
-import { StreamZip, type StreamZipEntry } from './stream-zip.js';
+import {TRANSFER_CHUNK_SIZE} from './constants.js';
+import {StreamZip, type StreamZipEntry} from './stream-zip.js';
 
 /** Subset of a ZIP central-directory entry used while streaming an IPA. */
 export type IpaZipEntry = StreamZipEntry;
@@ -12,10 +12,7 @@ export type ZipArchive = Pick<StreamZip, 'entries' | 'stream' | 'close'>;
 /**
  * Open an IPA archive, run `fn`, and close the handle when done.
  */
-export async function withZipFile<T>(
-  ipaPath: string,
-  fn: (zip: ZipArchive) => Promise<T>,
-): Promise<T> {
+export async function withZipFile<T>(ipaPath: string, fn: (zip: ZipArchive) => Promise<T>): Promise<T> {
   const zip = new StreamZip({
     file: ipaPath,
     chunkSize: TRANSFER_CHUNK_SIZE,
@@ -40,9 +37,6 @@ export async function listZipEntries(zip: ZipArchive): Promise<IpaZipEntry[]> {
 }
 
 /** Open a decompressed readable stream for one zip entry. */
-export async function openZipEntryStream(
-  zip: ZipArchive,
-  entry: IpaZipEntry,
-): Promise<Readable> {
+export async function openZipEntryStream(zip: ZipArchive, entry: IpaZipEntry): Promise<Readable> {
   return await zip.stream(entry);
 }

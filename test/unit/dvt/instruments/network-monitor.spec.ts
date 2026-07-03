@@ -1,7 +1,9 @@
-import { expect } from 'chai';
+import {beforeEach, describe, it} from 'node:test';
 
-import type { NetworkAddress } from '../../../../src/index.js';
-import { NetworkMonitor } from '../../../../src/services/ios/dvt/instruments/network-monitor.js';
+import {expect} from 'chai';
+
+import type {NetworkAddress} from '../../../../src/index.js';
+import {NetworkMonitor} from '../../../../src/services/ios/dvt/instruments/network-monitor.js';
 
 describe('NetworkMonitor', function () {
   describe('parseAddress', function () {
@@ -270,9 +272,7 @@ describe('NetworkMonitor', function () {
           0x00,
         ]);
 
-        const result: NetworkAddress = (monitor as any).parseAddress(
-          uint8Array,
-        );
+        const result: NetworkAddress = (monitor as any).parseAddress(uint8Array);
 
         expect(result.address).to.equal('192.168.1.1');
         expect(result.port).to.equal(80);
@@ -339,9 +339,7 @@ describe('NetworkMonitor', function () {
 
         const result: NetworkAddress = (monitor as any).parseAddress(buffer);
 
-        expect(result.address).to.equal(
-          'abcd:1234:5678:9abc:def0:1122:3344:5566',
-        );
+        expect(result.address).to.equal('abcd:1234:5678:9abc:def0:1122:3344:5566');
       });
     });
   });

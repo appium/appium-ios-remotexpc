@@ -1,11 +1,12 @@
-import { plist } from '@appium/support';
-import { execFile } from 'node:child_process';
+import {execFile} from 'node:child_process';
 import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { promisify } from 'node:util';
+import {promisify} from 'node:util';
 
-import { getLogger } from '../../../lib/logger.js';
+import {plist} from '@appium/support';
+
+import {getLogger} from '../../../lib/logger.js';
 
 const log = getLogger('LocalFilesystemCase');
 
@@ -42,10 +43,7 @@ export async function isCaseSensitiveDirectory(dir: string): Promise<boolean> {
       try {
         caseSensitive = await getDarwinCaseSensitivity(resolved);
       } catch (err) {
-        log.info(
-          `Could not determine case sensitivity for '${resolved}'; assuming case-insensitive:`,
-          err,
-        );
+        log.info(`Could not determine case sensitivity for '${resolved}'; assuming case-insensitive:`, err);
         caseSensitive = false;
       }
       break;
@@ -84,10 +82,7 @@ export function parseDiskutilInfoPlist(info: DiskutilInfoPlist): boolean {
     }
   }
 
-  if (
-    filesystemName?.includes('HFS') &&
-    !/case-sensitive/i.test(filesystemName)
-  ) {
+  if (filesystemName?.includes('HFS') && !/case-sensitive/i.test(filesystemName)) {
     return false;
   }
 
@@ -95,9 +90,7 @@ export function parseDiskutilInfoPlist(info: DiskutilInfoPlist): boolean {
     return false;
   }
 
-  throw new Error(
-    'diskutil info plist did not include recognizable case-sensitivity details',
-  );
+  throw new Error('diskutil info plist did not include recognizable case-sensitivity details');
 }
 
 /** @internal Reset cached probe results (unit tests only). */
@@ -112,14 +105,10 @@ async function getDarwinCaseSensitivity(dir: string): Promise<boolean> {
     return cached;
   }
 
-  const { stdout } = await execFileAsync(
-    'diskutil',
-    ['info', '-plist', device],
-    {
-      encoding: 'utf8',
-      maxBuffer: 4 * 1024 * 1024,
-    },
-  );
+  const {stdout} = await execFileAsync('diskutil', ['info', '-plist', device], {
+    encoding: 'utf8',
+    maxBuffer: 4 * 1024 * 1024,
+  });
 
   const diskInfo = plist.parsePlist(stdout) as DiskutilInfoPlist;
   const caseSensitive = parseDiskutilInfoPlist(diskInfo);
@@ -128,7 +117,7 @@ async function getDarwinCaseSensitivity(dir: string): Promise<boolean> {
 }
 
 async function getDeviceIdentifierForPath(dir: string): Promise<string> {
-  const { stdout } = await execFileAsync('df', ['-P', dir], {
+  const {stdout} = await execFileAsync('df', ['-P', dir], {
     encoding: 'utf8',
   });
   const lines = stdout.trim().split('\n');
@@ -145,9 +134,7 @@ async function getDeviceIdentifierForPath(dir: string): Promise<string> {
   return devicePath.slice('/dev/'.length);
 }
 
-function getExplicitCaseSensitiveField(
-  info: DiskutilInfoPlist,
-): boolean | undefined {
+function getExplicitCaseSensitiveField(info: DiskutilInfoPlist): boolean | undefined {
   for (const [key, value] of Object.entries(info)) {
     if (!/case-sensitive/i.test(key)) {
       continue;

@@ -1,5 +1,5 @@
-import { getLogger } from '../../../lib/logger.js';
-import type { InstallAction, InstallOperationResult } from './types.js';
+import {getLogger} from '../../../lib/logger.js';
+import type {InstallAction, InstallOperationResult} from './types.js';
 
 const log = getLogger('InstallationProxyService');
 
@@ -9,10 +9,8 @@ const log = getLogger('InstallationProxyService');
 export const INSTALL_MESSAGES = {
   FRESH_INSTALL: 'App was not previously installed',
   VERSION_UNKNOWN: 'Current version could not be determined',
-  DOWNGRADE_NOT_SUPPORTED:
-    'Downgrades are not supported by iOS installation_proxy',
-  SAME_VERSION_NOT_SUPPORTED:
-    'Reinstalling the same version is not supported by iOS installation_proxy',
+  DOWNGRADE_NOT_SUPPORTED: 'Downgrades are not supported by iOS installation_proxy',
+  SAME_VERSION_NOT_SUPPORTED: 'Reinstalling the same version is not supported by iOS installation_proxy',
 } as const;
 
 /**
@@ -64,7 +62,7 @@ export function createResult(
     action,
     reason,
     targetVersion,
-    ...(currentVersion && { currentVersion }),
+    ...(currentVersion && {currentVersion}),
   };
 }
 
@@ -72,21 +70,14 @@ export function createResult(
  * Check if installation should proceed based on version comparison
  * @returns Result object with action and reason
  */
-export function shouldInstall(
-  isInstalled: boolean,
-  targetVersion: string,
-): InstallOperationResult | null {
+export function shouldInstall(isInstalled: boolean, targetVersion: string): InstallOperationResult | null {
   if (!isInstalled) {
     log.debug('App is not installed. Install will proceed.');
     return null; // Proceed with install
   }
 
   log.debug('App is already installed. Skipping install.');
-  return createResult(
-    'skipped',
-    'App is already installed. Use upgrade to update.',
-    targetVersion,
-  );
+  return createResult('skipped', 'App is already installed. Use upgrade to update.', targetVersion);
 }
 
 /**
@@ -100,30 +91,20 @@ export function shouldUpgrade(
 ): InstallOperationResult | null {
   if (!isInstalled) {
     log.warn('App is not installed. Cannot upgrade.');
-    return createResult(
-      'skipped',
-      'App is not installed. Use install instead.',
-      targetVersion,
-    );
+    return createResult('skipped', 'App is not installed. Use install instead.', targetVersion);
   }
 
   if (!currentVersion) {
-    log.warn(
-      'Could not determine current version. Proceeding with upgrade anyway.',
-    );
+    log.warn('Could not determine current version. Proceeding with upgrade anyway.');
     return null; // Proceed with upgrade
   }
 
-  log.debug(
-    `Current version: ${currentVersion}, Target version: ${targetVersion}`,
-  );
+  log.debug(`Current version: ${currentVersion}, Target version: ${targetVersion}`);
 
   const comparison = compareVersions(currentVersion, targetVersion);
 
   if (comparison < 0) {
-    log.debug(
-      `Current version ${currentVersion} is older than ${targetVersion}. Upgrading.`,
-    );
+    log.debug(`Current version ${currentVersion} is older than ${targetVersion}. Upgrading.`);
     return null; // Proceed with upgrade
   }
 

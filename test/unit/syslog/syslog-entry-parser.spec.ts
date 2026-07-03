@@ -1,4 +1,6 @@
-import { expect } from 'chai';
+import {describe, it} from 'node:test';
+
+import {expect} from 'chai';
 
 import {
   type SyslogEntry,
@@ -46,12 +48,8 @@ function createSyslogEntryBuffer(options: {
   const filenameBytes = Buffer.from(filename + '\0', 'utf8');
   const imageNameBytes = Buffer.from(imageName + '\0', 'utf8');
   const messageBytes = Buffer.from(message + '\0', 'utf8');
-  const subsystemBytes = subsystem
-    ? Buffer.from(subsystem + '\0', 'utf8')
-    : Buffer.alloc(0);
-  const categoryBytes = category
-    ? Buffer.from(category + '\0', 'utf8')
-    : Buffer.alloc(0);
+  const subsystemBytes = subsystem ? Buffer.from(subsystem + '\0', 'utf8') : Buffer.alloc(0);
+  const categoryBytes = category ? Buffer.from(category + '\0', 'utf8') : Buffer.alloc(0);
 
   const headerSize = 129;
   const totalSize =
@@ -114,9 +112,7 @@ describe('syslog-entry-parser', function () {
       expect(getLogLevelName(SyslogLogLevel.Notice)).to.equal('NOTICE');
       expect(getLogLevelName(SyslogLogLevel.Info)).to.equal('INFO');
       expect(getLogLevelName(SyslogLogLevel.Debug)).to.equal('DEBUG');
-      expect(getLogLevelName(SyslogLogLevel.UserAction)).to.equal(
-        'USER_ACTION',
-      );
+      expect(getLogLevelName(SyslogLogLevel.UserAction)).to.equal('USER_ACTION');
       expect(getLogLevelName(SyslogLogLevel.Error)).to.equal('ERROR');
       expect(getLogLevelName(SyslogLogLevel.Fault)).to.equal('FAULT');
     });
@@ -192,7 +188,7 @@ describe('syslog-entry-parser', function () {
         SyslogLogLevel.Error,
         SyslogLogLevel.Fault,
       ]) {
-        const entryData = createSyslogEntryBuffer({ level });
+        const entryData = createSyslogEntryBuffer({level});
         const entry = parseSyslogEntry(entryData);
         expect(entry.level).to.equal(level);
       }
@@ -206,9 +202,7 @@ describe('syslog-entry-parser', function () {
     it('should throw error when filename null terminator is missing', function () {
       const buffer = Buffer.alloc(200);
       buffer.fill(0xff, 129); // Fill with non-null bytes
-      expect(() => parseSyslogEntry(buffer)).to.throw(
-        'Could not find null terminator for filename',
-      );
+      expect(() => parseSyslogEntry(buffer)).to.throw('Could not find null terminator for filename');
     });
 
     it('should correctly calculate timestamp from seconds and microseconds', function () {
@@ -401,9 +395,9 @@ describe('syslog-entry-parser', function () {
       const entries: SyslogEntry[] = [];
       const parser = new SyslogProtocolParser((entry) => entries.push(entry));
 
-      const entry1Data = createSyslogEntryBuffer({ message: 'First' });
-      const entry2Data = createSyslogEntryBuffer({ message: 'Second' });
-      const entry3Data = createSyslogEntryBuffer({ message: 'Third' });
+      const entry1Data = createSyslogEntryBuffer({message: 'First'});
+      const entry2Data = createSyslogEntryBuffer({message: 'Second'});
+      const entry3Data = createSyslogEntryBuffer({message: 'Third'});
 
       const frame = Buffer.concat([
         createProtocolFrame(entry1Data),
@@ -424,7 +418,7 @@ describe('syslog-entry-parser', function () {
       const parser = new SyslogProtocolParser((entry) => entries.push(entry));
 
       const garbage = Buffer.from('garbage data here');
-      const entryData = createSyslogEntryBuffer({ message: 'Valid entry' });
+      const entryData = createSyslogEntryBuffer({message: 'Valid entry'});
       const frame = createProtocolFrame(entryData);
 
       const dataWithGarbage = Buffer.concat([garbage, frame]);
@@ -444,7 +438,7 @@ describe('syslog-entry-parser', function () {
       falseMarker.writeUInt8(0x02, 0);
       falseMarker.writeUInt32LE(10, 1); // Too small length (< MIN_ENTRY_SIZE)
 
-      const entryData = createSyslogEntryBuffer({ message: 'Valid entry' });
+      const entryData = createSyslogEntryBuffer({message: 'Valid entry'});
       const validFrame = createProtocolFrame(entryData);
 
       const combined = Buffer.concat([falseMarker, validFrame]);
@@ -470,7 +464,7 @@ describe('syslog-entry-parser', function () {
       expect(entries).to.have.lengthOf(0);
 
       // Now add a valid entry
-      const entryData = createSyslogEntryBuffer({ message: 'Valid entry' });
+      const entryData = createSyslogEntryBuffer({message: 'Valid entry'});
       const validFrame = createProtocolFrame(entryData);
       parser.addData(validFrame);
 
@@ -510,7 +504,7 @@ describe('syslog-entry-parser', function () {
       expect(entries).to.have.lengthOf(0);
 
       // Parser should still work after reset
-      const entryData = createSyslogEntryBuffer({ message: 'After reset' });
+      const entryData = createSyslogEntryBuffer({message: 'After reset'});
       const frame = createProtocolFrame(entryData);
       parser.addData(frame);
 
@@ -538,7 +532,7 @@ describe('syslog-entry-parser', function () {
       const entries: SyslogEntry[] = [];
       const parser = new SyslogProtocolParser((entry) => entries.push(entry));
 
-      const entryData = createSyslogEntryBuffer({ message: 'Partial test' });
+      const entryData = createSyslogEntryBuffer({message: 'Partial test'});
       const frame = createProtocolFrame(entryData);
 
       // Send only the marker byte
@@ -559,7 +553,7 @@ describe('syslog-entry-parser', function () {
       const entries: SyslogEntry[] = [];
       const parser = new SyslogProtocolParser((entry) => entries.push(entry));
 
-      const entryData = createSyslogEntryBuffer({ message: 'Before reset' });
+      const entryData = createSyslogEntryBuffer({message: 'Before reset'});
       const frame = createProtocolFrame(entryData);
 
       // Send partial data

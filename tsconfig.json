@@ -6,11 +6,8 @@
     "checkJs": true,
     "strictNullChecks": false,
     "outDir": "build",
-    "types": ["node", "mocha", "chai"]
+    "types": ["node", "chai"]
   },
-  "include": [
-    "src",
-    "scripts",
-    "test"
-  ]
+  "include": ["src", "scripts", "test"],
+  "exclude": ["build"]
 }

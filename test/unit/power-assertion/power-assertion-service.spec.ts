@@ -1,9 +1,8 @@
-import { expect } from 'chai';
+import {describe, it} from 'node:test';
 
-import {
-  PowerAssertionService,
-  PowerAssertionType,
-} from '../../../src/services/ios/power-assertion/index.js';
+import {expect} from 'chai';
+
+import {PowerAssertionService, PowerAssertionType} from '../../../src/services/ios/power-assertion/index.js';
 
 describe('PowerAssertionService', function () {
   describe('PowerAssertionService instantiation', function () {

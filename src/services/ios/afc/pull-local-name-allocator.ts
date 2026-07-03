@@ -1,11 +1,8 @@
-import { randomUUID } from 'node:crypto';
+import {randomUUID} from 'node:crypto';
 import path from 'node:path';
 
-import { isCaseSensitiveDirectory } from './local-filesystem-case.js';
-import {
-  appendUniqueSuffix,
-  sanitizeLocalFilename,
-} from './sanitize-local-filename.js';
+import {isCaseSensitiveDirectory} from './local-filesystem-case.js';
+import {appendUniqueSuffix, sanitizeLocalFilename} from './sanitize-local-filename.js';
 
 const MAX_ALLOCATION_ATTEMPTS = 100;
 
@@ -30,10 +27,7 @@ export class PullLocalNameAllocator {
     const sanitized = sanitizeLocalFilename(remoteSegment);
 
     for (let attempt = 0; attempt < MAX_ALLOCATION_ATTEMPTS; attempt += 1) {
-      const candidate =
-        attempt === 0
-          ? sanitized
-          : appendUniqueSuffix(sanitized, randomSuffix());
+      const candidate = attempt === 0 ? sanitized : appendUniqueSuffix(sanitized, randomSuffix());
 
       if (!(await this.hasClash(parentDir, candidate))) {
         this.register(parentDir, candidate);
@@ -41,9 +35,7 @@ export class PullLocalNameAllocator {
       }
     }
 
-    throw new Error(
-      `Could not allocate a unique local name for remote segment '${remoteSegment}'`,
-    );
+    throw new Error(`Could not allocate a unique local name for remote segment '${remoteSegment}'`);
   }
 
   private async hasClash(parentDir: string, name: string): Promise<boolean> {
@@ -56,10 +48,7 @@ export class PullLocalNameAllocator {
     return false;
   }
 
-  private async isUsedInPull(
-    parentDir: string,
-    name: string,
-  ): Promise<boolean> {
+  private async isUsedInPull(parentDir: string, name: string): Promise<boolean> {
     const used = this.usedByDir.get(parentDir);
     if (!used) {
       return false;
@@ -72,11 +61,7 @@ export class PullLocalNameAllocator {
     return false;
   }
 
-  private async namesCollide(
-    parentDir: string,
-    a: string,
-    b: string,
-  ): Promise<boolean> {
+  private async namesCollide(parentDir: string, a: string, b: string): Promise<boolean> {
     if (await this.isCaseSensitiveForDir(parentDir)) {
       return a === b;
     }

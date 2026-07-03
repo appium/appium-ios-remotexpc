@@ -1,10 +1,9 @@
-import { expect } from 'chai';
+import {describe, it} from 'node:test';
 
-import { TLV8Error } from '../../../../src/lib/apple-tv/errors.js';
-import {
-  decodeTLV8,
-  decodeTLV8ToDict,
-} from '../../../../src/lib/apple-tv/tlv/decoder.js';
+import {expect} from 'chai';
+
+import {TLV8Error} from '../../../../src/lib/apple-tv/errors.js';
+import {decodeTLV8, decodeTLV8ToDict} from '../../../../src/lib/apple-tv/tlv/decoder.js';
 
 describe('TLV8 Decoder', function () {
   describe('decodeTLV8', function () {
@@ -19,9 +18,7 @@ describe('TLV8 Decoder', function () {
     });
 
     it('should decode multiple TLV8 items', function () {
-      const buffer = Buffer.from([
-        0x01, 0x01, 0x42, 0x02, 0x02, 0x43, 0x44, 0x03, 0x03, 0x45, 0x46, 0x47,
-      ]);
+      const buffer = Buffer.from([0x01, 0x01, 0x42, 0x02, 0x02, 0x43, 0x44, 0x03, 0x03, 0x45, 0x46, 0x47]);
 
       const result = decodeTLV8(buffer);
 
@@ -46,14 +43,7 @@ describe('TLV8 Decoder', function () {
     });
 
     it('should decode fragmented data', function () {
-      const buffer = Buffer.from([
-        0x05,
-        0xff,
-        ...Buffer.alloc(255, 0xab),
-        0x05,
-        0x01,
-        0xab,
-      ]);
+      const buffer = Buffer.from([0x05, 0xff, ...Buffer.alloc(255, 0xab), 0x05, 0x01, 0xab]);
 
       const result = decodeTLV8(buffer);
 
@@ -76,18 +66,13 @@ describe('TLV8 Decoder', function () {
     it('should throw error for insufficient data for value', function () {
       const buffer = Buffer.from([0x01, 0x05, 0x42, 0x43]);
 
-      expect(() => decodeTLV8(buffer)).to.throw(
-        TLV8Error,
-        'Invalid TLV8: insufficient data for value at offset 2',
-      );
+      expect(() => decodeTLV8(buffer)).to.throw(TLV8Error, 'Invalid TLV8: insufficient data for value at offset 2');
     });
   });
 
   describe('decodeTLV8ToDict', function () {
     it('should decode to dictionary with unique types', function () {
-      const buffer = Buffer.from([
-        0x01, 0x01, 0x42, 0x02, 0x02, 0x43, 0x44, 0x03, 0x03, 0x45, 0x46, 0x47,
-      ]);
+      const buffer = Buffer.from([0x01, 0x01, 0x42, 0x02, 0x02, 0x43, 0x44, 0x03, 0x03, 0x45, 0x46, 0x47]);
 
       const result = decodeTLV8ToDict(buffer);
 
@@ -117,11 +102,7 @@ describe('TLV8 Decoder', function () {
       const result = decodeTLV8ToDict(buffer);
 
       expect(result[0x05]).to.deep.equal(
-        Buffer.concat([
-          Buffer.alloc(255, 0xab),
-          Buffer.from([0xab]),
-          Buffer.from([0xee, 0xff]),
-        ]),
+        Buffer.concat([Buffer.alloc(255, 0xab), Buffer.from([0xab]), Buffer.from([0xee, 0xff])]),
       );
 
       expect(result[0x06]).to.deep.equal(Buffer.from([0xcc, 0xdd]));

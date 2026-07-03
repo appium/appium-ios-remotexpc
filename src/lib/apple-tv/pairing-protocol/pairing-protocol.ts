@@ -1,12 +1,9 @@
-import { randomBytes } from 'node:crypto';
-import { hostname } from 'node:os';
+import {randomBytes} from 'node:crypto';
+import {hostname} from 'node:os';
 
-import { getLogger } from '../../logger.js';
-import {
-  DEFAULT_PAIRING_CONFIG,
-  PairingDataComponentType,
-} from '../constants.js';
-import { encodeAppleTVDeviceInfo } from '../device-info/index.js';
+import {getLogger} from '../../logger.js';
+import {DEFAULT_PAIRING_CONFIG, PairingDataComponentType} from '../constants.js';
+import {encodeAppleTVDeviceInfo} from '../device-info/index.js';
 import {
   Opack2,
   createEd25519Signature,
@@ -15,31 +12,16 @@ import {
   generateEd25519KeyPair,
   hkdf,
 } from '../encryption/index.js';
-import { PairingError } from '../errors.js';
-import { NETWORK_CONSTANTS } from '../network/constants.js';
-import type { NetworkClientInterface } from '../network/types.js';
-import { SRPClient } from '../srp/index.js';
-import { PairingStorage } from '../storage/pairing-storage.js';
-import {
-  createPairVerificationData,
-  createSetupManualPairingData,
-  decodeTLV8ToDict,
-  encodeTLV8,
-} from '../tlv/index.js';
-import type {
-  AppleTVDevice,
-  AppleTVPairingFlowResult,
-  Opack2Dictionary,
-  TLV8Item,
-} from '../types.js';
-import { generateHostId } from '../utils/uuid-generator.js';
-import { INFO_TYPE, PAIRING_MESSAGES, PAIRING_STATES } from './constants.js';
-import type {
-  EncryptionKeys,
-  PairingProtocolInterface,
-  PairingRequest,
-  UserInputInterface,
-} from './types.js';
+import {PairingError} from '../errors.js';
+import {NETWORK_CONSTANTS} from '../network/constants.js';
+import type {NetworkClientInterface} from '../network/types.js';
+import {SRPClient} from '../srp/index.js';
+import {PairingStorage} from '../storage/pairing-storage.js';
+import {createPairVerificationData, createSetupManualPairingData, decodeTLV8ToDict, encodeTLV8} from '../tlv/index.js';
+import type {AppleTVDevice, AppleTVPairingFlowResult, Opack2Dictionary, TLV8Item} from '../types.js';
+import {generateHostId} from '../utils/uuid-generator.js';
+import {INFO_TYPE, PAIRING_MESSAGES, PAIRING_STATES} from './constants.js';
+import type {EncryptionKeys, PairingProtocolInterface, PairingRequest, UserInputInterface} from './types.js';
 
 const log = getLogger('PairingProtocol');
 
@@ -86,9 +68,7 @@ export class PairingProtocol implements PairingProtocolInterface {
     private readonly userInput: UserInputInterface,
   ) {}
 
-  async executePairingFlow(
-    device: AppleTVDevice,
-  ): Promise<AppleTVPairingFlowResult> {
+  async executePairingFlow(device: AppleTVDevice): Promise<AppleTVPairingFlowResult> {
     this._sequenceNumber = 1;
 
     try {
@@ -107,21 +87,13 @@ export class PairingProtocol implements PairingProtocolInterface {
 
       // Step 5: Generate keys and send M5
       const encryptionKeys = this.deriveEncryptionKeys(srpClient.sessionKey);
-      const { publicKey: ltpk, privateKey: ltsk } = generateEd25519KeyPair();
+      const {publicKey: ltpk, privateKey: ltsk} = generateEd25519KeyPair();
       const devicePairingID = generateHostId(hostname());
 
-      await this.sendM5Message(
-        encryptionKeys.encryptKey,
-        devicePairingID,
-        ltpk,
-        ltsk,
-        srpClient.sessionKey,
-      );
+      await this.sendM5Message(encryptionKeys.encryptKey, devicePairingID, ltpk, ltsk, srpClient.sessionKey);
 
       // Step 6: Receive M6 completion
-      const remotePairingUdid = await this.receiveM6Completion(
-        encryptionKeys.decryptKey,
-      );
+      const remotePairingUdid = await this.receiveM6Completion(encryptionKeys.decryptKey);
 
       return this.createPairingResult(device, ltpk, ltsk, remotePairingUdid);
     } catch (error) {
@@ -150,11 +122,7 @@ export class PairingProtocol implements PairingProtocolInterface {
    */
   private fragmentBuffer(buffer: Buffer, type: number): TLV8Item[] {
     const fragments: TLV8Item[] = [];
-    for (
-      let i = 0;
-      i < buffer.length;
-      i += NETWORK_CONSTANTS.MAX_TLV_FRAGMENT_SIZE
-    ) {
+    for (let i = 0; i < buffer.length; i += NETWORK_CONSTANTS.MAX_TLV_FRAGMENT_SIZE) {
       fragments.push({
         type,
         data: buffer.subarray(i, i + NETWORK_CONSTANTS.MAX_TLV_FRAGMENT_SIZE),
@@ -217,8 +185,7 @@ export class PairingProtocol implements PairingProtocolInterface {
    * @throws PairingError if pairing data is missing or invalid
    */
   private extractAndValidatePairingData(response: any): Record<number, Buffer> {
-    const srpData =
-      response.message?.plain?._0?.event?._0?.pairingData?._0?.data;
+    const srpData = response.message?.plain?._0?.event?._0?.pairingData?._0?.data;
     if (!srpData) {
       throw new PairingError('No pairing data received', 'NO_PAIRING_DATA');
     }
@@ -235,9 +202,7 @@ export class PairingProtocol implements PairingProtocolInterface {
    * @returns Authenticated SRP client with session key
    * @throws PairingError if PIN is incorrect or authentication fails
    */
-  private async performSRPAuthentication(
-    parsedSRP: Record<number, Buffer>,
-  ): Promise<SRPClient> {
+  private async performSRPAuthentication(parsedSRP: Record<number, Buffer>): Promise<SRPClient> {
     const pin = await this.userInput.promptForPIN();
     const srpClient = this.createSRPClient(pin, parsedSRP);
 
@@ -254,19 +219,14 @@ export class PairingProtocol implements PairingProtocolInterface {
    * Attempts to decrypt and validate final pairing state
    * @param decryptKey Decryption key for M6 encrypted data
    */
-  private async receiveM6Completion(
-    decryptKey: Buffer,
-  ): Promise<string | undefined> {
+  private async receiveM6Completion(decryptKey: Buffer): Promise<string | undefined> {
     const m6Response = await this.networkClient.receiveResponse();
     log.info('M6 Response received');
 
     try {
       return this.processM6Response(m6Response, decryptKey);
     } catch (error) {
-      log.warn(
-        'M6 decryption failed - but pairing may still be successful:',
-        (error as Error).message,
-      );
+      log.warn('M6 decryption failed - but pairing may still be successful:', (error as Error).message);
     }
     return undefined;
   }
@@ -285,7 +245,7 @@ export class PairingProtocol implements PairingProtocolInterface {
               _0: {
                 handshake: {
                   _0: {
-                    hostOptions: { attemptPairVerify: true },
+                    hostOptions: {attemptPairVerify: true},
                     wireProtocolVersion: 19,
                   },
                 },
@@ -382,11 +342,7 @@ export class PairingProtocol implements PairingProtocolInterface {
       }
       return result;
     } catch (error) {
-      throw new PairingError(
-        'Failed to parse TLV8 response',
-        'TLV8_PARSE_ERROR',
-        error,
-      );
+      throw new PairingError('Failed to parse TLV8 response', 'TLV8_PARSE_ERROR', error);
     }
   }
 
@@ -400,23 +356,13 @@ export class PairingProtocol implements PairingProtocolInterface {
     const errorBuffer = parsedSRP[PairingDataComponentType.ERROR];
     if (errorBuffer) {
       if (errorBuffer.length === 0) {
-        throw new PairingError(
-          'Apple TV returned empty error buffer',
-          'INVALID_ERROR_RESPONSE',
-        );
+        throw new PairingError('Apple TV returned empty error buffer', 'INVALID_ERROR_RESPONSE');
       }
       const errorCode = errorBuffer[0];
-      throw new PairingError(
-        `Apple TV rejected request with error ${errorCode}`,
-        'APPLE_TV_ERROR',
-        { errorCode },
-      );
+      throw new PairingError(`Apple TV rejected request with error ${errorCode}`, 'APPLE_TV_ERROR', {errorCode});
     }
 
-    if (
-      !parsedSRP[PairingDataComponentType.SALT] ||
-      !parsedSRP[PairingDataComponentType.PUBLIC_KEY]
-    ) {
+    if (!parsedSRP[PairingDataComponentType.SALT] || !parsedSRP[PairingDataComponentType.PUBLIC_KEY]) {
       throw new PairingError('Missing SRP challenge data', 'MISSING_SRP_DATA');
     }
   }
@@ -429,10 +375,7 @@ export class PairingProtocol implements PairingProtocolInterface {
    * @returns Configured SRP client ready for proof generation
    * @throws PairingError if required SRP data is missing
    */
-  private createSRPClient(
-    pin: string,
-    parsedSRP: Record<number, Buffer>,
-  ): SRPClient {
+  private createSRPClient(pin: string, parsedSRP: Record<number, Buffer>): SRPClient {
     try {
       const salt = parsedSRP[PairingDataComponentType.SALT];
       const serverPublicKey = parsedSRP[PairingDataComponentType.PUBLIC_KEY];
@@ -443,11 +386,7 @@ export class PairingProtocol implements PairingProtocolInterface {
       srpClient.serverPublicKey = serverPublicKey;
       return srpClient;
     } catch (error) {
-      throw new PairingError(
-        'Failed to create SRP client',
-        'SRP_CLIENT_ERROR',
-        error,
-      );
+      throw new PairingError('Failed to create SRP client', 'SRP_CLIENT_ERROR', error);
     }
   }
 
@@ -465,11 +404,8 @@ export class PairingProtocol implements PairingProtocolInterface {
         type: PairingDataComponentType.STATE,
         data: Buffer.from([PAIRING_STATES.M3]),
       },
-      ...this.fragmentBuffer(
-        clientPublicKey,
-        PairingDataComponentType.PUBLIC_KEY,
-      ),
-      { type: PairingDataComponentType.PROOF, data: clientProof },
+      ...this.fragmentBuffer(clientPublicKey, PairingDataComponentType.PUBLIC_KEY),
+      {type: PairingDataComponentType.PROOF, data: clientProof},
     ];
     const tlv = encodeTLV8(tlvItems);
 
@@ -499,17 +435,11 @@ export class PairingProtocol implements PairingProtocolInterface {
    */
   private validateSRPProofResponse(response: any): void {
     if (response.message?.plain?._0?.event?._0?.pairingData?._0?.data) {
-      const proofData = Buffer.from(
-        response.message.plain._0.event._0.pairingData._0.data,
-        'base64',
-      );
+      const proofData = Buffer.from(response.message.plain._0.event._0.pairingData._0.data, 'base64');
       const parsedProof = decodeTLV8ToDict(proofData);
 
       if (parsedProof[PairingDataComponentType.ERROR]) {
-        throw new PairingError(
-          'SRP authentication failed - wrong PIN',
-          'WRONG_PIN',
-        );
+        throw new PairingError('SRP authentication failed - wrong PIN', 'WRONG_PIN');
       }
     }
   }
@@ -540,11 +470,7 @@ export class PairingProtocol implements PairingProtocolInterface {
       });
 
       const devicePairingIDBuffer = Buffer.from(devicePairingID, 'utf8');
-      const dataToSign = Buffer.concat([
-        signingKey,
-        devicePairingIDBuffer,
-        ltpk,
-      ]);
+      const dataToSign = Buffer.concat([signingKey, devicePairingIDBuffer, ltpk]);
       const signature = createEd25519Signature(dataToSign, ltsk);
       const deviceInfo = encodeAppleTVDeviceInfo(devicePairingID);
 
@@ -553,9 +479,9 @@ export class PairingProtocol implements PairingProtocolInterface {
           type: PairingDataComponentType.IDENTIFIER,
           data: devicePairingIDBuffer,
         },
-        { type: PairingDataComponentType.PUBLIC_KEY, data: ltpk },
-        { type: PairingDataComponentType.SIGNATURE, data: signature },
-        { type: INFO_TYPE as any, data: deviceInfo },
+        {type: PairingDataComponentType.PUBLIC_KEY, data: ltpk},
+        {type: PairingDataComponentType.SIGNATURE, data: signature},
+        {type: INFO_TYPE as any, data: deviceInfo},
       ];
 
       const tlvData = encodeTLV8(tlvItems);
@@ -567,10 +493,7 @@ export class PairingProtocol implements PairingProtocolInterface {
       });
 
       const encryptedTLVItems: TLV8Item[] = [
-        ...this.fragmentBuffer(
-          encrypted,
-          PairingDataComponentType.ENCRYPTED_DATA,
-        ),
+        ...this.fragmentBuffer(encrypted, PairingDataComponentType.ENCRYPTED_DATA),
         {
           type: PairingDataComponentType.STATE,
           data: Buffer.from([PAIRING_STATES.M5]),
@@ -605,16 +528,12 @@ export class PairingProtocol implements PairingProtocolInterface {
    * @param m6Response Network response containing M6 completion message
    * @param decryptKey Decryption key for M6 encrypted data
    */
-  private processM6Response(
-    m6Response: any,
-    decryptKey: Buffer,
-  ): string | undefined {
+  private processM6Response(m6Response: any, decryptKey: Buffer): string | undefined {
     if (!m6Response.message?.plain?._0?.event?._0?.pairingData?._0?.data) {
       return undefined;
     }
 
-    const m6DataBase64 =
-      m6Response.message.plain._0.event._0.pairingData._0.data;
+    const m6DataBase64 = m6Response.message.plain._0.event._0.pairingData._0.data;
     const m6TLVBuffer = Buffer.from(m6DataBase64, 'base64');
     const m6Parsed = decodeTLV8ToDict(m6TLVBuffer);
 
@@ -647,9 +566,7 @@ export class PairingProtocol implements PairingProtocolInterface {
     return undefined;
   }
 
-  private extractRemotePairingUdid(
-    decryptedTLV: Record<number, Buffer | undefined>,
-  ): string | undefined {
+  private extractRemotePairingUdid(decryptedTLV: Record<number, Buffer | undefined>): string | undefined {
     const info = decryptedTLV[PairingDataComponentType.INFO];
     if (!info) {
       return undefined;
@@ -661,18 +578,11 @@ export class PairingProtocol implements PairingProtocolInterface {
     }
 
     const remotePairingUdid = decodedInfo.remotepairing_udid;
-    return typeof remotePairingUdid === 'string' && remotePairingUdid
-      ? remotePairingUdid.toUpperCase()
-      : undefined;
+    return typeof remotePairingUdid === 'string' && remotePairingUdid ? remotePairingUdid.toUpperCase() : undefined;
   }
 
   private isOpackDictionary(value: unknown): value is Opack2Dictionary {
-    return (
-      typeof value === 'object' &&
-      value !== null &&
-      !Array.isArray(value) &&
-      !Buffer.isBuffer(value)
-    );
+    return typeof value === 'object' && value !== null && !Array.isArray(value) && !Buffer.isBuffer(value);
   }
 
   /**
@@ -712,32 +622,17 @@ export class PairingProtocol implements PairingProtocolInterface {
   ): Promise<AppleTVPairingFlowResult> {
     const deviceId = this.resolvePairingDeviceId(device, remotePairingUdid);
     const storage = new PairingStorage(DEFAULT_PAIRING_CONFIG);
-    const pairingFile = await storage.save(
-      deviceId,
-      ltpk,
-      ltsk,
-      '',
-      remotePairingUdid,
-    );
-    return { deviceId, pairingFile };
+    const pairingFile = await storage.save(deviceId, ltpk, ltsk, '', remotePairingUdid);
+    return {deviceId, pairingFile};
   }
 
-  private resolvePairingDeviceId(
-    device: AppleTVDevice,
-    remotePairingUdid?: string,
-  ): string {
+  private resolvePairingDeviceId(device: AppleTVDevice, remotePairingUdid?: string): string {
     if (remotePairingUdid) {
       return remotePairingUdid.toUpperCase();
     }
 
-    if (
-      process.platform === 'darwin' &&
-      device.identifierSource === 'devicectl' &&
-      device.identifier
-    ) {
-      log.warn(
-        'M6 INFO did not include remotepairing_udid; falling back to devicectl identifier',
-      );
+    if (process.platform === 'darwin' && device.identifierSource === 'devicectl' && device.identifier) {
+      log.warn('M6 INFO did not include remotepairing_udid; falling back to devicectl identifier');
       return device.identifier.toUpperCase();
     }
 

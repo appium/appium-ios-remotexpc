@@ -1,4 +1,4 @@
-import type { IPlistUID } from '../types.js';
+import type {IPlistUID} from '../types.js';
 
 /**
  * UID (Unique Identifier) class for plist references

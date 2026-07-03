@@ -1,9 +1,9 @@
-import { Transform, type TransformCallback } from 'node:stream';
+import {Transform, type TransformCallback} from 'node:stream';
 
-import { getLogger } from '../logger.js';
-import { UTF8_ENCODING } from './constants.js';
-import { parsePlist } from './unified-plist-parser.js';
-import { ensureString, fixMultipleXmlDeclarations } from './utils.js';
+import {getLogger} from '../logger.js';
+import {UTF8_ENCODING} from './constants.js';
+import {parsePlist} from './unified-plist-parser.js';
+import {ensureString, fixMultipleXmlDeclarations} from './utils.js';
 
 const log = getLogger('Plist');
 
@@ -14,14 +14,10 @@ export class PlistServiceDecoder extends Transform {
   // Static property to store the last decoded result
   static lastDecodedResult: any = null;
   constructor() {
-    super({ objectMode: true });
+    super({objectMode: true});
   }
 
-  _transform(
-    data: Buffer,
-    encoding: BufferEncoding,
-    callback: TransformCallback,
-  ): void {
+  _transform(data: Buffer, encoding: BufferEncoding, callback: TransformCallback): void {
     try {
       // Get the plist data without the 4-byte header
       let plistData = data.slice(4);
@@ -32,18 +28,12 @@ export class PlistServiceDecoder extends Transform {
       }
 
       // Check if this is XML data with potential binary header and trim content before XML declaration
-      const dataStr = plistData.toString(
-        UTF8_ENCODING,
-        0,
-        Math.min(100, plistData.length),
-      );
+      const dataStr = plistData.toString(UTF8_ENCODING, 0, Math.min(100, plistData.length));
       const xmlIndex = dataStr.indexOf('<?xml');
 
       if (xmlIndex > 0) {
         // There's content before the XML declaration, remove it
-        log.debug(
-          `Found XML declaration at position ${xmlIndex}, trimming preceding content`,
-        );
+        log.debug(`Found XML declaration at position ${xmlIndex}, trimming preceding content`);
         plistData = plistData.slice(xmlIndex);
       }
 
@@ -51,9 +41,7 @@ export class PlistServiceDecoder extends Transform {
       const fullDataStr = ensureString(plistData);
       const xmlDeclMatches = fullDataStr.match(/(<\?xml[^>]*\?>)/g) || [];
       if (xmlDeclMatches.length > 1) {
-        log.debug(
-          `Found ${xmlDeclMatches.length} XML declarations, which may cause parsing errors`,
-        );
+        log.debug(`Found ${xmlDeclMatches.length} XML declarations, which may cause parsing errors`);
         // Fix multiple XML declarations
         plistData = Buffer.from(fixMultipleXmlDeclarations(plistData));
       }

@@ -1,9 +1,11 @@
-import { expect } from 'chai';
-import { once } from 'node:events';
-import { type AddressInfo, createConnection, createServer } from 'node:net';
+import {once} from 'node:events';
+import {type AddressInfo, createConnection, createServer} from 'node:net';
+import {after, before, describe, it} from 'node:test';
 
-import { readExact } from '../../../src/services/ios/afc/codec.js';
-import { AfcConnectionError } from '../../../src/services/ios/afc/errors.js';
+import {expect} from 'chai';
+
+import {readExact} from '../../../src/services/ios/afc/codec.js';
+import {AfcConnectionError} from '../../../src/services/ios/afc/errors.js';
 
 describe('AFC readExact timeout handling', function () {
   let server: ReturnType<typeof createServer>;
@@ -23,7 +25,7 @@ describe('AFC readExact timeout handling', function () {
   });
 
   it('should destroy the socket and reject subsequent reads after timeout', async function () {
-    const client = createConnection({ host: '127.0.0.1', port });
+    const client = createConnection({host: '127.0.0.1', port});
     await once(client, 'connect');
 
     try {
@@ -46,12 +48,18 @@ describe('AFC readExact timeout handling', function () {
   });
 
   it('should not leave stale bytes for the next read after a late response', async function () {
-    const client = createConnection({ host: '127.0.0.1', port });
+    const client = createConnection({host: '127.0.0.1', port});
     await once(client, 'connect');
 
-    const readPromise = readExact(client, 40, 50).catch((err) => err);
+    const readPromise = (async () => {
+      try {
+        return await readExact(client, 40, 50);
+      } catch (err) {
+        return err;
+      }
+    })();
 
-    await new Promise((r) => setTimeout(r, 60));
+    await new Promise((resolve) => setTimeout(resolve, 60));
     client.write(Buffer.alloc(40, 0xab));
 
     const firstErr = await readPromise;

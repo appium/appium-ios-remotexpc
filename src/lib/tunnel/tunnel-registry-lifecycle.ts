@@ -1,8 +1,8 @@
-import type { Socket } from 'node:net';
-import type { TLSSocket } from 'node:tls';
+import type {Socket} from 'node:net';
+import type {TLSSocket} from 'node:tls';
 
-import { getLogger } from '../logger.js';
-import type { TunnelRegistry } from '../types.js';
+import {getLogger} from '../logger.js';
+import type {TunnelRegistry} from '../types.js';
 
 const log = getLogger('TunnelRegistryLifecycle');
 
@@ -21,10 +21,7 @@ export interface WatchTunnelRegistryOptions {
    * Called when a tunnel is considered dead (registry already updated).
    * Use to sync in-process state (e.g. TunnelManager.closeTunnelByAddress).
    */
-  onTunnelDead?: (ctx: {
-    udid: string;
-    address: string;
-  }) => void | Promise<void>;
+  onTunnelDead?: (ctx: {udid: string; address: string}) => void | Promise<void>;
 }
 
 export interface TunnelRegistryOnDeadWatch {
@@ -37,10 +34,7 @@ export interface WatchTunnelRegistryOnDeadOptions {
   registry: TunnelRegistry;
   watches: TunnelRegistryOnDeadWatch[];
   onRemove?: (udid: string) => void | Promise<void>;
-  onTunnelDead?: (ctx: {
-    udid: string;
-    address: string;
-  }) => void | Promise<void>;
+  onTunnelDead?: (ctx: {udid: string; address: string}) => void | Promise<void>;
 }
 
 /**
@@ -48,12 +42,10 @@ export interface WatchTunnelRegistryOnDeadOptions {
  *
  * @returns `stop` — clears listeners (e.g. for tests or shutdown).
  */
-export function watchTunnelRegistrySockets(
-  options: WatchTunnelRegistryOptions,
-): { stop: () => void } {
-  const { registry, watches, onRemove, onTunnelDead } = options;
+export function watchTunnelRegistrySockets(options: WatchTunnelRegistryOptions): {stop: () => void} {
+  const {registry, watches, onRemove, onTunnelDead} = options;
 
-  const stopped = { value: false };
+  const stopped = {value: false};
   const teardownFns: Array<() => void> = [];
 
   const stop = (): void => {
@@ -72,7 +64,7 @@ export function watchTunnelRegistrySockets(
   };
 
   for (const watch of watches) {
-    const { udid, socket } = watch;
+    const {udid, socket} = watch;
     let finalized = false;
 
     const finalize = async (reason: string): Promise<void> => {
@@ -88,9 +80,7 @@ export function watchTunnelRegistrySockets(
       const address = registry.tunnels[udid].address;
 
       delete registry.tunnels[udid];
-      log.info(
-        `Tunnel registry: removed ${udid} (${reason}). Remaining: ${Object.keys(registry.tunnels).length}`,
-      );
+      log.info(`Tunnel registry: removed ${udid} (${reason}). Remaining: ${Object.keys(registry.tunnels).length}`);
 
       try {
         await onRemove?.(udid);
@@ -99,7 +89,7 @@ export function watchTunnelRegistrySockets(
       }
 
       try {
-        await onTunnelDead?.({ udid, address });
+        await onTunnelDead?.({udid, address});
       } catch (err) {
         log.warn(`onTunnelDead failed for ${udid}: ${err}`);
       }
@@ -118,18 +108,16 @@ export function watchTunnelRegistrySockets(
     });
   }
 
-  return { stop };
+  return {stop};
 }
 
 /**
  * Removes a tunnel from the registry when its native forwarder dies (lockdown or TLS-PSK).
  */
-export function watchTunnelRegistryOnDead(
-  options: WatchTunnelRegistryOnDeadOptions,
-): { stop: () => void } {
-  const { registry, watches, onRemove, onTunnelDead } = options;
+export function watchTunnelRegistryOnDead(options: WatchTunnelRegistryOnDeadOptions): {stop: () => void} {
+  const {registry, watches, onRemove, onTunnelDead} = options;
 
-  const stopped = { value: false };
+  const stopped = {value: false};
   const teardownFns: Array<() => void> = [];
 
   const stop = (): void => {
@@ -148,7 +136,7 @@ export function watchTunnelRegistryOnDead(
   };
 
   for (const watch of watches) {
-    const { udid } = watch;
+    const {udid} = watch;
     let finalized = false;
 
     const finalize = async (reason: string): Promise<void> => {
@@ -164,9 +152,7 @@ export function watchTunnelRegistryOnDead(
       const address = registry.tunnels[udid].address;
 
       delete registry.tunnels[udid];
-      log.info(
-        `Tunnel registry: removed ${udid} (${reason}). Remaining: ${Object.keys(registry.tunnels).length}`,
-      );
+      log.info(`Tunnel registry: removed ${udid} (${reason}). Remaining: ${Object.keys(registry.tunnels).length}`);
 
       try {
         await onRemove?.(udid);
@@ -175,7 +161,7 @@ export function watchTunnelRegistryOnDead(
       }
 
       try {
-        await onTunnelDead?.({ udid, address });
+        await onTunnelDead?.({udid, address});
       } catch (err) {
         log.warn(`onTunnelDead failed for ${udid}: ${err}`);
       }
@@ -190,5 +176,5 @@ export function watchTunnelRegistryOnDead(
     });
   }
 
-  return { stop };
+  return {stop};
 }

@@ -1,10 +1,7 @@
-import type { TunnelRegistryEntry } from '../types.js';
-import { TunnelAvailabilityError } from './errors.js';
-import type { TunnelEndpoint } from './tunnel-api-client.js';
-import {
-  createValidatedStrictRegistryClient,
-  mapEntryToEndpoint,
-} from './tunnel-availability.js';
+import type {TunnelRegistryEntry} from '../types.js';
+import {TunnelAvailabilityError} from './errors.js';
+import type {TunnelEndpoint} from './tunnel-api-client.js';
+import {createValidatedStrictRegistryClient, mapEntryToEndpoint} from './tunnel-availability.js';
 
 /** Default long-poll budget when resolving a service at session start. */
 export const DEFAULT_TUNNEL_SERVICE_WAIT_MS = 15_000;
@@ -29,7 +26,7 @@ export async function resolveTunnelService(
   const waitMs = options.waitMs ?? DEFAULT_TUNNEL_SERVICE_WAIT_MS;
   const client = await createValidatedStrictRegistryClient();
 
-  let entry = await client.getTunnelByUdid(udid, { waitMs });
+  let entry = await client.getTunnelByUdid(udid, {waitMs});
   if (!entry) {
     throw new TunnelAvailabilityError(
       `No tunnel found for device ${udid}. Please run the tunnel creation script first`,
@@ -40,9 +37,7 @@ export async function resolveTunnelService(
   if (!portStr) {
     entry = await client.refreshServiceCatalog(udid);
     if (!entry) {
-      throw new TunnelAvailabilityError(
-        `Failed to refresh service catalog for device ${udid}`,
-      );
+      throw new TunnelAvailabilityError(`Failed to refresh service catalog for device ${udid}`);
     }
     portStr = getCatalogPort(entry, serviceName);
   }
@@ -69,11 +64,11 @@ export async function resolveTunnelServicePorts(
   udid: string,
   serviceNames: string[],
   options: ResolveTunnelServiceOptions = {},
-): Promise<{ host: string; ports: Record<string, number>; udid: string }> {
+): Promise<{host: string; ports: Record<string, number>; udid: string}> {
   const waitMs = options.waitMs ?? DEFAULT_TUNNEL_SERVICE_WAIT_MS;
   const client = await createValidatedStrictRegistryClient();
 
-  let entry = await client.getTunnelByUdid(udid, { waitMs });
+  let entry = await client.getTunnelByUdid(udid, {waitMs});
   if (!entry) {
     throw new TunnelAvailabilityError(
       `No tunnel found for device ${udid}. Please run the tunnel creation script first`,
@@ -84,9 +79,7 @@ export async function resolveTunnelServicePorts(
   if (missing.length > 0) {
     entry = await client.refreshServiceCatalog(udid);
     if (!entry) {
-      throw new TunnelAvailabilityError(
-        `Failed to refresh service catalog for device ${udid}`,
-      );
+      throw new TunnelAvailabilityError(`Failed to refresh service catalog for device ${udid}`);
     }
   }
 
@@ -94,19 +87,14 @@ export async function resolveTunnelServicePorts(
   for (const name of serviceNames) {
     const portStr = getCatalogPort(entry, name);
     if (!portStr) {
-      throw new TunnelAvailabilityError(
-        `Service ${name} not found in tunnel catalog for ${udid}`,
-      );
+      throw new TunnelAvailabilityError(`Service ${name} not found in tunnel catalog for ${udid}`);
     }
     ports[name] = Number.parseInt(portStr, 10);
   }
 
-  return { host: entry.address, ports, udid };
+  return {host: entry.address, ports, udid};
 }
 
-function getCatalogPort(
-  entry: TunnelRegistryEntry,
-  serviceName: string,
-): string | undefined {
+function getCatalogPort(entry: TunnelRegistryEntry, serviceName: string): string | undefined {
   return entry.services?.[serviceName]?.port;
 }

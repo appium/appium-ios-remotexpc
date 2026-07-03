@@ -1,11 +1,11 @@
 import type net from 'node:net';
-import type { Readable } from 'node:stream';
-import { Readable as ReadableStream } from 'node:stream';
-import { crc32 } from 'node:zlib';
+import type {Readable} from 'node:stream';
+import {Readable as ReadableStream} from 'node:stream';
+import {crc32} from 'node:zlib';
 
-import { createPlist } from '../../../lib/plist/unified-plist-creator.js';
-import type { PlistDictionary } from '../../../lib/types.js';
-import { writeBufferToSocket } from '../afc/codec.js';
+import {createPlist} from '../../../lib/plist/unified-plist-creator.js';
+import type {PlistDictionary} from '../../../lib/types.js';
+import {writeBufferToSocket} from '../afc/codec.js';
 import {
   METAINF_FILE_NAME,
   TRANSFER_CHUNK_SIZE,
@@ -14,7 +14,7 @@ import {
   ZIP_HEADER_LAST_MODIFIED_TIME,
   ZIP_LOCAL_FILE_HEADER_SIGNATURE,
 } from './constants.js';
-import { createMetaInfPlist } from './plists.js';
+import {createMetaInfPlist} from './plists.js';
 
 interface ZipLocalHeader {
   signature: number;
@@ -33,14 +33,8 @@ interface ZipLocalHeader {
 /**
  * Encode ZipMetadata as XML plist bytes for META-INF/com.apple.ZipMetadata.plist.
  */
-export function createMetaInfBytes(
-  numFiles: number,
-  totalBytes: number,
-): Buffer {
-  const metadata = createMetaInfPlist(
-    numFiles,
-    totalBytes,
-  ) as unknown as PlistDictionary;
+export function createMetaInfBytes(numFiles: number, totalBytes: number): Buffer {
+  const metadata = createMetaInfPlist(numFiles, totalBytes) as unknown as PlistDictionary;
   const plist = createPlist(metadata, false);
   return Buffer.isBuffer(plist) ? plist : Buffer.from(plist, 'utf8');
 }
@@ -48,10 +42,7 @@ export function createMetaInfBytes(
 /**
  * Write a streaming zip_conduit directory entry to the socket.
  */
-export async function transferDirectory(
-  socket: net.Socket,
-  dstDirPath: string,
-): Promise<void> {
+export async function transferDirectory(socket: net.Socket, dstDirPath: string): Promise<void> {
   await writeBufferToSocket(socket, newZipHeaderDir(dstDirPath));
 }
 
@@ -65,10 +56,7 @@ export async function transferFile(
   uncompressedSize: number,
   dstFilePath: string,
 ): Promise<void> {
-  await writeBufferToSocket(
-    socket,
-    newZipHeader(uncompressedSize, crc32Value, dstFilePath),
-  );
+  await writeBufferToSocket(socket, newZipHeader(uncompressedSize, crc32Value, dstFilePath));
   await pipeReadableToSocket(socket, src);
 }
 
@@ -107,20 +95,14 @@ export async function pipeReadableToSocket(
 /**
  * Write the META-INF/ directory header expected by zip_conduit.
  */
-export async function transferMetaInfDirectory(
-  socket: net.Socket,
-): Promise<void> {
+export async function transferMetaInfDirectory(socket: net.Socket): Promise<void> {
   await transferDirectory(socket, 'META-INF/');
 }
 
 /**
  * Write the synthetic com.apple.ZipMetadata.plist entry.
  */
-export async function transferMetaInfFile(
-  socket: net.Socket,
-  numFiles: number,
-  totalBytes: number,
-): Promise<void> {
+export async function transferMetaInfFile(socket: net.Socket, numFiles: number, totalBytes: number): Promise<void> {
   const metaInfBytes = createMetaInfBytes(numFiles, totalBytes);
   const checksum = crc32(metaInfBytes) >>> 0;
   await transferFile(

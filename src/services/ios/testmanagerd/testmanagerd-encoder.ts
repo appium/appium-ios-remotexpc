@@ -1,5 +1,5 @@
-import { PlistUID } from '../../../lib/plist/index.js';
-import { NSKeyedArchiverEncoder } from '../dvt/nskeyedarchiver-encoder.js';
+import {PlistUID} from '../../../lib/plist/index.js';
+import {NSKeyedArchiverEncoder} from '../dvt/nskeyedarchiver-encoder.js';
 
 /**
  * Extended NSKeyedArchiver encoder that handles testmanagerd-specific

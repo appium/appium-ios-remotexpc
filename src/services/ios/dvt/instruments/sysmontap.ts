@@ -1,15 +1,10 @@
-import { util } from '@appium/support';
+import {util} from '@appium/support';
 
-import { getLogger } from '../../../../lib/logger.js';
-import type {
-  SysmonProcessInfo,
-  SysmonSample,
-  SysmonSystemInfo,
-  SysmontapOptions,
-} from '../../../../lib/types.js';
-import { MessageAux } from '../dtx-message.js';
-import { BaseInstrument } from './base-instrument.js';
-import { DeviceInfo } from './device-info.js';
+import {getLogger} from '../../../../lib/logger.js';
+import type {SysmonProcessInfo, SysmonSample, SysmonSystemInfo, SysmontapOptions} from '../../../../lib/types.js';
+import {MessageAux} from '../dtx-message.js';
+import {BaseInstrument} from './base-instrument.js';
+import {DeviceInfo} from './device-info.js';
 
 const log = getLogger('Sysmontap');
 
@@ -38,8 +33,7 @@ const log = getLogger('Sysmontap');
  * ```
  */
 export class Sysmontap extends BaseInstrument {
-  static readonly IDENTIFIER =
-    'com.apple.instruments.server.services.sysmontap';
+  static readonly IDENTIFIER = 'com.apple.instruments.server.services.sysmontap';
 
   /** Default sampling interval in milliseconds. */
   static readonly DEFAULT_INTERVAL_MS = 500;
@@ -83,17 +77,11 @@ export class Sysmontap extends BaseInstrument {
       this.systemAttributes = options.systemAttributes;
     } else {
       const deviceInfo = new DeviceInfo(this.dvt);
-      this.processAttributes =
-        options.processAttributes ??
-        (await deviceInfo.sysmonProcessAttributes());
-      this.systemAttributes =
-        options.systemAttributes ?? (await deviceInfo.sysmonSystemAttributes());
+      this.processAttributes = options.processAttributes ?? (await deviceInfo.sysmonProcessAttributes());
+      this.systemAttributes = options.systemAttributes ?? (await deviceInfo.sysmonSystemAttributes());
     }
 
-    const intervalMs = Math.max(
-      options.intervalMs ?? Sysmontap.DEFAULT_INTERVAL_MS,
-      Sysmontap.MINIMUM_INTERVAL_MS,
-    );
+    const intervalMs = Math.max(options.intervalMs ?? Sysmontap.DEFAULT_INTERVAL_MS, Sysmontap.MINIMUM_INTERVAL_MS);
 
     this.builtConfig = {
       ur: Sysmontap.MINIMUM_INTERVAL_MS, // Output frequency (ms)
@@ -159,10 +147,7 @@ export class Sysmontap extends BaseInstrument {
       try {
         await this.requireChannel().call('stop')(undefined, false);
       } catch (error) {
-        log.debug(
-          'sysmontap stop() could not notify the device:',
-          error instanceof Error ? error.message : error,
-        );
+        log.debug('sysmontap stop() could not notify the device:', error instanceof Error ? error.message : error);
       }
     }
     log.debug('sysmontap sampling stopped');
@@ -194,11 +179,7 @@ export class Sysmontap extends BaseInstrument {
           plist = await channel.receivePlist(receiveAbortController.signal);
         } catch (err) {
           // End the stream rather than throwing out of the async iterator
-          if (
-            !this.stopRequested &&
-            !this.isAbortError(err) &&
-            !this.isConnectionClosedError(err)
-          ) {
+          if (!this.stopRequested && !this.isAbortError(err) && !this.isConnectionClosedError(err)) {
             log.warn('sysmontap stream ended due to an unexpected error:', err);
           }
           break;
@@ -273,10 +254,7 @@ export class Sysmontap extends BaseInstrument {
   /**
    * Zip an ordered list of attribute names with a raw value tuple.
    */
-  private zipAttributes(
-    attributes: string[],
-    values: unknown[],
-  ): Record<string, unknown> {
+  private zipAttributes(attributes: string[], values: unknown[]): Record<string, unknown> {
     const result: Record<string, unknown> = {};
     for (let i = 0; i < attributes.length; i++) {
       result[attributes[i]] = values[i];
@@ -285,10 +263,7 @@ export class Sysmontap extends BaseInstrument {
   }
 
   private isAbortError(err: unknown): boolean {
-    return (
-      err instanceof DOMException ||
-      (err instanceof Error && err.name === 'AbortError')
-    );
+    return err instanceof DOMException || (err instanceof Error && err.name === 'AbortError');
   }
 
   /**

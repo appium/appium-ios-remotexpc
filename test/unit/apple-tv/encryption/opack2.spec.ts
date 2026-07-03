@@ -1,19 +1,20 @@
-import { expect } from 'chai';
-import { describe, it } from 'mocha';
+import {describe, it} from 'node:test';
 
-import { Opack2 } from '../../../../src/lib/apple-tv/encryption/opack2.js';
-import { AppleTVError } from '../../../../src/lib/apple-tv/errors.js';
+import {expect} from 'chai';
 
-describe('Apple TV Encryption - Opack2', () => {
-  describe('loads', () => {
-    it('should decode primitive types', () => {
+import {Opack2} from '../../../../src/lib/apple-tv/encryption/opack2.js';
+import {AppleTVError} from '../../../../src/lib/apple-tv/errors.js';
+
+describe('Apple TV Encryption - Opack2', function () {
+  describe('loads', function () {
+    it('should decode primitive types', function () {
       expect(Opack2.loads(Buffer.from([0x03]))).to.equal(null);
       expect(Opack2.loads(Buffer.from([0x01]))).to.equal(true);
       expect(Opack2.loads(Buffer.from([0x02]))).to.equal(false);
       expect(Opack2.loads(Buffer.from([0x0a]))).to.equal(2);
     });
 
-    it('should decode an Apple TV M6 INFO-shaped payload', () => {
+    it('should decode an Apple TV M6 INFO-shaped payload', function () {
       const info = Opack2.dumps({
         remotepairing_serial_number: 'SYNTHETIC123',
         remotepairing_udid: 'synthetic-remote-pairing-udid',
@@ -23,15 +24,13 @@ describe('Apple TV Encryption - Opack2', () => {
 
       const decoded = Opack2.loads(info) as Record<string, unknown>;
 
-      expect(decoded.remotepairing_udid).to.equal(
-        'synthetic-remote-pairing-udid',
-      );
+      expect(decoded.remotepairing_udid).to.equal('synthetic-remote-pairing-udid');
       expect(decoded.remotepairing_serial_number).to.equal('SYNTHETIC123');
       expect(decoded.model).to.equal('AppleTV-Test');
       expect(decoded.name).to.equal('Test Apple TV');
     });
 
-    it('should round-trip objects encoded with dumps', () => {
+    it('should round-trip objects encoded with dumps', function () {
       const value = {
         name: 'Apple TV',
         identifier: 'synthetic-remote-pairing-udid',
@@ -42,74 +41,71 @@ describe('Apple TV Encryption - Opack2', () => {
     });
   });
 
-  describe('dumps - primitive types', () => {
-    it('should encode null', () => {
+  describe('dumps - primitive types', function () {
+    it('should encode null', function () {
       const result = Opack2.dumps(null);
       expect(result).to.deep.equal(Buffer.from([0x03]));
     });
 
-    it('should encode undefined as null', () => {
+    it('should encode undefined as null', function () {
       const result = Opack2.dumps(undefined);
       expect(result).to.deep.equal(Buffer.from([0x03]));
     });
 
-    it('should encode boolean true', () => {
+    it('should encode boolean true', function () {
       const result = Opack2.dumps(true);
       expect(result).to.deep.equal(Buffer.from([0x01]));
     });
 
-    it('should encode boolean false', () => {
+    it('should encode boolean false', function () {
       const result = Opack2.dumps(false);
       expect(result).to.deep.equal(Buffer.from([0x02]));
     });
   });
 
-  describe('dumps - number encoding', () => {
-    it('should encode small integers (0-39)', () => {
+  describe('dumps - number encoding', function () {
+    it('should encode small integers (0-39)', function () {
       expect(Opack2.dumps(0)).to.deep.equal(Buffer.from([0x08]));
       expect(Opack2.dumps(1)).to.deep.equal(Buffer.from([0x09]));
       expect(Opack2.dumps(39)).to.deep.equal(Buffer.from([0x2f]));
     });
 
-    it('should encode single byte integers (40-255)', () => {
+    it('should encode single byte integers (40-255)', function () {
       const result = Opack2.dumps(40);
       expect(result).to.deep.equal(Buffer.from([0x30, 0x28]));
     });
 
-    it('should encode 32-bit integers', () => {
+    it('should encode 32-bit integers', function () {
       const result = Opack2.dumps(256);
       expect(result[0]).to.equal(0x32);
       expect(result.length).to.equal(5);
     });
 
-    it('should encode negative numbers as float', () => {
+    it('should encode negative numbers as float', function () {
       const result = Opack2.dumps(-1);
       expect(result[0]).to.equal(0x35);
       expect(result.length).to.equal(5);
     });
 
-    it('should throw for numbers too large', () => {
+    it('should throw for numbers too large', function () {
       const tooLarge = Number.MAX_SAFE_INTEGER + 1;
-      expect(() => Opack2.dumps(tooLarge)).to.throw(
-        AppleTVError,
-        'Number too large for OPACK2 encoding',
-      );
+      expect(() => Opack2.dumps(tooLarge)).to.throw(AppleTVError, 'Number too large for OPACK2 encoding');
     });
   });
 
-  describe('dumps - string encoding', () => {
-    it('should encode empty string', () => {
+  describe('dumps - string encoding', function () {
+    it('should encode empty string', function () {
       const result = Opack2.dumps('');
       expect(result).to.deep.equal(Buffer.from([0x40]));
     });
 
-    it('should encode short strings', () => {
+    it('should encode short strings', function () {
       const result = Opack2.dumps('Hello');
       expect(result[0]).to.equal(0x45);
       expect(result.subarray(1).toString('utf8')).to.equal('Hello');
     });
 
-    it('should handle UTF-8 strings correctly', () => {
+    it('should handle UTF-8 strings correctly', function () {
       const utf8Str = '你好世界🌍';
       const result = Opack2.dumps(utf8Str);
       const byteLength = Buffer.from(utf8Str, 'utf8').length;
@@ -118,13 +114,13 @@ describe('Apple TV Encryption - Opack2', () => {
     });
   });
 
-  describe('dumps - buffer encoding', () => {
-    it('should encode empty buffer', () => {
+  describe('dumps - buffer encoding', function () {
+    it('should encode empty buffer', function () {
       const result = Opack2.dumps(Buffer.alloc(0));
       expect(result).to.deep.equal(Buffer.from([0x70]));
     });
 
-    it('should encode short buffers', () => {
+    it('should encode short buffers', function () {
       const buf = Buffer.from([0x01, 0x02, 0x03]);
       const result = Opack2.dumps(buf);
       expect(result[0]).to.equal(0x73);
@@ -132,13 +128,13 @@ describe('Apple TV Encryption - Opack2', () => {
     });
   });
 
-  describe('dumps - array encoding', () => {
-    it('should encode empty array', () => {
+  describe('dumps - array encoding', function () {
+    it('should encode empty array', function () {
       const result = Opack2.dumps([]);
       expect(result).to.deep.equal(Buffer.from([0xd0]));
     });
 
-    it('should encode small arrays', () => {
+    it('should encode small arrays', function () {
       const result = Opack2.dumps([1, 2, 3]);
       expect(result[0]).to.equal(0xd3);
       expect(result[1]).to.equal(0x09);
@@ -146,7 +142,7 @@ describe('Apple TV Encryption - Opack2', () => {
       expect(result[3]).to.equal(0x0b);
     });
 
-    it('should encode large arrays', () => {
+    it('should encode large arrays', function () {
       const arr = Array(20).fill(true);
       const result = Opack2.dumps(arr);
       expect(result[0]).to.equal(0xdf);
@@ -154,20 +150,20 @@ describe('Apple TV Encryption - Opack2', () => {
     });
   });
 
-  describe('dumps - object encoding', () => {
-    it('should encode empty object', () => {
+  describe('dumps - object encoding', function () {
+    it('should encode empty object', function () {
       const result = Opack2.dumps({});
       expect(result).to.deep.equal(Buffer.from([0xe0]));
     });
 
-    it('should encode small objects', () => {
-      const obj = { a: 1, b: 2 };
+    it('should encode small objects', function () {
+      const obj = {a: 1, b: 2};
       const result = Opack2.dumps(obj);
       expect(result[0]).to.equal(0xe2);
     });
 
-    it('should handle objects with undefined values', () => {
-      const obj: { a: number; b: undefined; c: number } = {
+    it('should handle objects with undefined values', function () {
+      const obj: {a: number; b: undefined; c: number} = {
         a: 1,
         b: undefined,
         c: 3,
@@ -176,7 +172,7 @@ describe('Apple TV Encryption - Opack2', () => {
       expect(result[0]).to.equal(0xe3);
     });
 
-    it('should encode large objects', () => {
+    it('should encode large objects', function () {
       const obj: Record<string, number> = {};
       for (let i = 0; i < 20; i++) {
         obj[`key${i}`] = i;
@@ -188,8 +184,8 @@ describe('Apple TV Encryption - Opack2', () => {
     });
   });
 
-  describe('dumps - error handling', () => {
-    it('should throw for unsupported types - function', () => {
+  describe('dumps - error handling', function () {
+    it('should throw for unsupported types - function', function () {
       const fn = () => {};
       expect(() => Opack2.dumps(fn as any)).to.throw(
         AppleTVError,
@@ -197,7 +193,7 @@ describe('Apple TV Encryption - Opack2', () => {
       );
     });
 
-    it('should throw for unsupported types - symbol', () => {
+    it('should throw for unsupported types - symbol', function () {
       const sym = Symbol('test');
       expect(() => Opack2.dumps(sym as any)).to.throw(
         AppleTVError,
@@ -206,8 +202,8 @@ describe('Apple TV Encryption - Opack2', () => {
     });
   });
 
-  describe('dumps - complex structures', () => {
-    it('should encode nested structures', () => {
+  describe('dumps - complex structures', function () {
+    it('should encode nested structures', function () {
       const complex = {
         users: [
           {

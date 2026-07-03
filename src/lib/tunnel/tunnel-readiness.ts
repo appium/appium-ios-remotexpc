@@ -1,4 +1,4 @@
-import type { TunnelRegistryEntry } from '../types.js';
+import type {TunnelRegistryEntry} from '../types.js';
 
 interface Waiter {
   resolve: (entry: TunnelRegistryEntry) => void;

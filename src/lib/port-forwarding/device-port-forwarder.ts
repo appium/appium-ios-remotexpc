@@ -1,12 +1,8 @@
-import { EventEmitter } from 'node:events';
-import type { Server, Socket } from 'node:net';
-import { createServer } from 'node:net';
+import {EventEmitter} from 'node:events';
+import type {Server, Socket} from 'node:net';
+import {createServer} from 'node:net';
 
-import type {
-  DevicePortForwarderEvents,
-  DevicePortForwarderOptions,
-  UpstreamSocketConnector,
-} from './types.js';
+import type {DevicePortForwarderEvents, DevicePortForwarderOptions, UpstreamSocketConnector} from './types.js';
 
 /**
  * A lifecycle-managed local forwarder that proxies local TCP clients to a device port.
@@ -21,11 +17,7 @@ export class DevicePortForwarder extends EventEmitter {
   private readonly fallbackConnector?: UpstreamSocketConnector;
   private readonly activeSockets = new Set<Socket>();
 
-  constructor(
-    localPort: number,
-    devicePort: number,
-    options: DevicePortForwarderOptions,
-  ) {
+  constructor(localPort: number, devicePort: number, options: DevicePortForwarderOptions) {
     super();
     this.localPort = localPort;
     this.devicePort = devicePort;
@@ -75,34 +67,16 @@ export class DevicePortForwarder extends EventEmitter {
     this.emit('stopped');
   }
 
-  override on<K extends keyof DevicePortForwarderEvents>(
-    eventName: K,
-    listener: DevicePortForwarderEvents[K],
-  ): this {
-    return super.on(
-      eventName,
-      listener as (...args: unknown[]) => void,
-    ) as this;
+  override on<K extends keyof DevicePortForwarderEvents>(eventName: K, listener: DevicePortForwarderEvents[K]): this {
+    return super.on(eventName, listener as (...args: unknown[]) => void) as this;
   }
 
-  override once<K extends keyof DevicePortForwarderEvents>(
-    eventName: K,
-    listener: DevicePortForwarderEvents[K],
-  ): this {
-    return super.once(
-      eventName,
-      listener as (...args: unknown[]) => void,
-    ) as this;
+  override once<K extends keyof DevicePortForwarderEvents>(eventName: K, listener: DevicePortForwarderEvents[K]): this {
+    return super.once(eventName, listener as (...args: unknown[]) => void) as this;
   }
 
-  override off<K extends keyof DevicePortForwarderEvents>(
-    eventName: K,
-    listener: DevicePortForwarderEvents[K],
-  ): this {
-    return super.off(
-      eventName,
-      listener as (...args: unknown[]) => void,
-    ) as this;
+  override off<K extends keyof DevicePortForwarderEvents>(eventName: K, listener: DevicePortForwarderEvents[K]): this {
+    return super.off(eventName, listener as (...args: unknown[]) => void) as this;
   }
 
   private async handleDownstreamConnection(localSocket: Socket): Promise<void> {

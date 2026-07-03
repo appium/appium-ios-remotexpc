@@ -1,10 +1,6 @@
-import { getLogger } from '../logger.js';
-import { RemoteXpcFramedTransport } from './remote-xpc-framed-transport.js';
-import {
-  type Service,
-  type ServicesResponse,
-  servicesFromXpcBody,
-} from './service-catalog.js';
+import {getLogger} from '../logger.js';
+import {RemoteXpcFramedTransport} from './remote-xpc-framed-transport.js';
+import {type Service, type ServicesResponse, servicesFromXpcBody} from './service-catalog.js';
 
 const log = getLogger('RsdServiceCatalogClient');
 
@@ -19,12 +15,9 @@ const SERVICE_AFTER_HANDSHAKE_TIMEOUT_MS = 10_000;
  * Sum of connect, handshake delay, and post-handshake service wait.
  */
 export const CONNECTION_DEFAULT_OPERATION_TIMEOUT_MS =
-  SERVICE_AFTER_HANDSHAKE_TIMEOUT_MS +
-  HANDSHAKE_DELAY_MS +
-  CONNECTION_CONNECT_TIMEOUT_MS;
+  SERVICE_AFTER_HANDSHAKE_TIMEOUT_MS + HANDSHAKE_DELAY_MS + CONNECTION_CONNECT_TIMEOUT_MS;
 /** TunnelManager retry budget; never shorter than a single connect attempt. */
-export const CONNECTION_OVERALL_TIMEOUT_MS =
-  CONNECTION_DEFAULT_OPERATION_TIMEOUT_MS;
+export const CONNECTION_OVERALL_TIMEOUT_MS = CONNECTION_DEFAULT_OPERATION_TIMEOUT_MS;
 
 export interface RsdServiceCatalogClientConnectOptions {
   /** Max time for this connect attempt (TCP + handshake + services). */
@@ -68,22 +61,15 @@ class RsdServiceCatalogClient {
   /**
    * Connect to Remote Service Discovery and return the advertised services.
    */
-  async connect(
-    options?: RsdServiceCatalogClientConnectOptions,
-  ): Promise<ServicesResponse> {
+  async connect(options?: RsdServiceCatalogClientConnectOptions): Promise<ServicesResponse> {
     if (this._isConnected) {
       throw new Error('Already connected');
     }
 
-    const operationTimeoutMs =
-      options?.timeoutMs ?? CONNECTION_DEFAULT_OPERATION_TIMEOUT_MS;
+    const operationTimeoutMs = options?.timeoutMs ?? CONNECTION_DEFAULT_OPERATION_TIMEOUT_MS;
 
     return new Promise<ServicesResponse>((resolve, reject) => {
-      const session = this.createConnectSession(
-        operationTimeoutMs,
-        resolve,
-        reject,
-      );
+      const session = this.createConnectSession(operationTimeoutMs, resolve, reject);
 
       try {
         const transport = new RemoteXpcFramedTransport(this._address);
@@ -140,9 +126,7 @@ class RsdServiceCatalogClient {
    */
   findService(serviceName: string): Service {
     const services = this.getServices();
-    const service = services.find(
-      (service) => service.serviceName === serviceName,
-    );
+    const service = services.find((service) => service.serviceName === serviceName);
     if (!service) {
       throw new Error(`Service ${serviceName} not found,
         Check if the device is locked.`);
@@ -182,9 +166,7 @@ class RsdServiceCatalogClient {
 
     const operationTimer = setTimeout(() => {
       this.forceCleanup();
-      settleFailure(
-        new Error(`Connection timed out after ${operationTimeoutMs}ms`),
-      );
+      settleFailure(new Error(`Connection timed out after ${operationTimeoutMs}ms`));
     }, operationTimeoutMs);
 
     return {
@@ -194,10 +176,7 @@ class RsdServiceCatalogClient {
     };
   }
 
-  private registerTransportHandlers(
-    session: ConnectSession,
-    transport: RemoteXpcFramedTransport,
-  ): void {
+  private registerTransportHandlers(session: ConnectSession, transport: RemoteXpcFramedTransport): void {
     transport.once('error', (error: Error) => {
       if (!this._isClosing) {
         log.error(`Connection error: ${error}`);
@@ -206,25 +185,18 @@ class RsdServiceCatalogClient {
       session.settleFailure(error);
     });
 
-    transport.on('message', (body) =>
-      this.processIncomingMessage(session, body),
-    );
+    transport.on('message', (body) => this.processIncomingMessage(session, body));
 
     transport.once('close', () => {
       this._isConnected = false;
 
       if (!session.isSettled()) {
-        session.settleFailure(
-          new Error('Connection closed before services were extracted'),
-        );
+        session.settleFailure(new Error('Connection closed before services were extracted'));
       }
     });
   }
 
-  private processIncomingMessage(
-    session: ConnectSession,
-    body: Parameters<typeof servicesFromXpcBody>[0],
-  ): void {
+  private processIncomingMessage(session: ConnectSession, body: Parameters<typeof servicesFromXpcBody>[0]): void {
     if (session.isSettled()) {
       return;
     }
@@ -262,9 +234,7 @@ class RsdServiceCatalogClient {
     }, SERVICE_AFTER_HANDSHAKE_TIMEOUT_MS);
   }
 
-  private async handlePostHandshakeServiceTimeout(
-    session: ConnectSession,
-  ): Promise<void> {
+  private async handlePostHandshakeServiceTimeout(session: ConnectSession): Promise<void> {
     this._serviceExtractionTimer = undefined;
 
     if (this._services !== undefined || session.isSettled()) {
@@ -312,13 +282,11 @@ class RsdServiceCatalogClient {
         void this._transport.close();
       }
     } catch (error) {
-      log.error(
-        `Error destroying socket: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      log.error(`Error destroying socket: ${error instanceof Error ? error.message : String(error)}`);
     } finally {
       this.cleanupResources();
     }
   }
 }
 
-export { RsdServiceCatalogClient, type Service, type ServicesResponse };
+export {RsdServiceCatalogClient, type Service, type ServicesResponse};

@@ -1,14 +1,11 @@
-import { randomUUID } from 'node:crypto';
+import {randomUUID} from 'node:crypto';
 
-import { getLogger } from '../../../lib/logger.js';
-import {
-  Http2Constants,
-  XpcConstants,
-} from '../../../lib/remote-xpc/constants.js';
-import { RemoteXpcFramedTransport } from '../../../lib/remote-xpc/remote-xpc-framed-transport.js';
-import { encodeMessage } from '../../../lib/remote-xpc/xpc-protocol.js';
-import type { XPCDictionary, XPCValue } from '../../../lib/types.js';
-import { BaseService } from '../base-service.js';
+import {getLogger} from '../../../lib/logger.js';
+import {Http2Constants, XpcConstants} from '../../../lib/remote-xpc/constants.js';
+import {RemoteXpcFramedTransport} from '../../../lib/remote-xpc/remote-xpc-framed-transport.js';
+import {encodeMessage} from '../../../lib/remote-xpc/xpc-protocol.js';
+import type {XPCDictionary, XPCValue} from '../../../lib/types.js';
+import {BaseService} from '../base-service.js';
 
 const log = getLogger('CoreDeviceService');
 
@@ -101,9 +98,7 @@ export abstract class CoreDeviceService extends BaseService {
     const transport = await this.getTransport();
     transport.sendDataFrame(
       encodeMessage({
-        flags:
-          XpcConstants.XPC_FLAGS_ALWAYS_SET |
-          XpcConstants.XPC_FLAGS_DATA_PRESENT,
+        flags: XpcConstants.XPC_FLAGS_ALWAYS_SET | XpcConstants.XPC_FLAGS_DATA_PRESENT,
         id: this.nextMessageId++,
         body,
       }),
@@ -116,13 +111,8 @@ export abstract class CoreDeviceService extends BaseService {
    * Some CoreDevice services (for example pasteboard) do not use the common
    * `CoreDevice.featureIdentifier` invocation envelope.
    */
-  protected async sendReceive(
-    body: XPCDictionary,
-    options: CoreDeviceInvokeOptions = {},
-  ): Promise<XPCDictionary> {
-    return this.enqueueInvocation(() =>
-      this.sendReceiveInternal(body, options),
-    );
+  protected async sendReceive(body: XPCDictionary, options: CoreDeviceInvokeOptions = {}): Promise<XPCDictionary> {
+    return this.enqueueInvocation(() => this.sendReceiveInternal(body, options));
   }
 
   /**
@@ -137,16 +127,12 @@ export abstract class CoreDeviceService extends BaseService {
     input: XPCDictionary = {},
     options: CoreDeviceInvokeOptions = {},
   ): Promise<XPCValue> {
-    return this.enqueueInvocation(() =>
-      this.invokeInternal(featureIdentifier, input, options),
-    );
+    return this.enqueueInvocation(() => this.invokeInternal(featureIdentifier, input, options));
   }
 
   protected async createTransport(): Promise<RemoteXpcFramedTransport> {
-    const transport = new RemoteXpcFramedTransport(
-      await this.resolveServiceAddress(this.serviceName),
-    );
-    await transport.connect({ timeoutMs: CONNECT_TIMEOUT_MS });
+    const transport = new RemoteXpcFramedTransport(await this.resolveServiceAddress(this.serviceName));
+    await transport.connect({timeoutMs: CONNECT_TIMEOUT_MS});
     return transport;
   }
 
@@ -216,11 +202,7 @@ export abstract class CoreDeviceService extends BaseService {
     options: CoreDeviceInvokeOptions,
   ): Promise<XPCValue> {
     const transport = await this.refreshTransport();
-    const request = this.buildEnvelope(
-      featureIdentifier,
-      input,
-      options.actionIdentifier,
-    );
+    const request = this.buildEnvelope(featureIdentifier, input, options.actionIdentifier);
 
     // Register the response listener before sending so a fast reply is not lost.
     const responsePromise = this.waitForResponse(
@@ -249,10 +231,7 @@ export abstract class CoreDeviceService extends BaseService {
     return output;
   }
 
-  private async sendReceiveInternal(
-    body: XPCDictionary,
-    options: CoreDeviceInvokeOptions,
-  ): Promise<XPCDictionary> {
+  private async sendReceiveInternal(body: XPCDictionary, options: CoreDeviceInvokeOptions): Promise<XPCDictionary> {
     const transport = await this.refreshTransport();
     const operationIdentifier = options.actionIdentifier ?? '<raw>';
 
@@ -284,8 +263,7 @@ export abstract class CoreDeviceService extends BaseService {
     actionIdentifier?: string,
   ): XPCDictionary {
     const request: XPCDictionary = {
-      'CoreDevice.CoreDeviceDDIProtocolVersion':
-        CORE_DEVICE_DDI_PROTOCOL_VERSION,
+      'CoreDevice.CoreDeviceDDIProtocolVersion': CORE_DEVICE_DDI_PROTOCOL_VERSION,
       'CoreDevice.coreDeviceVersion': CORE_DEVICE_VERSION,
       'CoreDevice.deviceIdentifier': randomUUID(),
       'CoreDevice.input': input,
@@ -322,11 +300,7 @@ export abstract class CoreDeviceService extends BaseService {
 
       const onMessage = (body: XPCDictionary): void => {
         // Skip empty/handshake acks; the real reply carries CoreDevice.* keys.
-        if (
-          !body ||
-          typeof body !== 'object' ||
-          Object.keys(body).length === 0
-        ) {
+        if (!body || typeof body !== 'object' || Object.keys(body).length === 0) {
           return;
         }
         cleanup();
@@ -340,11 +314,7 @@ export abstract class CoreDeviceService extends BaseService {
 
       const onClose = (): void => {
         cleanup();
-        reject(
-          new CoreDeviceError(
-            `CoreDevice connection closed while awaiting '${featureIdentifier ?? '<none>'}'`,
-          ),
-        );
+        reject(new CoreDeviceError(`CoreDevice connection closed while awaiting '${featureIdentifier ?? '<none>'}'`));
       };
 
       const timer = setTimeout(() => {
@@ -369,45 +339,26 @@ export abstract class CoreDeviceService extends BaseService {
  * holds a human-readable reason; surface it so callers can tell *why* (e.g. a
  * missing bundle id or pid) instead of a generic failure.
  */
-function buildInvocationError(
-  featureIdentifier: string | undefined,
-  response: XPCDictionary,
-): CoreDeviceError {
+function buildInvocationError(featureIdentifier: string | undefined, response: XPCDictionary): CoreDeviceError {
   const feature = featureIdentifier ?? '<none>';
   const deviceError = response['CoreDevice.error'];
-  if (
-    !deviceError ||
-    typeof deviceError !== 'object' ||
-    Array.isArray(deviceError)
-  ) {
-    return new CoreDeviceError(
-      `CoreDevice invocation '${feature}' returned no output`,
-      response,
-    );
+  if (!deviceError || typeof deviceError !== 'object' || Array.isArray(deviceError)) {
+    return new CoreDeviceError(`CoreDevice invocation '${feature}' returned no output`, response);
   }
 
   const error = deviceError as XPCDictionary;
-  const userInfo =
-    error.userInfo && typeof error.userInfo === 'object'
-      ? (error.userInfo as XPCDictionary)
-      : {};
+  const userInfo = error.userInfo && typeof error.userInfo === 'object' ? (error.userInfo as XPCDictionary) : {};
   const reason =
     pickString(userInfo.NSLocalizedDescription) ??
     pickString(userInfo.NSLocalizedFailureReason) ??
     pickString(userInfo.NSDebugDescription) ??
     'unknown error';
   const failureReason = pickString(userInfo.NSLocalizedFailureReason);
-  const detail =
-    failureReason && failureReason !== reason
-      ? `${reason} ${failureReason}`
-      : reason;
+  const detail = failureReason && failureReason !== reason ? `${reason} ${failureReason}` : reason;
   const domain = pickString(error.domain) ?? 'unknown';
   const code = typeof error.code === 'number' ? ` ${error.code}` : '';
 
-  return new CoreDeviceError(
-    `CoreDevice '${feature}' failed: ${detail} [${domain}${code}]`,
-    response,
-  );
+  return new CoreDeviceError(`CoreDevice '${feature}' failed: ${detail} [${domain}${code}]`, response);
 }
 
 function pickString(value: XPCValue | undefined): string | undefined {

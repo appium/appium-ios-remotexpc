@@ -1,13 +1,7 @@
-import {
-  STRONGBOX_CONTAINER_NAME,
-  TUNNEL_CONTAINER_NAME,
-} from './constants.js';
-import {
-  createLockdownServiceByUDID,
-  createLockdownServiceForTunnel,
-} from './lib/lockdown/index.js';
-import { DevicePortForwarder } from './lib/port-forwarding/index.js';
-import type { RsdServiceCatalogClient as RsdServiceCatalogClientType } from './lib/remote-xpc/rsd-service-catalog-client.js';
+import {STRONGBOX_CONTAINER_NAME, TUNNEL_CONTAINER_NAME} from './constants.js';
+import {createLockdownServiceByUDID, createLockdownServiceForTunnel} from './lib/lockdown/index.js';
+import {DevicePortForwarder} from './lib/port-forwarding/index.js';
+import type {RsdServiceCatalogClient as RsdServiceCatalogClientType} from './lib/remote-xpc/rsd-service-catalog-client.js';
 import {
   TunnelManager,
   TunnelReadinessCoordinator,
@@ -16,34 +10,31 @@ import {
   watchTunnelRegistryOnDead,
   watchTunnelRegistrySockets,
 } from './lib/tunnel/index.js';
-import {
-  TunnelRegistryServer,
-  startTunnelRegistryServer,
-} from './lib/tunnel/tunnel-registry-server.js';
-import { Usbmux, createUsbmux } from './lib/usbmux/index.js';
+import {TunnelRegistryServer, startTunnelRegistryServer} from './lib/tunnel/tunnel-registry-server.js';
+import {Usbmux, createUsbmux} from './lib/usbmux/index.js';
 import * as Services from './services.js';
-import { startCoreDeviceProxyTcp } from './services/ios/tunnel-service/index.js';
+import {startCoreDeviceProxyTcp} from './services/ios/tunnel-service/index.js';
 
-export type { Device as UsbmuxDevice } from './lib/usbmux/index.js';
+export type {Device as UsbmuxDevice} from './lib/usbmux/index.js';
 export type {
   DevicePortForwarderEvents,
   DevicePortForwarderOptions,
   UpstreamSocketConnector,
 } from './lib/port-forwarding/index.js';
-export type { RsdServiceCatalogClient } from './lib/remote-xpc/rsd-service-catalog-client.js';
+export type {RsdServiceCatalogClient} from './lib/remote-xpc/rsd-service-catalog-client.js';
 /**
  * @deprecated Use RsdServiceCatalogClient instead.
  */
 export type RemoteXpcConnection = RsdServiceCatalogClientType;
-export type { AfcService } from './services/ios/afc/index.js';
-export { AfcConnectionError } from './services/ios/afc/errors.js';
+export type {AfcService} from './services/ios/afc/index.js';
+export {AfcConnectionError} from './services/ios/afc/errors.js';
 export type {
   ZipConduitService,
   ZipConduitProgressCallback,
   ZipConduitInstallOptions,
   ZipConduitStreamStats,
 } from './services/ios/zipconduit/index.js';
-export type { InstallationProxyService } from './services/ios/installation-proxy/index.js';
+export type {InstallationProxyService} from './services/ios/installation-proxy/index.js';
 export {
   HID_BUTTON_STATE_CANCELED,
   HID_BUTTON_STATE_DOWN,
@@ -56,12 +47,9 @@ export type {
   HidButtonPressOptions,
   HidButtonState,
 } from './services/ios/hid-indigo/index.js';
-export {
-  CoreDeviceError,
-  CoreDeviceService,
-} from './services/ios/core-device/core-device-service.js';
-export type { CoreDeviceInvokeOptions } from './services/ios/core-device/core-device-service.js';
-export { AppService } from './services/ios/app-service/index.js';
+export {CoreDeviceError, CoreDeviceService} from './services/ios/core-device/core-device-service.js';
+export type {CoreDeviceInvokeOptions} from './services/ios/core-device/core-device-service.js';
+export {AppService} from './services/ios/app-service/index.js';
 export type {
   AppServiceProcessToken,
   InstalledApp,
@@ -69,18 +57,14 @@ export type {
   LaunchedApplication,
   ListAppsOptions,
 } from './services/ios/app-service/index.js';
-export { PasteboardService } from './services/ios/pasteboard/index.js';
-export { CoreDeviceInfoService } from './services/ios/device-info/index.js';
+export {PasteboardService} from './services/ios/pasteboard/index.js';
+export {CoreDeviceInfoService} from './services/ios/device-info/index.js';
 export type {
   CoreDeviceAttributes,
   CoreDeviceDisplayInfo,
   CoreDeviceLockState,
 } from './services/ios/device-info/index.js';
-export type {
-  SyslogEntry,
-  SyslogLabel,
-  SyslogLogLevel,
-} from './services/ios/syslog-service/syslog-entry-parser.js';
+export type {SyslogEntry, SyslogLabel, SyslogLogLevel} from './services/ios/syslog-service/syslog-entry-parser.js';
 
 export type {
   CrashReportsService,
@@ -129,33 +113,22 @@ export type {
   SysmonProcessInfo,
   SysmonSystemInfo,
 } from './lib/types.js';
-export { PowerAssertionType } from './lib/types.js';
-export { NetworkMessageType } from './services/ios/dvt/instruments/network-monitor.js';
-export type {
-  EnergyMetrics,
-  EnergyMonitorSample,
-} from './services/ios/dvt/instruments/energy-monitor.js';
-export {
-  TunnelAvailabilityError,
-  getTunnelForDevice,
-} from './lib/tunnel/tunnel-availability.js';
+export {PowerAssertionType} from './lib/types.js';
+export {NetworkMessageType} from './services/ios/dvt/instruments/network-monitor.js';
+export type {EnergyMetrics, EnergyMonitorSample} from './services/ios/dvt/instruments/energy-monitor.js';
+export {TunnelAvailabilityError, getTunnelForDevice} from './lib/tunnel/tunnel-availability.js';
 export {
   resolveTunnelService,
   resolveTunnelServicePorts,
   DEFAULT_TUNNEL_SERVICE_WAIT_MS,
 } from './lib/tunnel/tunnel-service-resolver.js';
-export type { TunnelEndpoint } from './lib/tunnel/tunnel-api-client.js';
-export { XCTestConfigurationEncoder } from './services/ios/testmanagerd/xctestconfiguration.js';
-export type { XCTestConfigurationParams } from './services/ios/testmanagerd/xctestconfiguration.js';
-export { ProcessControl } from './services/ios/dvt/instruments/process-control.js';
-export { Sysmontap } from './services/ios/dvt/instruments/sysmontap.js';
-export {
-  XCUITestService,
-  XCTestRunner,
-  createXCTestRunner,
-  runXCTest,
-} from './services/ios/testmanagerd/xcuitest.js';
-export { XCTestAttachment } from './services/ios/testmanagerd/xctest-attachment.js';
+export type {TunnelEndpoint} from './lib/tunnel/tunnel-api-client.js';
+export {XCTestConfigurationEncoder} from './services/ios/testmanagerd/xctestconfiguration.js';
+export type {XCTestConfigurationParams} from './services/ios/testmanagerd/xctestconfiguration.js';
+export {ProcessControl} from './services/ios/dvt/instruments/process-control.js';
+export {Sysmontap} from './services/ios/dvt/instruments/sysmontap.js';
+export {XCUITestService, XCTestRunner, createXCTestRunner, runXCTest} from './services/ios/testmanagerd/xcuitest.js';
+export {XCTestAttachment} from './services/ios/testmanagerd/xctest-attachment.js';
 export {
   XCTestRunError,
   XCTestEventType,
@@ -173,30 +146,15 @@ export type {
   XCTestEvent,
   XCTestSummary,
 } from './services/ios/testmanagerd/xctest-common.js';
-export { createBinaryPlist } from './lib/plist/index.js';
-export {
-  AppleTVPairingService,
-  UserInputService,
-} from './lib/apple-tv/pairing/index.js';
-export { AppleTVTunnelService } from './lib/apple-tv/tunnel/index.js';
-export type {
-  AppleTVPairingDiscoveryOptions,
-  AppleTVPairingOptions,
-} from './lib/apple-tv/pairing/index.js';
-export type {
-  AppleTVDiscoveryOptions,
-  AppleTVTunnelOptions,
-} from './lib/apple-tv/tunnel/index.js';
-export type {
-  AppleTVDevice,
-  AppleTVPairingResult,
-} from './lib/apple-tv/types.js';
-export type { LockdownService } from './lib/lockdown/index.js';
+export {createBinaryPlist} from './lib/plist/index.js';
+export {AppleTVPairingService, UserInputService} from './lib/apple-tv/pairing/index.js';
+export {AppleTVTunnelService} from './lib/apple-tv/tunnel/index.js';
+export type {AppleTVPairingDiscoveryOptions, AppleTVPairingOptions} from './lib/apple-tv/pairing/index.js';
+export type {AppleTVDiscoveryOptions, AppleTVTunnelOptions} from './lib/apple-tv/tunnel/index.js';
+export type {AppleTVDevice, AppleTVPairingResult} from './lib/apple-tv/types.js';
+export type {LockdownService} from './lib/lockdown/index.js';
 
-export {
-  connectViaTunnel,
-  connectViaUsbmux,
-} from './lib/port-forwarding/index.js';
+export {connectViaTunnel, connectViaUsbmux} from './lib/port-forwarding/index.js';
 
 export {
   STRONGBOX_CONTAINER_NAME,

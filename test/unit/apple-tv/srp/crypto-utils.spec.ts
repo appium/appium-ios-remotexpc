@@ -1,19 +1,10 @@
-import { expect } from 'chai';
-import { describe, it } from 'mocha';
-import { randomBytes } from 'node:crypto';
+import {randomBytes} from 'node:crypto';
+import {describe, it} from 'node:test';
 
-import {
-  SRP_GENERATOR,
-  SRP_KEY_LENGTH_BYTES,
-  SRP_PRIME_3072,
-} from '../../../../src/lib/apple-tv/constants.js';
-import {
-  calculateK,
-  calculateM1,
-  calculateU,
-  calculateX,
-  hash,
-} from '../../../../src/lib/apple-tv/srp/crypto-utils.js';
+import {expect} from 'chai';
+
+import {SRP_GENERATOR, SRP_KEY_LENGTH_BYTES, SRP_PRIME_3072} from '../../../../src/lib/apple-tv/constants.js';
+import {calculateK, calculateM1, calculateU, calculateX, hash} from '../../../../src/lib/apple-tv/srp/crypto-utils.js';
 
 describe('Apple TV SRP - Crypto Utils', function () {
   describe('hash', function () {

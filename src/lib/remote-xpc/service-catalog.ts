@@ -1,5 +1,5 @@
-import type { XPCDictionary } from '../types.js';
-import { decodeMessage } from './xpc-protocol.js';
+import type {XPCDictionary} from '../types.js';
+import {decodeMessage} from './xpc-protocol.js';
 
 export interface Service {
   serviceName: string;
@@ -27,7 +27,7 @@ export class ServiceCatalogCollector {
 
     while (pending.length > 0) {
       try {
-        const { message, bytesConsumed } = decodeMessage(pending);
+        const {message, bytesConsumed} = decodeMessage(pending);
         pending = pending.subarray(bytesConsumed);
 
         if (message.body === null || message.body === undefined) {
@@ -52,19 +52,13 @@ export class ServiceCatalogCollector {
 /**
  * Build the service list from a decoded RSD handshake body (`peer_info`).
  */
-export function servicesFromXpcBody(
-  body: XPCDictionary | null | undefined,
-): ServicesResponse | null {
+export function servicesFromXpcBody(body: XPCDictionary | null | undefined): ServicesResponse | null {
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     return null;
   }
 
   const servicesDict = body.Services;
-  if (
-    !servicesDict ||
-    typeof servicesDict !== 'object' ||
-    Array.isArray(servicesDict)
-  ) {
+  if (!servicesDict || typeof servicesDict !== 'object' || Array.isArray(servicesDict)) {
     return null;
   }
 
@@ -76,10 +70,9 @@ export function servicesFromXpcBody(
     const portValue = (info as XPCDictionary).Port;
     services.push({
       serviceName,
-      port:
-        portValue !== undefined && portValue !== null ? String(portValue) : '',
+      port: portValue !== undefined && portValue !== null ? String(portValue) : '',
     });
   }
 
-  return services.length > 0 ? { services } : null;
+  return services.length > 0 ? {services} : null;
 }

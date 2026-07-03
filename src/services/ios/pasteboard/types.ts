@@ -1,4 +1,4 @@
-import type { XPCDictionary } from '../../../lib/types.js';
+import type {XPCDictionary} from '../../../lib/types.js';
 
 export type PasteboardDataInclusionPolicy = XPCDictionary;
 

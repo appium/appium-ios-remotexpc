@@ -1,10 +1,7 @@
-import { BaseItem, strongbox } from '@appium/strongbox';
+import {BaseItem, strongbox} from '@appium/strongbox';
 
-import {
-  PAIR_RECORD_ITEM_PREFIX,
-  STRONGBOX_CONTAINER_NAME,
-} from '../../constants.js';
-import { getLogger } from '../logger.js';
+import {PAIR_RECORD_ITEM_PREFIX, STRONGBOX_CONTAINER_NAME} from '../../constants.js';
+import {getLogger} from '../logger.js';
 
 const log = getLogger('PairRecord');
 
@@ -43,32 +40,18 @@ export interface RawPairRecordResponse {
  * @param response - Response from plist.parsePlist(data.payload.PairRecordData)
  * @returns Formatted pair-record object with properly structured data
  */
-export function processPlistResponse(
-  response: RawPairRecordResponse,
-): PairRecord {
+export function processPlistResponse(response: RawPairRecordResponse): PairRecord {
   return {
     HostID: response.HostID || null,
     SystemBUID: response.SystemBUID || null,
-    HostCertificate: response.HostCertificate
-      ? bufferToPEMString(response.HostCertificate)
-      : null,
-    HostPrivateKey: response.HostPrivateKey
-      ? bufferToPEMString(response.HostPrivateKey)
-      : null,
-    DeviceCertificate: response.DeviceCertificate
-      ? bufferToPEMString(response.DeviceCertificate)
-      : null,
-    RootCertificate: response.RootCertificate
-      ? bufferToPEMString(response.RootCertificate)
-      : null,
-    RootPrivateKey: response.RootPrivateKey
-      ? bufferToPEMString(response.RootPrivateKey)
-      : null,
+    HostCertificate: response.HostCertificate ? bufferToPEMString(response.HostCertificate) : null,
+    HostPrivateKey: response.HostPrivateKey ? bufferToPEMString(response.HostPrivateKey) : null,
+    DeviceCertificate: response.DeviceCertificate ? bufferToPEMString(response.DeviceCertificate) : null,
+    RootCertificate: response.RootCertificate ? bufferToPEMString(response.RootCertificate) : null,
+    RootPrivateKey: response.RootPrivateKey ? bufferToPEMString(response.RootPrivateKey) : null,
     WiFiMACAddress: response.WiFiMACAddress || null,
     // For EscrowBag, we need it as a base64 string
-    EscrowBag: response.EscrowBag
-      ? response.EscrowBag.toString('base64')
-      : null,
+    EscrowBag: response.EscrowBag ? response.EscrowBag.toString('base64') : null,
   };
 }
 
@@ -78,10 +61,7 @@ export function processPlistResponse(
  * @param pairRecord - Pair record to save.
  * @returns Promise that resolves when record is saved.
  */
-export async function savePairRecord(
-  udid: string,
-  pairRecord: PairRecord,
-): Promise<void> {
+export async function savePairRecord(udid: string, pairRecord: PairRecord): Promise<void> {
   const itemName = getItemName(udid);
   const item = new BaseItem(itemName, getBox());
   try {

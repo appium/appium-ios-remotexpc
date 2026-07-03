@@ -4,14 +4,7 @@
  * @param {{log: {info: (message: string) => void}, label: string, startedAt: number, timeoutMs: number, barWidth: number, intervalMs: number}} opts
  * @returns {{succeed: (message?: string) => void, fail: (message?: string) => void}}
  */
-export function startTimeoutProgressLogger({
-  log,
-  label,
-  startedAt,
-  timeoutMs,
-  barWidth,
-  intervalMs,
-}) {
+export function startTimeoutProgressLogger({log, label, startedAt, timeoutMs, barWidth, intervalMs}) {
   /** @type {NodeJS.Timeout | null} */
   let timer = null;
   let isStopped = false;
@@ -27,9 +20,7 @@ export function startTimeoutProgressLogger({
     const filledWidth = Math.round(progress * barWidth);
     const emptyWidth = barWidth - filledWidth;
     const bar = `${'#'.repeat(filledWidth)}${'-'.repeat(emptyWidth)}`;
-    log.info(
-      `${label}: [${bar}]${status && status !== 'waiting' ? ` - ${status}` : ''}`,
-    );
+    log.info(`${label}: [${bar}]${status && status !== 'waiting' ? ` - ${status}` : ''}`);
   };
 
   /**
