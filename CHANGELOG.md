@@ -1,3 +1,9 @@
+## [5.7.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.6.3...v5.7.0) (2026-07-03)
+
+### Features
+
+* **coredevice:** add coredevice device info service ([#267](https://github.com/appium/appium-ios-remotexpc/issues/267)) ([9f42b50](https://github.com/appium/appium-ios-remotexpc/commit/9f42b50f2248cc661bece1ae8855dd26c6d37914))
+
 ## [5.6.3](https://github.com/appium/appium-ios-remotexpc/compare/v5.6.2...v5.6.3) (2026-07-02)
 
 ### Miscellaneous Chores
