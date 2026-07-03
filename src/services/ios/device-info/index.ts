@@ -1,4 +1,5 @@
-import type {XPCDictionary, XPCValue} from '../../../lib/types.js';
+import {asDictionary} from '../../../lib/remote-xpc/xpc-value.js';
+import type {XPCDictionary} from '../../../lib/types.js';
 import {type CoreDeviceInvokeOptions, CoreDeviceService} from '../core-device/core-device-service.js';
 
 const FEATURE_GET_DEVICE_INFO = 'com.apple.coredevice.feature.getdeviceinfo';
@@ -52,7 +53,7 @@ export class CoreDeviceInfoService extends CoreDeviceService {
    * device class, …).
    */
   async getDeviceInfo(options: CoreDeviceInvokeOptions = {}): Promise<CoreDeviceAttributes> {
-    return asDict(await this.invoke(FEATURE_GET_DEVICE_INFO, {}, options));
+    return asDictionary(await this.invoke(FEATURE_GET_DEVICE_INFO, {}, options)) ?? {};
   }
 
   /**
@@ -60,7 +61,7 @@ export class CoreDeviceInfoService extends CoreDeviceService {
    * mapping and screenshot geometry.
    */
   async getDisplayInfo(options: CoreDeviceInvokeOptions = {}): Promise<CoreDeviceDisplayInfo> {
-    return asDict(await this.invoke(FEATURE_GET_DISPLAY_INFO, {}, options));
+    return asDictionary(await this.invoke(FEATURE_GET_DISPLAY_INFO, {}, options)) ?? {};
   }
 
   /**
@@ -72,7 +73,7 @@ export class CoreDeviceInfoService extends CoreDeviceService {
    * {@link CoreDeviceError}.
    */
   async getLockState(options: CoreDeviceInvokeOptions = {}): Promise<CoreDeviceLockState> {
-    return asDict(await this.invoke(FEATURE_GET_LOCK_STATE, {}, options));
+    return asDictionary(await this.invoke(FEATURE_GET_LOCK_STATE, {}, options)) ?? {};
   }
 
   /**
@@ -84,15 +85,8 @@ export class CoreDeviceInfoService extends CoreDeviceService {
    * values. Pass `timeoutMs` via `options` to bound the wait.
    */
   async queryMobileGestalt(keys: string[], options: CoreDeviceInvokeOptions = {}): Promise<XPCDictionary> {
-    return asDict(await this.invoke(FEATURE_QUERY_MOBILEGESTALT, {keys}, options));
+    return asDictionary(await this.invoke(FEATURE_QUERY_MOBILEGESTALT, {keys}, options)) ?? {};
   }
-}
-
-function asDict(value: XPCValue): XPCDictionary {
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    return value as XPCDictionary;
-  }
-  return {};
 }
 
 export default CoreDeviceInfoService;
