@@ -8,6 +8,7 @@ import AfcService from './services/ios/afc/index.js';
 import {AppService} from './services/ios/app-service/index.js';
 import {type Service} from './services/ios/base-service.js';
 import {CrashReportsService} from './services/ios/crash-reports/index.js';
+import {CoreDeviceInfoService} from './services/ios/device-info/index.js';
 import DiagnosticsService from './services/ios/diagnostic-service/index.js';
 import {DVTSecureSocketProxyService} from './services/ios/dvt/index.js';
 import {ApplicationListing} from './services/ios/dvt/instruments/application-listing.js';
@@ -121,6 +122,17 @@ export async function startAppService(udid: string): Promise<AppService> {
 export async function startPasteboardService(udid: string): Promise<PasteboardService> {
   await requireCatalogService(udid, PasteboardService.RSD_SERVICE_NAME);
   return new PasteboardService(udid);
+}
+
+/**
+ * Start the CoreDevice DeviceInfo service for the given device UDID.
+ *
+ * Queries device identity and state (device/display info, lock state, and
+ * MobileGestalt values) over RemoteXPC — the backend used by `devicectl`.
+ */
+export async function startCoreDeviceInfoService(udid: string): Promise<CoreDeviceInfoService> {
+  await requireCatalogService(udid, CoreDeviceInfoService.RSD_SERVICE_NAME);
+  return new CoreDeviceInfoService(udid);
 }
 
 const RSD_SYSLOG_BINARY_SERVICE_NAME = 'com.apple.os_trace_relay.shim.remote';

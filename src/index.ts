@@ -58,6 +58,12 @@ export type {
   ListAppsOptions,
 } from './services/ios/app-service/index.js';
 export {PasteboardService} from './services/ios/pasteboard/index.js';
+export {CoreDeviceInfoService} from './services/ios/device-info/index.js';
+export type {
+  CoreDeviceAttributes,
+  CoreDeviceDisplayInfo,
+  CoreDeviceLockState,
+} from './services/ios/device-info/index.js';
 export type {SyslogEntry, SyslogLabel, SyslogLogLevel} from './services/ios/syslog-service/syslog-entry-parser.js';
 
 export type {
