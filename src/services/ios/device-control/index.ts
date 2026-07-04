@@ -15,7 +15,7 @@ export interface DeviceOrientationState {
   currentDeviceOrientation?: string;
   /** The most recent non-flat orientation (ignores face-up/face-down). */
   currentDeviceNonFlatOrientation?: string;
-  /** Whether iOS orientation lock is engaged (rotation still applies). */
+  /** Whether iOS orientation lock is engaged; when `true`, rotation may be prevented. */
   currentDeviceOrientationLocked?: boolean;
   [key: string]: unknown;
 }
