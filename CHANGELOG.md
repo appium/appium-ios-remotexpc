@@ -1,3 +1,9 @@
+## [5.7.1](https://github.com/appium/appium-ios-remotexpc/compare/v5.7.0...v5.7.1) (2026-07-04)
+
+### Code Refactoring
+
+* **xpc:** centralize `asDictionary` helper ([#268](https://github.com/appium/appium-ios-remotexpc/issues/268)) ([ce9ec69](https://github.com/appium/appium-ios-remotexpc/commit/ce9ec69c6db6e2515fcfb8a262d920e6715f09e2))
+
 ## [5.7.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.6.3...v5.7.0) (2026-07-03)
 
 ### Features
