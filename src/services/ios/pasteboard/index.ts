@@ -1,3 +1,4 @@
+import {asDictionary} from '../../../lib/remote-xpc/xpc-value.js';
 import type {XPCDictionary, XPCValue} from '../../../lib/types.js';
 import {CoreDeviceService} from '../core-device/core-device-service.js';
 import {
@@ -176,13 +177,6 @@ export class PasteboardService extends CoreDeviceService {
 function pickSnapshot(snapshotOrReply: XPCDictionary | PasteboardSnapshot | PasteboardPullReply): PasteboardSnapshot {
   const pasteboard = asDictionary(snapshotOrReply.pasteboard);
   return (pasteboard ?? snapshotOrReply) as PasteboardSnapshot;
-}
-
-function asDictionary(value: XPCValue | undefined): XPCDictionary | undefined {
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    return value as XPCDictionary;
-  }
-  return undefined;
 }
 
 function decodeUtf8(value: XPCValue): string | undefined {
