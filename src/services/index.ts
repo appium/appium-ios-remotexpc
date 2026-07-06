@@ -1,7 +1,4 @@
-import {
-  TunnelRegistryServer,
-  startTunnelRegistryServer,
-} from '../lib/tunnel/tunnel-registry-server.js';
+import {TunnelRegistryServer, startTunnelRegistryServer} from '../lib/tunnel/tunnel-registry-server.js';
 import * as afc from './ios/afc/index.js';
 import * as appService from './ios/app-service/index.js';
 import * as crashReports from './ios/crash-reports/index.js';

@@ -1,5 +1,5 @@
-import { TLV8_MAX_FRAGMENT_SIZE } from '../constants.js';
-import type { TLV8Item } from '../types.js';
+import {TLV8_MAX_FRAGMENT_SIZE} from '../constants.js';
+import type {TLV8Item} from '../types.js';
 
 /**
  * Encodes an array of TLV8 items into a single TLV8-compliant buffer.
@@ -11,19 +11,13 @@ import type { TLV8Item } from '../types.js';
 export function encodeTLV8(items: TLV8Item[]): Buffer {
   const chunks: Buffer[] = [];
 
-  for (const { type, data } of items) {
+  for (const {type, data} of items) {
     let offset = 0;
 
     while (offset < data.length) {
-      const fragmentLength = Math.min(
-        TLV8_MAX_FRAGMENT_SIZE,
-        data.length - offset,
-      );
+      const fragmentLength = Math.min(TLV8_MAX_FRAGMENT_SIZE, data.length - offset);
 
-      chunks.push(
-        Buffer.from([type, fragmentLength]),
-        data.subarray(offset, offset + fragmentLength),
-      );
+      chunks.push(Buffer.from([type, fragmentLength]), data.subarray(offset, offset + fragmentLength));
 
       offset += fragmentLength;
     }

@@ -1,8 +1,8 @@
-import { DOMParser, type Element, Node } from '@xmldom/xmldom';
+import {DOMParser, type Element, Node} from '@xmldom/xmldom';
 
-import { getLogger } from '../logger.js';
-import type { PlistArray, PlistDictionary, PlistValue } from '../types.js';
-import { PlistService } from './plist-service.js';
+import {getLogger} from '../logger.js';
+import type {PlistArray, PlistDictionary, PlistValue} from '../types.js';
+import {PlistService} from './plist-service.js';
 import {
   cleanXmlWithReplacementChar,
   ensureString,
@@ -34,9 +34,7 @@ export function parsePlist(xmlData: string | Buffer): PlistDictionary {
 
   if (!isValidXml(xmlStr)) {
     if (PlistService.isVerboseErrorLoggingEnabled()) {
-      errorLog.debug(
-        `Invalid XML: missing root element - XML content: ${xmlStr.substring(0, 200)}...`,
-      );
+      errorLog.debug(`Invalid XML: missing root element - XML content: ${xmlStr.substring(0, 200)}...`);
     }
     throw new Error('Invalid XML: missing root element or malformed XML');
   }

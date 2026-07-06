@@ -1,4 +1,4 @@
-import type { Socket } from 'node:net';
+import type {Socket} from 'node:net';
 
 /**
  * Function signature for opening an upstream device socket.
@@ -8,11 +8,7 @@ export type UpstreamSocketConnector = () => Promise<Socket>;
 /**
  * Function signature for parameterized connector factories.
  */
-export type PortForwardingConnector = (
-  udid: string,
-  devicePort: number,
-  connectTimeoutMs?: number,
-) => Promise<Socket>;
+export type PortForwardingConnector = (udid: string, devicePort: number, connectTimeoutMs?: number) => Promise<Socket>;
 
 /**
  * Options for {@link DevicePortForwarder}.

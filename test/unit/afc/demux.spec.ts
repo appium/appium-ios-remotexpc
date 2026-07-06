@@ -1,16 +1,14 @@
-import { expect } from 'chai';
 import net from 'node:net';
+import {describe, it} from 'node:test';
 
-import { readUInt64LE } from '../../../src/services/ios/afc/codec.js';
-import { AFC_HEADER_SIZE } from '../../../src/services/ios/afc/constants.js';
-import { AfcPacketDemux } from '../../../src/services/ios/afc/demux.js';
-import { AfcError, AfcOpcode } from '../../../src/services/ios/afc/enums.js';
+import {expect} from 'chai';
 
-function encodeResponse(
-  op: AfcOpcode,
-  packetNum: bigint,
-  payload: Buffer = Buffer.alloc(0),
-): Buffer {
+import {readUInt64LE} from '../../../src/services/ios/afc/codec.js';
+import {AFC_HEADER_SIZE} from '../../../src/services/ios/afc/constants.js';
+import {AfcPacketDemux} from '../../../src/services/ios/afc/demux.js';
+import {AfcError, AfcOpcode} from '../../../src/services/ios/afc/enums.js';
+
+function encodeResponse(op: AfcOpcode, packetNum: bigint, payload: Buffer = Buffer.alloc(0)): Buffer {
   const entireLen = AFC_HEADER_SIZE + payload.length;
   const header = Buffer.alloc(AFC_HEADER_SIZE);
   Buffer.from('CFA6LPAA', 'ascii').copy(header, 0);
@@ -23,25 +21,16 @@ function encodeResponse(
 
 describe('AfcPacketDemux', function () {
   it('routes responses to the matching packet_num', async function () {
-    const { server, client, deviceSide, getSocket } =
-      await createPairedSockets();
+    const {server, client, deviceSide, getSocket} = await createPairedSockets();
     const demux = new AfcPacketDemux(getSocket, () => {});
 
-    const responseTask = demux.sendAndWait(
-      AfcOpcode.READ_DIR,
-      Buffer.from('/Downloads\0'),
-    );
+    const responseTask = demux.sendAndWait(AfcOpcode.READ_DIR, Buffer.from('/Downloads\0'));
 
-    const requestHeader = await readExactFromSocket(
-      deviceSide,
-      AFC_HEADER_SIZE,
-    );
+    const requestHeader = await readExactFromSocket(deviceSide, AFC_HEADER_SIZE);
     const packetNum = readUInt64LE(requestHeader, 24);
-    deviceSide.write(
-      encodeResponse(AfcOpcode.DATA, packetNum, Buffer.from('file.txt\0\0')),
-    );
+    deviceSide.write(encodeResponse(AfcOpcode.DATA, packetNum, Buffer.from('file.txt\0\0')));
 
-    const { status, data } = await responseTask;
+    const {status, data} = await responseTask;
     expect(status).to.equal(AfcError.SUCCESS);
     expect(data.toString('utf8')).to.include('file.txt');
 
@@ -52,27 +41,18 @@ describe('AfcPacketDemux', function () {
   });
 
   it('parses STATUS responses', async function () {
-    const { server, client, deviceSide, getSocket } =
-      await createPairedSockets();
+    const {server, client, deviceSide, getSocket} = await createPairedSockets();
     const demux = new AfcPacketDemux(getSocket, () => {});
 
-    const responseTask = demux.sendAndWait(
-      AfcOpcode.GET_FILE_INFO,
-      Buffer.from('/missing\0'),
-    );
+    const responseTask = demux.sendAndWait(AfcOpcode.GET_FILE_INFO, Buffer.from('/missing\0'));
 
-    const requestHeader = await readExactFromSocket(
-      deviceSide,
-      AFC_HEADER_SIZE,
-    );
+    const requestHeader = await readExactFromSocket(deviceSide, AFC_HEADER_SIZE);
     const packetNum = readUInt64LE(requestHeader, 24);
     const statusPayload = Buffer.alloc(8);
     statusPayload.writeBigUInt64LE(BigInt(AfcError.OBJECT_NOT_FOUND), 0);
-    deviceSide.write(
-      encodeResponse(AfcOpcode.STATUS, packetNum, statusPayload),
-    );
+    deviceSide.write(encodeResponse(AfcOpcode.STATUS, packetNum, statusPayload));
 
-    const { status, data } = await responseTask;
+    const {status, data} = await responseTask;
     expect(status).to.equal(AfcError.OBJECT_NOT_FOUND);
     expect(data.length).to.equal(0);
 
@@ -83,27 +63,18 @@ describe('AfcPacketDemux', function () {
   });
 
   it('parses FILE_OPEN_RES responses with file handle payload', async function () {
-    const { server, client, deviceSide, getSocket } =
-      await createPairedSockets();
+    const {server, client, deviceSide, getSocket} = await createPairedSockets();
     const demux = new AfcPacketDemux(getSocket, () => {});
 
-    const responseTask = demux.sendAndWait(
-      AfcOpcode.FILE_OPEN,
-      Buffer.from('file\0'),
-    );
+    const responseTask = demux.sendAndWait(AfcOpcode.FILE_OPEN, Buffer.from('file\0'));
 
-    const requestHeader = await readExactFromSocket(
-      deviceSide,
-      AFC_HEADER_SIZE,
-    );
+    const requestHeader = await readExactFromSocket(deviceSide, AFC_HEADER_SIZE);
     const packetNum = readUInt64LE(requestHeader, 24);
     const handlePayload = Buffer.alloc(8);
     handlePayload.writeBigUInt64LE(1n, 0);
-    deviceSide.write(
-      encodeResponse(AfcOpcode.FILE_OPEN_RES, packetNum, handlePayload),
-    );
+    deviceSide.write(encodeResponse(AfcOpcode.FILE_OPEN_RES, packetNum, handlePayload));
 
-    const { status, data } = await responseTask;
+    const {status, data} = await responseTask;
     expect(status).to.equal(AfcError.SUCCESS);
     expect(data.readBigUInt64LE(0)).to.equal(1n);
 
@@ -114,8 +85,7 @@ describe('AfcPacketDemux', function () {
   });
 
   it('resets packet_num when the socket is replaced', async function () {
-    const { server, client, deviceSide, getSocket } =
-      await createPairedSockets();
+    const {server, client, deviceSide, getSocket} = await createPairedSockets();
     const demux = new AfcPacketDemux(getSocket, () => {});
 
     const firstTask = demux.sendAndWait(AfcOpcode.GET_DEVINFO);
@@ -160,9 +130,7 @@ async function createPairedSockets(): Promise<{
   }
 
   const client = await new Promise<net.Socket>((resolve, reject) => {
-    const conn = net.createConnection(address.port, address.address, () =>
-      resolve(conn),
-    );
+    const conn = net.createConnection(address.port, address.address, () => resolve(conn));
     conn.once('error', reject);
   });
 

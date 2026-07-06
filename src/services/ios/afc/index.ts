@@ -1,16 +1,14 @@
-import { minimatch } from 'minimatch';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import type net from 'node:net';
 import path from 'node:path';
-import { type Readable, type Writable } from 'node:stream';
-import { pipeline } from 'node:stream/promises';
+import {type Readable, type Writable} from 'node:stream';
+import {pipeline} from 'node:stream/promises';
 
-import { getLogger } from '../../../lib/logger.js';
-import {
-  DEFAULT_TUNNEL_SERVICE_WAIT_MS,
-  resolveTunnelService,
-} from '../../../lib/tunnel/tunnel-service-resolver.js';
+import {minimatch} from 'minimatch';
+
+import {getLogger} from '../../../lib/logger.js';
+import {DEFAULT_TUNNEL_SERVICE_WAIT_MS, resolveTunnelService} from '../../../lib/tunnel/tunnel-service-resolver.js';
 import {
   buildClosePayload,
   buildFopenPayload,
@@ -26,12 +24,12 @@ import {
   parseKeyValueNullList,
   writeUInt64LE,
 } from './codec.js';
-import { AFC_FOPEN_TEXTUAL_MODES, MAXIMUM_WRITE_SIZE } from './constants.js';
-import { AfcPacketDemux } from './demux.js';
-import { AfcError, AfcFileMode, AfcOpcode } from './enums.js';
-import { AfcConnectionError } from './errors.js';
-import { PullLocalNameAllocator } from './pull-local-name-allocator.js';
-import { createAfcReadStream, createAfcWriteStream } from './stream-utils.js';
+import {AFC_FOPEN_TEXTUAL_MODES, MAXIMUM_WRITE_SIZE} from './constants.js';
+import {AfcPacketDemux} from './demux.js';
+import {AfcError, AfcFileMode, AfcOpcode} from './enums.js';
+import {AfcConnectionError} from './errors.js';
+import {PullLocalNameAllocator} from './pull-local-name-allocator.js';
+import {createAfcReadStream, createAfcWriteStream} from './stream-utils.js';
 
 const log = getLogger('AfcService');
 
@@ -102,11 +100,7 @@ export class AfcService {
 
   constructor(udid: string, silent?: boolean, rsdServiceName?: string);
   constructor(socket: net.Socket, silent?: boolean);
-  constructor(
-    udidOrSocket: string | net.Socket,
-    silent?: boolean,
-    rsdServiceName?: string,
-  ) {
+  constructor(udidOrSocket: string | net.Socket, silent?: boolean, rsdServiceName?: string) {
     if (typeof udidOrSocket === 'string') {
       this.udid = udidOrSocket;
       this.rsdServiceName = rsdServiceName ?? AfcService.RSD_SERVICE_NAME;
@@ -128,20 +122,14 @@ export class AfcService {
    * List directory entries. Returned entries do not include '.' and '..'
    */
   async listdir(dirPath: string): Promise<string[]> {
-    const data = await this._doOperation(
-      AfcOpcode.READ_DIR,
-      buildStatPayload(dirPath),
-    );
+    const data = await this._doOperation(AfcOpcode.READ_DIR, buildStatPayload(dirPath));
     const entries = parseCStringArray(data);
     return entries.filter((x) => !NON_LISTABLE_ENTRIES.includes(x));
   }
 
   async stat(filePath: string): Promise<StatInfo> {
     try {
-      const data = await this._doOperation(
-        AfcOpcode.GET_FILE_INFO,
-        buildStatPayload(filePath),
-      );
+      const data = await this._doOperation(AfcOpcode.GET_FILE_INFO, buildStatPayload(filePath));
       const kv = parseKeyValueNullList(data);
 
       const out: StatInfo = {
@@ -179,37 +167,26 @@ export class AfcService {
     }
   }
 
-  async fopen(
-    filePath: string,
-    mode: keyof typeof AFC_FOPEN_TEXTUAL_MODES = 'r',
-  ): Promise<bigint> {
+  async fopen(filePath: string, mode: keyof typeof AFC_FOPEN_TEXTUAL_MODES = 'r'): Promise<bigint> {
     const afcMode = AFC_FOPEN_TEXTUAL_MODES[mode];
     if (!afcMode) {
       const allowedModes = Object.keys(AFC_FOPEN_TEXTUAL_MODES).join(', ');
       if (!this.silent) {
-        log.error(
-          `Invalid fopen mode '${mode}'. Allowed modes: ${allowedModes}`,
-        );
+        log.error(`Invalid fopen mode '${mode}'. Allowed modes: ${allowedModes}`);
       }
       throw new Error(`Invalid fopen mode '${mode}'. Allowed: ${allowedModes}`);
     }
 
     log.debug(`Opening file '${filePath}' with mode '${mode}'`);
     try {
-      const data = await this._doOperation(
-        AfcOpcode.FILE_OPEN,
-        buildFopenPayload(afcMode, filePath),
-      );
+      const data = await this._doOperation(AfcOpcode.FILE_OPEN, buildFopenPayload(afcMode, filePath));
       // Response data contains UInt64LE 'handle'
       const handle = data.readBigUInt64LE(0);
       log.debug(`File opened successfully, handle: ${handle}`);
       return handle;
     } catch (error) {
       if (!this.silent) {
-        log.error(
-          `Failed to open file '${filePath}' with mode '${mode}':`,
-          error,
-        );
+        log.error(`Failed to open file '${filePath}' with mode '${mode}':`, error);
       }
       throw error;
     }
@@ -226,8 +203,7 @@ export class AfcService {
   createWriteStream(handle: bigint, chunkSize?: number): Writable {
     return createAfcWriteStream(
       handle,
-      (handlePayload, content) =>
-        this._sendAndWait(AfcOpcode.WRITE, handlePayload, content),
+      (handlePayload, content) => this._sendAndWait(AfcOpcode.WRITE, handlePayload, content),
       chunkSize,
     );
   }
@@ -244,11 +220,7 @@ export class AfcService {
     return buffer;
   }
 
-  async fwrite(
-    handle: bigint,
-    data: Buffer,
-    chunkSize = data.length,
-  ): Promise<void> {
+  async fwrite(handle: bigint, data: Buffer, chunkSize = data.length): Promise<void> {
     log.debug(`Writing ${data.length} bytes to handle ${handle}`);
     const effectiveChunkSize = chunkSize;
     let offset = 0;
@@ -259,28 +231,18 @@ export class AfcService {
       const chunk = data.subarray(offset, end);
       chunkCount++;
 
-      const { status } = await this._sendAndWait(
-        AfcOpcode.WRITE,
-        writeUInt64LE(handle),
-        chunk,
-      );
+      const {status} = await this._sendAndWait(AfcOpcode.WRITE, writeUInt64LE(handle), chunk);
       if (status !== AfcError.SUCCESS) {
         const errorName = AfcError[status] || 'UNKNOWN';
         if (!this.silent) {
-          log.error(
-            `Write operation failed at offset ${offset} with status ${errorName} (${status})`,
-          );
+          log.error(`Write operation failed at offset ${offset} with status ${errorName} (${status})`);
         }
-        throw new Error(
-          `fwrite chunk failed with ${errorName} (${status}) at offset ${offset}`,
-        );
+        throw new Error(`fwrite chunk failed with ${errorName} (${status}) at offset ${offset}`);
       }
       offset = end;
     }
 
-    log.debug(
-      `Successfully wrote ${data.length} bytes in ${chunkCount} chunks`,
-    );
+    log.debug(`Successfully wrote ${data.length} bytes in ${chunkCount} chunks`);
   }
 
   async getFileContents(filePath: string): Promise<Buffer> {
@@ -289,9 +251,7 @@ export class AfcService {
     const st = await this.stat(resolved);
     if (st.st_ifmt !== AfcFileMode.S_IFREG) {
       if (!this.silent) {
-        log.error(
-          `Path '${resolved}' is not a regular file (type: ${st.st_ifmt})`,
-        );
+        log.error(`Path '${resolved}' is not a regular file (type: ${st.st_ifmt})`);
       }
       throw new Error(`'${resolved}' isn't a regular file`);
     }
@@ -365,26 +325,14 @@ export class AfcService {
    * When pulling a directory with `recursive: true`, the directory itself will be created
    * inside the destination. For example, pulling `/Downloads` to `/tmp` will create `/tmp/Downloads`.
    */
-  async pull(
-    remoteSrc: string,
-    localDst: string,
-    options?: PullOptions,
-  ): Promise<void> {
-    const {
-      recursive = false,
-      match,
-      overwrite = true,
-      callback: onPullProgress,
-    } = options ?? {};
+  async pull(remoteSrc: string, localDst: string, options?: PullOptions): Promise<void> {
+    const {recursive = false, match, overwrite = true, callback: onPullProgress} = options ?? {};
 
     if (!(await this.exists(remoteSrc))) {
       throw new Error(`Remote path does not exist: ${remoteSrc}`);
     }
 
-    const localNames = new PullLocalNameAllocator(
-      (localPath) => this._localPathExists(localPath),
-      overwrite,
-    );
+    const localNames = new PullLocalNameAllocator((localPath) => this._localPathExists(localPath), overwrite);
 
     const pullSingleFile = async (
       remoteFilePath: string,
@@ -393,11 +341,7 @@ export class AfcService {
     ): Promise<void> => {
       log.debug(`Pulling file from '${remoteFilePath}' to '${localFilePath}'`);
 
-      if (
-        !nameAllocated &&
-        !overwrite &&
-        (await this._localPathExists(localFilePath))
-      ) {
+      if (!nameAllocated && !overwrite && (await this._localPathExists(localFilePath))) {
         throw new Error(`Local file already exists: ${localFilePath}`);
       }
 
@@ -419,10 +363,7 @@ export class AfcService {
 
       const localDstIsDirectory = await this._isLocalDirectory(localDst);
       const targetPath = localDstIsDirectory
-        ? path.join(
-            localDst,
-            await localNames.allocate(localDst, remoteBaseName),
-          )
+        ? path.join(localDst, await localNames.allocate(localDst, remoteBaseName))
         : localDst;
 
       await pullSingleFile(remoteSrc, targetPath, localDstIsDirectory);
@@ -461,18 +402,12 @@ export class AfcService {
   async rmSingle(filePath: string, force = false): Promise<boolean> {
     log.debug(`Removing single path: ${filePath} (force: ${force})`);
     try {
-      await this._doOperation(
-        AfcOpcode.REMOVE_PATH,
-        buildRemovePayload(filePath),
-      );
+      await this._doOperation(AfcOpcode.REMOVE_PATH, buildRemovePayload(filePath));
       log.debug(`Successfully removed: ${filePath}`);
       return true;
     } catch (error) {
       if (force) {
-        log.debug(
-          `Failed to remove '${filePath}' (ignored due to force=true):`,
-          error,
-        );
+        log.debug(`Failed to remove '${filePath}' (ignored due to force=true):`, error);
         return false;
       }
       if (!this.silent) {
@@ -525,10 +460,7 @@ export class AfcService {
   async rename(src: string, dst: string): Promise<void> {
     log.debug(`Renaming '${src}' to '${dst}'`);
     try {
-      await this._doOperation(
-        AfcOpcode.RENAME_PATH,
-        buildRenamePayload(src, dst),
-      );
+      await this._doOperation(AfcOpcode.RENAME_PATH, buildRenamePayload(src, dst));
       log.debug(`Successfully renamed '${src}' to '${dst}'`);
     } catch (error) {
       if (!this.silent) {
@@ -547,10 +479,8 @@ export class AfcService {
     log.debug(`Successfully pushed file to '${remoteDst}'`);
   }
 
-  async walk(
-    root: string,
-  ): Promise<Array<{ dir: string; dirs: string[]; files: string[] }>> {
-    const out: Array<{ dir: string; dirs: string[]; files: string[] }> = [];
+  async walk(root: string): Promise<Array<{dir: string; dirs: string[]; files: string[]}>> {
+    const out: Array<{dir: string; dirs: string[]; files: string[]}> = [];
     const entries = await this.listdir(root);
     const dirs: string[] = [];
     const files: string[] = [];
@@ -562,7 +492,7 @@ export class AfcService {
         files.push(e);
       }
     }
-    out.push({ dir: root, dirs, files });
+    out.push({dir: root, dirs, files});
     for (const d of dirs) {
       out.push(...(await this.walk(path.posix.join(root, d))));
     }
@@ -611,9 +541,7 @@ export class AfcService {
       const stream = this.createReadStream(handle, st.st_size);
       const writeStream = fs.createWriteStream(localDst);
       await pipeline(stream, writeStream);
-      log.debug(
-        `Successfully pulled file to '${localDst}' (${st.st_size} bytes)`,
-      );
+      log.debug(`Successfully pulled file to '${localDst}' (${st.st_size} bytes)`);
     } finally {
       await this.fclose(handle);
     }
@@ -634,7 +562,7 @@ export class AfcService {
     },
     relativePath = '',
   ): Promise<void> {
-    const { match, callback: onPullProgress, localNames } = options ?? {};
+    const {match, callback: onPullProgress, localNames} = options ?? {};
 
     if (!localNames) {
       throw new Error('PullLocalNameAllocator is required for recursive pull');
@@ -645,27 +573,20 @@ export class AfcService {
       const localDstIsDirectory = await this._isLocalDirectory(localDstDir);
 
       if (!localDstIsDirectory) {
-        const stat = await fsp
-          .stat(localDstDir)
-          .catch((err: NodeJS.ErrnoException): null => {
-            if (err.code === 'ENOENT') {
-              return null;
-            }
-            throw err;
-          });
+        const stat = await fsp.stat(localDstDir).catch((err: NodeJS.ErrnoException): null => {
+          if (err.code === 'ENOENT') {
+            return null;
+          }
+          throw err;
+        });
         if (stat?.isFile()) {
-          throw new Error(
-            `Local destination exists and is a file, not a directory: ${localDstDir}`,
-          );
+          throw new Error(`Local destination exists and is a file, not a directory: ${localDstDir}`);
         }
       }
 
       const remoteBaseName = path.posix.basename(remoteSrcDir);
       localDirPath = localDstIsDirectory
-        ? path.join(
-            localDstDir,
-            await localNames.allocate(localDstDir, remoteBaseName),
-          )
+        ? path.join(localDstDir, await localNames.allocate(localDstDir, remoteBaseName))
         : localDstDir;
     } else {
       localDirPath = localDstDir;
@@ -675,7 +596,7 @@ export class AfcService {
     let dirCreated = !relativePath;
     const ensureLocalDir = async () => {
       if (!dirCreated) {
-        await fsp.mkdir(localDirPath, { recursive: true });
+        await fsp.mkdir(localDirPath, {recursive: true});
         dirCreated = true;
         if (onPullProgress) {
           await onPullProgress(remoteSrcDir, localDirPath, true);
@@ -684,7 +605,7 @@ export class AfcService {
     };
     // For root directory (empty relativePath), always create it
     if (!relativePath) {
-      await fsp.mkdir(localDirPath, { recursive: true });
+      await fsp.mkdir(localDirPath, {recursive: true});
       if (onPullProgress) {
         await onPullProgress(remoteSrcDir, localDirPath, true);
       }
@@ -692,9 +613,7 @@ export class AfcService {
 
     for (const entry of await this.listdir(remoteSrcDir)) {
       const entryPath = path.posix.join(remoteSrcDir, entry);
-      const entryRelativePath = relativePath
-        ? path.posix.join(relativePath, entry)
-        : entry;
+      const entryRelativePath = relativePath ? path.posix.join(relativePath, entry) : entry;
       const localEntryName = await localNames.allocate(localDirPath, entry);
 
       if (await this.isdir(entryPath)) {
@@ -763,9 +682,7 @@ export class AfcService {
       return;
     }
     this.connectionError =
-      error instanceof AfcConnectionError
-        ? error
-        : new AfcConnectionError(error.message, { cause: error });
+      error instanceof AfcConnectionError ? error : new AfcConnectionError(error.message, {cause: error});
     const sock = this.socket;
     this.socket = null;
     if (sock && !sock.destroyed) {
@@ -801,10 +718,8 @@ export class AfcService {
     op: AfcOpcode,
     headerPayload: Buffer = Buffer.alloc(0),
     content: Buffer = Buffer.alloc(0),
-  ): Promise<{ status: AfcError; data: Buffer }> {
-    return await this._withAfcConnection(async () =>
-      this._getDemux().sendAndWait(op, headerPayload, content),
-    );
+  ): Promise<{status: AfcError; data: Buffer}> {
+    return await this._withAfcConnection(async () => this._getDemux().sendAndWait(op, headerPayload, content));
   }
 
   private async _connect(): Promise<net.Socket> {
@@ -824,16 +739,12 @@ export class AfcService {
     this.socket = null;
 
     if (!this.udid) {
-      throw new AfcConnectionError(
-        'Pre-connected AFC socket is no longer usable',
-      );
+      throw new AfcConnectionError('Pre-connected AFC socket is no longer usable');
     }
 
-    const resolved = await resolveTunnelService(
-      this.udid,
-      this.rsdServiceName,
-      { waitMs: DEFAULT_TUNNEL_SERVICE_WAIT_MS },
-    );
+    const resolved = await resolveTunnelService(this.udid, this.rsdServiceName, {
+      waitMs: DEFAULT_TUNNEL_SERVICE_WAIT_MS,
+    });
 
     this.socket = await createRawServiceSocket(resolved.host, resolved.port, {
       timeoutMs: 30000,
@@ -861,11 +772,8 @@ export class AfcService {
    * Throws if status != SUCCESS.
    * Returns response DATA buffer when applicable.
    */
-  private async _doOperation(
-    op: AfcOpcode,
-    payload: Buffer = Buffer.alloc(0),
-  ): Promise<Buffer> {
-    const { status, data } = await this._sendAndWait(op, payload);
+  private async _doOperation(op: AfcOpcode, payload: Buffer = Buffer.alloc(0)): Promise<Buffer> {
+    const {status, data} = await this._sendAndWait(op, payload);
 
     if (status !== AfcError.SUCCESS) {
       const errorName = AfcError[status] || 'UNKNOWN';
@@ -876,13 +784,9 @@ export class AfcService {
       }
 
       if (!this.silent) {
-        log.error(
-          `AFC operation ${opName} failed with status ${errorName} (${status})`,
-        );
+        log.error(`AFC operation ${opName} failed with status ${errorName} (${status})`);
       }
-      throw new Error(
-        `AFC operation ${opName} failed with ${errorName} (${status})`,
-      );
+      throw new Error(`AFC operation ${opName} failed with ${errorName} (${status})`);
     }
     return data;
   }

@@ -1,5 +1,7 @@
-import { expect } from 'chai';
 import os from 'node:os';
+import {afterEach, describe, it} from 'node:test';
+
+import {expect} from 'chai';
 
 import {
   type DiskutilInfoPlist,
@@ -36,18 +38,14 @@ describe('parseDiskutilInfoPlist', function () {
   });
 
   it('should throw when diskutil plist omits case semantics', function () {
-    expect(() => parseDiskutilInfoPlist({ VolumeName: 'Mystery' })).to.throw(
+    expect(() => parseDiskutilInfoPlist({VolumeName: 'Mystery'})).to.throw(
       'diskutil info plist did not include recognizable case-sensitivity details',
     );
   });
 
   it('should honor explicit case-sensitive plist fields when present', function () {
-    expect(parseDiskutilInfoPlist({ 'Name (Case-Sensitive)': 'Yes' })).to.equal(
-      true,
-    );
-    expect(parseDiskutilInfoPlist({ 'Name (Case-Sensitive)': 'No' })).to.equal(
-      false,
-    );
+    expect(parseDiskutilInfoPlist({'Name (Case-Sensitive)': 'Yes'})).to.equal(true);
+    expect(parseDiskutilInfoPlist({'Name (Case-Sensitive)': 'No'})).to.equal(false);
   });
 });
 

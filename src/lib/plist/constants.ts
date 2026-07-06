@@ -5,9 +5,7 @@
 // Constants for binary plist format
 export const BPLIST_MAGIC = 'bplist';
 export const BPLIST_VERSION = '00';
-export const BPLIST_MAGIC_AND_VERSION = Buffer.from(
-  `${BPLIST_MAGIC}${BPLIST_VERSION}`,
-);
+export const BPLIST_MAGIC_AND_VERSION = Buffer.from(`${BPLIST_MAGIC}${BPLIST_VERSION}`);
 
 // Binary plist header constants
 export const BINARY_PLIST_MAGIC = 'bplist00';
@@ -53,12 +51,4 @@ export const BPLIST_TYPE = {
 };
 
 // Supported file extensions for plist-related file
-export const SUPPORTED_EXTENSIONS = [
-  '.pem',
-  '.cer',
-  '.crt',
-  '.p12',
-  '.pfx',
-  '.mobileconfig',
-  '.plist',
-] as const;
+export const SUPPORTED_EXTENSIONS = ['.pem', '.cer', '.crt', '.p12', '.pfx', '.mobileconfig', '.plist'] as const;

@@ -1,7 +1,9 @@
-import { expect } from 'chai';
+import {describe, it} from 'node:test';
 
-import { TunnelReadinessCoordinator } from '../../../src/lib/tunnel/tunnel-readiness.js';
-import type { TunnelRegistryEntry } from '../../../src/lib/types.js';
+import {expect} from 'chai';
+
+import {TunnelReadinessCoordinator} from '../../../src/lib/tunnel/tunnel-readiness.js';
+import type {TunnelRegistryEntry} from '../../../src/lib/types.js';
 
 function makeEntry(udid: string): TunnelRegistryEntry {
   const now = Date.now();
@@ -10,7 +12,7 @@ function makeEntry(udid: string): TunnelRegistryEntry {
     deviceId: 1,
     address: 'fd00::1',
     rsdPort: 12_345,
-    services: { 'com.apple.test': { port: '1' } },
+    services: {'com.apple.test': {port: '1'}},
     connectionType: 'USB',
     productId: 0,
     createdAt: now,

@@ -1,21 +1,16 @@
-import { access } from 'node:fs/promises';
-import {
-  type Server,
-  type Socket,
-  createConnection,
-  createServer,
-} from 'node:net';
-import { release } from 'node:os';
+import {access} from 'node:fs/promises';
+import {type Server, type Socket, createConnection, createServer} from 'node:net';
+import {release} from 'node:os';
 
-import { BaseSocketService } from '../../base-socket-service.js';
-import { getLogger } from '../logger.js';
-import { type PairRecord, processPlistResponse } from '../pair-record/index.js';
-import { type RawPairRecordResponse } from '../pair-record/pair-record.js';
-import { LengthBasedSplitter, parsePlist } from '../plist/index.js';
-import type { PlistDictionary } from '../types.js';
-import { type DecodedUsbmux, UsbmuxDecoder } from '../usbmux/usbmux-decoder.js';
-import { UsbmuxEncoder } from '../usbmux/usbmux-encoder.js';
-import { prioritizeUsbOverNetworkForDuplicateUdids } from './utils.js';
+import {BaseSocketService} from '../../base-socket-service.js';
+import {getLogger} from '../logger.js';
+import {type PairRecord, processPlistResponse} from '../pair-record/index.js';
+import {type RawPairRecordResponse} from '../pair-record/pair-record.js';
+import {LengthBasedSplitter, parsePlist} from '../plist/index.js';
+import type {PlistDictionary} from '../types.js';
+import {type DecodedUsbmux, UsbmuxDecoder} from '../usbmux/usbmux-decoder.js';
+import {UsbmuxEncoder} from '../usbmux/usbmux-encoder.js';
+import {prioritizeUsbOverNetworkForDuplicateUdids} from './utils.js';
 
 /**
  * Interface for device properties
@@ -76,10 +71,7 @@ export class Usbmux extends BaseSocketService {
   private readonly _splitter: LengthBasedSplitter;
   private readonly _encoder: UsbmuxEncoder;
   private _tag: number;
-  private readonly _responseCallbacks: Record<
-    number,
-    (data: DecodedUsbmux) => void
-  >;
+  private readonly _responseCallbacks: Record<number, (data: DecodedUsbmux) => void>;
 
   /**
    * Creates a new usbmux instance
@@ -115,15 +107,12 @@ export class Usbmux extends BaseSocketService {
    * @returns Promise that resolves with the BUID
    */
   async readBUID(timeout = 5000): Promise<string> {
-    const { tag, receivePromise } = this._receivePlistPromise<string>(
-      timeout,
-      (data) => {
-        if (data.payload.BUID) {
-          return data.payload.BUID as string;
-        }
-        throw new Error(`Unexpected data: ${JSON.stringify(data)}`);
-      },
-    );
+    const {tag, receivePromise} = this._receivePlistPromise<string>(timeout, (data) => {
+      if (data.payload.BUID) {
+        return data.payload.BUID as string;
+      }
+      throw new Error(`Unexpected data: ${JSON.stringify(data)}`);
+    });
 
     this._sendPlist({
       tag,
@@ -143,29 +132,23 @@ export class Usbmux extends BaseSocketService {
    * @param timeout - Timeout in milliseconds
    * @returns Promise that resolves with the pair record or null if not found
    */
-  async readPairRecord(
-    udid: string,
-    timeout = 5000,
-  ): Promise<PairRecord | null> {
+  async readPairRecord(udid: string, timeout = 5000): Promise<PairRecord | null> {
     // Request from usbmuxd if not found in cache
-    const { tag, receivePromise } =
-      this._receivePlistPromise<PairRecord | null>(timeout, (data) => {
-        if (!data.payload.PairRecordData) {
-          return null;
-        }
-        try {
-          // Parse the pair record and assert the type
-          return processPlistResponse(
-            parsePlist(
-              data.payload.PairRecordData as Buffer,
-            ) as unknown as RawPairRecordResponse,
-          );
-        } catch (e) {
-          throw new Error(`Failed to parse pair record data: ${e}`, {
-            cause: e,
-          });
-        }
-      });
+    const {tag, receivePromise} = this._receivePlistPromise<PairRecord | null>(timeout, (data) => {
+      if (!data.payload.PairRecordData) {
+        return null;
+      }
+      try {
+        // Parse the pair record and assert the type
+        return processPlistResponse(
+          parsePlist(data.payload.PairRecordData as Buffer) as unknown as RawPairRecordResponse,
+        );
+      } catch (e) {
+        throw new Error(`Failed to parse pair record data: ${e}`, {
+          cause: e,
+        });
+      }
+    });
 
     this._sendPlist({
       tag,
@@ -186,15 +169,12 @@ export class Usbmux extends BaseSocketService {
    * @returns Promise that resolves with the device list
    */
   async listDevices(timeout = 5000): Promise<Device[]> {
-    const { tag, receivePromise } = this._receivePlistPromise<Device[]>(
-      timeout,
-      (data) => {
-        if (data.payload.DeviceList) {
-          return data.payload.DeviceList as unknown as Device[];
-        }
-        throw new Error(`Unexpected data: ${JSON.stringify(data)}`);
-      },
-    );
+    const {tag, receivePromise} = this._receivePlistPromise<Device[]>(timeout, (data) => {
+      if (data.payload.DeviceList) {
+        return data.payload.DeviceList as unknown as Device[];
+      }
+      throw new Error(`Unexpected data: ${JSON.stringify(data)}`);
+    });
 
     this._sendPlist({
       tag,
@@ -227,42 +207,35 @@ export class Usbmux extends BaseSocketService {
    * @param timeout - Timeout in milliseconds
    * @returns Promise that resolves with the connected socket
    */
-  async connect(
-    deviceID: string | number,
-    port: number,
-    timeout = 5000,
-  ): Promise<Socket> {
-    const { tag, receivePromise } = this._receivePlistPromise<Socket>(
-      timeout,
-      (data) => {
-        if (data.payload.MessageType !== 'Result') {
-          throw new Error(`Unexpected data: ${JSON.stringify(data)}`);
-        }
+  async connect(deviceID: string | number, port: number, timeout = 5000): Promise<Socket> {
+    const {tag, receivePromise} = this._receivePlistPromise<Socket>(timeout, (data) => {
+      if (data.payload.MessageType !== 'Result') {
+        throw new Error(`Unexpected data: ${JSON.stringify(data)}`);
+      }
 
-        if (data.payload.Number === USBMUX_RESULT.OK) {
-          // Detach constructor-owned consumers from the raw socket so the caller
-          // gets full byte-stream ownership. Leaving the splitter/decoder attached
-          // lets their unread buffers grow, eventually applying backpressure that
-          // stalls long-lived forwards.
-          //
-          // Order matters: unpipe() must happen before removeAllListeners() /
-          // shutdown(). Removing listeners first breaks Node's pipe cleanup, leaving
-          // orphaned source listeners that continue pushing bytes into detached
-          // streams and eventually stall the socket.
-          this._socketClient.unpipe(this._splitter);
-          this._splitter.unpipe(this._decoder);
-          this._socketClient.unpipe(this._decoder);
-          this._encoder.unpipe(this._socketClient);
-          this._splitter.shutdown();
-          this._decoder.removeAllListeners('data');
-          return this._socketClient;
-        } else if (data.payload.Number === USBMUX_RESULT.CONNREFUSED) {
-          throw new Error(`Connection was refused to port ${port}`);
-        } else {
-          throw new Error(`Connection failed with code ${data.payload.Number}`);
-        }
-      },
-    );
+      if (data.payload.Number === USBMUX_RESULT.OK) {
+        // Detach constructor-owned consumers from the raw socket so the caller
+        // gets full byte-stream ownership. Leaving the splitter/decoder attached
+        // lets their unread buffers grow, eventually applying backpressure that
+        // stalls long-lived forwards.
+        //
+        // Order matters: unpipe() must happen before removeAllListeners() /
+        // shutdown(). Removing listeners first breaks Node's pipe cleanup, leaving
+        // orphaned source listeners that continue pushing bytes into detached
+        // streams and eventually stall the socket.
+        this._socketClient.unpipe(this._splitter);
+        this._splitter.unpipe(this._decoder);
+        this._socketClient.unpipe(this._decoder);
+        this._encoder.unpipe(this._socketClient);
+        this._splitter.shutdown();
+        this._decoder.removeAllListeners('data');
+        return this._socketClient;
+      } else if (data.payload.Number === USBMUX_RESULT.CONNREFUSED) {
+        throw new Error(`Connection was refused to port ${port}`);
+      } else {
+        throw new Error(`Connection failed with code ${data.payload.Number}`);
+      }
+    });
 
     this._sendPlist({
       tag,
@@ -325,7 +298,7 @@ export class Usbmux extends BaseSocketService {
    * @param json - JSON object with tag and payload
    * @private
    */
-  private _sendPlist(json: { tag: number; payload: PlistDictionary }): void {
+  private _sendPlist(json: {tag: number; payload: PlistDictionary}): void {
     this._encoder.write(json);
   }
 
@@ -339,7 +312,7 @@ export class Usbmux extends BaseSocketService {
   private _receivePlistPromise<T>(
     timeout = 5000,
     responseCallback: (data: DecodedUsbmux) => T,
-  ): { tag: number; receivePromise: Promise<T> } {
+  ): {tag: number; receivePromise: Promise<T>} {
     const tag = this._tag++;
     let timeoutId: NodeJS.Timeout | undefined;
     const receivePromise = (async (): Promise<T> => {
@@ -359,9 +332,7 @@ export class Usbmux extends BaseSocketService {
 
           // Set the timeout handler
           timeoutId = setTimeout(() => {
-            log.warn(
-              `Timeout waiting for response with tag ${tag} after ${timeout}ms`,
-            );
+            log.warn(`Timeout waiting for response with tag ${tag} after ${timeout}ms`);
             reject(
               new Error(
                 `Failed to receive any data within the timeout: ${timeout}ms - The device might be busy or unresponsive`,
@@ -377,7 +348,7 @@ export class Usbmux extends BaseSocketService {
       }
     })();
 
-    return { tag, receivePromise };
+    return {tag, receivePromise};
   }
 }
 
@@ -397,11 +368,7 @@ export class RelayService {
    * @param devicePort - The port on the device to connect to
    * @param relayPort - The local port to use for the relay server
    */
-  constructor(
-    deviceID: string | number,
-    devicePort: number,
-    relayPort: number = 2222,
-  ) {
+  constructor(deviceID: string | number, devicePort: number, relayPort: number = 2222) {
     this.deviceID = deviceID;
     this.devicePort = devicePort;
     this.relayPort = relayPort;
@@ -414,9 +381,7 @@ export class RelayService {
    * @returns Promise that resolves when the relay is set up
    */
   async start(): Promise<void> {
-    log.info(
-      `Starting relay to device ${this.deviceID} on port ${this.devicePort}...`,
-    );
+    log.info(`Starting relay to device ${this.deviceID} on port ${this.devicePort}...`);
 
     // Create a usbmux instance and connect to the device
     const usbmux = await createUsbmux();
@@ -464,13 +429,10 @@ export class RelayService {
    */
   async connect(): Promise<Socket> {
     return new Promise<Socket>((resolve, reject) => {
-      const socket = createConnection(
-        { host: '127.0.0.1', port: this.relayPort },
-        () => {
-          log.debug('Connected to service via local relay.');
-          resolve(socket);
-        },
-      );
+      const socket = createConnection({host: '127.0.0.1', port: this.relayPort}, () => {
+        log.debug('Connected to service via local relay.');
+        resolve(socket);
+      });
 
       socket.on('error', (err: Error) => {
         reject(err);
@@ -514,9 +476,7 @@ export function byteSwap16(value: number): number {
  * @param opts - Connection options
  * @returns Promise that resolves with a socket connected to usbmuxd
  */
-export async function getDefaultSocket(
-  opts: Partial<SocketOptions> = {},
-): Promise<Socket> {
+export async function getDefaultSocket(opts: Partial<SocketOptions> = {}): Promise<Socket> {
   const defaults = {
     socketPath: DEFAULT_USBMUXD_SOCKET,
     socketPort: USBMUXD_PORT,
@@ -524,20 +484,12 @@ export async function getDefaultSocket(
     timeout: 5000,
   };
 
-  if (
-    process.env.USBMUXD_SOCKET_ADDRESS &&
-    !opts.socketPath &&
-    !opts.socketPort &&
-    !opts.socketHost
-  ) {
+  if (process.env.USBMUXD_SOCKET_ADDRESS && !opts.socketPath && !opts.socketPort && !opts.socketHost) {
     log.debug(
       `Using USBMUXD_SOCKET_ADDRESS environment variable as default socket: ${process.env.USBMUXD_SOCKET_ADDRESS}`,
     );
     // "unix:" or "UNIX:" prefix is optional for unix socket paths.
-    const usbmuxdSocketAddress = process.env.USBMUXD_SOCKET_ADDRESS.replace(
-      /^(unix):/i,
-      '',
-    );
+    const usbmuxdSocketAddress = process.env.USBMUXD_SOCKET_ADDRESS.replace(/^(unix):/i, '');
     const [ip, port] = usbmuxdSocketAddress.split(':');
     if (ip && port) {
       defaults.socketHost = ip;
@@ -547,7 +499,7 @@ export async function getDefaultSocket(
     }
   }
 
-  const { socketPath, socketPort, socketHost, timeout } = {
+  const {socketPath, socketPort, socketHost, timeout} = {
     ...defaults,
     ...opts,
   };
@@ -555,19 +507,14 @@ export async function getDefaultSocket(
   let socket: Socket;
   if (await fileExists(socketPath ?? '')) {
     socket = createConnection(socketPath ?? '');
-  } else if (
-    process.platform === 'win32' ||
-    (process.platform === 'linux' && /microsoft/i.test(release()))
-  ) {
+  } else if (process.platform === 'win32' || (process.platform === 'linux' && /microsoft/i.test(release()))) {
     // Connect to usbmuxd when running on WSL1
     socket = createConnection({
       port: socketPort as number,
       host: socketHost as string,
     });
   } else {
-    throw new Error(
-      `The usbmuxd socket at '${socketPath}' does not exist or is not accessible`,
-    );
+    throw new Error(`The usbmuxd socket at '${socketPath}' does not exist or is not accessible`);
   }
 
   return await new Promise<Socket>((resolve, reject) => {
@@ -593,9 +540,7 @@ export async function getDefaultSocket(
  * @param opts - Socket options
  * @returns Promise that resolves with a usbmux instance
  */
-export async function createUsbmux(
-  opts: Partial<SocketOptions> = {},
-): Promise<Usbmux> {
+export async function createUsbmux(opts: Partial<SocketOptions> = {}): Promise<Usbmux> {
   const socket = await getDefaultSocket(opts);
   return new Usbmux(socket);
 }

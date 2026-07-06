@@ -1,7 +1,7 @@
-import { getLogger } from '../../../../lib/logger.js';
-import type { ConditionGroup } from '../../../../lib/types.js';
-import { MessageAux } from '../dtx-message.js';
-import { BaseInstrument } from './base-instrument.js';
+import {getLogger} from '../../../../lib/logger.js';
+import type {ConditionGroup} from '../../../../lib/types.js';
+import {MessageAux} from '../dtx-message.js';
+import {BaseInstrument} from './base-instrument.js';
 
 const log = getLogger('ConditionInducer');
 
@@ -10,8 +10,7 @@ const log = getLogger('ConditionInducer');
  * such as network conditions, thermal states, etc.
  */
 export class ConditionInducer extends BaseInstrument {
-  static readonly IDENTIFIER =
-    'com.apple.instruments.server.services.ConditionInducer';
+  static readonly IDENTIFIER = 'com.apple.instruments.server.services.ConditionInducer';
 
   /**
    * List all available condition inducers and their profiles
@@ -26,9 +25,7 @@ export class ConditionInducer extends BaseInstrument {
 
     // Handle different response formats
     if (!result) {
-      log.warn(
-        'Received null/undefined response from availableConditionInducers',
-      );
+      log.warn('Received null/undefined response from availableConditionInducers');
       return [];
     }
 
@@ -37,9 +34,7 @@ export class ConditionInducer extends BaseInstrument {
       return result as ConditionGroup[];
     }
 
-    throw new Error(
-      `Unexpected response format from availableConditionInducers: ${JSON.stringify(result)}`,
-    );
+    throw new Error(`Unexpected response format from availableConditionInducers: ${JSON.stringify(result)}`);
   }
 
   /**
@@ -62,31 +57,21 @@ export class ConditionInducer extends BaseInstrument {
           continue;
         }
 
-        log.info(
-          `Enabling condition: ${profile.description || profile.identifier}`,
-        );
+        log.info(`Enabling condition: ${profile.description || profile.identifier}`);
 
-        const args = new MessageAux()
-          .appendObj(group.identifier)
-          .appendObj(profile.identifier);
+        const args = new MessageAux().appendObj(group.identifier).appendObj(profile.identifier);
 
-        await channel.call('enableConditionWithIdentifier_profileIdentifier_')(
-          args,
-        );
+        await channel.call('enableConditionWithIdentifier_profileIdentifier_')(args);
 
         // Wait for response which may be a raised NSError
         await channel.receivePlist();
 
-        log.info(
-          `Successfully enabled condition profile: ${profileIdentifier}`,
-        );
+        log.info(`Successfully enabled condition profile: ${profileIdentifier}`);
         return;
       }
     }
 
-    const availableProfiles = groups.flatMap((group) =>
-      (group.profiles || []).map((p) => p.identifier),
-    );
+    const availableProfiles = groups.flatMap((group) => (group.profiles || []).map((p) => p.identifier));
 
     throw new Error(
       `Invalid profile identifier: ${profileIdentifier}. Available profiles: ${availableProfiles.join(', ')}`,
@@ -114,15 +99,11 @@ export class ConditionInducer extends BaseInstrument {
     } else if (this.isNSError(response)) {
       log.debug('No active condition to disable');
     } else {
-      throw new Error(
-        `Unexpected response from disableActiveCondition: ${JSON.stringify(response)}`,
-      );
+      throw new Error(`Unexpected response from disableActiveCondition: ${JSON.stringify(response)}`);
     }
   }
 
   private isNSError(obj: any): boolean {
-    return ['NSCode', 'NSUserInfo', 'NSDomain'].some(
-      (prop) => obj?.[prop] !== undefined,
-    );
+    return ['NSCode', 'NSUserInfo', 'NSDomain'].some((prop) => obj?.[prop] !== undefined);
   }
 }

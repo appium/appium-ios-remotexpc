@@ -1,7 +1,7 @@
 import crypto from 'node:crypto';
 
-import { PlistUID } from '../../../lib/plist/index.js';
-import { TestmanagerdEncoder } from './testmanagerd-encoder.js';
+import {PlistUID} from '../../../lib/plist/index.js';
+import {TestmanagerdEncoder} from './testmanagerd-encoder.js';
 
 /**
  * Parameters for creating an XCTestConfiguration
@@ -146,9 +146,7 @@ export class XCTestConfigurationEncoder extends TestmanagerdEncoder {
     return index;
   }
 
-  private buildConfigObject(
-    config: XCTestConfigurationParams,
-  ): Record<string, any> {
+  private buildConfigObject(config: XCTestConfigurationParams): Record<string, any> {
     const sessionId = config.sessionIdentifier || crypto.randomUUID();
 
     return {
@@ -165,15 +163,12 @@ export class XCTestConfigurationEncoder extends TestmanagerdEncoder {
         },
         // formatVersion MUST be a PlistUID, not a plain integer
         formatVersion: new PlistUID(2),
-        treatMissingBaselinesAsFailures:
-          config.treatMissingBaselinesAsFailures ?? false,
+        treatMissingBaselinesAsFailures: config.treatMissingBaselinesAsFailures ?? false,
         targetApplicationBundleID: config.targetApplicationBundleID || null,
-        targetApplicationPath:
-          config.targetApplicationPath || '/tmp/XCTestTargetApp.app',
+        targetApplicationPath: config.targetApplicationPath || '/tmp/XCTestTargetApp.app',
         reportResultsToIDE: config.reportResultsToIDE ?? true,
         automationFrameworkPath:
-          config.automationFrameworkPath ||
-          '/Developer/Library/PrivateFrameworks/XCTAutomationSupport.framework',
+          config.automationFrameworkPath || '/Developer/Library/PrivateFrameworks/XCTAutomationSupport.framework',
         testsMustRunOnMainThread: config.testsMustRunOnMainThread ?? true,
         initializeForUITesting: config.initializeForUITesting ?? true,
         reportActivities: config.reportActivities ?? true,
@@ -194,8 +189,7 @@ export class XCTestConfigurationEncoder extends TestmanagerdEncoder {
         randomExecutionOrderingSeed: null,
         systemAttachmentLifetime: 2,
         targetApplicationArguments: config.targetApplicationArguments ?? [],
-        targetApplicationEnvironment:
-          config.targetApplicationEnvironment ?? null,
+        targetApplicationEnvironment: config.targetApplicationEnvironment ?? null,
         testApplicationDependencies: {},
         testApplicationUserOverrides: null,
         testExecutionOrdering: 0,
@@ -213,15 +207,12 @@ export class XCTestConfigurationEncoder extends TestmanagerdEncoder {
  * `canonicalizeUuidString` from `./uuid.js`).
  */
 export function createNSUUID(uuid: string): NSUUIDMarker {
-  return { __type: 'NSUUID', uuid };
+  return {__type: 'NSUUID', uuid};
 }
 
 /**
  * Helper to create an NSURL marker object
  */
-export function createNSURL(
-  relative: string,
-  base: string | null = null,
-): NSURLMarker {
-  return { __type: 'NSURL', base, relative };
+export function createNSURL(relative: string, base: string | null = null): NSURLMarker {
+  return {__type: 'NSURL', base, relative};
 }

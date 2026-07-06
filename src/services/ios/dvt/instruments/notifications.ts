@@ -1,7 +1,7 @@
-import { getLogger } from '../../../../lib/logger.js';
-import { MessageAux } from '../dtx-message.js';
-import { decodeNSKeyedArchiver } from '../nskeyedarchiver-decoder.js';
-import { BaseInstrument } from './base-instrument.js';
+import {getLogger} from '../../../../lib/logger.js';
+import {MessageAux} from '../dtx-message.js';
+import {decodeNSKeyedArchiver} from '../nskeyedarchiver-decoder.js';
+import {BaseInstrument} from './base-instrument.js';
 
 const log = getLogger('Notifications');
 
@@ -66,8 +66,7 @@ export interface MemoryLevelNotification {
  * }
  * ```
  */
-export type NotificationMessage =
-  ApplicationStateNotification | MemoryLevelNotification;
+export type NotificationMessage = ApplicationStateNotification | MemoryLevelNotification;
 
 /**
  * Notifications service for monitoring iOS system events
@@ -86,8 +85,7 @@ export type NotificationMessage =
  */
 export class Notifications extends BaseInstrument {
   /** DTX service identifier for mobile notifications */
-  static readonly IDENTIFIER =
-    'com.apple.instruments.server.services.mobilenotifications';
+  static readonly IDENTIFIER = 'com.apple.instruments.server.services.mobilenotifications';
 
   async start(): Promise<void> {
     await this.initialize();
@@ -118,16 +116,11 @@ export class Notifications extends BaseInstrument {
 
         // Decode NSKeyedArchiver format in auxiliaries first index
         const decodedData = auxiliaries[0];
-        if (
-          decodedData &&
-          typeof decodedData === 'object' &&
-          decodedData.$archiver === 'NSKeyedArchiver'
-        ) {
+        if (decodedData && typeof decodedData === 'object' && decodedData.$archiver === 'NSKeyedArchiver') {
           try {
             const data = decodeNSKeyedArchiver(decodedData);
             yield {
-              selector: selector as
-                'applicationStateNotification:' | 'memoryLevelNotification:',
+              selector: selector as 'applicationStateNotification:' | 'memoryLevelNotification:',
               data,
             } as NotificationMessage;
           } catch (error) {

@@ -1,7 +1,7 @@
-import { Transform, type TransformCallback } from 'node:stream';
+import {Transform, type TransformCallback} from 'node:stream';
 
-import { createPlist } from '../plist/index.js';
-import type { PlistDictionary } from '../types.js';
+import {createPlist} from '../plist/index.js';
+import type {PlistDictionary} from '../types.js';
 
 const HEADER_LENGTH = 16;
 const VERSION = 1;
@@ -14,23 +14,17 @@ export interface UsbmuxEncodeData {
 
 export class UsbmuxEncoder extends Transform {
   constructor() {
-    super({ objectMode: true });
+    super({objectMode: true});
   }
 
-  _transform(
-    data: UsbmuxEncodeData,
-    encoding: BufferEncoding,
-    callback: TransformCallback,
-  ): void {
+  _transform(data: UsbmuxEncodeData, encoding: BufferEncoding, callback: TransformCallback): void {
     this._encode(data);
     callback();
   }
 
   private _encode(data: UsbmuxEncodeData): void {
     const plistData = createPlist(data.payload, false);
-    const payloadBuffer = Buffer.isBuffer(plistData)
-      ? plistData
-      : Buffer.from(plistData);
+    const payloadBuffer = Buffer.isBuffer(plistData) ? plistData : Buffer.from(plistData);
 
     const header = {
       length: HEADER_LENGTH + payloadBuffer.length,
@@ -45,11 +39,6 @@ export class UsbmuxEncoder extends Transform {
     headerBuffer.writeUInt32LE(header.type, 8);
     headerBuffer.writeUInt32LE(header.tag, 12);
 
-    this.push(
-      Buffer.concat(
-        [headerBuffer, payloadBuffer],
-        headerBuffer.length + payloadBuffer.length,
-      ),
-    );
+    this.push(Buffer.concat([headerBuffer, payloadBuffer], headerBuffer.length + payloadBuffer.length));
   }
 }

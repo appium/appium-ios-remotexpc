@@ -1,5 +1,7 @@
-import { expect } from 'chai';
 import os from 'node:os';
+import {afterEach, beforeEach, describe, it} from 'node:test';
+
+import {expect} from 'chai';
 import sinon from 'sinon';
 
 import {
@@ -44,17 +46,13 @@ describe('sanitizeLocalFilename', function () {
     });
 
     it('should remove Windows-illegal characters', function () {
-      expect(sanitizeLocalFilename('report>file.txt')).to.equal(
-        'reportfile.txt',
-      );
+      expect(sanitizeLocalFilename('report>file.txt')).to.equal('reportfile.txt');
       expect(sanitizeLocalFilename('a/b\\c:d*e?f"g|h')).to.equal('abcdefgh');
     });
 
     it('should reject reserved device names', function () {
       expect(sanitizeLocalFilename('CON')).to.equal(EMPTY_SANITIZED_FILENAME);
-      expect(sanitizeLocalFilename('com1.log')).to.equal(
-        EMPTY_SANITIZED_FILENAME,
-      );
+      expect(sanitizeLocalFilename('com1.log')).to.equal(EMPTY_SANITIZED_FILENAME);
     });
 
     it('should strip trailing dots and spaces', function () {

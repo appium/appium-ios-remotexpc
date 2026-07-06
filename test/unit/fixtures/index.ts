@@ -1,14 +1,14 @@
-import { fs, logger } from '@appium/support';
-import { Server, Socket, createConnection, createServer } from 'node:net';
-import { dirname, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import {type Server, type Socket, createConnection, createServer} from 'node:net';
+import {resolve} from 'node:path';
+import {fileURLToPath} from 'node:url';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
+import {fs, logger, node} from '@appium/support';
 
 const log = logger.getLogger('fixtures');
 
 export const UDID = '63c3d055c4f83e960e5980fa68be0fbf7d4ba74c';
 
+const PKG_ROOT = node.getModuleRootSync('appium-ios-remotexpc', fileURLToPath(import.meta.url));
 let fixtureContents: Record<string, Buffer> | null = null;
 
 export const fixtures = {
@@ -33,33 +33,12 @@ export const fixtures = {
   INSTRUMENTS_FPS: 'instrumentsFps',
 };
 
-function getFixturePath(file: string): string {
-  return resolve(__dirname, file);
-}
-
-async function initFixtures(): Promise<void> {
-  if (fixtureContents) {
-    return;
-  }
-
-  fixtureContents = {
-    [fixtures.DEVICE_LIST]: await fs.readFile(
-      getFixturePath('usbmuxlistdevicemessage.bin'),
-    ),
-    [fixtures.DEVICE_CONNECT]: await fs.readFile(
-      getFixturePath('usbmuxconnectmessage.bin'),
-    ),
-  };
-}
-
 interface ServerFixtureResult {
   server: Server;
   socket: Socket;
 }
 
-export async function getServerWithFixtures(
-  ...args: string[]
-): Promise<ServerFixtureResult> {
+export async function getServerWithFixtures(...args: string[]): Promise<ServerFixtureResult> {
   await initFixtures();
 
   if (!fixtureContents) {
@@ -87,5 +66,20 @@ export async function getServerWithFixtures(
   return {
     server,
     socket,
+  };
+}
+
+function getFixturePath(file: string): string {
+  return resolve(PKG_ROOT, 'test', 'unit', 'fixtures', file);
+}
+
+async function initFixtures(): Promise<void> {
+  if (fixtureContents) {
+    return;
+  }
+
+  fixtureContents = {
+    [fixtures.DEVICE_LIST]: await fs.readFile(getFixturePath('usbmuxlistdevicemessage.bin')),
+    [fixtures.DEVICE_CONNECT]: await fs.readFile(getFixturePath('usbmuxconnectmessage.bin')),
   };
 }

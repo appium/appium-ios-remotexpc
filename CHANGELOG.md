@@ -1,3 +1,33 @@
+## [5.7.1](https://github.com/appium/appium-ios-remotexpc/compare/v5.7.0...v5.7.1) (2026-07-04)
+
+### Code Refactoring
+
+* **xpc:** centralize `asDictionary` helper ([#268](https://github.com/appium/appium-ios-remotexpc/issues/268)) ([ce9ec69](https://github.com/appium/appium-ios-remotexpc/commit/ce9ec69c6db6e2515fcfb8a262d920e6715f09e2))
+
+## [5.7.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.6.3...v5.7.0) (2026-07-03)
+
+### Features
+
+* **coredevice:** add coredevice device info service ([#267](https://github.com/appium/appium-ios-remotexpc/issues/267)) ([9f42b50](https://github.com/appium/appium-ios-remotexpc/commit/9f42b50f2248cc661bece1ae8855dd26c6d37914))
+
+## [5.6.3](https://github.com/appium/appium-ios-remotexpc/compare/v5.6.2...v5.6.3) (2026-07-02)
+
+### Miscellaneous Chores
+
+* Add the list of allowed scripts ([#266](https://github.com/appium/appium-ios-remotexpc/issues/266)) ([200d1e9](https://github.com/appium/appium-ios-remotexpc/commit/200d1e902f776aae03e6876686b0a8ca977536de))
+
+## [5.6.2](https://github.com/appium/appium-ios-remotexpc/compare/v5.6.1...v5.6.2) (2026-07-01)
+
+### Miscellaneous Chores
+
+* Replace prettier with oxfmt ([#260](https://github.com/appium/appium-ios-remotexpc/issues/260)) ([4bae3e6](https://github.com/appium/appium-ios-remotexpc/commit/4bae3e643c736b5d6a844b1211b53bcbc715d609))
+
+## [5.6.1](https://github.com/appium/appium-ios-remotexpc/compare/v5.6.0...v5.6.1) (2026-06-30)
+
+### Miscellaneous Chores
+
+* Drop mocha ([#255](https://github.com/appium/appium-ios-remotexpc/issues/255)) ([0d676fa](https://github.com/appium/appium-ios-remotexpc/commit/0d676fa37722ec12343dbdb05abcef93c02d46c3))
+
 ## [5.6.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.5.0...v5.6.0) (2026-06-29)
 
 ### Features

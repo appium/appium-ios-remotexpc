@@ -1,12 +1,9 @@
-import { EventEmitter } from 'node:events';
+import {EventEmitter} from 'node:events';
 
-import { getLogger } from '../../../lib/logger.js';
-import type {
-  SyslogOptions,
-  SyslogService as SyslogServiceInterface,
-} from '../../../lib/types.js';
-import { type ServiceConnection } from '../../../service-connection.js';
-import { BaseService, type Service } from '../base-service.js';
+import {getLogger} from '../../../lib/logger.js';
+import type {SyslogOptions, SyslogService as SyslogServiceInterface} from '../../../lib/types.js';
+import {type ServiceConnection} from '../../../service-connection.js';
+import {BaseService, type Service} from '../base-service.js';
 import {
   type SyslogEntry,
   SyslogProtocolParser,
@@ -58,24 +55,16 @@ class SyslogService extends EventEmitter implements SyslogServiceInterface {
    */
   async start(service: Service, options: SyslogOptions = {}): Promise<void> {
     if (this.isCapturing) {
-      log.info(
-        'Syslog capture already in progress. Stopping previous capture.',
-      );
+      log.info('Syslog capture already in progress. Stopping previous capture.');
       await this.stop();
     }
 
-    const {
-      pid = -1,
-      enableVerboseLogging = false,
-      textMode = false,
-    } = options;
+    const {pid = -1, enableVerboseLogging = false, textMode = false} = options;
     this.enableVerboseLogging = enableVerboseLogging;
     this.isCapturing = true;
 
     try {
-      this.connection = await this.baseService.startLockdownService(
-        service.serviceName,
-      );
+      this.connection = await this.baseService.startLockdownService(service.serviceName);
 
       const socket = this.connection.getSocket();
 
@@ -110,10 +99,7 @@ class SyslogService extends EventEmitter implements SyslogServiceInterface {
       };
 
       const response = await this.connection.sendPlistRequest(request);
-      if (
-        response.Status !== undefined &&
-        response.Status !== 'RequestSuccessful'
-      ) {
+      if (response.Status !== undefined && response.Status !== 'RequestSuccessful') {
         throw new Error(`StartActivity failed: ${JSON.stringify(response)}`);
       }
 
@@ -163,10 +149,8 @@ class SyslogService extends EventEmitter implements SyslogServiceInterface {
    */
   async restart(service: Service): Promise<void> {
     try {
-      const conn = await this.baseService.startLockdownService(
-        service.serviceName,
-      );
-      const request = { Request: 'Restart' };
+      const conn = await this.baseService.startLockdownService(service.serviceName);
+      const request = {Request: 'Restart'};
       const res = await conn.sendPlistRequest(request);
       log.info(`Restart response: ${res}`);
     } catch (error) {

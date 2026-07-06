@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import {createHash} from 'node:crypto';
 
 // UUID namespace for DNS, per RFC 4122
 const NAMESPACE_DNS = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';

@@ -4,14 +4,9 @@
  * This module provides functionality to parse binary property lists (bplists)
  * commonly used in Apple's iOS and macOS systems.
  */
-import { getLogger } from '../logger.js';
-import type { PlistArray, PlistDictionary, PlistValue } from '../types.js';
-import {
-  APPLE_EPOCH_OFFSET,
-  BPLIST_MAGIC_AND_VERSION,
-  BPLIST_TRAILER_SIZE,
-  BPLIST_TYPE,
-} from './constants.js';
+import {getLogger} from '../logger.js';
+import type {PlistArray, PlistDictionary, PlistValue} from '../types.js';
+import {APPLE_EPOCH_OFFSET, BPLIST_MAGIC_AND_VERSION, BPLIST_TRAILER_SIZE, BPLIST_TYPE} from './constants.js';
 
 const log = getLogger('Plist');
 
@@ -75,10 +70,7 @@ class BinaryPlistParser {
    * @throws Error if the buffer is not a valid binary plist
    */
   private _validateHeader(): void {
-    if (
-      this._buffer.length < 8 ||
-      !this._buffer.slice(0, 8).equals(BPLIST_MAGIC_AND_VERSION)
-    ) {
+    if (this._buffer.length < 8 || !this._buffer.slice(0, 8).equals(BPLIST_MAGIC_AND_VERSION)) {
       throw new Error('Not a binary plist. Expected bplist00 magic.');
     }
   }
@@ -92,9 +84,7 @@ class BinaryPlistParser {
       throw new Error('Binary plist is too small to contain a trailer.');
     }
 
-    const trailer = this._buffer.slice(
-      this._buffer.length - BPLIST_TRAILER_SIZE,
-    );
+    const trailer = this._buffer.slice(this._buffer.length - BPLIST_TRAILER_SIZE);
 
     // Extract trailer information
     this._offsetSize = trailer.readUInt8(6);
@@ -116,25 +106,18 @@ class BinaryPlistParser {
    * @param valueName - Name of the value type for error messages
    * @returns The parsed integer value
    */
-  private _readMultiByteInteger(
-    startOffset: number,
-    byteCount: number,
-    valueName: string,
-  ): number {
+  private _readMultiByteInteger(startOffset: number, byteCount: number, valueName: string): number {
     // Use BigInt for calculations if byteCount is large enough to potentially overflow
     if (byteCount > 6) {
       // 6 bytes = 48 bits, safely under MAX_SAFE_INTEGER
       let result = 0n;
       for (let i = 0; i < byteCount; i++) {
-        result =
-          (result << 8n) | BigInt(this._buffer.readUInt8(startOffset + i));
+        result = (result << 8n) | BigInt(this._buffer.readUInt8(startOffset + i));
       }
 
       // Check if the value exceeds MAX_SAFE_INTEGER
       if (result > BigInt(Number.MAX_SAFE_INTEGER)) {
-        throw new Error(
-          `${valueName} value ${result} exceeds MAX_SAFE_INTEGER. Cannot safely convert to number.`,
-        );
+        throw new Error(`${valueName} value ${result} exceeds MAX_SAFE_INTEGER. Cannot safely convert to number.`);
       }
 
       // Safe to convert to number without precision loss
@@ -150,11 +133,7 @@ class BinaryPlistParser {
   }
 
   private _readObjectRef(offset: number): number {
-    return this._readMultiByteInteger(
-      offset,
-      this._objectRefSize,
-      'Object reference',
-    );
+    return this._readMultiByteInteger(offset, this._objectRefSize, 'Object reference');
   }
 
   /**
@@ -173,10 +152,7 @@ class BinaryPlistParser {
    * @param intByteCount - The number of bytes to read
    * @returns The parsed integer value (number or bigint)
    */
-  private _parseIntegerValue(
-    startOffset: number,
-    intByteCount: number,
-  ): number | bigint {
+  private _parseIntegerValue(startOffset: number, intByteCount: number): number | bigint {
     // Handle different integer sizes
     switch (intByteCount) {
       case 1:
@@ -192,9 +168,7 @@ class BinaryPlistParser {
 
         // Check if conversion to Number caused precision loss
         if (BigInt(intValue) !== bigInt) {
-          log.warn(
-            'Precision loss when converting 64-bit integer to Number. Returning BigInt value.',
-          );
+          log.warn('Precision loss when converting 64-bit integer to Number. Returning BigInt value.');
           return bigInt; // Return the BigInt directly to avoid precision loss
         }
 
@@ -220,9 +194,7 @@ class BinaryPlistParser {
         return BigInt(intValue) === bigInt ? intValue : bigInt;
       }
       default:
-        throw new TypeError(
-          `Unexpected integer byte count: ${intByteCount}. Cannot parse integer value.`,
-        );
+        throw new TypeError(`Unexpected integer byte count: ${intByteCount}. Cannot parse integer value.`);
     }
   }
 
@@ -239,9 +211,7 @@ class BinaryPlistParser {
       case 8:
         return this._buffer.readDoubleBE(startOffset);
       default:
-        throw new TypeError(
-          `Unexpected float byte count: ${floatByteCount}. Cannot parse real value.`,
-        );
+        throw new TypeError(`Unexpected float byte count: ${floatByteCount}. Cannot parse real value.`);
     }
   }
 
@@ -264,9 +234,7 @@ class BinaryPlistParser {
    * @returns The parsed Buffer
    */
   private _parseDataValue(startOffset: number, objLength: number): Buffer {
-    return Buffer.from(
-      this._buffer.slice(startOffset, startOffset + objLength),
-    );
+    return Buffer.from(this._buffer.slice(startOffset, startOffset + objLength));
   }
 
   /**
@@ -276,9 +244,7 @@ class BinaryPlistParser {
    * @returns The parsed string
    */
   private _parseAsciiString(startOffset: number, objLength: number): string {
-    return this._buffer
-      .slice(startOffset, startOffset + objLength)
-      .toString('ascii');
+    return this._buffer.slice(startOffset, startOffset + objLength).toString('ascii');
   }
 
   /**
@@ -290,10 +256,7 @@ class BinaryPlistParser {
   private _parseUnicodeString(startOffset: number, objLength: number): string {
     // Unicode strings are stored as UTF-16BE in binary plists
     const bytesToRead = objLength * 2;
-    const stringBuffer = this._buffer.slice(
-      startOffset,
-      startOffset + bytesToRead,
-    );
+    const stringBuffer = this._buffer.slice(startOffset, startOffset + bytesToRead);
 
     // Convert UTF-16BE to UTF-16LE for proper decoding
     const utf16leBuffer = Buffer.alloc(bytesToRead);
@@ -331,9 +294,7 @@ class BinaryPlistParser {
       if (objInfo === 0x0f) {
         const intType = this._buffer.readUInt8(startOffset) & 0xf0;
         if (intType !== BPLIST_TYPE.INT) {
-          throw new TypeError(
-            `Expected integer type for length at offset ${startOffset}`,
-          );
+          throw new TypeError(`Expected integer type for length at offset ${startOffset}`);
         }
 
         const intInfo = this._buffer.readUInt8(startOffset) & 0x0f;
@@ -341,21 +302,12 @@ class BinaryPlistParser {
 
         // Read the length based on the integer size
         const intByteCount = 1 << intInfo;
-        objLength = this._readMultiByteInteger(
-          startOffset,
-          intByteCount,
-          'Object length',
-        );
+        objLength = this._readMultiByteInteger(startOffset, intByteCount, 'Object length');
         startOffset += intByteCount;
       }
 
       // Parse the object based on its type
-      this._objectTable[i] = this._parseObjectByType(
-        objType,
-        objInfo,
-        startOffset,
-        objLength,
-      );
+      this._objectTable[i] = this._parseObjectByType(objType, objInfo, startOffset, objLength);
     }
   }
 
@@ -405,9 +357,7 @@ class BinaryPlistParser {
         return this._createTempDict(objLength, startOffset);
 
       default:
-        throw new TypeError(
-          `Unsupported binary plist object type: ${objType.toString(16)}`,
-        );
+        throw new TypeError(`Unsupported binary plist object type: ${objType.toString(16)}`);
     }
   }
 
@@ -427,9 +377,7 @@ class BinaryPlistParser {
       case 0x0f:
         return null; // fill byte
       default:
-        throw new TypeError(
-          `Unexpected null type object info: 0x${objInfo.toString(16)}. Cannot parse null value.`,
-        );
+        throw new TypeError(`Unexpected null type object info: 0x${objInfo.toString(16)}. Cannot parse null value.`);
     }
   }
 
@@ -496,9 +444,7 @@ class BinaryPlistParser {
   private _resolveArrayReferences(obj: TempObject, index: number): void {
     const array = obj.value as PlistArray;
     for (let j = 0; j < obj.objLength; j++) {
-      const refIdx = this._readObjectRef(
-        obj.startOffset + j * this._objectRefSize,
-      );
+      const refIdx = this._readObjectRef(obj.startOffset + j * this._objectRefSize);
       const refValue = this._objectTable[refIdx];
       // Handle TempObjects correctly - they should be resolved by the time we get here
       if (this._isTempObject(refValue)) {
@@ -521,20 +467,14 @@ class BinaryPlistParser {
 
     // Keys are stored first, followed by values
     for (let j = 0; j < keyCount; j++) {
-      const keyRef = this._readObjectRef(
-        obj.startOffset + j * this._objectRefSize,
-      );
-      const valueRef = this._readObjectRef(
-        obj.startOffset + (keyCount + j) * this._objectRefSize,
-      );
+      const keyRef = this._readObjectRef(obj.startOffset + j * this._objectRefSize);
+      const valueRef = this._readObjectRef(obj.startOffset + (keyCount + j) * this._objectRefSize);
 
       const key = this._objectTable[keyRef];
       const value = this._objectTable[valueRef];
 
       if (typeof key !== 'string') {
-        throw new TypeError(
-          `Dictionary key must be a string, got ${typeof key}`,
-        );
+        throw new TypeError(`Dictionary key must be a string, got ${typeof key}`);
       }
 
       // Handle TempObjects correctly - they should be resolved by the time we get here
@@ -609,7 +549,5 @@ export function parseBinaryPlist(buffer: Buffer): PlistValue {
  * @returns True if the buffer is a binary plist
  */
 export function isBinaryPlist(buffer: Buffer): boolean {
-  return (
-    buffer.length >= 8 && buffer.slice(0, 8).equals(BPLIST_MAGIC_AND_VERSION)
-  );
+  return buffer.length >= 8 && buffer.slice(0, 8).equals(BPLIST_MAGIC_AND_VERSION);
 }

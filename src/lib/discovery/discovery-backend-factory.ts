@@ -1,5 +1,5 @@
-import { MdnsDiscoveryBackend } from './mdns-discovery-backend.js';
-import type { DiscoveryOptions, IDeviceDiscoveryBackend } from './types.js';
+import {MdnsDiscoveryBackend} from './mdns-discovery-backend.js';
+import type {DiscoveryOptions, IDeviceDiscoveryBackend} from './types.js';
 
 /**
  * Create the default device discovery backend for the current platform.

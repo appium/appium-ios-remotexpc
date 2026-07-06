@@ -1,9 +1,6 @@
-import {
-  Devicectl,
-  type DeviceInfo as DevicectlDeviceInfo,
-} from 'node-devicectl';
+import {Devicectl, type DeviceInfo as DevicectlDeviceInfo} from 'node-devicectl';
 
-import { getLogger } from '../logger.js';
+import {getLogger} from '../logger.js';
 
 const log = getLogger('DevicectlDeviceRecords');
 
@@ -18,9 +15,7 @@ export interface DevicectlDeviceRecord {
 /**
  * List device records reported by `devicectl` for enrichment.
  */
-export async function listDevicectlDeviceRecords(): Promise<
-  DevicectlDeviceRecord[]
-> {
+export async function listDevicectlDeviceRecords(): Promise<DevicectlDeviceRecord[]> {
   const devicectl = new Devicectl('');
   const devices = await devicectl.listDevices();
   const records = devices.map((device) => toDevicectlRecord(device));

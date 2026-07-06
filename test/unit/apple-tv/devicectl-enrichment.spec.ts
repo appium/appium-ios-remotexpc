@@ -1,8 +1,10 @@
-import { expect } from 'chai';
+import {afterEach, beforeEach, describe, it} from 'node:test';
+
+import {expect} from 'chai';
 import esmock from 'esmock';
 
-import type { DevicectlDeviceRecord } from '../../../src/lib/discovery/devicectl-device-records.js';
-import type { DiscoveredDevice } from '../../../src/lib/discovery/types.js';
+import type {DevicectlDeviceRecord} from '../../../src/lib/discovery/devicectl-device-records.js';
+import type {DiscoveredDevice} from '../../../src/lib/discovery/types.js';
 
 describe('devicectl-enrichment', function () {
   const originalPlatform = process.platform;
@@ -22,17 +24,12 @@ describe('devicectl-enrichment', function () {
   });
 
   async function loadEnricher(records: DevicectlDeviceRecord[]) {
-    const mod = await esmock(
-      '../../../src/lib/apple-tv/devicectl-enrichment.js',
-      {
-        '../../../src/lib/discovery/devicectl-device-records.js': {
-          listDevicectlDeviceRecords: async () => records,
-        },
+    const mod = await esmock('../../../src/lib/apple-tv/devicectl-enrichment.js', {
+      '../../../src/lib/discovery/devicectl-device-records.js': {
+        listDevicectlDeviceRecords: async () => records,
       },
-    );
-    return mod.enrichDiscoveredDevicesWithDevicectl as (
-      devices: DiscoveredDevice[],
-    ) => Promise<DiscoveredDevice[]>;
+    });
+    return mod.enrichDiscoveredDevicesWithDevicectl as (devices: DiscoveredDevice[]) => Promise<DiscoveredDevice[]>;
   }
 
   it('matches dnssd .local hostname to devicectl .coredevice.local', async function () {

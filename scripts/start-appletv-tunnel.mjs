@@ -5,8 +5,10 @@
  * all Remote Pairing Apple TVs and opens one tunnel per device (skips failures).
  */
 
-import { logger, util } from '@appium/support';
-import { Command } from 'commander';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+
+import {logger, util} from '@appium/support';
 import {
   AppleTVTunnelService,
   TunnelManager,
@@ -14,22 +16,18 @@ import {
   startTunnelRegistryServer,
   watchTunnelRegistryOnDead,
 } from 'appium-ios-remotexpc';
-import {
-  parseNonNegativeIntegerOption,
-  parsePortOption,
-  parsePositiveIntegerOption,
-} from './lib/options.mjs';
-import { sleep } from './lib/timers.mjs';
+import {Command} from 'commander';
+
+import {DEFAULT_TUNNEL_REGISTRY_PORT, DEFAULT_WIRELESS_APPLETV_DISCOVERY_TIMEOUT_MS} from './lib/constants.mjs';
+import {parseNonNegativeIntegerOption, parsePortOption, parsePositiveIntegerOption} from './lib/options.mjs';
+import {startTimeoutProgressLogger} from './lib/progress.mjs';
+import {assertRoot} from './lib/root.mjs';
+import {sleep} from './lib/timers.mjs';
 import {
   createEmptyTunnelRegistry,
   publishDiscoveredTunnelEntry as publishTunnelRegistryEntry,
   refreshServiceCatalog,
 } from './lib/tunnel-registry.mjs';
-import { DEFAULT_TUNNEL_REGISTRY_PORT, DEFAULT_WIRELESS_APPLETV_DISCOVERY_TIMEOUT_MS } from './lib/constants.mjs';
-import { assertRoot } from './lib/root.mjs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { startTimeoutProgressLogger } from './lib/progress.mjs';
 
 const log = logger.getLogger('WiFiTunnel');
 
@@ -81,8 +79,8 @@ function stopLifecycleWatch(udid) {
  */
 function startDevicesDiscovery(tunnelService, timeoutMs) {
   const startedAt = performance.now();
-  const promise = tunnelService.discoverDevices({ timeoutMs });
-  return { startedAt, promise };
+  const promise = tunnelService.discoverDevices({timeoutMs});
+  return {startedAt, promise};
 }
 
 /**
@@ -118,7 +116,10 @@ async function waitForDevicesDiscovery(discovery, timeoutMs) {
  * @returns {boolean}
  */
 function isNoDevicesFoundError(err) {
-  return err instanceof Error && ('code' in err && err.code === 'NO_DEVICES') || /** @type {Error} */ (err).message?.includes('No devices found');
+  return (
+    (err instanceof Error && 'code' in err && err.code === 'NO_DEVICES') ||
+    /** @type {Error} */ (err).message?.includes('No devices found')
+  );
 }
 
 /**
@@ -130,10 +131,7 @@ function registerEstablishedTunnel(result) {
   stopLifecycleWatch(udid);
 
   const previous = establishedTunnelsByUdid.get(udid);
-  if (
-    previous?.tunnelConnection &&
-    previous.tunnelConnection !== result.tunnelConnection
-  ) {
+  if (previous?.tunnelConnection && previous.tunnelConnection !== result.tunnelConnection) {
     void closeTunnelQuietly(previous.tunnelConnection);
   }
   establishedTunnelsByUdid.set(udid, result);
@@ -153,7 +151,7 @@ function attachAppleTvTunnelRegistryLifecycleWatch(registry, successfulResults, 
     const udid = result.device.identifier;
     stopLifecycleWatch(udid);
 
-    const { stop } = watchTunnelRegistryOnDead({
+    const {stop} = watchTunnelRegistryOnDead({
       registry,
       watches: [
         {
@@ -164,10 +162,10 @@ function attachAppleTvTunnelRegistryLifecycleWatch(registry, successfulResults, 
       onRemove: async (removedUdid) => {
         registryServer?.removeTunnelEntry(removedUdid);
       },
-      onTunnelDead: async ({ udid: droppedUdid, address }) => {
+      onTunnelDead: async ({udid: droppedUdid, address}) => {
         await TunnelManager.closeTunnelByAddress(address).catch(() => {});
         if (callbacks.onTunnelDead) {
-          await callbacks.onTunnelDead({ udid: droppedUdid, address });
+          await callbacks.onTunnelDead({udid: droppedUdid, address});
         }
       },
     });
@@ -175,9 +173,7 @@ function attachAppleTvTunnelRegistryLifecycleWatch(registry, successfulResults, 
     lifecycleWatchStopByUdid.set(udid, stop);
   }
 
-  log.info(
-    'Tunnel registry will update automatically if a native forwarder exits unexpectedly.',
-  );
+  log.info('Tunnel registry will update automatically if a native forwarder exits unexpectedly.');
 }
 
 /**
@@ -200,7 +196,7 @@ function setupCleanupHandlers() {
       }
       lifecycleWatchStopByUdid.clear();
 
-      for (const { tunnelConnection } of establishedTunnelsByUdid.values()) {
+      for (const {tunnelConnection} of establishedTunnelsByUdid.values()) {
         try {
           if (tunnelConnection && typeof tunnelConnection.closer === 'function') {
             log.info('Closing tunnel...');
@@ -253,13 +249,13 @@ function setupCleanupHandlers() {
  * @returns {Promise<AppleTvEstablishedTunnel>}
  */
 async function establishOneTunnel(startResult) {
-  const { tcpSocket, psk, device } = startResult;
+  const {tcpSocket, psk, device} = startResult;
   /** @type {{ notify: ((reason: string) => void) | null }} */
-  const lifecycle = { notify: null };
+  const lifecycle = {notify: null};
 
   const tunnelConnection = await TunnelManager.getTunnelPsk(
     tcpSocket,
-    { psk },
+    {psk},
     {
       onDead: (reason) => lifecycle.notify?.(reason),
     },
@@ -357,15 +353,11 @@ async function runAppleTvReconnectAttempts({
       const reconnected = await establishOneTunnel(result);
       const ok = await publishDiscoveredTunnelEntry(reconnected);
       if (ok && registryServer) {
-        attachAppleTvTunnelRegistryLifecycleWatch(
-          registryServer.getRegistry(),
-          [reconnected],
-          {
-            onTunnelDead: async ({ udid: droppedUdid }) => {
-              await reconnectTunnelByUdid(droppedUdid);
-            },
+        attachAppleTvTunnelRegistryLifecycleWatch(registryServer.getRegistry(), [reconnected], {
+          onTunnelDead: async ({udid: droppedUdid}) => {
+            await reconnectTunnelByUdid(droppedUdid);
           },
-        );
+        });
         log.info(`Reconnected tunnel for ${udid}`);
       }
       return;
@@ -385,11 +377,7 @@ async function runAppleTvReconnectAttempts({
  * @param {number} opts.discoveryTimeoutMs
  * @returns {function(string): Promise<void>}
  */
-function createAppleTvReconnectTunnelByUdid({
-  reconnectRetries,
-  tunnelService,
-  discoveryTimeoutMs,
-}) {
+function createAppleTvReconnectTunnelByUdid({reconnectRetries, tunnelService, discoveryTimeoutMs}) {
   return async function reconnectTunnelByUdid(udid) {
     if (typeof reconnectRetries !== 'number') {
       return;
@@ -434,31 +422,24 @@ async function main() {
       `Port for tunnel registry API (default: ${DEFAULT_TUNNEL_REGISTRY_PORT})`,
       (value) => parsePortOption(value, 'tunnel registry port'),
     )
-    .option(
-      '--reconnect-retries <count>',
-      'Reconnect retries after unexpected tunnel drop (0 = unlimited)',
-      (value) => parseNonNegativeIntegerOption(value, 'retry count'),
+    .option('--reconnect-retries <count>', 'Reconnect retries after unexpected tunnel drop (0 = unlimited)', (value) =>
+      parseNonNegativeIntegerOption(value, 'retry count'),
     )
-    .option(
-      '--discovery-timeout <ms>',
-      'Apple TV discovery timeout in milliseconds',
-      (value) => parsePositiveIntegerOption(value, 'discovery timeout'),
+    .option('--discovery-timeout <ms>', 'Apple TV discovery timeout in milliseconds', (value) =>
+      parsePositiveIntegerOption(value, 'discovery timeout'),
     );
 
   program.parse(process.argv);
   const options = program.opts();
   const deviceIdentifier = program.args[0];
-  const registryPort =
-    options.tunnelRegistryPort ?? DEFAULT_TUNNEL_REGISTRY_PORT;
+  const registryPort = options.tunnelRegistryPort ?? DEFAULT_TUNNEL_REGISTRY_PORT;
 
   await assertRoot(path.join('scripts', path.basename(fileURLToPath(import.meta.url))));
 
   if (deviceIdentifier) {
     log.info(`Targeting a single Apple TV: ${deviceIdentifier}`);
   } else {
-    log.info(
-      'No device identifier: will open one tunnel per discovered Apple TV',
-    );
+    log.info('No device identifier: will open one tunnel per discovered Apple TV');
   }
 
   tunnelService = new AppleTVTunnelService();
@@ -469,8 +450,7 @@ async function main() {
 
     registryServer = await startTunnelRegistryServer(registry, registryPort, {
       readiness,
-      refreshServices: async (udid, entry) =>
-        await refreshServiceCatalog(udid, entry, log),
+      refreshServices: async (udid, entry) => await refreshServiceCatalog(udid, entry, log),
     });
 
     const reconnectTunnelByUdid = createAppleTvReconnectTunnelByUdid({
@@ -484,40 +464,26 @@ async function main() {
 
     if (deviceIdentifier) {
       log.info('Starting Apple TV tunnel...');
-      const result = await tunnelService.startTunnel(
-        undefined,
-        deviceIdentifier,
-        {
-          discoveryTimeoutMs: options.discoveryTimeout,
-        },
-      );
+      const result = await tunnelService.startTunnel(undefined, deviceIdentifier, {
+        discoveryTimeoutMs: options.discoveryTimeout,
+      });
       if (!result.tcpSocket) {
         throw new Error('TCP socket to listener port not established');
       }
       const established = await establishOneTunnel(result);
       successfulResults.push(established);
-      attachAppleTvTunnelRegistryLifecycleWatch(
-        registryServer.getRegistry(),
-        [established],
-        {
-          onTunnelDead: async ({ udid }) => {
-            await reconnectTunnelByUdid(udid);
-          },
+      attachAppleTvTunnelRegistryLifecycleWatch(registryServer.getRegistry(), [established], {
+        onTunnelDead: async ({udid}) => {
+          await reconnectTunnelByUdid(udid);
         },
-      );
+      });
     } else {
       const discoveryTimeoutMs = options.discoveryTimeout ?? DEFAULT_WIRELESS_APPLETV_DISCOVERY_TIMEOUT_MS;
-      const discovery = startDevicesDiscovery(
-        tunnelService,
-        discoveryTimeoutMs,
-      );
+      const discovery = startDevicesDiscovery(tunnelService, discoveryTimeoutMs);
       /** @type {AppleTVDevice[]} */
       let devices = [];
       try {
-        devices = await waitForDevicesDiscovery(
-          discovery,
-          discoveryTimeoutMs,
-        );
+        devices = await waitForDevicesDiscovery(discovery, discoveryTimeoutMs);
       } catch (err) {
         if (isNoDevicesFoundError(err)) {
           log.info('No wireless Apple TV devices found');
@@ -533,28 +499,20 @@ async function main() {
         const d = devices[i];
         try {
           log.info(`\n--- ${d.identifier} (${d.name ?? 'Apple TV'}) ---`);
-          const result = await tunnelService.startTunnel(
-            undefined,
-            d.identifier,
-            {
-              devices,
-              discoveryTimeoutMs: options.discoveryTimeout,
-            },
-          );
+          const result = await tunnelService.startTunnel(undefined, d.identifier, {
+            devices,
+            discoveryTimeoutMs: options.discoveryTimeout,
+          });
           if (!result.tcpSocket) {
             throw new Error('TCP socket to listener port not established');
           }
           const established = await establishOneTunnel(result);
           successfulResults.push(established);
-          attachAppleTvTunnelRegistryLifecycleWatch(
-            registryServer.getRegistry(),
-            [established],
-            {
-              onTunnelDead: async ({ udid }) => {
-                await reconnectTunnelByUdid(udid);
-              },
+          attachAppleTvTunnelRegistryLifecycleWatch(registryServer.getRegistry(), [established], {
+            onTunnelDead: async ({udid}) => {
+              await reconnectTunnelByUdid(udid);
             },
-          );
+          });
           log.info(`Tunnel established for ${d.identifier}`);
         } catch (err) {
           log.warn(`Skipping ${d.identifier}: ${err}`);
@@ -577,33 +535,21 @@ async function main() {
       }
     }
 
-    log.info(
-      `\n=== ${util.pluralize('tunnel', registryPublished.length, true).toUpperCase()} IN REGISTRY ===`,
-    );
+    log.info(`\n=== ${util.pluralize('tunnel', registryPublished.length, true).toUpperCase()} IN REGISTRY ===`);
     for (const r of registryPublished) {
-      log.info(
-        `${r.device.identifier}: ${r.tunnel.Address}:${r.tunnel.RsdPort}`,
-      );
+      log.info(`${r.device.identifier}: ${r.tunnel.Address}:${r.tunnel.RsdPort}`);
     }
     log.info('=============================');
 
     log.info('\n📁 Tunnel registry API:');
-    log.info(
-      `   http://localhost:${registryPort}/remotexpc/tunnels`,
-    );
+    log.info(`   http://localhost:${registryPort}/remotexpc/tunnels`);
     log.info('   - GET /remotexpc/tunnels - List all tunnels');
     for (const r of registryPublished) {
-      log.info(
-        `   - GET /remotexpc/tunnels/${r.device.identifier}`,
-      );
+      log.info(`   - GET /remotexpc/tunnels/${r.device.identifier}`);
     }
 
-    log.info(
-      `\n✅ ${registryPublished.length} Apple TV ${util.pluralize('tunnel', registryPublished.length)} ready.`,
-    );
-    log.info(
-      `\nPress Ctrl+C to close ${util.pluralize('tunnel', registryPublished.length)} and exit.`,
-    );
+    log.info(`\n✅ ${registryPublished.length} Apple TV ${util.pluralize('tunnel', registryPublished.length)} ready.`);
+    log.info(`\nPress Ctrl+C to close ${util.pluralize('tunnel', registryPublished.length)} and exit.`);
 
     process.stdin.resume();
   } catch (error) {

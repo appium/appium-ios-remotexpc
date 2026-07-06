@@ -136,15 +136,11 @@ export class Frame {
     }
 
     if (!this.streamId && this.streamAssociation === STREAM_ASSOC_HAS_STREAM) {
-      throw new InvalidDataError(
-        `Stream ID must be non-zero for ${this.constructor.name}`,
-      );
+      throw new InvalidDataError(`Stream ID must be non-zero for ${this.constructor.name}`);
     }
 
     if (this.streamId && this.streamAssociation === STREAM_ASSOC_NO_STREAM) {
-      throw new InvalidDataError(
-        `Stream ID must be zero for ${this.constructor.name} with streamId=${this.streamId}`,
-      );
+      throw new InvalidDataError(`Stream ID must be zero for ${this.constructor.name} with streamId=${this.streamId}`);
     }
   }
 
@@ -154,9 +150,7 @@ export class Frame {
 
   serialize(): Buffer {
     if (this.type == null) {
-      throw new InvalidDataError(
-        `${this.constructor.name} is missing frame type`,
-      );
+      throw new InvalidDataError(`${this.constructor.name} is missing frame type`);
     }
 
     const body = this.serializeBody();
@@ -195,11 +189,7 @@ export class SettingsFrame extends Frame {
 
   settings: Record<number, number>;
 
-  constructor(
-    streamId: number = 0,
-    settings: Record<number, number> | null = null,
-    flags: string[] = [],
-  ) {
+  constructor(streamId: number = 0, settings: Record<number, number> | null = null, flags: string[] = []) {
     super(streamId, flags);
     this.definedFlags = [new Flag('ACK', 0x01)];
     this.type = 0x04;
@@ -223,10 +213,7 @@ export class SettingsFrame extends Frame {
 
     const buffers: Buffer[] = [];
     for (const setting of Object.keys(this.settings)) {
-      const buf = STRUCT_HL.pack(
-        Number(setting) & 0xff,
-        this.settings[Number(setting)],
-      );
+      const buf = STRUCT_HL.pack(Number(setting) & 0xff, this.settings[Number(setting)]);
       buffers.push(buf);
     }
 
@@ -240,16 +227,9 @@ export class DataFrame extends Frame {
   data: Buffer;
   padLength: number;
 
-  constructor(
-    streamId: number,
-    data: Buffer | string = Buffer.from(''),
-    flags: string[] = [],
-  ) {
+  constructor(streamId: number, data: Buffer | string = Buffer.from(''), flags: string[] = []) {
     super(streamId, flags);
-    this.definedFlags = [
-      new Flag('END_STREAM', 0x01),
-      new Flag('PADDED', 0x08),
-    ];
+    this.definedFlags = [new Flag('END_STREAM', 0x01), new Flag('PADDED', 0x08)];
     this.type = 0x0;
     this.streamAssociation = STREAM_ASSOC_HAS_STREAM;
 
@@ -291,16 +271,10 @@ export class HeadersFrame extends Frame {
     PRIORITY: 0x20,
   };
 
-  constructor(
-    streamId: number,
-    data: Buffer | string = Buffer.from(''),
-    flags: string[] = [],
-  ) {
+  constructor(streamId: number, data: Buffer | string = Buffer.from(''), flags: string[] = []) {
     super(streamId, flags);
     // Map given flags to Flag objects using ALL_FLAGS
-    this.definedFlags = flags.map(
-      (flag) => new Flag(flag, HeadersFrame.ALL_FLAGS[flag]),
-    );
+    this.definedFlags = flags.map((flag) => new Flag(flag, HeadersFrame.ALL_FLAGS[flag]));
     this.type = 0x01;
     this.streamAssociation = STREAM_ASSOC_HAS_STREAM;
 
@@ -319,10 +293,7 @@ export class HeadersFrame extends Frame {
   }
 
   serializePriorityData(): Buffer {
-    return STRUCT_LB.pack(
-      this.dependsOn + (this.exclusive ? 0x80000000 : 0),
-      this.streamWeight,
-    );
+    return STRUCT_LB.pack(this.dependsOn + (this.exclusive ? 0x80000000 : 0), this.streamWeight);
   }
 
   bodyRepr(): string {
@@ -345,11 +316,7 @@ export class HeadersFrame extends Frame {
 export class WindowUpdateFrame extends Frame {
   windowIncrement: number;
 
-  constructor(
-    streamId: number,
-    windowIncrement: number = 0,
-    flags: string[] = [],
-  ) {
+  constructor(streamId: number, windowIncrement: number = 0, flags: string[] = []) {
     super(streamId, flags);
     this.definedFlags = [];
     this.type = 0x08;
@@ -383,4 +350,4 @@ function rawDataRepr(data: Buffer | null | undefined): string {
 }
 
 // Exported constants and types
-export { InvalidDataError, STRUCT_HL };
+export {InvalidDataError, STRUCT_HL};

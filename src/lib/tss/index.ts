@@ -1,9 +1,10 @@
-import axios from 'axios';
-import { randomUUID } from 'node:crypto';
+import {randomUUID} from 'node:crypto';
 
-import { getLogger } from '../logger.js';
-import { createPlist, parsePlist } from '../plist/index.js';
-import type { PlistDictionary } from '../types.js';
+import axios from 'axios';
+
+import {getLogger} from '../logger.js';
+import {createPlist, parsePlist} from '../plist/index.js';
+import type {PlistDictionary} from '../types.js';
 
 const log = getLogger('TSSRequestor');
 
@@ -115,9 +116,7 @@ export class TSSRequest {
             value2 = parameters.ApInRomDFU;
             break;
           default:
-            log.error(
-              `Unhandled condition ${key} while parsing RestoreRequestRules`,
-            );
+            log.error(`Unhandled condition ${key} while parsing RestoreRequestRules`);
             value2 = null;
         }
 
@@ -231,7 +230,7 @@ export async function getManifestFromTSS(
 
   for (const [key, value] of Object.entries(personalizationIdentifiers)) {
     if (key.startsWith('Ap,')) {
-      request.update({ [key]: value });
+      request.update({[key]: value});
     }
   }
 
@@ -254,9 +253,7 @@ export async function getManifestFromTSS(
   }
 
   if (!buildIdentity) {
-    throw new BuildIdentityNotFoundError(
-      `Could not find the manifest for board ${boardId} and chip ${chipId}`,
-    );
+    throw new BuildIdentityNotFoundError(`Could not find the manifest for board ${boardId} and chip ${chipId}`);
   }
 
   const manifest = buildIdentity.Manifest as BuildManifest;
@@ -319,7 +316,7 @@ export async function getManifestFromTSS(
       }
     }
 
-    request.update({ [key]: tssEntry });
+    request.update({[key]: tssEntry});
   }
 
   const response = await request.sendReceive();

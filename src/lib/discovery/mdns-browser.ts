@@ -1,8 +1,8 @@
-import { type Socket, createSocket } from 'node:dgram';
-import { networkInterfaces } from 'node:os';
-import { setTimeout } from 'node:timers';
+import {type Socket, createSocket} from 'node:dgram';
+import {networkInterfaces} from 'node:os';
+import {setTimeout} from 'node:timers';
 
-import { getLogger } from '../logger.js';
+import {getLogger} from '../logger.js';
 import {
   MDNS_MCAST_V4,
   MDNS_MCAST_V6,
@@ -80,11 +80,7 @@ export async function browseMdnsService(
         return;
       }
       for (const rr of records) {
-        if (
-          rr.type === QTYPE_PTR &&
-          rr.name === serviceTypeFqdn &&
-          rr.ptrdname
-        ) {
+        if (rr.type === QTYPE_PTR && rr.name === serviceTypeFqdn && rr.ptrdname) {
           ptrTargets.add(rr.ptrdname);
         } else if (rr.type === QTYPE_SRV && rr.name) {
           addSrvEntry(srvMap, rr.name, {
@@ -93,11 +89,7 @@ export async function browseMdnsService(
           });
         } else if (rr.type === QTYPE_TXT && rr.name) {
           txtMap.set(rr.name, rr.txt ?? {});
-        } else if (
-          (rr.type === QTYPE_A || rr.type === QTYPE_AAAA) &&
-          rr.address &&
-          rr.name
-        ) {
+        } else if ((rr.type === QTYPE_A || rr.type === QTYPE_AAAA) && rr.address && rr.name) {
           recordAddress(rr.name, rr.address);
         }
       }
@@ -122,8 +114,7 @@ export async function browseMdnsService(
     }
     for (const srv of dedupeSrvEntries(srvEntries)) {
       const target = srv.target;
-      const host =
-        target && target.endsWith('.') ? target.slice(0, -1) : target;
+      const host = target && target.endsWith('.') ? target.slice(0, -1) : target;
       const addresses = target ? (hostAddresses.get(target) ?? []) : [];
       results.push({
         instance,
@@ -155,16 +146,14 @@ async function openMdnsSockets(): Promise<MdnsSocketHandle[]> {
 
   if (handles.length === 0) {
     const detail = errors.map((e) => e.message).join('; ');
-    throw new Error(
-      `Failed to open mDNS sockets on UDP port ${MDNS_PORT}: ${detail}`,
-    );
+    throw new Error(`Failed to open mDNS sockets on UDP port ${MDNS_PORT}: ${detail}`);
   }
   return handles;
 }
 
 function bindIpv4Socket(): Promise<MdnsSocketHandle> {
   return new Promise((resolve, reject) => {
-    const socket = createSocket({ type: 'udp4', reuseAddr: true });
+    const socket = createSocket({type: 'udp4', reuseAddr: true});
     socket.once('error', reject);
     socket.bind(MDNS_PORT, '0.0.0.0', () => {
       socket.removeListener('error', reject);
@@ -183,7 +172,7 @@ function bindIpv4Socket(): Promise<MdnsSocketHandle> {
 }
 
 async function bindIpv6Sockets(): Promise<MdnsSocketHandle[]> {
-  const socket = createSocket({ type: 'udp6', reuseAddr: true });
+  const socket = createSocket({type: 'udp6', reuseAddr: true});
   try {
     await new Promise<void>((resolve, reject) => {
       socket.once('error', reject);
@@ -224,10 +213,7 @@ async function bindIpv6Sockets(): Promise<MdnsSocketHandle[]> {
   ];
 }
 
-function isIpv6Interface(entry: {
-  family: string | number;
-  internal?: boolean;
-}): boolean {
+function isIpv6Interface(entry: {family: string | number; internal?: boolean}): boolean {
   return entry.family === 'IPv6' || entry.family === 6;
 }
 
@@ -235,11 +221,7 @@ function srvEntryKey(entry: SrvEntry): string {
   return `${entry.target ?? ''}:${entry.port ?? 0}`;
 }
 
-function addSrvEntry(
-  srvMap: Map<string, SrvEntry[]>,
-  instance: string,
-  entry: SrvEntry,
-): void {
+function addSrvEntry(srvMap: Map<string, SrvEntry[]>, instance: string, entry: SrvEntry): void {
   const entries = srvMap.get(instance) ?? [];
   const key = srvEntryKey(entry);
   if (entries.some((existing) => srvEntryKey(existing) === key)) {
@@ -268,14 +250,12 @@ function logMdnsQuerySendError(err: Error | null): void {
     return;
   }
   log.warn(
-    `Failed to send mDNS query to ${MDNS_MCAST_V4}:${MDNS_PORT}: ${
-      err instanceof Error ? err.message : String(err)
-    }`,
+    `Failed to send mDNS query to ${MDNS_MCAST_V4}:${MDNS_PORT}: ${err instanceof Error ? err.message : String(err)}`,
   );
 }
 
 function sendQueryAll(handles: MdnsSocketHandle[], packet: Buffer): void {
-  for (const { socket, family } of handles) {
+  for (const {socket, family} of handles) {
     if (family !== 'ipv4') {
       continue;
     }
@@ -290,11 +270,11 @@ function collectResponses(
 ): Promise<void> {
   return new Promise((resolve) => {
     const onData = (chunk: Buffer) => onMessage(chunk);
-    for (const { socket } of handles) {
+    for (const {socket} of handles) {
       socket.on('message', onData);
     }
     setTimeout(() => {
-      for (const { socket } of handles) {
+      for (const {socket} of handles) {
         socket.off('message', onData);
       }
       resolve();

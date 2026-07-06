@@ -1,13 +1,10 @@
-import { util } from '@appium/support';
+import {util} from '@appium/support';
 
-import { getLogger } from '../../../lib/logger.js';
-import { PlistServiceDecoder } from '../../../lib/plist/plist-decoder.js';
-import type {
-  DiagnosticsService as DiagnosticsServiceInterface,
-  PlistDictionary,
-} from '../../../lib/types.js';
-import type { ServiceConnection } from '../../../service-connection.js';
-import { BaseService } from '../base-service.js';
+import {getLogger} from '../../../lib/logger.js';
+import {PlistServiceDecoder} from '../../../lib/plist/plist-decoder.js';
+import type {DiagnosticsService as DiagnosticsServiceInterface, PlistDictionary} from '../../../lib/types.js';
+import type {ServiceConnection} from '../../../service-connection.js';
+import {BaseService} from '../base-service.js';
 
 const log = getLogger('DiagnosticService');
 
@@ -17,12 +14,8 @@ const log = getLogger('DiagnosticService');
  * - Reboot, shutdown or put the device in sleep mode
  * - Get WiFi information
  */
-class DiagnosticsService
-  extends BaseService
-  implements DiagnosticsServiceInterface
-{
-  static readonly RSD_SERVICE_NAME =
-    'com.apple.mobile.diagnostics_relay.shim.remote';
+class DiagnosticsService extends BaseService implements DiagnosticsServiceInterface {
+  static readonly RSD_SERVICE_NAME = 'com.apple.mobile.diagnostics_relay.shim.remote';
 
   /**
    * Restart the device
@@ -129,22 +122,15 @@ class DiagnosticsService
   }
 
   private async connectToDiagnosticService(): Promise<ServiceConnection> {
-    const connection = await this.startLockdownService(
-      DiagnosticsService.RSD_SERVICE_NAME,
-    );
+    const connection = await this.startLockdownService(DiagnosticsService.RSD_SERVICE_NAME);
     const startServiceResponse = await connection.receive();
     if (startServiceResponse?.Request !== 'StartService') {
-      throw new Error(
-        `Expected StartService response, got: ${JSON.stringify(startServiceResponse)}`,
-      );
+      throw new Error(`Expected StartService response, got: ${JSON.stringify(startServiceResponse)}`);
     }
     return connection;
   }
 
-  private async sendRequest(
-    request: PlistDictionary,
-    timeout?: number,
-  ): Promise<PlistDictionary> {
+  private async sendRequest(request: PlistDictionary, timeout?: number): Promise<PlistDictionary> {
     const conn = await this.connectToDiagnosticService();
     try {
       const response = await conn.sendPlistRequest(request, timeout);
@@ -165,9 +151,7 @@ class DiagnosticsService
     }
   }
 
-  private processIORegistryResponse(
-    response: any,
-  ): PlistDictionary[] | Record<string, any> {
+  private processIORegistryResponse(response: any): PlistDictionary[] | Record<string, any> {
     if (PlistServiceDecoder.lastDecodedResult) {
       if (Array.isArray(PlistServiceDecoder.lastDecodedResult)) {
         return PlistServiceDecoder.lastDecodedResult as PlistDictionary[];
@@ -182,29 +166,22 @@ class DiagnosticsService
     if (Array.isArray(response)) {
       if (response.length === 0 && typeof response === 'object') {
         log.debug('Received empty array response');
-        return [{ IORegistryResponse: 'No data found' } as PlistDictionary];
+        return [{IORegistryResponse: 'No data found'} as PlistDictionary];
       }
       return response as PlistDictionary[];
     }
 
-    if (
-      typeof response === 'object' &&
-      !Buffer.isBuffer(response) &&
-      !(response instanceof Date)
-    ) {
+    if (typeof response === 'object' && !Buffer.isBuffer(response) && !(response instanceof Date)) {
       const responseObj = response as Record<string, any>;
 
-      if (
-        responseObj.Diagnostics &&
-        typeof responseObj.Diagnostics === 'object'
-      ) {
+      if (responseObj.Diagnostics && typeof responseObj.Diagnostics === 'object') {
         return [responseObj.Diagnostics as PlistDictionary];
       }
 
       return [responseObj as PlistDictionary];
     }
 
-    return [{ value: response } as PlistDictionary];
+    return [{value: response} as PlistDictionary];
   }
 
   /**
@@ -219,11 +196,7 @@ class DiagnosticsService
   ): Promise<PlistDictionary> {
     const response = await conn.sendPlistRequest(request, timeout);
 
-    if (
-      util.isPlainObject(response) &&
-      'Status' in response &&
-      response.Status !== 'Success'
-    ) {
+    if (util.isPlainObject(response) && 'Status' in response && response.Status !== 'Success') {
       throw new Error(`IORegistry query failed: ${JSON.stringify(response)}`);
     }
 

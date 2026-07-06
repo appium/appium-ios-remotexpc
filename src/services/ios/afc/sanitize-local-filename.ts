@@ -59,15 +59,10 @@ export function appendUniqueSuffix(sanitized: string, suffix: string): string {
   const extension = hasExtension ? sanitized.slice(dot) : '';
   const suffixPart = `_${suffix}`;
 
-  const reservedBytes =
-    Buffer.byteLength(suffixPart, 'utf8') +
-    Buffer.byteLength(extension, 'utf8');
+  const reservedBytes = Buffer.byteLength(suffixPart, 'utf8') + Buffer.byteLength(extension, 'utf8');
   const maxBaseBytes = MAX_FILENAME_BYTES - reservedBytes;
 
-  const truncatedBase =
-    maxBaseBytes > 0
-      ? truncateUtf8Bytes(base, maxBaseBytes)
-      : EMPTY_SANITIZED_FILENAME;
+  const truncatedBase = maxBaseBytes > 0 ? truncateUtf8Bytes(base, maxBaseBytes) : EMPTY_SANITIZED_FILENAME;
 
   const suffixed = hasExtension
     ? `${truncatedBase || EMPTY_SANITIZED_FILENAME}${suffixPart}${extension}`
@@ -118,10 +113,7 @@ function truncateUtf8Bytes(input: string, byteLength: number): string {
  * Strip trailing spaces and dots (invalid on Windows). Avoids regex backtracking (CWE-1333).
  * Ported from sanitize-filename.
  */
-function replaceTrailingDotsAndSpaces(
-  input: string,
-  replacement: string,
-): string {
+function replaceTrailingDotsAndSpaces(input: string, replacement: string): string {
   let end = input.length;
   while (end > 0 && (input[end - 1] === '.' || input[end - 1] === ' ')) {
     end -= 1;

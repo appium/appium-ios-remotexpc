@@ -1,7 +1,9 @@
-import { expect } from 'chai';
+import {describe, it} from 'node:test';
 
-import { parsePlist as parseXmlPlist } from '../../../src/lib/plist/plist-parser.js';
-import type { PlistDictionary } from '../../../src/lib/types.js';
+import {expect} from 'chai';
+
+import {parsePlist as parseXmlPlist} from '../../../src/lib/plist/plist-parser.js';
+import type {PlistDictionary} from '../../../src/lib/types.js';
 
 describe('XML Cleaning Logic', function () {
   describe('Handling Unicode Replacement Characters', function () {
@@ -13,9 +15,7 @@ describe('XML Cleaning Logic', function () {
 
       const xmlAfterDeclaration =
         '<?xml version="1.0" encoding="UTF-8"?>�<plist><dict><key>test</key><string>value</string></dict></plist>';
-      const resultAfterDeclaration = parseXmlPlist(
-        xmlAfterDeclaration,
-      ) as PlistDictionary;
+      const resultAfterDeclaration = parseXmlPlist(xmlAfterDeclaration) as PlistDictionary;
       expect(resultAfterDeclaration).to.have.property('test', 'value');
 
       const xmlAtEnd =
@@ -27,8 +27,7 @@ describe('XML Cleaning Logic', function () {
 
   describe('Edge Cases', function () {
     it('should handle the case where prevTagPos < 0', function () {
-      const xml =
-        '�<plist><dict><key>test</key><string>value</string></dict></plist>';
+      const xml = '�<plist><dict><key>test</key><string>value</string></dict></plist>';
 
       const result = parseXmlPlist(xml) as PlistDictionary;
 
@@ -49,9 +48,7 @@ describe('XML Cleaning Logic', function () {
 
       try {
         parseXmlPlist(xml);
-        expect.fail(
-          'Should have thrown an error for XML with only replacement characters',
-        );
+        expect.fail('Should have thrown an error for XML with only replacement characters');
       } catch (error) {
         expect(error).to.exist;
       }

@@ -41,10 +41,7 @@ export default [
       reportUnusedDisableDirectives: 'off',
     },
     rules: {
-      '@typescript-eslint/consistent-type-imports': [
-        'error',
-        { fixStyle: 'inline-type-imports' },
-      ],
+      '@typescript-eslint/consistent-type-imports': ['error', {fixStyle: 'inline-type-imports'}],
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/member-ordering': [
         'error',

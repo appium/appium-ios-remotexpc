@@ -1,4 +1,4 @@
-import type { AppleTVDevice, AppleTVPairingFlowResult } from '../types.js';
+import type {AppleTVDevice, AppleTVPairingFlowResult} from '../types.js';
 
 /** Encryption keys derived from SRP session key for secure communication */
 export interface EncryptionKeys {
@@ -12,7 +12,7 @@ export interface HandshakePayload {
     _0: {
       handshake: {
         _0: {
-          hostOptions: { attemptPairVerify: boolean };
+          hostOptions: {attemptPairVerify: boolean};
           wireProtocolVersion: number;
         };
       };

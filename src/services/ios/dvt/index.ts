@@ -1,21 +1,15 @@
 import type net from 'node:net';
 
-import { getLogger } from '../../../lib/logger.js';
-import {
-  createBinaryPlist,
-  parseBinaryPlist,
-} from '../../../lib/plist/index.js';
-import type {
-  PlistDictionary,
-  SendMessageOptions,
-} from '../../../lib/types.js';
-import { type ServiceConnection } from '../../../service-connection.js';
-import { BaseService, stripSSL } from '../base-service.js';
-import { ChannelFragmenter } from './channel-fragmenter.js';
-import { Channel } from './channel.js';
-import { DTXMessage, DTX_CONSTANTS, MessageAux } from './dtx-message.js';
-import { decodeNSKeyedArchiver } from './nskeyedarchiver-decoder.js';
-import { NSKeyedArchiverEncoder } from './nskeyedarchiver-encoder.js';
+import {getLogger} from '../../../lib/logger.js';
+import {createBinaryPlist, parseBinaryPlist} from '../../../lib/plist/index.js';
+import type {PlistDictionary, SendMessageOptions} from '../../../lib/types.js';
+import {type ServiceConnection} from '../../../service-connection.js';
+import {BaseService, stripSSL} from '../base-service.js';
+import {ChannelFragmenter} from './channel-fragmenter.js';
+import {Channel} from './channel.js';
+import {DTXMessage, DTX_CONSTANTS, MessageAux} from './dtx-message.js';
+import {decodeNSKeyedArchiver} from './nskeyedarchiver-decoder.js';
+import {NSKeyedArchiverEncoder} from './nskeyedarchiver-encoder.js';
 import {
   extractCapabilityStrings,
   extractNSDictionary,
@@ -48,10 +42,7 @@ export class DVTSecureSocketProxyService extends BaseService {
 
   constructor(udid: string) {
     super(udid);
-    this.channelMessages.set(
-      DVTSecureSocketProxyService.BROADCAST_CHANNEL,
-      new ChannelFragmenter(),
-    );
+    this.channelMessages.set(DVTSecureSocketProxyService.BROADCAST_CHANNEL, new ChannelFragmenter());
   }
 
   /**
@@ -63,9 +54,7 @@ export class DVTSecureSocketProxyService extends BaseService {
     }
 
     // DVT uses DTX binary protocol, connect without plist-based RSDCheckin
-    this.connection = await this.startLockdownWithoutCheckin(
-      DVTSecureSocketProxyService.RSD_SERVICE_NAME,
-    );
+    this.connection = await this.startLockdownWithoutCheckin(DVTSecureSocketProxyService.RSD_SERVICE_NAME);
     this.socket = this.connection.getSocket();
     stripSSL(this.socket);
 
@@ -101,7 +90,7 @@ export class DVTSecureSocketProxyService extends BaseService {
     args.appendInt(channelCode);
     args.appendObj(identifier);
 
-    await this.sendMessage(0, '_requestChannelWithCode:identifier:', { args });
+    await this.sendMessage(0, '_requestChannelWithCode:identifier:', {args});
 
     const [ret] = await this.recvPlist();
 
@@ -121,12 +110,8 @@ export class DVTSecureSocketProxyService extends BaseService {
    * @param selector The ObjectiveC method selector
    * @param options Optional message options
    */
-  async sendMessage(
-    channel: number,
-    selector: string | null = null,
-    options: SendMessageOptions = {},
-  ): Promise<void> {
-    const { args = null, expectsReply = true } = options;
+  async sendMessage(channel: number, selector: string | null = null, options: SendMessageOptions = {}): Promise<void> {
+    const {args = null, expectsReply = true} = options;
     if (!this.socket) {
       throw new Error('Not connected to DVT service');
     }
@@ -134,9 +119,7 @@ export class DVTSecureSocketProxyService extends BaseService {
     this.curMessageId++;
 
     const auxBuffer = args ? this.buildAuxiliaryData(args) : Buffer.alloc(0);
-    const selectorBuffer = selector
-      ? this.archiveSelector(selector)
-      : Buffer.alloc(0);
+    const selectorBuffer = selector ? this.archiveSelector(selector) : Buffer.alloc(0);
 
     let flags = DTX_CONSTANTS.INSTRUMENTS_MESSAGE_TYPE;
     if (expectsReply) {
@@ -154,22 +137,14 @@ export class DVTSecureSocketProxyService extends BaseService {
       cb: DTX_CONSTANTS.MESSAGE_HEADER_SIZE,
       fragmentId: 0,
       fragmentCount: 1,
-      length:
-        DTX_CONSTANTS.PAYLOAD_HEADER_SIZE +
-        auxBuffer.length +
-        selectorBuffer.length,
+      length: DTX_CONSTANTS.PAYLOAD_HEADER_SIZE + auxBuffer.length + selectorBuffer.length,
       identifier: this.curMessageId,
       conversationIndex: 0,
       channelCode: channel,
       expectsReply: expectsReply ? 1 : 0,
     });
 
-    const message = Buffer.concat([
-      messageHeader,
-      payloadHeader,
-      auxBuffer,
-      selectorBuffer,
-    ]);
+    const message = Buffer.concat([messageHeader, payloadHeader, auxBuffer, selectorBuffer]);
     const socket = this.socket;
     if (!socket) {
       throw new Error('Socket is not initialized');
@@ -243,10 +218,8 @@ export class DVTSecureSocketProxyService extends BaseService {
     }
 
     // Extract object data
-    const objSize =
-      Number(payloadHeader.totalLength) - payloadHeader.auxiliaryLength;
-    const data =
-      objSize > 0 ? payload.subarray(offset, offset + objSize) : null;
+    const objSize = Number(payloadHeader.totalLength) - payloadHeader.auxiliaryLength;
+    const data = objSize > 0 ? payload.subarray(offset, offset + objSize) : null;
 
     return [data, aux];
   }
@@ -260,9 +233,7 @@ export class DVTSecureSocketProxyService extends BaseService {
     }
 
     // Send channel cancellation for all active channels
-    const activeCodes = Array.from(this.channelMessages.keys()).filter(
-      (code) => code > 0,
-    );
+    const activeCodes = Array.from(this.channelMessages.keys()).filter((code) => code > 0);
 
     if (activeCodes.length > 0) {
       const args = new MessageAux();
@@ -271,11 +242,10 @@ export class DVTSecureSocketProxyService extends BaseService {
       }
 
       try {
-        await this.sendMessage(
-          DVTSecureSocketProxyService.BROADCAST_CHANNEL,
-          '_channelCanceled:',
-          { args, expectsReply: false },
-        );
+        await this.sendMessage(DVTSecureSocketProxyService.BROADCAST_CHANNEL, '_channelCanceled:', {
+          args,
+          expectsReply: false,
+        });
       } catch (error) {
         log.debug('Error sending channel canceled message:', error);
       }
@@ -288,10 +258,8 @@ export class DVTSecureSocketProxyService extends BaseService {
     this.isHandshakeComplete = false;
     this.channelCache.clear();
     this.channelMessages.clear();
-    this.channelMessages.set(
-      DVTSecureSocketProxyService.BROADCAST_CHANNEL,
-      new ChannelFragmenter(),
-    );
+    this.channelMessages.set(DVTSecureSocketProxyService.BROADCAST_CHANNEL, new ChannelFragmenter());
+    
     // Forcibly destroy the socket so any pending readExact calls unblock
     // immediately rather than waiting for the remote FIN.
     socketToDestroy?.destroy();
@@ -328,9 +296,7 @@ export class DVTSecureSocketProxyService extends BaseService {
 
     this.isHandshakeComplete = true;
 
-    log.debug(
-      `DVT handshake complete. Found ${Object.keys(this.supportedIdentifiers).length} supported identifiers`,
-    );
+    log.debug(`DVT handshake complete. Found ${Object.keys(this.supportedIdentifiers).length} supported identifiers`);
 
     // Consume any additional messages buffered after handshake
     await this.drainBufferedMessages();
@@ -348,9 +314,7 @@ export class DVTSecureSocketProxyService extends BaseService {
     throw new Error('Invalid handshake response');
   }
 
-  private extractCapabilitiesFromAuxData(
-    capabilitiesData: any,
-  ): PlistDictionary {
+  private extractCapabilitiesFromAuxData(capabilitiesData: any): PlistDictionary {
     const objects = extractNSKeyedArchiverObjects(capabilitiesData);
     if (!objects) {
       return capabilitiesData || {};
@@ -375,18 +339,13 @@ export class DVTSecureSocketProxyService extends BaseService {
 
     try {
       while (this.readBuffer.length >= DTX_CONSTANTS.MESSAGE_HEADER_SIZE) {
-        const headerData = this.readBuffer.subarray(
-          0,
-          DTX_CONSTANTS.MESSAGE_HEADER_SIZE,
-        );
+        const headerData = this.readBuffer.subarray(0, DTX_CONSTANTS.MESSAGE_HEADER_SIZE);
         const header = DTXMessage.parseMessageHeader(headerData);
 
         const totalSize = DTX_CONSTANTS.MESSAGE_HEADER_SIZE + header.length;
         if (this.readBuffer.length >= totalSize) {
           // Consume complete buffered message
-          this.readBuffer = this.readBuffer.subarray(
-            DTX_CONSTANTS.MESSAGE_HEADER_SIZE,
-          );
+          this.readBuffer = this.readBuffer.subarray(DTX_CONSTANTS.MESSAGE_HEADER_SIZE);
           this.readBuffer = this.readBuffer.subarray(header.length);
         } else {
           break;
@@ -400,10 +359,7 @@ export class DVTSecureSocketProxyService extends BaseService {
   /**
    * Receive packet fragments until a complete message is available for the specified channel
    */
-  private async recvPacketFragments(
-    channel: number,
-    signal?: AbortSignal,
-  ): Promise<Buffer> {
+  private async recvPacketFragments(channel: number, signal?: AbortSignal): Promise<Buffer> {
     while (true) {
       const fragmenter = this.channelMessages.get(channel);
       if (!fragmenter) {
@@ -417,10 +373,7 @@ export class DVTSecureSocketProxyService extends BaseService {
       }
 
       // Read next message header
-      const headerData = await this.readExact(
-        DTX_CONSTANTS.MESSAGE_HEADER_SIZE,
-        signal,
-      );
+      const headerData = await this.readExact(DTX_CONSTANTS.MESSAGE_HEADER_SIZE, signal);
       const header = DTXMessage.parseMessageHeader(headerData);
 
       const receivedChannel = Math.abs(header.channelCode);
@@ -454,14 +407,9 @@ export class DVTSecureSocketProxyService extends BaseService {
   /**
    * Read exact number of bytes from socket with buffering
    */
-  private async readExact(
-    length: number,
-    signal?: AbortSignal,
-  ): Promise<Buffer> {
+  private async readExact(length: number, signal?: AbortSignal): Promise<Buffer> {
     if (!this.socket) {
-      throw new Error(
-        `${this.constructor.name} is not initialized. Call connect() before sending messages.`,
-      );
+      throw new Error(`${this.constructor.name} is not initialized. Call connect() before sending messages.`);
     }
 
     // Keep reading until we have enough data
@@ -503,15 +451,13 @@ export class DVTSecureSocketProxyService extends BaseService {
 
         const onAbort = () => {
           cleanup();
-          reject(
-            signal?.reason ?? new DOMException('Read aborted', 'AbortError'),
-          );
+          reject(signal?.reason ?? new DOMException('Read aborted', 'AbortError'));
         };
 
         socket.once('data', onData);
         socket.once('error', onError);
         socket.once('close', onClose);
-        signal?.addEventListener('abort', onAbort, { once: true });
+        signal?.addEventListener('abort', onAbort, {once: true});
       });
 
       this.readBuffer = Buffer.concat([this.readBuffer, chunk]);
@@ -540,10 +486,7 @@ export class DVTSecureSocketProxyService extends BaseService {
 
       if (hasNSError) {
         const errorMsg =
-          objects.find(
-            (o: any) =>
-              typeof o === 'string' && o.length > MIN_ERROR_DESCRIPTION_LENGTH,
-          ) || 'Unknown error';
+          objects.find((o: any) => typeof o === 'string' && o.length > MIN_ERROR_DESCRIPTION_LENGTH) || 'Unknown error';
         throw new Error(`${context}: ${errorMsg}`);
       }
     }
@@ -718,11 +661,7 @@ export class DVTSecureSocketProxyService extends BaseService {
   /**
    * Parse a single auxiliary value
    */
-  private parseAuxiliaryValue(
-    buffer: Buffer,
-    type: number,
-    offset: number,
-  ): { data: any; newOffset: number } {
+  private parseAuxiliaryValue(buffer: Buffer, type: number, offset: number): {data: any; newOffset: number} {
     switch (type) {
       case DTX_CONSTANTS.AUX_TYPE_INT32:
         return {
@@ -760,13 +699,6 @@ export class DVTSecureSocketProxyService extends BaseService {
   }
 }
 
-export { Channel, ChannelFragmenter, DTXMessage, MessageAux, DTX_CONSTANTS };
-export {
-  decodeNSKeyedArchiver,
-  NSKeyedArchiverDecoder,
-} from './nskeyedarchiver-decoder.js';
-export type {
-  DTXMessageHeader,
-  DTXMessagePayloadHeader,
-  MessageAuxValue,
-} from './dtx-message.js';
+export {Channel, ChannelFragmenter, DTXMessage, MessageAux, DTX_CONSTANTS};
+export {decodeNSKeyedArchiver, NSKeyedArchiverDecoder} from './nskeyedarchiver-decoder.js';
+export type {DTXMessageHeader, DTXMessagePayloadHeader, MessageAuxValue} from './dtx-message.js';

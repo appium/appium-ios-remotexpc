@@ -1,11 +1,11 @@
-import type { XPCArray, XPCDictionary, XPCValue } from '../types.js';
+import type {XPCArray, XPCDictionary, XPCValue} from '../types.js';
 
 // Constants for XPC protocol.
 const BODY_VERSION: number = 0x00000005;
 const WRAPPER_MAGIC: number = 0x29b00b92;
 const OBJECT_MAGIC: number = 0x42133742;
 
-export const XPC_TYPES: { [key: string]: number } = {
+export const XPC_TYPES: {[key: string]: number} = {
   null: 0x00001000,
   bool: 0x00002000,
   int64: 0x00003000,
@@ -217,7 +217,7 @@ export function decodeMessage(buffer: Buffer): DecodedXpcMessage {
   const msgId = reader.readBigUInt64LE();
   if (bodyLen === BigInt(0)) {
     return {
-      message: { flags, id: msgId, body: null },
+      message: {flags, id: msgId, body: null},
       bytesConsumed,
     };
   }
@@ -236,16 +236,12 @@ export function decodeMessage(buffer: Buffer): DecodedXpcMessage {
   const decodedValue = decodeObject(new Reader(bodyBuffer));
 
   // Ensure the decoded value is a dictionary
-  if (
-    typeof decodedValue !== 'object' ||
-    decodedValue === null ||
-    Array.isArray(decodedValue)
-  ) {
+  if (typeof decodedValue !== 'object' || decodedValue === null || Array.isArray(decodedValue)) {
     throw new TypeError('Expected dictionary as message body');
   }
 
   return {
-    message: { flags, id: msgId, body: decodedValue as XPCDictionary },
+    message: {flags, id: msgId, body: decodedValue as XPCDictionary},
     bytesConsumed,
   };
 }

@@ -1,4 +1,4 @@
-import { getLogger } from '../../../../lib/logger.js';
+import {getLogger} from '../../../../lib/logger.js';
 import type {
   ConnectionDetectionEvent,
   ConnectionUpdateEvent,
@@ -6,36 +6,15 @@ import type {
   NetworkAddress,
   NetworkEvent,
 } from '../../../../lib/types.js';
-import { BaseInstrument } from './base-instrument.js';
+import {BaseInstrument} from './base-instrument.js';
 
 const log = getLogger('NetworkMonitor');
 
 type InterfaceDetectionMessage = [number, string];
 
-type ConnectionDetectionMessage = [
-  Buffer,
-  Buffer,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-];
+type ConnectionDetectionMessage = [Buffer, Buffer, number, number, number, number, number, number];
 
-type ConnectionUpdateMessage = [
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-];
+type ConnectionUpdateMessage = [number, number, number, number, number, number, number, number, number, number, number];
 
 /**
  * Message types for network monitoring events
@@ -55,8 +34,7 @@ export const NetworkMessageType = {
  * - Connection update events (traffic statistics updates)
  */
 export class NetworkMonitor extends BaseInstrument {
-  static readonly IDENTIFIER =
-    'com.apple.instruments.server.services.networking';
+  static readonly IDENTIFIER = 'com.apple.instruments.server.services.networking';
   private receiveAbortController: AbortController | null = null;
   private stopRequested = false;
 
@@ -129,10 +107,7 @@ export class NetworkMonitor extends BaseInstrument {
   }
 
   private isAbortError(err: unknown): boolean {
-    return (
-      err instanceof DOMException ||
-      (err instanceof Error && err.name === 'AbortError')
-    );
+    return err instanceof DOMException || (err instanceof Error && err.name === 'AbortError');
   }
 
   /**
@@ -160,9 +135,7 @@ export class NetworkMonitor extends BaseInstrument {
   /**
    * Parse interface detection event data
    */
-  private parseInterfaceDetection(
-    data: InterfaceDetectionMessage,
-  ): InterfaceDetectionEvent {
+  private parseInterfaceDetection(data: InterfaceDetectionMessage): InterfaceDetectionEvent {
     const [interfaceIndex, name] = data;
     return {
       type: NetworkMessageType.INTERFACE_DETECTION,
@@ -174,19 +147,9 @@ export class NetworkMonitor extends BaseInstrument {
   /**
    * Parse connection detection event data
    */
-  private parseConnectionDetection(
-    data: ConnectionDetectionMessage,
-  ): ConnectionDetectionEvent {
-    const [
-      localAddressRaw,
-      remoteAddressRaw,
-      interfaceIndex,
-      pid,
-      recvBufferSize,
-      recvBufferUsed,
-      serialNumber,
-      kind,
-    ] = data;
+  private parseConnectionDetection(data: ConnectionDetectionMessage): ConnectionDetectionEvent {
+    const [localAddressRaw, remoteAddressRaw, interfaceIndex, pid, recvBufferSize, recvBufferUsed, serialNumber, kind] =
+      data;
 
     return {
       type: NetworkMessageType.CONNECTION_DETECTION,
@@ -204,22 +167,9 @@ export class NetworkMonitor extends BaseInstrument {
   /**
    * Parse connection update event data
    */
-  private parseConnectionUpdate(
-    data: ConnectionUpdateMessage,
-  ): ConnectionUpdateEvent {
-    const [
-      rxPackets,
-      rxBytes,
-      txPackets,
-      txBytes,
-      rxDups,
-      rx000,
-      txRetx,
-      minRtt,
-      avgRtt,
-      connectionSerial,
-      time,
-    ] = data;
+  private parseConnectionUpdate(data: ConnectionUpdateMessage): ConnectionUpdateEvent {
+    const [rxPackets, rxBytes, txPackets, txBytes, rxDups, rx000, txRetx, minRtt, avgRtt, connectionSerial, time] =
+      data;
 
     return {
       type: NetworkMessageType.CONNECTION_UPDATE,
@@ -254,14 +204,12 @@ export class NetworkMonitor extends BaseInstrument {
     const family = buf[1];
     const port = buf.readUInt16BE(2);
 
-    const result: NetworkAddress = { len, family, port, address: '0.0.0.0' };
+    const result: NetworkAddress = {len, family, port, address: '0.0.0.0'};
 
     if (len === 0x1c) {
       // IPv6: 8 groups of 16-bit hex values
       result.flowInfo = buf.readUInt32LE(4);
-      result.address = Array.from({ length: 8 }, (_, i) =>
-        buf.readUInt16BE(8 + i * 2).toString(16),
-      ).join(':');
+      result.address = Array.from({length: 8}, (_, i) => buf.readUInt16BE(8 + i * 2).toString(16)).join(':');
       result.scopeId = buf.readUInt32LE(24);
     } else if (len === 0x10) {
       // IPv4: 4 octets as decimal

@@ -1,11 +1,8 @@
-import type { IncomingMessage, ServerResponse } from 'node:http';
-import { match } from 'path-to-regexp';
+import type {IncomingMessage, ServerResponse} from 'node:http';
 
-export type RouteHandler = (
-  req: IncomingMessage,
-  res: ServerResponse,
-  params: Record<string, string>,
-) => Promise<void>;
+import {match} from 'path-to-regexp';
+
+export type RouteHandler = (req: IncomingMessage, res: ServerResponse, params: Record<string, string>) => Promise<void>;
 
 /**
  * Declarative route: method + path template + optional guard + handler.
@@ -48,7 +45,7 @@ export function createRouteDispatcher(
   return async (req, res) => {
     const pathname = getRequestPathname(req);
     const m = (req.method || 'GET').toUpperCase();
-    for (const { route, matcher } of compiled) {
+    for (const {route, matcher} of compiled) {
       if (route.method !== m) {
         continue;
       }
@@ -80,9 +77,7 @@ function compileRoutes(routes: readonly RouteRecord[]): CompiledRoute[] {
 /**
  * Normalize path-to-regexp params into a flat string map.
  */
-function normalizeMatchParams(
-  params: Partial<Record<string, string | string[]>>,
-): Record<string, string> {
+function normalizeMatchParams(params: Partial<Record<string, string | string[]>>): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined) {

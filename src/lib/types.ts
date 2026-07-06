@@ -1,25 +1,25 @@
 /**
  * Common type definitions for the appium-ios-remotexpc library
  */
-import { type EventEmitter } from 'node:events';
+import {type EventEmitter} from 'node:events';
 
-import type { ServiceConnection } from '../service-connection.js';
+import type {ServiceConnection} from '../service-connection.js';
 import type AfcService from '../services/ios/afc/index.js';
-import type { BaseService, Service } from '../services/ios/base-service.js';
-import type { iOSApplication } from '../services/ios/dvt/instruments/application-listing.js';
-import type { LocationCoordinates } from '../services/ios/dvt/instruments/location-simulation.js';
-import type { NotificationMessage } from '../services/ios/dvt/instruments/notifications.js';
-import { type InstallationProxyService } from '../services/ios/installation-proxy/index.js';
-import { type ProvisioningProfile } from '../services/ios/misagent/provisioning-profile.js';
-import type { ProfileList } from '../services/ios/mobile-config/index.js';
-import type { PowerAssertionOptions } from '../services/ios/power-assertion/index.js';
-import { PowerAssertionType } from '../services/ios/power-assertion/index.js';
-import type { InterfaceOrientation } from '../services/ios/springboard-service/index.js';
-import type { SyslogEntry } from '../services/ios/syslog-service/syslog-entry-parser.js';
-import type { Device } from './usbmux/index.js';
+import type {BaseService, Service} from '../services/ios/base-service.js';
+import type {iOSApplication} from '../services/ios/dvt/instruments/application-listing.js';
+import type {LocationCoordinates} from '../services/ios/dvt/instruments/location-simulation.js';
+import type {NotificationMessage} from '../services/ios/dvt/instruments/notifications.js';
+import {type InstallationProxyService} from '../services/ios/installation-proxy/index.js';
+import {type ProvisioningProfile} from '../services/ios/misagent/provisioning-profile.js';
+import type {ProfileList} from '../services/ios/mobile-config/index.js';
+import type {PowerAssertionOptions} from '../services/ios/power-assertion/index.js';
+import {PowerAssertionType} from '../services/ios/power-assertion/index.js';
+import type {InterfaceOrientation} from '../services/ios/springboard-service/index.js';
+import type {SyslogEntry} from '../services/ios/syslog-service/syslog-entry-parser.js';
+import type {Device} from './usbmux/index.js';
 
-export type { PowerAssertionOptions };
-export { PowerAssertionType };
+export type {PowerAssertionOptions};
+export {PowerAssertionType};
 
 /**
  * Options for launching a process
@@ -226,7 +226,7 @@ export interface XPCDictionary {
 export type ResponseCallback<T> = (data: T) => void;
 
 /** RSD service catalog published by tunnel-creation after discover-and-close. */
-export type TunnelServiceCatalog = Record<string, { port: string }>;
+export type TunnelServiceCatalog = Record<string, {port: string}>;
 
 export interface TunnelRegistryEntry {
   /** Unique device identifier */
@@ -759,8 +759,7 @@ export interface ConnectionUpdateEvent {
 /**
  * Union type for all network monitoring events
  */
-export type NetworkEvent =
-  InterfaceDetectionEvent | ConnectionDetectionEvent | ConnectionUpdateEvent;
+export type NetworkEvent = InterfaceDetectionEvent | ConnectionDetectionEvent | ConnectionUpdateEvent;
 
 /**
  * Network monitor service interface for real-time network activity monitoring
@@ -844,9 +843,7 @@ export interface EnergyMonitorService {
    * }
    * ```
    */
-  monitor(
-    pids: number[],
-  ): AsyncGenerator<Record<string, Record<string, number>>, void, undefined>;
+  monitor(pids: number[]): AsyncGenerator<Record<string, Record<string, number>>, void, undefined>;
 }
 
 /**
@@ -1433,11 +1430,7 @@ export interface WebInspectorService extends BaseService {
    * @param appId The application identifier
    * @param capabilities Optional session capabilities
    */
-  forwardAutomationSessionRequest(
-    sessionId: string,
-    appId: string,
-    capabilities?: PlistDictionary,
-  ): Promise<void>;
+  forwardAutomationSessionRequest(sessionId: string, appId: string, capabilities?: PlistDictionary): Promise<void>;
 
   /**
    * Forward socket setup for inspector connection
@@ -1446,12 +1439,7 @@ export interface WebInspectorService extends BaseService {
    * @param pageId The page identifier
    * @param automaticallyPause Whether to automatically pause (defaults to true)
    */
-  forwardSocketSetup(
-    sessionId: string,
-    appId: string,
-    pageId: number,
-    automaticallyPause?: boolean,
-  ): Promise<void>;
+  forwardSocketSetup(sessionId: string, appId: string, pageId: number, automaticallyPause?: boolean): Promise<void>;
 
   /**
    * Forward socket data to a page
@@ -1460,12 +1448,7 @@ export interface WebInspectorService extends BaseService {
    * @param pageId The page identifier
    * @param data The data to send (will be JSON stringified)
    */
-  forwardSocketData(
-    sessionId: string,
-    appId: string,
-    pageId: number,
-    data: any,
-  ): Promise<void>;
+  forwardSocketData(sessionId: string, appId: string, pageId: number, data: any): Promise<void>;
 
   /**
    * Forward indicate web view
@@ -1473,11 +1456,7 @@ export interface WebInspectorService extends BaseService {
    * @param pageId The page identifier
    * @param enable Whether to enable indication
    */
-  forwardIndicateWebView(
-    appId: string,
-    pageId: number,
-    enable: boolean,
-  ): Promise<void>;
+  forwardIndicateWebView(appId: string, pageId: number, enable: boolean): Promise<void>;
 }
 
 /**
@@ -1635,10 +1614,7 @@ export interface MobileImageMounterService extends BaseService {
    * @param signature The image signature/hash
    * @returns Promise resolving to personalization manifest
    */
-  queryPersonalizationManifest(
-    imageType: string,
-    signature: Buffer,
-  ): Promise<Buffer>;
+  queryPersonalizationManifest(imageType: string, signature: Buffer): Promise<Buffer>;
 
   /**
    * Upload image data to the device (used prior to mounting)
@@ -1647,12 +1623,7 @@ export interface MobileImageMounterService extends BaseService {
    * @param signature The image signature/manifest buffer
    * @param timeout Optional timeout in milliseconds
    */
-  uploadImage(
-    imageType: string,
-    image: Buffer,
-    signature: Buffer,
-    timeout?: number,
-  ): Promise<void>;
+  uploadImage(imageType: string, image: Buffer, signature: Buffer, timeout?: number): Promise<void>;
 
   /**
    * Mount image on the device using a previously uploaded image/manifest
@@ -1660,11 +1631,7 @@ export interface MobileImageMounterService extends BaseService {
    * @param signature The image signature/manifest buffer
    * @param extras Optional additional parameters for mounting
    */
-  mountImage(
-    imageType: string,
-    signature: Buffer,
-    extras?: Record<string, any>,
-  ): Promise<void>;
+  mountImage(imageType: string, signature: Buffer, extras?: Record<string, any>): Promise<void>;
 
   /**
    * Clean up resources used by the service instance
@@ -1774,9 +1741,7 @@ export interface SpringboardService extends BaseService {
    * @param wallpaperName
    * @returns {Promise<Buffer>} which is a wallpaper preview image
    */
-  getWallpaperPreviewImage(
-    wallpaperName: 'homescreen' | 'lockscreen',
-  ): Promise<Buffer>;
+  getWallpaperPreviewImage(wallpaperName: 'homescreen' | 'lockscreen'): Promise<Buffer>;
 
   /**
    * TODO: This does not work currently due to a bug in Apple protocol implementation
@@ -1924,11 +1889,7 @@ export interface CrashReportsService {
    * @param entry Remote path on device, defaults to "/"
    * @param options Pull options (erase, match pattern)
    */
-  pull(
-    out: string,
-    entry?: string,
-    options?: CrashReportsPullOptions,
-  ): Promise<void>;
+  pull(out: string, entry?: string, options?: CrashReportsPullOptions): Promise<void>;
 
   /**
    * Clear all crash reports from the device
@@ -1978,11 +1939,7 @@ export interface TestmanagerdService extends BaseService {
    * @param selector The ObjectiveC method selector
    * @param options Optional message options
    */
-  sendMessage(
-    channel: number,
-    selector: string | null,
-    options?: SendMessageOptions,
-  ): Promise<void>;
+  sendMessage(channel: number, selector: string | null, options?: SendMessageOptions): Promise<void>;
 
   /**
    * Receive a plist message from a channel
@@ -1999,10 +1956,7 @@ export interface TestmanagerdService extends BaseService {
    * @param timeoutMs Timeout in milliseconds
    * @returns Tuple of [decoded data, auxiliary values], or null on timeout
    */
-  recvPlistWithTimeout(
-    channel?: number,
-    timeoutMs?: number,
-  ): Promise<[any, any[]] | null>;
+  recvPlistWithTimeout(channel?: number, timeoutMs?: number): Promise<[any, any[]] | null>;
 
   /**
    * Send a DTX reply message for the last received message on a channel.

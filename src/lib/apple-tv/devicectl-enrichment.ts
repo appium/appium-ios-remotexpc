@@ -1,13 +1,11 @@
-import { listDevicectlDeviceRecords } from '../discovery/devicectl-device-records.js';
-import type { DevicectlDeviceRecord } from '../discovery/devicectl-device-records.js';
-import type { DiscoveredDevice } from '../discovery/types.js';
+import {listDevicectlDeviceRecords} from '../discovery/devicectl-device-records.js';
+import type {DevicectlDeviceRecord} from '../discovery/devicectl-device-records.js';
+import type {DiscoveredDevice} from '../discovery/types.js';
 
 /**
  * Enrich discovered devices with metadata retrieved from `devicectl`.
  */
-export async function enrichDiscoveredDevicesWithDevicectl(
-  devices: DiscoveredDevice[],
-): Promise<DiscoveredDevice[]> {
+export async function enrichDiscoveredDevicesWithDevicectl(devices: DiscoveredDevice[]): Promise<DiscoveredDevice[]> {
   if (process.platform !== 'darwin' || devices.length === 0) {
     return devices;
   }
@@ -22,19 +20,16 @@ export async function enrichDiscoveredDevicesWithDevicectl(
     return devices;
   }
 
-  const byHost = records.reduce<Map<string, (typeof records)[0]>>(
-    (acc, record) => {
-      for (const hostname of record.hostnames) {
-        for (const key of hostMatchingKeys(hostname)) {
-          if (!acc.has(key)) {
-            acc.set(key, record);
-          }
+  const byHost = records.reduce<Map<string, (typeof records)[0]>>((acc, record) => {
+    for (const hostname of record.hostnames) {
+      for (const key of hostMatchingKeys(hostname)) {
+        if (!acc.has(key)) {
+          acc.set(key, record);
         }
       }
-      return acc;
-    },
-    new Map<string, (typeof records)[0]>(),
-  );
+    }
+    return acc;
+  }, new Map<string, (typeof records)[0]>());
 
   return devices.map((device) => {
     const match = hostMatchingKeys(device.hostname)
@@ -79,10 +74,7 @@ function hostMatchingKeys(host?: string): string[] {
 /**
  * Merge `devicectl` metadata into existing discovered device metadata.
  */
-function mergeMetadata(
-  base: DiscoveredDevice['metadata'],
-  extra: DevicectlDeviceRecord,
-): DiscoveredDevice['metadata'] {
+function mergeMetadata(base: DiscoveredDevice['metadata'], extra: DevicectlDeviceRecord): DiscoveredDevice['metadata'] {
   return {
     ...base,
     identifier: extra.identifier || base.identifier,

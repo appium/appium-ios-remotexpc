@@ -1,4 +1,6 @@
-import { expect } from 'chai';
+import {describe, it} from 'node:test';
+
+import {expect} from 'chai';
 
 import {
   QTYPE_PTR,
@@ -17,14 +19,14 @@ describe('mdns-protocol', function () {
     it('round-trips a multi-label DNS name', function () {
       const fqdn = '_remotepairing._tcp.local.';
       const encoded = encodeName(fqdn);
-      const { name } = decodeName(encoded, 0);
+      const {name} = decodeName(encoded, 0);
       expect(name).to.equal(fqdn);
     });
 
     it('round-trips Apple long service type names', function () {
       const fqdn = '_remotepairing-manual-pairing._tcp.local.';
       const encoded = encodeName(fqdn);
-      const { name } = decodeName(encoded, 0);
+      const {name} = decodeName(encoded, 0);
       expect(name).to.equal(fqdn);
     });
 
@@ -45,12 +47,10 @@ describe('mdns-protocol', function () {
 
   describe('buildServiceTypeFqdn', function () {
     it('builds a trailing-dot FQDN from type and domain', function () {
-      expect(buildServiceTypeFqdn('_remotepairing._tcp', 'local')).to.equal(
-        '_remotepairing._tcp.local.',
+      expect(buildServiceTypeFqdn('_remotepairing._tcp', 'local')).to.equal('_remotepairing._tcp.local.');
+      expect(buildServiceTypeFqdn('_remotepairing-manual-pairing._tcp', 'local')).to.equal(
+        '_remotepairing-manual-pairing._tcp.local.',
       );
-      expect(
-        buildServiceTypeFqdn('_remotepairing-manual-pairing._tcp', 'local'),
-      ).to.equal('_remotepairing-manual-pairing._tcp.local.');
     });
   });
 
@@ -65,7 +65,7 @@ describe('mdns-protocol', function () {
     it('encodes a PTR question for the service type', function () {
       const query = buildQuery('_remotepairing._tcp.local.', QTYPE_PTR);
       expect(query.readUInt16BE(4)).to.equal(1);
-      const { name, offset } = decodeName(query, 12);
+      const {name, offset} = decodeName(query, 12);
       expect(name).to.equal('_remotepairing._tcp.local.');
       expect(query.readUInt16BE(offset)).to.equal(QTYPE_PTR);
     });
@@ -107,10 +107,7 @@ describe('mdns-protocol', function () {
       ]);
 
       const txtSegment = Buffer.from('identifier=tv1');
-      const txtPayload = Buffer.concat([
-        Buffer.from([txtSegment.length]),
-        txtSegment,
-      ]);
+      const txtPayload = Buffer.concat([Buffer.from([txtSegment.length]), txtSegment]);
       const txtRR = Buffer.concat([
         encodeName(instance),
         uint16(QTYPE_TXT),
@@ -127,7 +124,7 @@ describe('mdns-protocol', function () {
       expect(records[0]?.ptrdname).to.equal(instance);
       expect(records[1]?.port).to.equal(49152);
       expect(records[1]?.target).to.equal(target);
-      expect(records[2]?.txt).to.deep.equal({ identifier: 'tv1' });
+      expect(records[2]?.txt).to.deep.equal({identifier: 'tv1'});
     });
   });
 });

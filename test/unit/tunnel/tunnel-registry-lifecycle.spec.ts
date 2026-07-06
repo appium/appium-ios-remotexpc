@@ -1,12 +1,14 @@
-import { expect } from 'chai';
-import { once } from 'node:events';
-import { type AddressInfo, createConnection, createServer } from 'node:net';
+import {once} from 'node:events';
+import {type AddressInfo, createConnection, createServer} from 'node:net';
+import {describe, it} from 'node:test';
+
+import {expect} from 'chai';
 
 import {
   watchTunnelRegistryOnDead,
   watchTunnelRegistrySockets,
 } from '../../../src/lib/tunnel/tunnel-registry-lifecycle.js';
-import type { TunnelRegistry } from '../../../src/lib/types.js';
+import type {TunnelRegistry} from '../../../src/lib/types.js';
 
 function makeRegistry(udid: string): TunnelRegistry {
   const now = Date.now();
@@ -17,7 +19,7 @@ function makeRegistry(udid: string): TunnelRegistry {
         deviceId: 1,
         address: '10.0.0.1',
         rsdPort: 1,
-        services: { 'com.apple.test': { port: '1' } },
+        services: {'com.apple.test': {port: '1'}},
         connectionType: 'USB',
         productId: 0,
         createdAt: now,
@@ -46,12 +48,12 @@ describe('watchTunnelRegistrySockets', function () {
     });
 
     const port = (server.address() as AddressInfo).port;
-    const client = createConnection({ host: '127.0.0.1', port });
+    const client = createConnection({host: '127.0.0.1', port});
 
     await once(client, 'connect');
 
     let removedUdid: string | undefined;
-    const { stop } = watchTunnelRegistrySockets({
+    const {stop} = watchTunnelRegistrySockets({
       registry,
       watches: [
         {
@@ -84,12 +86,12 @@ describe('watchTunnelRegistrySockets', function () {
     });
 
     const port = (server.address() as AddressInfo).port;
-    const client = createConnection({ host: '127.0.0.1', port });
+    const client = createConnection({host: '127.0.0.1', port});
     await once(client, 'connect');
 
-    const { stop } = watchTunnelRegistrySockets({
+    const {stop} = watchTunnelRegistrySockets({
       registry,
-      watches: [{ udid: 'dev-2', socket: client }],
+      watches: [{udid: 'dev-2', socket: client}],
     });
 
     stop();
@@ -104,10 +106,12 @@ describe('watchTunnelRegistrySockets', function () {
 describe('watchTunnelRegistryOnDead', function () {
   it('removes registry entry when registerOnDead handler is invoked', async function () {
     const registry = makeRegistry('dev-3');
-    let onDeadHandler = (_reason: string) => {};
+    let onDeadHandler = (reason: string) => {
+      void reason;
+    };
 
     let removedUdid: string | undefined;
-    const { stop } = watchTunnelRegistryOnDead({
+    const {stop} = watchTunnelRegistryOnDead({
       registry,
       watches: [
         {
@@ -133,9 +137,11 @@ describe('watchTunnelRegistryOnDead', function () {
 
   it('stop() ignores subsequent onDead notifications', async function () {
     const registry = makeRegistry('dev-4');
-    let onDeadHandler = (_reason: string) => {};
+    let onDeadHandler = (reason: string) => {
+      void reason;
+    };
 
-    const { stop } = watchTunnelRegistryOnDead({
+    const {stop} = watchTunnelRegistryOnDead({
       registry,
       watches: [
         {

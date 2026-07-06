@@ -1,19 +1,17 @@
-import { expect } from 'chai';
-import { describe, it } from 'mocha';
+import {describe, it} from 'node:test';
 
-import {
-  type HKDFParams,
-  hkdf,
-} from '../../../../src/lib/apple-tv/encryption/hkdf.js';
-import { CryptographyError } from '../../../../src/lib/apple-tv/errors.js';
+import {expect} from 'chai';
 
-describe('Apple TV Encryption - HKDF', () => {
+import {type HKDFParams, hkdf} from '../../../../src/lib/apple-tv/encryption/hkdf.js';
+import {CryptographyError} from '../../../../src/lib/apple-tv/errors.js';
+
+describe('Apple TV Encryption - HKDF', function () {
   const defaultIkm = Buffer.from('input key material', 'utf8');
   const defaultSalt = Buffer.from('salt value', 'utf8');
   const defaultInfo = Buffer.from('info string', 'utf8');
 
-  describe('basic functionality', () => {
-    it('should derive key with all parameters', () => {
+  describe('basic functionality', function () {
+    it('should derive key with all parameters', function () {
       const params: HKDFParams = {
         ikm: defaultIkm,
         salt: defaultSalt,
@@ -27,7 +25,7 @@ describe('Apple TV Encryption - HKDF', () => {
       expect(result.length).to.equal(32);
     });
 
-    it('should derive key with null salt', () => {
+    it('should derive key with null salt', function () {
       const params: HKDFParams = {
         ikm: defaultIkm,
         salt: null,
@@ -41,7 +39,7 @@ describe('Apple TV Encryption - HKDF', () => {
       expect(result.length).to.equal(32);
     });
 
-    it('should produce consistent results for same inputs', () => {
+    it('should produce consistent results for same inputs', function () {
       const params: HKDFParams = {
         ikm: defaultIkm,
         salt: defaultSalt,
@@ -55,7 +53,7 @@ describe('Apple TV Encryption - HKDF', () => {
       expect(result1.equals(result2)).to.be.true;
     });
 
-    it('should produce different results for different IKM', () => {
+    it('should produce different results for different IKM', function () {
       const params1: HKDFParams = {
         ikm: Buffer.from('ikm1', 'utf8'),
         salt: defaultSalt,
@@ -77,8 +75,8 @@ describe('Apple TV Encryption - HKDF', () => {
     });
   });
 
-  describe('output length variations', () => {
-    it('should handle minimum length (1 byte)', () => {
+  describe('output length variations', function () {
+    it('should handle minimum length (1 byte)', function () {
       const params: HKDFParams = {
         ikm: defaultIkm,
         salt: defaultSalt,
@@ -90,7 +88,7 @@ describe('Apple TV Encryption - HKDF', () => {
       expect(result.length).to.equal(1);
     });
 
-    it('should handle maximum allowed length (255 * 64 = 16320 bytes)', () => {
+    it('should handle maximum allowed length (255 * 64 = 16320 bytes)', function () {
       const params: HKDFParams = {
         ikm: defaultIkm,
         salt: defaultSalt,
@@ -103,8 +101,8 @@ describe('Apple TV Encryption - HKDF', () => {
     });
   });
 
-  describe('error handling', () => {
-    it('should throw when IKM is empty', () => {
+  describe('error handling', function () {
+    it('should throw when IKM is empty', function () {
       const params: HKDFParams = {
         ikm: Buffer.alloc(0),
         salt: defaultSalt,
@@ -112,13 +110,10 @@ describe('Apple TV Encryption - HKDF', () => {
         length: 32,
       };
 
-      expect(() => hkdf(params)).to.throw(
-        CryptographyError,
-        'Input key material (IKM) cannot be empty',
-      );
+      expect(() => hkdf(params)).to.throw(CryptographyError, 'Input key material (IKM) cannot be empty');
     });
 
-    it('should throw when info is missing', () => {
+    it('should throw when info is missing', function () {
       const params: HKDFParams = {
         ikm: defaultIkm,
         salt: defaultSalt,
@@ -126,13 +121,10 @@ describe('Apple TV Encryption - HKDF', () => {
         length: 32,
       };
 
-      expect(() => hkdf(params)).to.throw(
-        CryptographyError,
-        'Info parameter is required',
-      );
+      expect(() => hkdf(params)).to.throw(CryptographyError, 'Info parameter is required');
     });
 
-    it('should throw when length is zero', () => {
+    it('should throw when length is zero', function () {
       const params: HKDFParams = {
         ikm: defaultIkm,
         salt: defaultSalt,
@@ -140,13 +132,10 @@ describe('Apple TV Encryption - HKDF', () => {
         length: 0,
       };
 
-      expect(() => hkdf(params)).to.throw(
-        CryptographyError,
-        'Output length must be positive',
-      );
+      expect(() => hkdf(params)).to.throw(CryptographyError, 'Output length must be positive');
     });
 
-    it('should throw when length exceeds maximum', () => {
+    it('should throw when length exceeds maximum', function () {
       const params: HKDFParams = {
         ikm: defaultIkm,
         salt: defaultSalt,
@@ -154,10 +143,7 @@ describe('Apple TV Encryption - HKDF', () => {
         length: 16321,
       };
 
-      expect(() => hkdf(params)).to.throw(
-        CryptographyError,
-        'Output length cannot exceed 16320 bytes',
-      );
+      expect(() => hkdf(params)).to.throw(CryptographyError, 'Output length cannot exceed 16320 bytes');
     });
   });
 });

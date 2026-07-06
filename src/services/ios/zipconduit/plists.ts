@@ -1,7 +1,7 @@
 import path from 'node:path';
 
-import type { PlistDictionary } from '../../../lib/types.js';
-import { STD_DIR_PERM, STD_FILE_PERM } from './constants.js';
+import type {PlistDictionary} from '../../../lib/types.js';
+import {STD_DIR_PERM, STD_FILE_PERM} from './constants.js';
 
 export const SIGNING_ERROR = 'ApplicationVerificationFailed';
 
@@ -56,10 +56,7 @@ export function createInitTransfer(fileName: string): InitTransferRequest {
  * @param numFiles Number of entries in the source IPA.
  * @param totalBytes Sum of uncompressed sizes for all IPA entries.
  */
-export function createMetaInfPlist(
-  numFiles: number,
-  totalBytes: number,
-): ZipConduitMetadata {
+export function createMetaInfPlist(numFiles: number, totalBytes: number): ZipConduitMetadata {
   return {
     RecordCount: 2 + numFiles,
     StandardDirectoryPerms: STD_DIR_PERM,
@@ -80,7 +77,7 @@ export function evaluateProgress(progressUpdate: PlistDictionary): {
 } {
   const topStatus = asString(progressUpdate.Status);
   if (topStatus === 'DataComplete') {
-    return { done: true, percent: 100, status: topStatus };
+    return {done: true, percent: 100, status: topStatus};
   }
 
   // The device can report a failure as a top-level Error (e.g. ExtractionFailed)
@@ -89,16 +86,12 @@ export function evaluateProgress(progressUpdate: PlistDictionary): {
   const topError = asString(progressUpdate.Error);
   if (topError) {
     const topDescription = asString(progressUpdate.ErrorDescription) ?? '';
-    throw new Error(
-      `Failed installing: '${topError}'${topDescription ? ` errorDescription:'${topDescription}'` : ''}`,
-    );
+    throw new Error(`Failed installing: '${topError}'${topDescription ? ` errorDescription:'${topDescription}'` : ''}`);
   }
 
   const installProgressDict = progressUpdate.InstallProgressDict;
   if (!installProgressDict || typeof installProgressDict !== 'object') {
-    throw new Error(
-      `Invalid progress update, missing InstallProgressDict: ${JSON.stringify(progressUpdate)}`,
-    );
+    throw new Error(`Invalid progress update, missing InstallProgressDict: ${JSON.stringify(progressUpdate)}`);
   }
 
   const progress = installProgressDict as PlistDictionary;
@@ -110,14 +103,12 @@ export function evaluateProgress(progressUpdate: PlistDictionary): {
         `App is not properly signed for this device. original error: '${errorMessage}' errorDescription:'${description}'`,
       );
     }
-    throw new Error(
-      `Failed installing: '${errorMessage}' errorDescription:'${description}'`,
-    );
+    throw new Error(`Failed installing: '${errorMessage}' errorDescription:'${description}'`);
   }
 
   const percent = asNumber(progress.PercentComplete) ?? 0;
   const status = asString(progress.Status) ?? '';
-  return { done: false, percent, status };
+  return {done: false, percent, status};
 }
 
 function asNumber(value: unknown): number | undefined {

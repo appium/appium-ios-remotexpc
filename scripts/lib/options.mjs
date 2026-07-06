@@ -4,12 +4,7 @@
  * @returns {number}
  */
 export function parsePositiveIntegerOption(value, label) {
-  return parseIntegerOption(
-    value,
-    label,
-    (num) => num > 0,
-    'a positive integer in milliseconds',
-  );
+  return parseIntegerOption(value, label, (num) => num > 0, 'a positive integer in milliseconds');
 }
 
 /**
@@ -18,12 +13,7 @@ export function parsePositiveIntegerOption(value, label) {
  * @returns {number}
  */
 export function parseNonNegativeIntegerOption(value, label) {
-  return parseIntegerOption(
-    value,
-    label,
-    (num) => num >= 0,
-    'a non-negative integer (0 = unlimited)',
-  );
+  return parseIntegerOption(value, label, (num) => num >= 0, 'a non-negative integer (0 = unlimited)');
 }
 
 /**
@@ -32,12 +22,7 @@ export function parseNonNegativeIntegerOption(value, label) {
  * @returns {number}
  */
 export function parsePortOption(value, label) {
-  return parseIntegerOption(
-    value,
-    label,
-    (num) => num > 0 && num <= 65535,
-    'an integer between 1 and 65535',
-  );
+  return parseIntegerOption(value, label, (num) => num > 0 && num <= 65535, 'an integer between 1 and 65535');
 }
 
 /**

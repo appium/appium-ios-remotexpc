@@ -4,14 +4,9 @@
  * This module provides functionality to create binary property lists (bplists)
  * commonly used in Apple's iOS and macOS systems.
  */
-import type { PlistDictionary, PlistValue } from '../types.js';
-import {
-  APPLE_EPOCH_OFFSET,
-  BPLIST_MAGIC_AND_VERSION,
-  BPLIST_TRAILER_SIZE,
-  BPLIST_TYPE,
-} from './constants.js';
-import { PlistUID } from './plist-uid.js';
+import type {PlistDictionary, PlistValue} from '../types.js';
+import {APPLE_EPOCH_OFFSET, BPLIST_MAGIC_AND_VERSION, BPLIST_TRAILER_SIZE, BPLIST_TYPE} from './constants.js';
+import {PlistUID} from './plist-uid.js';
 
 /**
  * Class for creating binary property lists
@@ -45,10 +40,7 @@ class BinaryPlistCreator {
 
     for (const value of this._objectTable) {
       // Calculate offset including the header length
-      objectOffsets.push(
-        BPLIST_MAGIC_AND_VERSION.length +
-          this._calculateObjectDataLength(objectData),
-      );
+      objectOffsets.push(BPLIST_MAGIC_AND_VERSION.length + this._calculateObjectDataLength(objectData));
       objectData.push(this._createObjectData(value));
     }
 
@@ -60,23 +52,13 @@ class BinaryPlistCreator {
     const offsetTable = this._createOffsetTable(objectOffsets);
 
     // Calculate offset table offset
-    const offsetTableOffset =
-      BPLIST_MAGIC_AND_VERSION.length +
-      this._calculateObjectDataLength(objectData);
+    const offsetTableOffset = BPLIST_MAGIC_AND_VERSION.length + this._calculateObjectDataLength(objectData);
 
     // Create trailer
-    const trailer = this._createTrailer(
-      this._objectTable.length,
-      offsetTableOffset,
-    );
+    const trailer = this._createTrailer(this._objectTable.length, offsetTableOffset);
 
     // Combine all parts
-    return Buffer.concat([
-      BPLIST_MAGIC_AND_VERSION,
-      ...objectData,
-      offsetTable,
-      trailer,
-    ]);
+    return Buffer.concat([BPLIST_MAGIC_AND_VERSION, ...objectData, offsetTable, trailer]);
   }
 
   /**
@@ -153,12 +135,7 @@ class BinaryPlistCreator {
    * @param value - Value to write
    * @param size - Number of bytes to use
    */
-  private _writeOffsetToBuffer(
-    buffer: Buffer,
-    position: number,
-    value: number | bigint,
-    size: number,
-  ): void {
+  private _writeOffsetToBuffer(buffer: Buffer, position: number, value: number | bigint, size: number): void {
     if (size === 1) {
       buffer.writeUInt8(Number(value), position);
     } else if (size === 2) {
@@ -167,10 +144,7 @@ class BinaryPlistCreator {
       buffer.writeUInt32BE(Number(value), position);
     } else if (size === 8) {
       // Use BigInt directly for the value to avoid potential precision issues
-      buffer.writeBigUInt64BE(
-        typeof value === 'bigint' ? value : BigInt(value),
-        position,
-      );
+      buffer.writeBigUInt64BE(typeof value === 'bigint' ? value : BigInt(value), position);
     }
   }
 
@@ -180,11 +154,7 @@ class BinaryPlistCreator {
    * @param position - Position in the buffer
    * @param value - BigInt value to write
    */
-  private _writeBigIntToBuffer(
-    buffer: Buffer,
-    position: number,
-    value: bigint,
-  ): void {
+  private _writeBigIntToBuffer(buffer: Buffer, position: number, value: bigint): void {
     buffer.writeBigUInt64BE(value, position);
   }
 
@@ -374,20 +344,12 @@ class BinaryPlistCreator {
     let header: Buffer;
 
     if (length < 15) {
-      header = Buffer.from([
-        isAscii
-          ? BPLIST_TYPE.STRING_ASCII | length
-          : BPLIST_TYPE.STRING_UNICODE | length,
-      ]);
+      header = Buffer.from([isAscii ? BPLIST_TYPE.STRING_ASCII | length : BPLIST_TYPE.STRING_UNICODE | length]);
     } else {
       // For longer strings, we need to encode the length separately
       const lengthBuffer = this._createIntHeader(length);
       header = Buffer.concat([
-        Buffer.from([
-          isAscii
-            ? BPLIST_TYPE.STRING_ASCII | 0x0f
-            : BPLIST_TYPE.STRING_UNICODE | 0x0f,
-        ]),
+        Buffer.from([isAscii ? BPLIST_TYPE.STRING_ASCII | 0x0f : BPLIST_TYPE.STRING_UNICODE | 0x0f]),
         lengthBuffer,
       ]);
     }
@@ -419,12 +381,7 @@ class BinaryPlistCreator {
     const refBuffer = Buffer.alloc(length * this._objectRefSize);
     for (let i = 0; i < length; i++) {
       const itemRef = this._objectRefMap.get(value[i]) ?? 0;
-      this._writeOffsetToBuffer(
-        refBuffer,
-        i * this._objectRefSize,
-        itemRef,
-        this._objectRefSize,
-      );
+      this._writeOffsetToBuffer(refBuffer, i * this._objectRefSize, itemRef, this._objectRefSize);
     }
 
     return Buffer.concat([header, refBuffer]);
@@ -460,18 +417,8 @@ class BinaryPlistCreator {
       const keyRef = this._objectRefMap.get(key) ?? 0;
       const valueRef = this._objectRefMap.get(value[key]) ?? 0;
 
-      this._writeOffsetToBuffer(
-        keyRefBuffer,
-        i * this._objectRefSize,
-        keyRef,
-        this._objectRefSize,
-      );
-      this._writeOffsetToBuffer(
-        valueRefBuffer,
-        i * this._objectRefSize,
-        valueRef,
-        this._objectRefSize,
-      );
+      this._writeOffsetToBuffer(keyRefBuffer, i * this._objectRefSize, keyRef, this._objectRefSize);
+      this._writeOffsetToBuffer(valueRefBuffer, i * this._objectRefSize, valueRef, this._objectRefSize);
     }
 
     return Buffer.concat([header, keyRefBuffer, valueRefBuffer]);
@@ -550,12 +497,7 @@ class BinaryPlistCreator {
     const offsetTable = Buffer.alloc(numObjects * this._offsetSize);
 
     for (let i = 0; i < numObjects; i++) {
-      this._writeOffsetToBuffer(
-        offsetTable,
-        i * this._offsetSize,
-        objectOffsets[i],
-        this._offsetSize,
-      );
+      this._writeOffsetToBuffer(offsetTable, i * this._offsetSize, objectOffsets[i], this._offsetSize);
     }
 
     return offsetTable;
@@ -567,10 +509,7 @@ class BinaryPlistCreator {
    * @param offsetTableOffset - Offset of the offset table
    * @returns Buffer containing the trailer
    */
-  private _createTrailer(
-    numObjects: number,
-    offsetTableOffset: number,
-  ): Buffer {
+  private _createTrailer(numObjects: number, offsetTableOffset: number): Buffer {
     const trailer = Buffer.alloc(BPLIST_TRAILER_SIZE);
     // 6 unused bytes
     trailer.fill(0, 0, 6);
