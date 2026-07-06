@@ -212,62 +212,29 @@ export class ActivityTraceTap extends BaseInstrument {
           case CMD_TABLE_RESET:
             this.stack = [];
             break;
-
           case CMD_SENTINEL:
             this.stack.push(null);
             break;
-
-          case CMD_STRUCT: {
-            const distance = word & 0xff;
-            if (distance === 0xff) {
-              // Long struct: pop count from stack
-              const countItem = this.stack.pop();
-              const count = Buffer.isBuffer(countItem) ? readLEIntFromBuffer(countItem) : 0;
-              this.stack.push(this.stack.splice(this.stack.length - count, count));
-            } else {
-              this.stack.push(this.stack.splice(this.stack.length - distance, distance));
-            }
+          case CMD_STRUCT:
+            this.handleStruct(word);
             break;
-          }
-
           case CMD_DEFINE_TABLE:
             this.parseDefineTable(word & 0xff);
             break;
-
           case CMD_DEBUG:
             this.stack.pop();
             break;
-
-          case CMD_COPY: {
-            const distance = word & 0xff;
-            if (distance !== 0xff) {
-              this.stack.push(this.stack[this.stack.length - distance - 1] ?? null);
-            } else {
-              // Long copy: pop a buffer, interpret as little-endian index.
-              const item = this.stack.pop();
-              if (Buffer.isBuffer(item)) {
-                const ref = readLEIntFromBuffer(item) - 1;
-                this.stack.push(this.stack[ref] ?? null);
-              }
-            }
+          case CMD_COPY:
+            this.handleCopy(word);
             break;
-          }
-
-          case CMD_PLACEHOLDER_COUNT: {
-            const count = word & 0xff;
-            if (count > 0) {
-              this.stack.splice(this.stack.length - count, count);
-            }
+          case CMD_PLACEHOLDER_COUNT:
+            this.handlePlaceholderCount(word);
             break;
-          }
-
           case CMD_CONVERT_MACH_CONTINUOUS:
             break;
-
           case CMD_END_ROW:
             result = this.parseEndRow(word);
             break;
-
           default:
             // Push opcode: the first word is the one we just read.
             this.handlePush(word, readWord);
@@ -316,6 +283,39 @@ export class ActivityTraceTap extends BaseInstrument {
     }
 
     this.stack.push(result);
+  }
+
+  private handleStruct(word: number): void {
+    const distance = word & 0xff;
+    if (distance === 0xff) {
+      // Long struct: pop count from stack
+      const countItem = this.stack.pop();
+      const count = Buffer.isBuffer(countItem) ? readLEIntFromBuffer(countItem) : 0;
+      this.stack.push(this.stack.splice(this.stack.length - count, count));
+    } else {
+      this.stack.push(this.stack.splice(this.stack.length - distance, distance));
+    }
+  }
+
+  private handleCopy(word: number): void {
+    const distance = word & 0xff;
+    if (distance !== 0xff) {
+      this.stack.push(this.stack[this.stack.length - distance - 1] ?? null);
+    } else {
+      // Long copy: pop a buffer, interpret as little-endian index.
+      const item = this.stack.pop();
+      if (Buffer.isBuffer(item)) {
+        const ref = readLEIntFromBuffer(item) - 1;
+        this.stack.push(this.stack[ref] ?? null);
+      }
+    }
+  }
+
+  private handlePlaceholderCount(word: number): void {
+    const count = word & 0xff;
+    if (count > 0) {
+      this.stack.splice(this.stack.length - count, count);
+    }
   }
 
   private parseDefineTable(tableId: number): void {
@@ -398,7 +398,7 @@ export class ActivityTraceTap extends BaseInstrument {
       msg.message = msg.name as string;
     }
 
-    // No named 'message' or 'format_string' column — synthesise a message
+    // No named 'message' or 'format_string' column — synthesize a message
     // from the longest Buffer in the row, but only for rich tables (≥5 columns)
     // so trivial housekeeping rows are silently dropped.
     if (!('message' in msg)) {
@@ -434,7 +434,7 @@ function decodeStr(buf: Buffer): string {
 }
 
 function decodeMessageFormat(message: StackItem[]): string {
-  let s = '';
+  const parts: string[] = [];
   for (const pair of message) {
     if (!Array.isArray(pair)) {
       continue;
@@ -454,25 +454,25 @@ function decodeMessageFormat(message: StackItem[]): string {
     const data = Buffer.isBuffer(dataRaw) ? (dataRaw as Buffer) : null;
 
     if (typeName === 'narrative-text' || typeName === 'string') {
-      s += data !== null ? decodeStr(data) : '<None>';
+      parts.push(data !== null ? decodeStr(data) : '<None>');
     } else if (typeName === 'private') {
-      s += '<private>';
+      parts.push('<private>');
     } else if (typeName.startsWith('uint64') || typeName.includes('decimal')) {
       const padded = Buffer.concat([data ?? Buffer.alloc(0), Buffer.alloc(8)]).subarray(0, 8);
       const val = padded.readBigUInt64LE(0);
       if (typeName.includes('hex')) {
         const hex = val.toString(16);
-        s += typeName.includes('lowercase') ? hex : hex.toUpperCase();
+        parts.push(typeName.includes('lowercase') ? hex : hex.toUpperCase());
       } else {
-        s += val.toString();
+        parts.push(val.toString());
       }
     } else if (typeName === 'data' || typeName === 'uuid') {
-      s += data !== null ? data.toString('hex') : '';
+      parts.push(data !== null ? data.toString('hex') : '');
     } else {
-      s += data !== null ? decodeStr(data) : '';
+      parts.push(data !== null ? decodeStr(data) : '');
     }
   }
-  return s;
+  return parts.join('');
 }
 
 function readUInt32LEFromStruct(item: StackItem): number {
