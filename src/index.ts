@@ -105,6 +105,7 @@ export type {
   TunnelResult,
   TunnelRegistry,
   TunnelRegistryEntry,
+  ActivityTraceTapService,
   DVTInstruments,
   NetworkAddress,
   InterfaceDetectionEvent,
@@ -129,6 +130,11 @@ export type {
   EnergyMetrics,
   EnergyMonitorSample,
 } from './services/ios/dvt/instruments/energy-monitor.js';
+export { ActivityTraceTap } from './services/ios/dvt/instruments/activity-trace-tap.js';
+export type {
+  ActivityTraceMessage,
+  ActivityTraceTapOptions,
+} from './services/ios/dvt/instruments/activity-trace-tap.js';
 export {
   TunnelAvailabilityError,
   getTunnelForDevice,

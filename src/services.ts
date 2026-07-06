@@ -14,6 +14,7 @@ import { type Service } from './services/ios/base-service.js';
 import { CrashReportsService } from './services/ios/crash-reports/index.js';
 import DiagnosticsService from './services/ios/diagnostic-service/index.js';
 import { DVTSecureSocketProxyService } from './services/ios/dvt/index.js';
+import { ActivityTraceTap } from './services/ios/dvt/instruments/activity-trace-tap.js';
 import { ApplicationListing } from './services/ios/dvt/instruments/application-listing.js';
 import { ConditionInducer } from './services/ios/dvt/instruments/condition-inducer.js';
 import { DeviceInfo } from './services/ios/dvt/instruments/device-info.js';
@@ -272,6 +273,7 @@ export async function startDVTService(udid: string): Promise<DVTInstruments> {
     processControl: new ProcessControl(dvtService),
     sysmontap: new Sysmontap(dvtService),
     energyMonitor: new EnergyMonitor(dvtService),
+    activityTraceTap: new ActivityTraceTap(dvtService),
   };
 }
 
