@@ -11,7 +11,7 @@ import {CrashReportsService} from './services/ios/crash-reports/index.js';
 import {CoreDeviceInfoService} from './services/ios/device-info/index.js';
 import DiagnosticsService from './services/ios/diagnostic-service/index.js';
 import {DVTSecureSocketProxyService} from './services/ios/dvt/index.js';
-import { ActivityTraceTap } from './services/ios/dvt/instruments/activity-trace-tap.js';
+import {ActivityTraceTap} from './services/ios/dvt/instruments/activity-trace-tap.js';
 import {ApplicationListing} from './services/ios/dvt/instruments/application-listing.js';
 import {ConditionInducer} from './services/ios/dvt/instruments/condition-inducer.js';
 import {DeviceInfo} from './services/ios/dvt/instruments/device-info.js';

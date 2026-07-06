@@ -259,7 +259,7 @@ export class DVTSecureSocketProxyService extends BaseService {
     this.channelCache.clear();
     this.channelMessages.clear();
     this.channelMessages.set(DVTSecureSocketProxyService.BROADCAST_CHANNEL, new ChannelFragmenter());
-    
+
     // Forcibly destroy the socket so any pending readExact calls unblock
     // immediately rather than waiting for the remote FIN.
     socketToDestroy?.destroy();

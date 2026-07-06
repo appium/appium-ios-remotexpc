@@ -1,7 +1,7 @@
-import { getLogger } from '../../../../lib/logger.js';
-import { MessageAux } from '../dtx-message.js';
-import { type DVTSecureSocketProxyService } from '../index.js';
-import { BaseInstrument } from './base-instrument.js';
+import {getLogger} from '../../../../lib/logger.js';
+import {MessageAux} from '../dtx-message.js';
+import {type DVTSecureSocketProxyService} from '../index.js';
+import {BaseInstrument} from './base-instrument.js';
 
 const log = getLogger('ActivityTraceTap');
 
@@ -66,8 +66,7 @@ interface Table {
  * ```
  */
 export class ActivityTraceTap extends BaseInstrument {
-  static readonly IDENTIFIER =
-    'com.apple.instruments.server.services.activitytracetap';
+  static readonly IDENTIFIER = 'com.apple.instruments.server.services.activitytracetap';
 
   private stack: StackItem[] = [];
   private tables: Map<number, Table> = new Map();
@@ -148,10 +147,7 @@ export class ActivityTraceTap extends BaseInstrument {
 
         let raw: Buffer | null;
         try {
-          [raw] = await this.dvt.recvMessage(
-            this.requireChannel().getCode(),
-            ac.signal,
-          );
+          [raw] = await this.dvt.recvMessage(this.requireChannel().getCode(), ac.signal);
         } catch (err) {
           if (this.stopRequested || this.isAbortError(err)) {
             break;
@@ -169,17 +165,13 @@ export class ActivityTraceTap extends BaseInstrument {
         }
 
         // Heartbeat / control frames are bplist-encoded – skip them.
-        if (
-          raw.length >= BPLIST_MAGIC.length &&
-          raw.subarray(0, BPLIST_MAGIC.length).equals(BPLIST_MAGIC)
-        ) {
+        if (raw.length >= BPLIST_MAGIC.length && raw.subarray(0, BPLIST_MAGIC.length).equals(BPLIST_MAGIC)) {
           log.debug('skipping bplist frame');
           continue;
         }
 
         // Prepend any bytes carried over from a truncated previous frame.
-        const frame =
-          this.carry.length > 0 ? Buffer.concat([this.carry, raw]) : raw;
+        const frame = this.carry.length > 0 ? Buffer.concat([this.carry, raw]) : raw;
         this.carry = Buffer.alloc(0);
 
         for (const msg of this.parseFrame(frame)) {
@@ -198,7 +190,7 @@ export class ActivityTraceTap extends BaseInstrument {
   }
 
   private *parseFrame(frame: Buffer): Generator<ActivityTraceMessage> {
-    const cur = { pos: 0 };
+    const cur = {pos: 0};
 
     const readWord = (): number => {
       if (cur.pos + 2 > frame.length) {
@@ -230,16 +222,10 @@ export class ActivityTraceTap extends BaseInstrument {
             if (distance === 0xff) {
               // Long struct: pop count from stack
               const countItem = this.stack.pop();
-              const count = Buffer.isBuffer(countItem)
-                ? readLEIntFromBuffer(countItem)
-                : 0;
-              this.stack.push(
-                this.stack.splice(this.stack.length - count, count),
-              );
+              const count = Buffer.isBuffer(countItem) ? readLEIntFromBuffer(countItem) : 0;
+              this.stack.push(this.stack.splice(this.stack.length - count, count));
             } else {
-              this.stack.push(
-                this.stack.splice(this.stack.length - distance, distance),
-              );
+              this.stack.push(this.stack.splice(this.stack.length - distance, distance));
             }
             break;
           }
@@ -255,9 +241,7 @@ export class ActivityTraceTap extends BaseInstrument {
           case CMD_COPY: {
             const distance = word & 0xff;
             if (distance !== 0xff) {
-              this.stack.push(
-                this.stack[this.stack.length - distance - 1] ?? null,
-              );
+              this.stack.push(this.stack[this.stack.length - distance - 1] ?? null);
             } else {
               // Long copy: pop a buffer, interpret as little-endian index.
               const item = this.stack.pop();
@@ -353,7 +337,7 @@ export class ActivityTraceTap extends BaseInstrument {
         }
       }
     }
-    this.tables.set(tableId, { name, columns });
+    this.tables.set(tableId, {name, columns});
   }
 
   private parseEndRow(word: number): ActivityTraceMessage | null {
@@ -363,15 +347,12 @@ export class ActivityTraceTap extends BaseInstrument {
       return null;
     }
 
-    const { columns } = tableEntry;
+    const {columns} = tableEntry;
     if (this.stack.length < columns.length) {
       return null;
     }
 
-    const row = this.stack.splice(
-      this.stack.length - columns.length,
-      columns.length,
-    );
+    const row = this.stack.splice(this.stack.length - columns.length, columns.length);
 
     const msg: ActivityTraceMessage = {};
     for (let i = 0; i < columns.length; i++) {
@@ -385,10 +366,7 @@ export class ActivityTraceTap extends BaseInstrument {
 
     // process: None → 0, struct → uint32LE from first element
     if ('process' in msg) {
-      msg.process =
-        msg.process === null
-          ? 0
-          : readUInt32LEFromStruct(msg.process as StackItem);
+      msg.process = msg.process === null ? 0 : readUInt32LEFromStruct(msg.process as StackItem);
     }
 
     // thread: struct → uint32LE from first element
@@ -411,11 +389,7 @@ export class ActivityTraceTap extends BaseInstrument {
       msg.message = decodeMessageFormat(msg.message as StackItem[]);
     }
 
-    if (
-      !('message' in msg) &&
-      'format_string' in msg &&
-      Array.isArray(msg.format_string)
-    ) {
+    if (!('message' in msg) && 'format_string' in msg && Array.isArray(msg.format_string)) {
       msg.message = decodeMessageFormat(msg.format_string as StackItem[]);
     }
 
@@ -433,10 +407,7 @@ export class ActivityTraceTap extends BaseInstrument {
       }
       let best: Buffer | null = null;
       for (const v of row) {
-        if (
-          Buffer.isBuffer(v) &&
-          (best === null || (v as Buffer).length > best.length)
-        ) {
+        if (Buffer.isBuffer(v) && (best === null || (v as Buffer).length > best.length)) {
           best = v as Buffer;
         }
       }
@@ -453,10 +424,7 @@ export class ActivityTraceTap extends BaseInstrument {
   }
 
   private isAbortError(err: unknown): boolean {
-    return (
-      err instanceof DOMException ||
-      (err instanceof Error && err.name === 'AbortError')
-    );
+    return err instanceof DOMException || (err instanceof Error && err.name === 'AbortError');
   }
 }
 
@@ -490,10 +458,7 @@ function decodeMessageFormat(message: StackItem[]): string {
     } else if (typeName === 'private') {
       s += '<private>';
     } else if (typeName.startsWith('uint64') || typeName.includes('decimal')) {
-      const padded = Buffer.concat([
-        data ?? Buffer.alloc(0),
-        Buffer.alloc(8),
-      ]).subarray(0, 8);
+      const padded = Buffer.concat([data ?? Buffer.alloc(0), Buffer.alloc(8)]).subarray(0, 8);
       const val = padded.readBigUInt64LE(0);
       if (typeName.includes('hex')) {
         const hex = val.toString(16);
@@ -515,13 +480,11 @@ function readUInt32LEFromStruct(item: StackItem): number {
     return 0;
   }
   const src = item[0] as Buffer;
-  const buf =
-    src.length < 4 ? Buffer.concat([src, Buffer.alloc(4 - src.length)]) : src;
+  const buf = src.length < 4 ? Buffer.concat([src, Buffer.alloc(4 - src.length)]) : src;
   return buf.readUInt32LE(0);
 }
 
 function readLEIntFromBuffer(buf: Buffer): number {
-  const padded =
-    buf.length < 8 ? Buffer.concat([buf, Buffer.alloc(8 - buf.length)]) : buf;
+  const padded = buf.length < 8 ? Buffer.concat([buf, Buffer.alloc(8 - buf.length)]) : buf;
   return Number(padded.readBigUInt64LE(0));
 }
