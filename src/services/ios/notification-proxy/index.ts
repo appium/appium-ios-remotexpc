@@ -38,23 +38,29 @@ class NotificationProxyService extends BaseService implements NotificationProxyS
 
   /**
    * Observe a notification
+   *
+   * `ObserveNotification` has no per-command acknowledgement on the wire (matching
+   * notification_proxy's real protocol), so this only sends the request; it does not
+   * wait for or return a device reply.
    * @param notification The notification name to subscribe to
-   * @returns Promise that resolves when the subscription request is sent
+   * @returns Promise that resolves once the subscription request has been sent
    */
   async observe(notification: string): Promise<PlistDictionary> {
-    if (!this._conn) {
-      this._conn = await this.connectToNotificationProxyService();
-    }
-    const request = this.createObserveNotificationRequest(notification);
-    const result = await this.sendPlistDictionary(request);
+    const conn = await this.connectToNotificationProxyService();
+    conn.sendPlist(this.createObserveNotificationRequest(notification));
     this._pendingNotificationsObservationSet.add(notification);
-    return result;
+    return {};
   }
 
   /**
    * Post a notification
+   *
+   * Like `ObserveNotification`, `PostNotification` has no per-command acknowledgement
+   * on the wire, so this only sends the request; it does not wait for a device reply.
+   * Waiting here would also race any concurrent `expectNotifications()`/`expectNotification()`
+   * reader on the same connection for whatever message arrives next.
    * @param notification The notification name to post
-   * @returns Promise that resolves when the post request is sent
+   * @returns Promise that resolves once the post request has been sent
    */
   async post(notification: string): Promise<PlistDictionary> {
     if (!this._pendingNotificationsObservationSet.has(notification)) {
@@ -64,11 +70,10 @@ class NotificationProxyService extends BaseService implements NotificationProxyS
       );
       throw new Error('You must call observe() before posting notifications.');
     }
-    this._conn = await this.connectToNotificationProxyService();
-    const request = this.createPostNotificationRequest(notification);
-    const result = await this.sendPlistDictionary(request);
+    const conn = await this.connectToNotificationProxyService();
+    conn.sendPlist(this.createPostNotificationRequest(notification));
     this._pendingNotificationsObservationSet.delete(notification);
-    return result;
+    return {};
   }
 
   /**
@@ -127,15 +132,23 @@ class NotificationProxyService extends BaseService implements NotificationProxyS
 
   /**
    * Connect to the notification proxy service
+   *
+   * Drains the shim's initial `StartService` greeting once, right after establishing a
+   * new connection, so it can never be mistaken for the reply to a later request.
    * @returns Promise resolving to the ServiceConnection instance
    */
   async connectToNotificationProxyService(): Promise<ServiceConnection> {
     if (this._conn) {
       return this._conn;
     }
-    this._conn = await this.startLockdownService(NotificationProxyService.RSD_SERVICE_NAME, {
+    const conn = await this.startLockdownService(NotificationProxyService.RSD_SERVICE_NAME, {
       createConnectionTimeout: this.timeout,
     });
+    const greeting = await conn.receive(this.timeout);
+    if (greeting?.Request !== 'StartService') {
+      throw new Error(`Expected StartService greeting, got: ${JSON.stringify(greeting)}`);
+    }
+    this._conn = conn;
     return this._conn;
   }
 
@@ -151,20 +164,6 @@ class NotificationProxyService extends BaseService implements NotificationProxyS
       Command: 'PostNotification',
       Name: notification,
     };
-  }
-
-  private async sendPlistDictionary(request: PlistDictionary): Promise<PlistDictionary> {
-    if (!this._conn) {
-      this._conn = await this.connectToNotificationProxyService();
-    }
-    const response = await this._conn.sendPlistRequest(request, this.timeout);
-    if (!response) {
-      return {};
-    }
-    if (Array.isArray(response)) {
-      return response.length > 0 ? (response[0] as PlistDictionary) : {};
-    }
-    return response as PlistDictionary;
   }
 }
 
