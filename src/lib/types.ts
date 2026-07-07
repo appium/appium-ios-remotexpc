@@ -1326,6 +1326,22 @@ export interface NotificationService {
 }
 
 /**
+ * Activity trace tap service interface for streaming unified-logging entries.
+ */
+export interface ActivityTraceTapService {
+  /** Start the tap and configure the device channel. */
+  start(): Promise<void>;
+  /** Stop the tap and abort any in-flight read. */
+  stop(): Promise<void>;
+  /**
+   * Async generator that yields decoded log/signpost rows as they arrive.
+   * Starts the tap on first iteration; stops on `break`, `return`, or
+   * {@link stop}.
+   */
+  messages(): AsyncGenerator<Record<string, unknown>, void, unknown>;
+}
+
+/**
  * DVT secure socket proxy plus instrument clients returned from `startDVTService`.
  */
 export interface DVTInstruments {
@@ -1353,6 +1369,8 @@ export interface DVTInstruments {
   sysmontap: SysmontapService;
   /** The EnergyMonitor service instance */
   energyMonitor: EnergyMonitorService;
+  /** The ActivityTraceTap service instance */
+  activityTraceTap: ActivityTraceTapService;
 }
 
 /**

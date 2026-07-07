@@ -251,6 +251,7 @@ export class DVTSecureSocketProxyService extends BaseService {
       }
     }
 
+    const socketToDestroy = this.socket;
     this.connection.close();
     this.connection = null;
     this.socket = null;
@@ -258,6 +259,10 @@ export class DVTSecureSocketProxyService extends BaseService {
     this.channelCache.clear();
     this.channelMessages.clear();
     this.channelMessages.set(DVTSecureSocketProxyService.BROADCAST_CHANNEL, new ChannelFragmenter());
+
+    // Forcibly destroy the socket so any pending readExact calls unblock
+    // immediately rather than waiting for the remote FIN.
+    socketToDestroy?.destroy();
   }
 
   /**
@@ -266,7 +271,7 @@ export class DVTSecureSocketProxyService extends BaseService {
   private async performHandshake(): Promise<void> {
     const args = new MessageAux();
     args.appendObj({
-      'com.apple.private.DTXBlockCompression': 2,
+      'com.apple.private.DTXBlockCompression': 0,
       'com.apple.private.DTXConnection': 1,
     });
     await this.sendMessage(0, '_notifyOfPublishedCapabilities:', {
