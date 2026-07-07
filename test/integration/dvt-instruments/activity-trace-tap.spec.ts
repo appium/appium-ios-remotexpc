@@ -247,7 +247,7 @@ describe('ActivityTraceTap', {timeout: 60000}, function () {
             }
             return result;
           })(),
-          new Promise<never>((_, reject) =>
+          new Promise<never>((_resolve, reject) =>
             setTimeout(() => reject(new Error('iterator did not stop after stop()')), 5000),
           ),
         ]);
@@ -275,7 +275,7 @@ describe('ActivityTraceTap', {timeout: 60000}, function () {
           }
           return result;
         })(),
-        new Promise<never>((_, reject) =>
+        new Promise<never>((_resolve, reject) =>
           setTimeout(() => reject(new Error('iterator did not end after DVT close')), 5000),
         ),
       ]);
