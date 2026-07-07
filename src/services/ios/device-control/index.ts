@@ -15,7 +15,13 @@ export interface DeviceOrientationState {
   currentDeviceOrientation?: string;
   /** The most recent non-flat orientation (ignores face-up/face-down). */
   currentDeviceNonFlatOrientation?: string;
-  /** Whether iOS orientation lock is engaged; when `true`, rotation may be prevented. */
+  /**
+   * Device-reported orientation-lock flag. Do **not** rely on this to detect
+   * Control Center Rotation Lock: on iOS 26.5 it was observed to stay `false`
+   * even while that lock was active and preventing rotation. To tell whether a
+   * rotation was actually applied, compare {@link currentDeviceOrientation}
+   * before and after {@link DeviceControlService.rotate}.
+   */
   currentDeviceOrientationLocked?: boolean;
   [key: string]: unknown;
 }
@@ -51,7 +57,14 @@ export class DeviceControlService extends CoreDeviceService {
    *
    * Four consecutive same-direction calls cycle a full turn
    * (`portrait → landscapeLeft → portraitUpsideDown → landscapeRight → portrait`
-   * for `'left'`). Only works when iOS orientation lock is not set.
+   * for `'left'`).
+   *
+   * Rotation only applies when Control Center Rotation Lock is off. When the
+   * lock is on the call still resolves normally (it does **not** throw), but the
+   * returned {@link DeviceOrientationState.currentDeviceOrientation} is
+   * unchanged — the only reliable signal that rotation was blocked. There is no
+   * read-only request to query orientation in advance; the device rejects any
+   * non-rotate message by resetting the connection.
    */
   async rotate(direction: RotateDirection): Promise<DeviceOrientationState> {
     if (direction !== 'left' && direction !== 'right') {

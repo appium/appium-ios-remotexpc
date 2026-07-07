@@ -105,8 +105,11 @@ describe('DeviceControlService', function () {
     }));
     const service = new TestDeviceControlService(fake);
 
-    await service.rotate('left');
-    await service.close();
+    try {
+      await service.rotate('left');
+    } finally {
+      await service.close();
+    }
 
     expect(fake.closeCalls).to.equal(1);
   });
