@@ -7,7 +7,7 @@
         "serve",
         "--mcp",
         "--path",
-        "${workspaceFolder}"
+        "."
       ]
     }
   }
