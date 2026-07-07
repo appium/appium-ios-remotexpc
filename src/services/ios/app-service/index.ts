@@ -1,4 +1,5 @@
 import {createPlist} from '../../../lib/plist/index.js';
+import {asDictionary} from '../../../lib/remote-xpc/xpc-value.js';
 import type {PlistDictionary, XPCDictionary, XPCValue} from '../../../lib/types.js';
 import {type CoreDeviceInvokeOptions, CoreDeviceService} from '../core-device/core-device-service.js';
 
@@ -158,27 +159,28 @@ export class AppService extends CoreDeviceService {
       ? platformOptions
       : Buffer.from(platformOptions, 'utf8');
 
-    const output = asDict(
-      await this.invoke(
-        FEATURE_LAUNCH_APPLICATION,
-        {
-          applicationSpecifier: {
-            bundleIdentifier: {_0: bundleId},
+    const output =
+      asDictionary(
+        await this.invoke(
+          FEATURE_LAUNCH_APPLICATION,
+          {
+            applicationSpecifier: {
+              bundleIdentifier: {_0: bundleId},
+            },
+            options: {
+              arguments: options.arguments ?? [],
+              environmentVariables: options.environment ?? {},
+              standardIOUsesPseudoterminals: true,
+              startStopped: options.startSuspended ?? false,
+              terminateExisting: options.terminateExisting ?? true,
+              user: {shortName: 'mobile'},
+              platformSpecificOptions: platformOptionsBuffer,
+            },
+            standardIOIdentifiers: {},
           },
-          options: {
-            arguments: options.arguments ?? [],
-            environmentVariables: options.environment ?? {},
-            standardIOUsesPseudoterminals: true,
-            startStopped: options.startSuspended ?? false,
-            terminateExisting: options.terminateExisting ?? true,
-            user: {shortName: 'mobile'},
-            platformSpecificOptions: platformOptionsBuffer,
-          },
-          standardIOIdentifiers: {},
-        },
-        {timeoutMs: options.timeoutMs},
-      ),
-    );
+          {timeoutMs: options.timeoutMs},
+        ),
+      ) ?? {};
 
     return {
       ...output,
@@ -190,7 +192,7 @@ export class AppService extends CoreDeviceService {
    * Lists the processes currently running on the device.
    */
   async listProcesses(): Promise<AppServiceProcessToken[]> {
-    const output = asDict(await this.invoke(FEATURE_LIST_PROCESSES));
+    const output = asDictionary(await this.invoke(FEATURE_LIST_PROCESSES)) ?? {};
     return asArray(output.processTokens) as AppServiceProcessToken[];
   }
 
@@ -202,11 +204,13 @@ export class AppService extends CoreDeviceService {
    * reports `com.apple.dt.CoreDeviceError`).
    */
   async sendSignalToProcess(pid: number, signal: number): Promise<XPCDictionary> {
-    return asDict(
-      await this.invoke(FEATURE_SEND_SIGNAL, {
-        process: {processIdentifier: pid},
-        signal,
-      }),
+    return (
+      asDictionary(
+        await this.invoke(FEATURE_SEND_SIGNAL, {
+          process: {processIdentifier: pid},
+          signal,
+        }),
+      ) ?? {}
     );
   }
 
@@ -225,17 +229,12 @@ export class AppService extends CoreDeviceService {
    * `options` to bound how long to wait for a still-running process to exit.
    */
   async monitorProcessTermination(pid: number, options: CoreDeviceInvokeOptions = {}): Promise<XPCDictionary> {
-    return asDict(
-      await this.invoke(FEATURE_MONITOR_PROCESS_TERMINATION, {processToken: {processIdentifier: pid}}, options),
+    return (
+      asDictionary(
+        await this.invoke(FEATURE_MONITOR_PROCESS_TERMINATION, {processToken: {processIdentifier: pid}}, options),
+      ) ?? {}
     );
   }
-}
-
-function asDict(value: XPCValue): XPCDictionary {
-  if (value && typeof value === 'object' && !Array.isArray(value)) {
-    return value as XPCDictionary;
-  }
-  return {};
 }
 
 function asArray(value: XPCValue): XPCValue[] {
