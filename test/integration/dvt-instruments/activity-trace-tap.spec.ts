@@ -14,6 +14,23 @@ log.level = 'debug';
 
 const KNOWN_MESSAGE_TYPES = new Set(['Default', 'Info', 'Debug', 'Error', 'Fault']);
 
+// Signpost rows only surface under sustained volume, so a small fixed pool of
+// the first N messages is almost always pure os-log. Keep collecting until at
+// least one signpost row appears (bounded by a hard cap + the suite timeout)
+// so signpost-specific decoding is actually exercised.
+const MIN_POOL = 10;
+const MAX_POOL = 4000;
+
+function isSignpostRow(msg: ActivityTraceMessage): boolean {
+  return 'event_type' in msg || 'signpost_name' in msg || 'scope' in msg;
+}
+
+// os-signpost begin/end rows are the ones that carry a literal null `message`
+// column, so target that specific row type to exercise the null-message path.
+function isSignpostEventRow(msg: ActivityTraceMessage): boolean {
+  return 'event_type' in msg;
+}
+
 async function withDVT(fn: (dvt: DVTInstruments) => Promise<void>): Promise<void> {
   const dvt = await Services.startDVTService(requireDeviceUdid());
   try {
@@ -30,17 +47,24 @@ describe('ActivityTraceTap', {timeout: 60000}, function () {
     let dvt: DVTInstruments;
     const pool: ActivityTraceMessage[] = [];
 
+    let sawSignpostEvent = false;
+
     before(async function () {
       dvt = await Services.startDVTService(requireDeviceUdid());
 
       for await (const msg of dvt.activityTraceTap.messages()) {
         pool.push(msg);
-        if (pool.length >= 10) {
+        if (isSignpostEventRow(msg)) {
+          sawSignpostEvent = true;
+        }
+        // Stop once we have a healthy pool that includes a signpost begin/end
+        // row, or bail at the cap so a quiet device can't hang the suite.
+        if ((pool.length >= MIN_POOL && sawSignpostEvent) || pool.length >= MAX_POOL) {
           break;
         }
       }
 
-      log.info(`pre-collected ${pool.length} messages for data-validation tests`);
+      log.info(`pre-collected ${pool.length} messages (signpost event observed: ${sawSignpostEvent})`);
     });
 
     after(async function () {
@@ -63,10 +87,12 @@ describe('ActivityTraceTap', {timeout: 60000}, function () {
       }
     });
 
-    it('should decode "process" as a positive integer on every entry', function () {
+    it('should decode "process" as a non-negative integer on every entry', function () {
+      // pid 0 is the kernel: kernel/DriverKit os-log rows (process_image_path
+      // "/kernel") legitimately carry process 0, so only assert non-negative.
       for (const msg of pool) {
         expect(msg, JSON.stringify(Object.keys(msg))).to.have.property('process');
-        expect(msg.process, 'process in entry').to.be.a('number').and.greaterThan(0);
+        expect(msg.process, 'process in entry').to.be.a('number').and.satisfy(Number.isInteger).and.at.least(0);
       }
     });
 
@@ -118,6 +144,44 @@ describe('ActivityTraceTap', {timeout: 60000}, function () {
       expect(unique.size).to.be.lessThan(5, `too many distinct column schemas: ${[...unique].join(' | ')}`);
 
       log.info(`${unique.size} distinct column schema(s) across ${pool.length} entries`);
+    });
+
+    it('should never leak a raw Buffer in any decoded field', function () {
+      for (const msg of pool) {
+        for (const [key, value] of Object.entries(msg)) {
+          expect(
+            Buffer.isBuffer(value),
+            `field "${key}" leaked a raw Buffer instead of a decoded value: ${JSON.stringify(Object.keys(msg))}`,
+          ).to.equal(false);
+        }
+      }
+    });
+
+    it('should observe and decode signpost rows', function () {
+      const signposts = pool.filter(isSignpostRow);
+      if (signposts.length === 0) {
+        log.warn(`no signpost rows in a pool of ${pool.length}; skipping signpost decode checks`);
+        return;
+      }
+
+      for (const msg of signposts) {
+        // Regression guard: signpost begin/end rows carry a literal null
+        // "message" column, so message must still resolve to a string.
+        expect(msg.message, 'signpost message must be a non-null string').to.be.a('string');
+
+        for (const field of ['signpost_name', 'scope'] as const) {
+          if (field in msg) {
+            expect(msg[field], `signpost "${field}"`).to.be.a('string');
+          }
+        }
+        if ('identifier' in msg) {
+          expect(msg.identifier, 'signpost identifier should be a hex string')
+            .to.be.a('string')
+            .and.match(/^[0-9a-f]*$/);
+        }
+      }
+
+      log.info(`validated ${signposts.length} signpost row(s)`);
     });
   });
 
