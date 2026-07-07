@@ -37,7 +37,7 @@ CodeGraph builds a local knowledge graph of symbols and call paths so AI coding 
 
 ## Requirements
 
-- Node.js 16 or later
+- Node.js 20 or later
 - iOS device for testing
 - Proper device pairing and trust setup
 - Root/sudo privileges for tunnel creation (TUN/TAP interface requires elevated permissions)
