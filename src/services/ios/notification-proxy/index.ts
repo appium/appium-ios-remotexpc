@@ -1,5 +1,6 @@
 import {getLogger} from '../../../lib/logger.js';
 import type {
+  EmptyObject,
   NotificationProxyService as NotificationProxyServiceInterface,
   PlistDictionary,
   PlistMessage,
@@ -45,7 +46,7 @@ class NotificationProxyService extends BaseService implements NotificationProxyS
    * @param notification The notification name to subscribe to
    * @returns Promise that resolves once the subscription request has been sent
    */
-  async observe(notification: string): Promise<PlistDictionary> {
+  async observe(notification: string): Promise<EmptyObject> {
     const conn = await this.connectToNotificationProxyService();
     conn.sendPlist(this.createObserveNotificationRequest(notification));
     this._pendingNotificationsObservationSet.add(notification);
@@ -62,7 +63,7 @@ class NotificationProxyService extends BaseService implements NotificationProxyS
    * @param notification The notification name to post
    * @returns Promise that resolves once the post request has been sent
    */
-  async post(notification: string): Promise<PlistDictionary> {
+  async post(notification: string): Promise<EmptyObject> {
     if (!this._pendingNotificationsObservationSet.has(notification)) {
       log.error(
         'Posting notifications without observing them may not yield any results. ' +

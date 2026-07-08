@@ -194,6 +194,11 @@ export interface LockdownDeviceInfo {
 export type PlistMessage = PlistDictionary;
 
 /**
+ * Represents an object with no own properties
+ */
+export type EmptyObject = Record<string, never>;
+
+/**
  * Represents a value that can be encoded in XPC protocol
  */
 export type XPCValue =
@@ -347,13 +352,13 @@ export interface NotificationProxyService extends BaseService {
    * @param notification The notification name to subscribe to
    * @returns Promise that resolves when the subscription request is sent
    */
-  observe(notification: string): Promise<PlistDictionary>;
+  observe(notification: string): Promise<EmptyObject>;
   /**
    * Post a notification
    * @param notification The notification name to post
    * @returns Promise that resolves when the post request is sent
    */
-  post(notification: string): Promise<PlistDictionary>;
+  post(notification: string): Promise<EmptyObject>;
   /**
    * Expect notifications as an async generator
    * @param timeout Timeout in milliseconds
