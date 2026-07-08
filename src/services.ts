@@ -8,6 +8,7 @@ import AfcService from './services/ios/afc/index.js';
 import {AppService} from './services/ios/app-service/index.js';
 import {type Service} from './services/ios/base-service.js';
 import {CrashReportsService} from './services/ios/crash-reports/index.js';
+import {DeviceControlService} from './services/ios/device-control/index.js';
 import {CoreDeviceInfoService} from './services/ios/device-info/index.js';
 import DiagnosticsService from './services/ios/diagnostic-service/index.js';
 import {DVTSecureSocketProxyService} from './services/ios/dvt/index.js';
@@ -134,6 +135,14 @@ export async function startPasteboardService(udid: string): Promise<PasteboardSe
 export async function startCoreDeviceInfoService(udid: string): Promise<CoreDeviceInfoService> {
   await requireCatalogService(udid, CoreDeviceInfoService.RSD_SERVICE_NAME);
   return new CoreDeviceInfoService(udid);
+}
+
+/**
+ * Start the CoreDevice device-control service for the given device UDID.
+ */
+export async function startDeviceControlService(udid: string): Promise<DeviceControlService> {
+  await requireCatalogService(udid, DeviceControlService.RSD_SERVICE_NAME);
+  return new DeviceControlService(udid);
 }
 
 const RSD_SYSLOG_BINARY_SERVICE_NAME = 'com.apple.os_trace_relay.shim.remote';
