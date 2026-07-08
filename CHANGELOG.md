@@ -1,3 +1,9 @@
+## [5.10.1](https://github.com/appium/appium-ios-remotexpc/compare/v5.10.0...v5.10.1) (2026-07-08)
+
+### Bug Fixes
+
+* **notification-proxy:** make observe/post fire-and-forget ([#273](https://github.com/appium/appium-ios-remotexpc/issues/273)) ([a518fcb](https://github.com/appium/appium-ios-remotexpc/commit/a518fcb5f13fc6a1d2c8efa40d01b0a38e7b779d))
+
 ## [5.10.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.9.0...v5.10.0) (2026-07-08)
 
 ### Features
