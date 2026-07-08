@@ -62,12 +62,16 @@ describe('NotificationProxyService', {timeout: 60000}, function () {
     if (done || !notification) {
       throw new Error('No notification received.');
     }
-    const post = await notificationProxyService.post(notificationName);
-    if (post.Name !== notificationName) {
-      throw new Error(`Expected post notification to be ${notificationName}, but got ${post.Name}`);
+    // ObserveNotification/PostNotification have no per-command ack on the wire, so post()
+    // only confirms the request was sent; the relayed notification (if any) shows up
+    // separately via expectNotifications().
+    await notificationProxyService.post(notificationName);
+    const {value: relayed, done: relayedDone} = await gen.next();
+    if (relayedDone || !relayed) {
+      throw new Error('No relayed notification received after post().');
     }
-    expect(post).to.be.an('object');
-    log.debug('Received post notification:', post);
+    expect(relayed).to.be.an('object');
+    log.debug('Received relayed notification after post:', relayed);
   });
 
   it('error if post called first', async function () {
