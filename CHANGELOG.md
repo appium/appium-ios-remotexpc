@@ -1,3 +1,9 @@
+## [5.9.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.8.0...v5.9.0) (2026-07-08)
+
+### Features
+
+* **coredevice:** add device control service to control orientation ([#269](https://github.com/appium/appium-ios-remotexpc/issues/269)) ([7a471ae](https://github.com/appium/appium-ios-remotexpc/commit/7a471ae57116d8d89e665e432be275160bc15b9a))
+
 ## [5.8.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.7.1...v5.8.0) (2026-07-06)
 
 ### Features
