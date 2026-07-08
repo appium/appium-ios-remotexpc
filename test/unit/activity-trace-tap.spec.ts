@@ -144,4 +144,28 @@ describe('ActivityTraceTap.parseEndRow', () => {
     tap.parseEndRow(endRow());
     expect(tap.stack).to.have.lengthOf(2);
   });
+
+  it('decodes signpost_name and scope columns as strings', () => {
+    const tap = makeTap();
+    tap.tables = new Map([[0, {name: 't', columns: ['signpost_name', 'scope', 'name']}]]);
+    tap.stack = [Buffer.from('performBlock\0'), Buffer.from('Process\0'), Buffer.from('x\0')];
+    const msg = tap.parseEndRow(endRow());
+    expect(msg.signpost_name).to.equal('performBlock');
+    expect(msg.scope).to.equal('Process');
+  });
+
+  it('decodes identifier column as hex string and drops the trailing sentinel byte', () => {
+    const tap = makeTap();
+    tap.tables = new Map([[0, {name: 't', columns: ['identifier', 'name']}]]);
+    tap.stack = [Buffer.from([0xee, 0xee, 0xb2, 0xb2, 0xb5, 0xb0, 0xee, 0xee, 0x00]), Buffer.from('x\0')];
+    expect(tap.parseEndRow(endRow()).identifier).to.equal('eeeeb2b2b5b0eeee');
+  });
+
+  it('falls back to name when a literal message column is null (signpost begin/end rows)', () => {
+    const tap = makeTap();
+    tap.tables = new Map([[0, {name: 't', columns: ['message', 'name', 'event_type']}]]);
+    tap.stack = [null, Buffer.from('Ping\0'), Buffer.from('Begin\0')];
+    const msg = tap.parseEndRow(endRow());
+    expect(msg.message, 'message should never leak null').to.equal('Ping');
+  });
 });

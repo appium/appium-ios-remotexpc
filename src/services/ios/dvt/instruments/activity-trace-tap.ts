@@ -26,6 +26,8 @@ const STRING_FIELDS = new Set([
   'process_image_path',
   'event_type',
   'name',
+  'signpost_name',
+  'scope',
 ]);
 
 /** A single decoded log/signpost row from the activity trace stream. */
@@ -374,6 +376,12 @@ export class ActivityTraceTap extends BaseInstrument {
       msg.thread = readUInt32LEFromStruct(msg.thread as StackItem);
     }
 
+    // identifier: signpost id — an opaque little-endian value. Render as a
+    // lossless lowercase hex string (it routinely exceeds Number precision).
+    if ('identifier' in msg && Buffer.isBuffer(msg.identifier)) {
+      msg.identifier = decodeHex(msg.identifier as Buffer);
+    }
+
     for (const field of STRING_FIELDS) {
       if (field in msg && Buffer.isBuffer(msg[field])) {
         msg[field] = decodeStr(msg[field] as Buffer);
@@ -389,19 +397,23 @@ export class ActivityTraceTap extends BaseInstrument {
       msg.message = decodeMessageFormat(msg.message as StackItem[]);
     }
 
-    if (!('message' in msg) && 'format_string' in msg && Array.isArray(msg.format_string)) {
+    // A literal `message` column may be present but null — signpost begin/end
+    // rows carry their text in `name` and leave `message`/`format_string` null.
+    // Fall through on any value that has not resolved to a string rather than
+    // on key presence, otherwise those rows leak `message: null`.
+    if (typeof msg.message !== 'string' && Array.isArray(msg.format_string)) {
       msg.message = decodeMessageFormat(msg.format_string as StackItem[]);
     }
 
     // Signpost entries use a "name" column as their message text.
-    if (!('message' in msg) && 'name' in msg && typeof msg.name === 'string') {
-      msg.message = msg.name as string;
+    if (typeof msg.message !== 'string' && typeof msg.name === 'string') {
+      msg.message = msg.name;
     }
 
-    // No named 'message' or 'format_string' column — synthesize a message
-    // from the longest Buffer in the row, but only for rich tables (≥5 columns)
-    // so trivial housekeeping rows are silently dropped.
-    if (!('message' in msg)) {
+    // Still unresolved — synthesize a message from the longest Buffer in the
+    // row, but only for rich tables (≥5 columns) so trivial housekeeping rows
+    // are silently dropped.
+    if (typeof msg.message !== 'string') {
       if (columns.length < 5) {
         return null;
       }
@@ -431,6 +443,12 @@ export class ActivityTraceTap extends BaseInstrument {
 function decodeStr(buf: Buffer): string {
   const nullIdx = buf.indexOf(0);
   return (nullIdx >= 0 ? buf.subarray(0, nullIdx) : buf).toString('utf8');
+}
+
+function decodeHex(buf: Buffer): string {
+  // Push opcodes pad to a byte boundary, so drop a trailing sentinel null byte.
+  const trimmed = buf.length > 0 && buf[buf.length - 1] === 0 ? buf.subarray(0, buf.length - 1) : buf;
+  return trimmed.toString('hex');
 }
 
 function decodeMessageFormat(message: StackItem[]): string {
