@@ -27,6 +27,27 @@ export interface DeviceOrientationState {
 }
 
 /**
+ * Result of {@link DeviceControlService.getOrientation}: the device's current
+ * orientation together with an empirically-determined rotation-lock flag.
+ */
+export interface DeviceOrientationInfo {
+  /**
+   * Current device orientation, e.g. `'portrait'`, `'landscapeLeft'`. Because
+   * the probe restores the device, this equals the orientation the device had
+   * before {@link DeviceControlService.getOrientation} was called.
+   */
+  orientation?: string;
+  /** The most recent non-flat orientation (ignores face-up/face-down). */
+  nonFlatOrientation?: string;
+  /**
+   * Whether device rotation is currently locked (e.g. Control Center Rotation
+   * Lock). Determined by attempting a rotation and reverting it: `true` when the
+   * attempted rotation left the orientation unchanged.
+   */
+  locked: boolean;
+}
+
+/**
  * CoreDevice device-control service (`com.apple.coredevice.devicecontrol`).
  *
  * Rotates the device 90° at a time. Unlike most CoreDevice services this uses a
@@ -76,6 +97,37 @@ export class DeviceControlService extends CoreDeviceService {
       payload: {rotate: {_0: direction}},
     } as XPCDictionary);
     return reply as DeviceOrientationState;
+  }
+
+  /**
+   * Probes the device's current orientation and whether rotation is locked,
+   * leaving the device's final orientation unchanged.
+   *
+   * CoreDevice exposes no read-only orientation query, and the device-reported
+   * {@link DeviceOrientationState.currentDeviceOrientationLocked} flag is
+   * unreliable. This method therefore rotates the device one 90° step and
+   * immediately reverts it:
+   *
+   * - If the orientation changed, rotation is **unlocked**.
+   * - If it stayed the same, rotation is **locked**.
+   *
+   * The two rotations cancel out, so the device ends where it began — though it
+   * does briefly rotate and rotate back while the probe runs.
+   *
+   * @example
+   * ```ts
+   * const {orientation, locked} = await deviceControl.getOrientation();
+   * console.log(`device is ${orientation}${locked ? ' (rotation locked)' : ''}`);
+   * ```
+   */
+  async getOrientation(): Promise<DeviceOrientationInfo> {
+    const rotated = await this.rotate('left');
+    const restored = await this.rotate('right');
+    return {
+      orientation: restored.currentDeviceOrientation,
+      nonFlatOrientation: restored.currentDeviceNonFlatOrientation,
+      locked: rotated.currentDeviceOrientation === restored.currentDeviceOrientation,
+    };
   }
 }
 

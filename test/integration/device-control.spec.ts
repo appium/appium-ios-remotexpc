@@ -40,7 +40,15 @@ describe('DeviceControlService', {timeout: 60000}, function () {
     await deviceControl!.rotate('right');
   });
 
-  it('consecutive left rotations change the orientation', async function () {
+  it('consecutive left rotations change the orientation', async function (t) {
+    // This assertion only holds when rotation is unlocked. If the device has
+    // Control Center Rotation Lock on, rotations are silently ignored, so skip
+    // rather than fail spuriously.
+    if ((await deviceControl!.getOrientation()).locked) {
+      t.skip('device rotation is locked (Control Center Rotation Lock is on)');
+      return;
+    }
+
     const first = await deviceControl!.rotate('left');
     const second = await deviceControl!.rotate('left');
 
@@ -51,5 +59,22 @@ describe('DeviceControlService', {timeout: 60000}, function () {
     // Restore: undo the two 'left' steps.
     await deviceControl!.rotate('right');
     await deviceControl!.rotate('right');
+  });
+
+  it('getOrientation reports current orientation and lock state', async function () {
+    const info = await deviceControl!.getOrientation();
+
+    expect(info).to.be.an('object');
+    expect(info.orientation).to.be.a('string');
+    expect(info.locked).to.be.a('boolean');
+  });
+
+  it('getOrientation is non-destructive: repeated calls are stable', async function () {
+    const before = await deviceControl!.getOrientation();
+    const after = await deviceControl!.getOrientation();
+
+    // The probe rotates and reverts, so repeated reads report the same state.
+    expect(after.orientation).to.equal(before.orientation);
+    expect(after.locked).to.equal(before.locked);
   });
 });

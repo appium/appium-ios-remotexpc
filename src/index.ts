@@ -65,7 +65,11 @@ export type {
   CoreDeviceLockState,
 } from './services/ios/device-info/index.js';
 export {DeviceControlService} from './services/ios/device-control/index.js';
-export type {DeviceOrientationState, RotateDirection} from './services/ios/device-control/index.js';
+export type {
+  DeviceOrientationInfo,
+  DeviceOrientationState,
+  RotateDirection,
+} from './services/ios/device-control/index.js';
 export type {SyslogEntry, SyslogLabel, SyslogLogLevel} from './services/ios/syslog-service/syslog-entry-parser.js';
 
 export type {
