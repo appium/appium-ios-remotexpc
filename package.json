@@ -1,6 +1,6 @@
 {
   "name": "appium-ios-remotexpc",
-  "version": "5.8.0",
+  "version": "5.10.0",
   "description": "",
   "keywords": [],
   "bugs": {
@@ -47,6 +47,7 @@
     "test:all": "node --test --test-timeout=60000 \"build/test/unit/**/*.spec.js\" \"build/test/integration/**/*.spec.js\"",
     "test:app-service": "node --test --test-timeout=60000 \"build/test/integration/app-service.spec.js\"",
     "test:coredevice-device-info": "node --test --test-timeout=60000 \"build/test/integration/device-info-coredevice.spec.js\"",
+    "test:device-control": "node --test --test-timeout=60000 \"build/test/integration/device-control.spec.js\"",
     "test:crash-reports": "node --test --test-timeout=60000 \"build/test/integration/crash-reports.spec.js\"",
     "test:diagnostics": " node --test --test-timeout=60000 \"build/test/integration/diagnostics.spec.js\"",
     "test:dvt-service": "node --test --test-timeout=60000 \"build/test/integration/dvt-service.spec.js\"",
