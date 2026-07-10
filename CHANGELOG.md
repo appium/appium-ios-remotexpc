@@ -1,3 +1,9 @@
+## [5.11.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.10.1...v5.11.0) (2026-07-10)
+
+### Features
+
+* Add codegraph ([#271](https://github.com/appium/appium-ios-remotexpc/issues/271)) ([25045d0](https://github.com/appium/appium-ios-remotexpc/commit/25045d068e6842b3b9b05cd9e79b9d114ea5fa77))
+
 ## [5.10.1](https://github.com/appium/appium-ios-remotexpc/compare/v5.10.0...v5.10.1) (2026-07-08)
 
 ### Bug Fixes
