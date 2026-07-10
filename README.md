@@ -22,9 +22,22 @@ This library provides functionality for:
 npm install appium-ios-remotexpc
 ```
 
+### Optional: CodeGraph for local code navigation
+
+If you want a local semantic index for this repository, you can install [CodeGraph](https://github.com/colbymchenry/codegraph) locally and initialize it in the repo:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/colbymchenry/codegraph/main/install.sh | sh
+cd "<project folder>"
+codegraph install
+codegraph init
+```
+
+CodeGraph builds a local knowledge graph of symbols and call paths so AI coding agents, like Cursor or Claude, can answer questions and navigate the codebase faster with fewer file reads and reduced token consumption.
+
 ## Requirements
 
-- Node.js 16 or later
+- Node.js 20 or later
 - iOS device for testing
 - Proper device pairing and trust setup
 - Root/sudo privileges for tunnel creation (TUN/TAP interface requires elevated permissions)
