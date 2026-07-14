@@ -2,7 +2,12 @@ import {after, before, describe, it} from 'node:test';
 
 import {expect} from 'chai';
 
-import {CoreDeviceError, type ColorFilterType, type ConfigurationService} from '../../src/index.js';
+import {
+  CoreDeviceError,
+  type ColorFilterType,
+  type ConfigurationService,
+  type DeviceTextSize,
+} from '../../src/index.js';
 import * as Services from '../../src/services.js';
 import {requireDeviceUdid} from './helpers/device.js';
 
@@ -80,9 +85,8 @@ describe('ConfigurationService', {timeout: 60000}, function () {
     }
   });
 
-  it('getDeviceTextSize returns a known size', async function () {
-    const textSize = await service!.getDeviceTextSize();
-    expect(textSize, 'device text size').to.be.oneOf([
+  it('setDeviceTextSize applies every standard size and restores the original', async function () {
+    const sizes: DeviceTextSize[] = [
       'extraSmall',
       'small',
       'medium',
@@ -90,20 +94,36 @@ describe('ConfigurationService', {timeout: 60000}, function () {
       'extraLarge',
       'extraExtraLarge',
       'extraExtraExtraLarge',
-    ]);
+    ];
+    const original = await service!.getDeviceTextSize();
+    expect(original, 'original text size').to.be.oneOf(sizes);
+    try {
+      for (const size of sizes) {
+        await service!.setDeviceTextSize(size);
+        expect(await service!.getDeviceTextSize(), size).to.equal(size);
+      }
+    } finally {
+      if (original) {
+        await service!.setDeviceTextSize(original);
+      }
+    }
+    expect(await service!.getDeviceTextSize()).to.equal(original);
   });
 
-  it('color filter can be enabled (Grayscale), read back, and restored', async function () {
+  it('every color-filter preset enables, reports its name, and disables', async function () {
+    const presets: ColorFilterType[] = ['Grayscale', 'Protanopia', 'Deuteranopia', 'Tritanopia'];
     const original = await service!.getColorFilter();
     try {
-      // Enable a grayscale filter (no intensity — intensity is device-gated).
-      await service!.setColorFilter(true, {filterType: 'Grayscale'});
-      const enabled = await service!.getColorFilter();
-      expect(enabled.enabled).to.equal(true);
-      expect(enabled.filterType?.name).to.equal('Grayscale');
+      for (const preset of presets) {
+        // Enable each preset (no intensity — intensity is device-gated, 21056).
+        await service!.setColorFilter(true, {filterType: preset});
+        const enabled = await service!.getColorFilter();
+        expect(enabled.enabled, preset).to.equal(true);
+        expect(enabled.filterType?.name, preset).to.equal(preset);
 
-      await service!.setColorFilter(false);
-      expect((await service!.getColorFilter()).enabled).to.equal(false);
+        await service!.setColorFilter(false);
+        expect((await service!.getColorFilter()).enabled, `${preset} disabled`).to.equal(false);
+      }
     } finally {
       if (original.enabled && original.filterType?.name) {
         await service!.setColorFilter(true, {filterType: original.filterType.name as ColorFilterType});
