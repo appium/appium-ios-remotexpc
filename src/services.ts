@@ -7,6 +7,7 @@ import type {DVTInstruments, SyslogService as SyslogServiceType, XCTestServices}
 import AfcService from './services/ios/afc/index.js';
 import {AppService} from './services/ios/app-service/index.js';
 import {type Service} from './services/ios/base-service.js';
+import {ConfigurationService} from './services/ios/configuration/index.js';
 import {CrashReportsService} from './services/ios/crash-reports/index.js';
 import {DeviceControlService} from './services/ios/device-control/index.js';
 import {CoreDeviceInfoService} from './services/ios/device-info/index.js';
@@ -143,6 +144,18 @@ export async function startCoreDeviceInfoService(udid: string): Promise<CoreDevi
 export async function startDeviceControlService(udid: string): Promise<DeviceControlService> {
   await requireCatalogService(udid, DeviceControlService.RSD_SERVICE_NAME);
   return new DeviceControlService(udid);
+}
+
+/**
+ * Start the CoreDevice configuration service for the given device UDID.
+ *
+ * Reads and writes appearance and accessibility knobs (dark/light mode, Dynamic
+ * Type text size, Reduce Motion / Transparency, Increase Contrast, color
+ * filters, layout-debug borders, iOS 26 liquid-glass opacity) over RemoteXPC.
+ */
+export async function startConfigurationService(udid: string): Promise<ConfigurationService> {
+  await requireCatalogService(udid, ConfigurationService.RSD_SERVICE_NAME);
+  return new ConfigurationService(udid);
 }
 
 const RSD_SYSLOG_BINARY_SERVICE_NAME = 'com.apple.os_trace_relay.shim.remote';
