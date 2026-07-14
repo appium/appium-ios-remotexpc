@@ -1,6 +1,6 @@
 import {asDictionary} from '../../../lib/remote-xpc/xpc-value.js';
 import type {XPCDictionary} from '../../../lib/types.js';
-import {type CoreDeviceInvokeOptions, CoreDeviceService} from '../core-device/core-device-service.js';
+import {type CoreDeviceInvokeOptions, CoreDeviceError, CoreDeviceService} from '../core-device/core-device-service.js';
 
 const ACTION = {
   GET_USER_INTERFACE_STYLE: 'com.apple.coredevice.action.getuserinterfacestyle',
@@ -12,6 +12,7 @@ const ACTION = {
   SET_DEVICE_TEXT_SIZE: 'com.apple.coredevice.action.setdevicetextsize',
   GET_REDUCE_MOTION: 'com.apple.coredevice.action.getreducemotion',
   SET_REDUCE_MOTION: 'com.apple.coredevice.action.setreducemotion',
+  GET_INCREASE_CONTRAST: 'com.apple.coredevice.action.getdeviceincreasecontrast',
   SET_INCREASE_CONTRAST: 'com.apple.coredevice.action.setdeviceincreasecontrast',
   GET_SHOW_BORDERS: 'com.apple.coredevice.action.getshowborders',
   SET_SHOW_BORDERS: 'com.apple.coredevice.action.setshowborders',
@@ -21,6 +22,31 @@ const ACTION = {
 
 /** Device appearance: `'dark'` or `'light'`. */
 export type UserInterfaceStyle = 'dark' | 'light';
+
+/**
+ * Dynamic Type content-size names accepted by the daemon's `setdevicetextsize`
+ * action. These are the seven standard sizes.
+ */
+const DEVICE_TEXT_SIZES = [
+  'extraSmall',
+  'small',
+  'medium',
+  'large',
+  'extraLarge',
+  'extraExtraLarge',
+  'extraExtraExtraLarge',
+] as const;
+
+/** A valid Dynamic Type content-size name. See {@link DEVICE_TEXT_SIZES}. */
+export type DeviceTextSize = (typeof DEVICE_TEXT_SIZES)[number];
+
+/**
+ * Color-filter presets that enable from `filterType` alone.
+ */
+const COLOR_FILTER_TYPES = ['Grayscale', 'Protanopia', 'Deuteranopia', 'Tritanopia'] as const;
+
+/** A color-filter preset that enables from a name alone. See {@link COLOR_FILTER_TYPES}. */
+export type ColorFilterType = (typeof COLOR_FILTER_TYPES)[number];
 
 /** Color-filter state returned by {@link ConfigurationService.getColorFilter}. */
 export interface ColorFilterState {
@@ -35,8 +61,8 @@ export interface ColorFilterState {
 
 /** Options for {@link ConfigurationService.setColorFilter}. */
 export interface SetColorFilterOptions {
-  /** Filter preset name (e.g. `'Protanopia'`). Required when enabling. */
-  filterType?: string;
+  /** Filter preset (e.g. `'Protanopia'`). Required when enabling. */
+  filterType?: ColorFilterType;
   /** Filter intensity 0.0..1.0. */
   intensity?: number;
 }
@@ -74,7 +100,11 @@ export class ConfigurationService extends CoreDeviceService {
   /** Returns the active appearance — `'dark'` or `'light'`. */
   async getUserInterfaceStyle(options: CoreDeviceInvokeOptions = {}): Promise<UserInterfaceStyle> {
     const output = await this.action(ACTION.GET_USER_INTERFACE_STYLE, {}, options);
-    return output.style as UserInterfaceStyle;
+    const style = output.style;
+    if (style !== 'dark' && style !== 'light') {
+      throw new CoreDeviceError(`Unexpected user-interface style from device: ${String(style)}`, output);
+    }
+    return style;
   }
 
   /** Sets the device appearance to `'dark'` or `'light'`. */
@@ -87,8 +117,7 @@ export class ConfigurationService extends CoreDeviceService {
 
   /**
    * Sets the system liquid-glass opacity (iOS 26). `opacity` is range-checked to
-   * `[0.0, 1.0]` and quantized to IEEE-754 binary32, matching what the device
-   * daemon accepts on the wire.
+   * `[0.0, 1.0]` and quantized to IEEE-754 binary32.
    *
    * ⚠️ Device-gated, not just OS-gated: hardware that does not support Liquid
    * Glass customization rejects this with `com.apple.dt.CoreDeviceError 21035`
@@ -99,7 +128,9 @@ export class ConfigurationService extends CoreDeviceService {
     if (!(opacity >= 0 && opacity <= 1)) {
       throw new RangeError(`opacity must be in [0.0, 1.0], got ${String(opacity)}`);
     }
-    await this.action(ACTION.SET_LIQUID_GLASS, {configuration: {opacity: toFloat32(opacity)}}, options);
+    // Quantize to IEEE-754 binary32: the daemon's Swift decoders reject floats
+    // whose low mantissa bits don't fit in Float32.
+    await this.action(ACTION.SET_LIQUID_GLASS, {configuration: {opacity: Math.fround(opacity)}}, options);
   }
 
   /**
@@ -112,40 +143,48 @@ export class ConfigurationService extends CoreDeviceService {
   }
 
   /**
-   * Sets the color filter. `filterType` is required when `enabled` is true
-   * (e.g. `'Grayscale'`).
+   * Sets the color filter. `filterType` is required when `enabled` is true and
+   * must be one of {@link ColorFilterType} (`'Grayscale'`, `'Protanopia'`,
+   * `'Deuteranopia'`, `'Tritanopia'`) — the presets verified to enable from a
+   * name. Names are case-sensitive; an unknown value throws a `TypeError`.
    *
-   * ⚠️ `intensity` is device-gated: on some devices any `intensity` value is
+   * ⚠️ `intensity` is device-gated: on the tested device any `intensity` value is
    * rejected with `com.apple.dt.CoreDeviceError 21056` ("The color filter
    * intensity value is not valid."), surfaced here as a {@link CoreDeviceError}.
-   * Omit it unless you know the target device accepts it. Some filter presets
-   * (e.g. `'colorTint'`) also need extra parameters and will not enable from
-   * `filterType` alone.
+   * Omit it unless you know the target device accepts it.
    */
   async setColorFilter(enabled: boolean, options: SetColorFilterOptions & CoreDeviceInvokeOptions = {}): Promise<void> {
     const {filterType, intensity, ...invokeOptions} = options;
     const colorFilter: XPCDictionary = {enabled};
+    // filterType/intensity only apply when enabling. When disabling we send just
+    // `{ enabled: false }` and intentionally drop them.
     if (enabled) {
       if (filterType === undefined) {
         throw new TypeError('filterType is required when enabling the color filter');
       }
+      if (!isOneOf(COLOR_FILTER_TYPES, filterType)) {
+        throw new TypeError(`filterType must be one of ${COLOR_FILTER_TYPES.join(', ')}, got '${String(filterType)}'`);
+      }
       colorFilter.filterType = {name: filterType};
       if (intensity !== undefined) {
-        colorFilter.intensity = toFloat32(intensity);
+        colorFilter.intensity = Math.fround(intensity);
       }
     }
     await this.action(ACTION.SET_COLOR_FILTER, {colorFilter}, invokeOptions);
   }
 
   /** Returns the Dynamic Type size name (e.g. `'medium'`, `'large'`). */
-  async getDeviceTextSize(options: CoreDeviceInvokeOptions = {}): Promise<string | undefined> {
+  async getDeviceTextSize(options: CoreDeviceInvokeOptions = {}): Promise<DeviceTextSize | undefined> {
     const output = await this.action(ACTION.GET_DEVICE_TEXT_SIZE, {}, options);
     const size = asDictionary(asDictionary(output.textSize)?.size);
-    return size ? Object.keys(size)[0] : undefined;
+    return size ? (Object.keys(size)[0] as DeviceTextSize) : undefined;
   }
 
   /** Sets the Dynamic Type size by name (`'medium'`, `'large'`, …). */
-  async setDeviceTextSize(size: string, options: CoreDeviceInvokeOptions = {}): Promise<void> {
+  async setDeviceTextSize(size: DeviceTextSize, options: CoreDeviceInvokeOptions = {}): Promise<void> {
+    if (!isOneOf(DEVICE_TEXT_SIZES, size)) {
+      throw new TypeError(`size must be one of ${DEVICE_TEXT_SIZES.join(', ')}, got '${String(size)}'`);
+    }
     await this.action(ACTION.SET_DEVICE_TEXT_SIZE, {textSize: {size: {[size]: {}}}}, options);
   }
 
@@ -159,7 +198,12 @@ export class ConfigurationService extends CoreDeviceService {
     await this.action(ACTION.SET_REDUCE_MOTION, {reduceMotion: {enabled}}, options);
   }
 
-  /** Toggles Increase Contrast. The daemon exposes no symmetric getter. */
+  /** Returns whether Increase Contrast is enabled. */
+  async getIncreaseContrast(options: CoreDeviceInvokeOptions = {}): Promise<boolean> {
+    return this.getEnabled(ACTION.GET_INCREASE_CONTRAST, 'increaseContrast', options);
+  }
+
+  /** Toggles Increase Contrast. */
   async setIncreaseContrast(enabled: boolean, options: CoreDeviceInvokeOptions = {}): Promise<void> {
     await this.action(ACTION.SET_INCREASE_CONTRAST, {increaseContrast: {enabled}}, options);
   }
@@ -201,12 +245,12 @@ export class ConfigurationService extends CoreDeviceService {
 }
 
 /**
- * Rounds `value` through IEEE-754 binary32.
- * The daemon's Swift decoders reject float knobs whose low mantissa bits do not
- * fit in Float32; quantizing here produces a bit pattern the device accepts.
+ * Type guard for membership in an `as const` list of string literals. Lets a
+ * single declaration be the source of truth for both a union type
+ * (`(typeof list)[number]`) and its runtime validation.
  */
-function toFloat32(value: number): number {
-  return Math.fround(value);
+function isOneOf<T extends readonly string[]>(values: T, value: string): value is T[number] {
+  return (values as readonly string[]).includes(value);
 }
 
 export default ConfigurationService;

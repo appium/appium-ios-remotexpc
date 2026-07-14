@@ -2,7 +2,7 @@ import {after, before, describe, it} from 'node:test';
 
 import {expect} from 'chai';
 
-import {CoreDeviceError, type ConfigurationService} from '../../src/index.js';
+import {CoreDeviceError, type ColorFilterType, type ConfigurationService} from '../../src/index.js';
 import * as Services from '../../src/services.js';
 import {requireDeviceUdid} from './helpers/device.js';
 
@@ -62,16 +62,35 @@ describe('ConfigurationService', {timeout: 60000}, function () {
     expect(await service!.getReduceMotion()).to.equal(original);
   });
 
-  it('read-only accessibility knobs return sensible types', async function () {
-    expect(await service!.getShowBorders()).to.be.a('boolean');
-    expect(await service!.getReduceTransparency()).to.be.a('boolean');
+  it('boolean accessibility knobs round-trip (transparency, borders, contrast)', async function () {
+    const knobs: [() => Promise<boolean>, (v: boolean) => Promise<void>][] = [
+      [() => service!.getReduceTransparency(), (v) => service!.setReduceTransparency(v)],
+      [() => service!.getShowBorders(), (v) => service!.setShowBorders(v)],
+      [() => service!.getIncreaseContrast(), (v) => service!.setIncreaseContrast(v)],
+    ];
+    for (const [get, set] of knobs) {
+      const original = await get();
+      try {
+        await set(!original);
+        expect(await get()).to.equal(!original);
+      } finally {
+        await set(original);
+      }
+      expect(await get()).to.equal(original);
+    }
+  });
 
+  it('getDeviceTextSize returns a known size', async function () {
     const textSize = await service!.getDeviceTextSize();
-    expect(textSize, 'device text size').to.be.a('string').that.is.not.empty;
-
-    const colorFilter = await service!.getColorFilter();
-    expect(colorFilter).to.be.an('object');
-    expect(colorFilter.enabled).to.be.a('boolean');
+    expect(textSize, 'device text size').to.be.oneOf([
+      'extraSmall',
+      'small',
+      'medium',
+      'large',
+      'extraLarge',
+      'extraExtraLarge',
+      'extraExtraExtraLarge',
+    ]);
   });
 
   it('color filter can be enabled (Grayscale), read back, and restored', async function () {
@@ -87,18 +106,11 @@ describe('ConfigurationService', {timeout: 60000}, function () {
       expect((await service!.getColorFilter()).enabled).to.equal(false);
     } finally {
       if (original.enabled && original.filterType?.name) {
-        await service!.setColorFilter(true, {filterType: original.filterType.name});
+        await service!.setColorFilter(true, {filterType: original.filterType.name as ColorFilterType});
       } else {
         await service!.setColorFilter(false);
       }
     }
-  });
-
-  it('setIncreaseContrast resolves (no getter exposed by the daemon)', async function () {
-    // No symmetric getter exists; assert the call is accepted. Restore to off
-    // (the common default) so we don't leave the device altered.
-    await service!.setIncreaseContrast(true);
-    await service!.setIncreaseContrast(false);
   });
 
   it('liquid glass opacity can be set and restored (iOS 26)', async function () {

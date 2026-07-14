@@ -67,7 +67,13 @@ export type {
 export {DeviceControlService} from './services/ios/device-control/index.js';
 export type {DeviceOrientationState, RotateDirection} from './services/ios/device-control/index.js';
 export {ConfigurationService} from './services/ios/configuration/index.js';
-export type {ColorFilterState, SetColorFilterOptions, UserInterfaceStyle} from './services/ios/configuration/index.js';
+export type {
+  ColorFilterState,
+  ColorFilterType,
+  DeviceTextSize,
+  SetColorFilterOptions,
+  UserInterfaceStyle,
+} from './services/ios/configuration/index.js';
 export type {SyslogEntry, SyslogLabel, SyslogLogLevel} from './services/ios/syslog-service/syslog-entry-parser.js';
 
 export type {

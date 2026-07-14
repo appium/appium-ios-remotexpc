@@ -3,6 +3,7 @@ import {describe, it} from 'node:test';
 
 import {expect} from 'chai';
 
+import {CoreDeviceError} from '../../../src/index.js';
 import {decodeMessage} from '../../../src/lib/remote-xpc/xpc-protocol.js';
 import type {XPCDictionary, XPCValue} from '../../../src/lib/types.js';
 import {ConfigurationService} from '../../../src/services/ios/configuration/index.js';
@@ -100,6 +101,13 @@ describe('ConfigurationService', function () {
     expect(fake.sentBodies).to.have.length(0);
   });
 
+  it('getUserInterfaceStyle throws on an unexpected style rather than mis-casting', async function () {
+    const fake = new FakeTransport(() => reply({style: 'auto'}));
+    const service = new TestConfigurationService(fake);
+
+    expect(await rejection(service.getUserInterfaceStyle())).to.be.instanceOf(CoreDeviceError);
+  });
+
   it('setReduceMotion sends the enabled flag', async function () {
     const fake = new FakeTransport(() => reply({}));
     const service = new TestConfigurationService(fake);
@@ -139,6 +147,14 @@ describe('ConfigurationService', function () {
     expect(input(fake.sentBodies[0])).to.deep.equal({textSize: {size: {extraLarge: {}}}});
   });
 
+  it('setDeviceTextSize rejects an unknown size without sending a message', async function () {
+    const fake = new FakeTransport(() => reply({}));
+    const service = new TestConfigurationService(fake);
+
+    expect(await rejection(service.setDeviceTextSize('humongous' as any))).to.be.instanceOf(TypeError);
+    expect(fake.sentBodies).to.have.length(0);
+  });
+
   it('getColorFilter returns the colorFilter dict', async function () {
     const fake = new FakeTransport(() => reply({colorFilter: {enabled: true, filterType: {name: 'Protanopia'}}}));
     const service = new TestConfigurationService(fake);
@@ -155,6 +171,25 @@ describe('ConfigurationService', function () {
 
     expect(await rejection(service.setColorFilter(true))).to.be.instanceOf(TypeError);
     expect(fake.sentBodies).to.have.length(0);
+  });
+
+  it('setColorFilter(true) rejects an unknown filterType without sending', async function () {
+    const fake = new FakeTransport(() => reply({}));
+    const service = new TestConfigurationService(fake);
+
+    // Case-sensitive: lowercase 'grayscale' is not a valid preset.
+    expect(await rejection(service.setColorFilter(true, {filterType: 'grayscale' as any}))).to.be.instanceOf(TypeError);
+    expect(fake.sentBodies).to.have.length(0);
+  });
+
+  it('getIncreaseContrast reads the nested enabled flag', async function () {
+    const fake = new FakeTransport(() => reply({increaseContrast: {enabled: true}}));
+    const service = new TestConfigurationService(fake);
+
+    const enabled = await service.getIncreaseContrast();
+
+    expect(actionId(fake.sentBodies[0])).to.equal('com.apple.coredevice.action.getdeviceincreasecontrast');
+    expect(enabled).to.equal(true);
   });
 
   it('setColorFilter(true, ...) sends filterType and Float32-quantized intensity', async function () {
