@@ -93,16 +93,34 @@ describe('ConfigurationService', function () {
     expect(input(fake.sentBodies[0])).to.deep.equal({style: 'light'});
   });
 
-  it('setUserInterfaceStyle rejects an invalid style without sending a message', async function () {
+  it('setUserInterfaceStyle rejects an empty/non-string style without sending a message', async function () {
     const fake = new FakeTransport(() => reply({}));
     const service = new TestConfigurationService(fake);
 
-    expect(await rejection(service.setUserInterfaceStyle('sepia' as any))).to.be.instanceOf(TypeError);
+    expect(await rejection(service.setUserInterfaceStyle('' as any))).to.be.instanceOf(TypeError);
+    expect(await rejection(service.setUserInterfaceStyle(undefined as any))).to.be.instanceOf(TypeError);
     expect(fake.sentBodies).to.have.length(0);
   });
 
-  it('getUserInterfaceStyle throws on an unexpected style rather than mis-casting', async function () {
+  it('setUserInterfaceStyle forwards an unknown-but-non-empty style to the device (forward-compat)', async function () {
+    const fake = new FakeTransport(() => reply({}));
+    const service = new TestConfigurationService(fake);
+
+    // A future OS style must not be blocked client-side; let the device decide.
+    await service.setUserInterfaceStyle('auto');
+
+    expect(input(fake.sentBodies[0])).to.deep.equal({style: 'auto'});
+  });
+
+  it('getUserInterfaceStyle passes an unknown string through (forward-compat)', async function () {
     const fake = new FakeTransport(() => reply({style: 'auto'}));
+    const service = new TestConfigurationService(fake);
+
+    expect(await service.getUserInterfaceStyle()).to.equal('auto');
+  });
+
+  it('getUserInterfaceStyle throws on a missing/non-string style (malformed reply)', async function () {
+    const fake = new FakeTransport(() => reply({}));
     const service = new TestConfigurationService(fake);
 
     expect(await rejection(service.getUserInterfaceStyle())).to.be.instanceOf(CoreDeviceError);

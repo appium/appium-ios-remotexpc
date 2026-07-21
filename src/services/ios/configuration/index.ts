@@ -20,8 +20,13 @@ const ACTION = {
   SET_REDUCE_TRANSPARENCY: 'com.apple.coredevice.action.setreducetransparency',
 } as const;
 
-/** Device appearance: `'dark'` or `'light'`. */
-export type UserInterfaceStyle = 'dark' | 'light';
+/**
+ * Device appearance. Today the daemon only reports/accepts `'dark'` and
+ * `'light'`, so those are surfaced as literals for autocomplete — but the type
+ * stays open (`string & {}`) so a future OS that adds another style is neither
+ * rejected on read nor unrepresentable on write.
+ */
+export type UserInterfaceStyle = 'dark' | 'light' | (string & {});
 
 /**
  * Dynamic Type content-size names accepted by the daemon's `setdevicetextsize`
@@ -97,20 +102,30 @@ export class ConfigurationService extends CoreDeviceService {
     super(udid, ConfigurationService.RSD_SERVICE_NAME);
   }
 
-  /** Returns the active appearance — `'dark'` or `'light'`. */
+  /**
+   * Returns the active appearance. Normally `'dark'` or `'light'`, but any
+   * string the device reports is passed through unchanged (so a future OS style
+   * is not rejected). Only a missing/non-string value — a malformed reply —
+   * throws a {@link CoreDeviceError}.
+   */
   async getUserInterfaceStyle(options: CoreDeviceInvokeOptions = {}): Promise<UserInterfaceStyle> {
     const output = await this.action(ACTION.GET_USER_INTERFACE_STYLE, {}, options);
     const style = output.style;
-    if (style !== 'dark' && style !== 'light') {
-      throw new CoreDeviceError(`Unexpected user-interface style from device: ${String(style)}`, output);
+    if (typeof style !== 'string') {
+      throw new CoreDeviceError(`Missing user-interface style in device response: ${String(style)}`, output);
     }
     return style;
   }
 
-  /** Sets the device appearance to `'dark'` or `'light'`. */
+  /**
+   * Sets the device appearance. `'dark'` and `'light'` are the known values; any
+   * other non-empty string is forwarded to the device (which validates it), so a
+   * future OS style is not blocked client-side. An empty/non-string value throws
+   * a `TypeError`.
+   */
   async setUserInterfaceStyle(style: UserInterfaceStyle, options: CoreDeviceInvokeOptions = {}): Promise<void> {
-    if (style !== 'dark' && style !== 'light') {
-      throw new TypeError(`style must be 'dark' or 'light', got '${String(style)}'`);
+    if (typeof style !== 'string' || style.length === 0) {
+      throw new TypeError(`style must be a non-empty string, got '${String(style)}'`);
     }
     await this.action(ACTION.SET_USER_INTERFACE_STYLE, {style}, options);
   }
