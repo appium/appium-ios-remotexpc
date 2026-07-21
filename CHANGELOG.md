@@ -1,3 +1,9 @@
+## [5.12.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.11.0...v5.12.0) (2026-07-21)
+
+### Features
+
+* **coredevice:** add configuration service (appearance & accessibility) ([#277](https://github.com/appium/appium-ios-remotexpc/issues/277)) ([8c178e5](https://github.com/appium/appium-ios-remotexpc/commit/8c178e52e834977e173a19b8d7d293d99618101a))
+
 ## [5.11.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.10.1...v5.11.0) (2026-07-10)
 
 ### Features
