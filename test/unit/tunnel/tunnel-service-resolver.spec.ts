@@ -29,7 +29,7 @@ describe('tunnel-service-resolver', function () {
     const getTunnelByUdid = sinon.stub().resolves(entry);
     const refreshServiceCatalog = sinon.stub();
 
-    const {resolveTunnelService} = await esmock('../../../src/lib/tunnel/tunnel-service-resolver.js', {
+    const {resolveTunnelService} = await esmock('../../../src/lib/tunnel/tunnel-service-resolver.js', import.meta.url, {
       '../../../src/lib/tunnel/tunnel-availability.js': {
         createValidatedStrictRegistryClient: async () => ({
           getTunnelByUdid,
@@ -57,7 +57,7 @@ describe('tunnel-service-resolver', function () {
     const getTunnelByUdid = sinon.stub().resolves(initial);
     const refreshServiceCatalog = sinon.stub().resolves(refreshed);
 
-    const {resolveTunnelService} = await esmock('../../../src/lib/tunnel/tunnel-service-resolver.js', {
+    const {resolveTunnelService} = await esmock('../../../src/lib/tunnel/tunnel-service-resolver.js', import.meta.url, {
       '../../../src/lib/tunnel/tunnel-availability.js': {
         createValidatedStrictRegistryClient: async () => ({
           getTunnelByUdid,

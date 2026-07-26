@@ -58,7 +58,7 @@ async function loadServicesWithStubs(
     }));
   }
 
-  const services = await esmock('../../../src/services.js', {
+  const services = await esmock('../../../src/services.js', import.meta.url, {
     '../../../src/lib/tunnel/tunnel-service-resolver.js': {
       resolveTunnelService,
       resolveTunnelServicePorts,

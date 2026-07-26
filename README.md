@@ -216,9 +216,9 @@ All pull requests must pass these checks before merging. The workflows are defin
 ### Scripts
 
 - `npm run build` - Clean and build the project
-- `npm run lint` - Run ESLint
-- `npm run format` - Run prettier
-- `npm run lint:fix` - Run ESLint with auto-fix
+- `npm run lint` - Run lint
+- `npm run format` - Run format
+- `npm run lint:fix` - Run lint with auto-fix
 - `npm test` - Run tests (requires sudo privileges for tunneling)
 
 CLI helpers under `scripts/` are ESM (`.mjs`) and load the library via the package entrypoint. Run `npm run build` before using them so `appium-ios-remotexpc` resolves to `build/`.

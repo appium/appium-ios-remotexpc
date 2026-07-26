@@ -49,7 +49,7 @@ describe('SyslogService binary mode', function () {
       },
     };
 
-    const SyslogService = await esmock('../../../src/services/ios/syslog-service/index.js', {
+    const SyslogService = await esmock('../../../src/services/ios/syslog-service/index.js', import.meta.url, {
       '../../../src/services/ios/base-service.js': {
         BaseService: class {
           constructor(udid: string) {

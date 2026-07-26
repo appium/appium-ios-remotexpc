@@ -68,7 +68,7 @@ async function loadTunnelAvailability(
     };
   }
 
-  return await esmock('../../../src/lib/tunnel/tunnel-availability.js', dependencyMocks);
+  return await esmock('../../../src/lib/tunnel/tunnel-availability.js', import.meta.url, dependencyMocks);
 }
 
 async function expectTunnelAvailabilityError(

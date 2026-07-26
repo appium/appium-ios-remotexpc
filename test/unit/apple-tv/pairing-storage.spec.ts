@@ -33,7 +33,7 @@ describe('PairingStorage', function () {
       ],
     };
 
-    const {PairingStorage} = await esmock('../../../src/lib/apple-tv/storage/pairing-storage.js', {
+    const {PairingStorage} = await esmock('../../../src/lib/apple-tv/storage/pairing-storage.js', import.meta.url, {
       '@appium/strongbox': {
         strongbox: () => box,
         BaseItem: class {

@@ -10,15 +10,19 @@ describe('tunnel-rsd-discovery', function () {
     const getServices = sinon.stub().returns([{serviceName: 'com.apple.test', port: '1234'}]);
     const connect = sinon.spy(async () => {});
 
-    const {discoverServices, servicesToCatalog} = await esmock('../../../src/lib/tunnel/tunnel-rsd-discovery.js', {
-      '../../../src/lib/remote-xpc/rsd-service-catalog-client.js': {
-        RsdServiceCatalogClient: class {
-          connect = connect;
-          getServices = getServices;
-          close = closeSpy;
+    const {discoverServices, servicesToCatalog} = await esmock(
+      '../../../src/lib/tunnel/tunnel-rsd-discovery.js',
+      import.meta.url,
+      {
+        '../../../src/lib/remote-xpc/rsd-service-catalog-client.js': {
+          RsdServiceCatalogClient: class {
+            connect = connect;
+            getServices = getServices;
+            close = closeSpy;
+          },
         },
       },
-    });
+    );
 
     const services = await discoverServices('udid-1', 'fd00::1', 99_999);
     expect(services).to.have.length(1);
@@ -33,7 +37,7 @@ describe('tunnel-rsd-discovery', function () {
     let connectCount = 0;
     const closeSpy = sinon.spy(async () => {});
 
-    const {discoverServices} = await esmock('../../../src/lib/tunnel/tunnel-rsd-discovery.js', {
+    const {discoverServices} = await esmock('../../../src/lib/tunnel/tunnel-rsd-discovery.js', import.meta.url, {
       '../../../src/lib/remote-xpc/rsd-service-catalog-client.js': {
         RsdServiceCatalogClient: class {
           async connect() {

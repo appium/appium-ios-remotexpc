@@ -13,7 +13,7 @@ class MockTunnelAvailabilityError extends Error {
 }
 
 async function loadServices(tunnelAvailabilityOverrides: Record<string, unknown> = {}) {
-  return await esmock('../../../src/services.js', {
+  return await esmock('../../../src/services.js', import.meta.url, {
     '../../../src/lib/tunnel/tunnel-availability.js': {
       TunnelAvailabilityError: MockTunnelAvailabilityError,
       getAvailableDevices: async () => {

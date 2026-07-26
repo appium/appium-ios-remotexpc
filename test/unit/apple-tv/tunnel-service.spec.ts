@@ -9,7 +9,7 @@ import type {DiscoveredDevice} from '../../../src/lib/discovery/types.js';
 
 describe('AppleTVTunnelService', function () {
   async function loadTunnelService() {
-    const {AppleTVTunnelService} = await esmock('../../../src/lib/apple-tv/tunnel/tunnel-service.js', {
+    const {AppleTVTunnelService} = await esmock('../../../src/lib/apple-tv/tunnel/tunnel-service.js', import.meta.url, {
       '../../../src/lib/apple-tv/network/index.js': {
         NetworkClient: class {
           disconnect() {}
@@ -54,7 +54,7 @@ describe('AppleTVTunnelService', function () {
       },
     ];
 
-    const {AppleTVTunnelService} = await esmock('../../../src/lib/apple-tv/tunnel/tunnel-service.js', {
+    const {AppleTVTunnelService} = await esmock('../../../src/lib/apple-tv/tunnel/tunnel-service.js', import.meta.url, {
       '../../../src/lib/discovery/discovery-backend-factory.js': {
         createDiscoveryBackend: () => ({discoverDevices}),
       },
@@ -102,7 +102,7 @@ describe('AppleTVTunnelService', function () {
       },
     ];
 
-    const {AppleTVTunnelService} = await esmock('../../../src/lib/apple-tv/tunnel/tunnel-service.js', {
+    const {AppleTVTunnelService} = await esmock('../../../src/lib/apple-tv/tunnel/tunnel-service.js', import.meta.url, {
       '../../../src/lib/discovery/discovery-backend-factory.js': {
         createDiscoveryBackend: () => ({discoverDevices}),
       },

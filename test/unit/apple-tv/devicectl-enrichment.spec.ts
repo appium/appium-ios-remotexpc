@@ -24,7 +24,7 @@ describe('devicectl-enrichment', function () {
   });
 
   async function loadEnricher(records: DevicectlDeviceRecord[]) {
-    const mod = await esmock('../../../src/lib/apple-tv/devicectl-enrichment.js', {
+    const mod = await esmock('../../../src/lib/apple-tv/devicectl-enrichment.js', import.meta.url, {
       '../../../src/lib/discovery/devicectl-device-records.js': {
         listDevicectlDeviceRecords: async () => records,
       },

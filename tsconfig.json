@@ -5,6 +5,8 @@
     "strict": true,
     "checkJs": true,
     "strictNullChecks": false,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "outDir": "build",
     "types": ["node", "chai"]
   },
