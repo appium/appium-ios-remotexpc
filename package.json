@@ -94,10 +94,10 @@
     "appium-ios-tuntap": "^1.0.0",
     "async-lock": "^1.4.1",
     "axios": "^1.15.1",
-    "commander": "^14.0.1",
+    "commander": "^15.0.0",
     "minimatch": "^10.1.1",
-    "node-devicectl": "^1.2.0",
-    "npm-run-all2": "^8.0.4",
+    "node-devicectl": "^2.1.0",
+    "npm-run-all2": "^9.0.2",
     "path-to-regexp": "^8.3.0"
   },
   "devDependencies": {
