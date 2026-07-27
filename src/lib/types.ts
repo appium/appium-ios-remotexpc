@@ -1867,6 +1867,73 @@ export interface CrashReportsPullOptions {
 }
 
 /**
+ * Metadata parsed from a crash report header (the single-line JSON header of an
+ * `.ips`/`.panic` file)
+ */
+export interface CrashReportMetadata {
+  /** Name of the process the report was generated for */
+  name?: string;
+  /** Numeric bug type identifier assigned by the OS (e.g. '309' for a crash) */
+  bugType?: string;
+  /** Report creation timestamp as reported by the device */
+  timestamp?: string;
+  /** Unique incident identifier */
+  incidentId?: string;
+  /** OS version the report was generated on */
+  osVersion?: string;
+}
+
+/**
+ * A crash report file read from the device
+ */
+export interface CrashReport {
+  /** Report file name, relative to the crash reports directory */
+  filename: string;
+  /** Raw report contents */
+  raw: string;
+  /** Header metadata, when it could be parsed */
+  metadata?: CrashReportMetadata;
+}
+
+/**
+ * Options for watching crash report creation
+ */
+export interface CrashReportsWatchOptions {
+  /**
+   * Only yield reports whose crashed process name equals this value.
+   * When omitted, every new report is yielded.
+   */
+  processName?: string;
+  /**
+   * Maximum time in ms to wait for a newly announced report file to become readable.
+   * @default 10000
+   */
+  readTimeoutMs?: number;
+  /**
+   * Abort signal to stop watching. When aborted, the generator throws an `AbortError`,
+   * which also settles any pending iteration. Without a signal, the watch can only end
+   * between reports (via `return()`/`break`), not while it is waiting for one.
+   */
+  signal?: AbortSignal;
+}
+
+/**
+ * Options for creating and pulling a new sysdiagnose archive
+ */
+export interface SysdiagnoseOptions {
+  /**
+   * Remove the archive from the device after pulling.
+   * @default true
+   */
+  erase?: boolean;
+  /**
+   * Maximum time in ms to wait for the sysdiagnose archive to be created and completed.
+   * Waits indefinitely when omitted.
+   */
+  timeoutMs?: number;
+}
+
+/**
  * CrashReportsService provides an API to manage crash reports on iOS devices
  */
 export interface CrashReportsService {
@@ -1905,6 +1972,22 @@ export interface CrashReportsService {
    * Flush pending crash reports into CrashReports directory
    */
   flush(): Promise<void>;
+
+  /**
+   * Monitor creation of new crash reports and yield each one as it is saved.
+   * Runs until the consumer stops iterating.
+   * @param options Watch options (process name filter, per-report read timeout)
+   */
+  watch(options?: CrashReportsWatchOptions): AsyncGenerator<CrashReport, void, void>;
+
+  /**
+   * Monitor the creation of a new sysdiagnose archive and pull it once complete.
+   * The sysdiagnose must be triggered on the device (press Power + VolUp + VolDown for
+   * about 0.215 seconds).
+   * @param out Local directory to pull the sysdiagnose archive into
+   * @param options Sysdiagnose options (erase after pulling, timeout)
+   */
+  getNewSysdiagnose(out: string, options?: SysdiagnoseOptions): Promise<void>;
 
   /**
    * Close the service and release resources
