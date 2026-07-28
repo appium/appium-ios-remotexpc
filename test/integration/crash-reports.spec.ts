@@ -20,7 +20,7 @@ log.level = 'debug';
 
 const TEST_REPORT_STEM = 'remotexpc-integration-test';
 
-const SIGSEGV = 11;
+const {SIGSEGV} = os.constants.signals;
 
 /** App launched to obtain a valid PID for the crash-inducing DTX message */
 const CRASH_HELPER_BUNDLE_ID = 'com.apple.calculator';

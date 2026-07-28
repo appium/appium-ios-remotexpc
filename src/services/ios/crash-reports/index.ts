@@ -1,7 +1,10 @@
 import {on} from 'node:events';
 import fs from 'node:fs/promises';
 import posixpath from 'node:path/posix';
+import {performance} from 'node:perf_hooks';
 import {setTimeout as delay} from 'node:timers/promises';
+
+import {util} from '@appium/support';
 
 import {createLockdownServiceForTunnel} from '../../../lib/lockdown/index.js';
 import {getLogger} from '../../../lib/logger.js';
@@ -88,7 +91,7 @@ export class CrashReportsService {
   static readonly RSD_COPY_MOBILE_NAME = 'com.apple.crashreportcopymobile.shim.remote';
   static readonly RSD_CRASH_MOVER_NAME = 'com.apple.crashreportmover.shim.remote';
 
-  private afc: AfcService;
+  private readonly afc: AfcService;
 
   constructor(private readonly udid: string) {
     this.afc = new AfcService(udid, true, CrashReportsService.RSD_COPY_MOBILE_NAME);
@@ -235,7 +238,7 @@ export class CrashReportsService {
         // Reports can be minutes or hours apart; the AFC connection may have been dropped
         // while idle between them (AfcService does not auto-reconnect), so renew it before
         // reading.
-        this.renewAfcConnection();
+        await this.afc.reconnect();
 
         const report = await this.readReportWhenAvailable(reportFileName, readTimeoutMs);
         if (report === undefined) {
@@ -264,21 +267,21 @@ export class CrashReportsService {
    */
   async getNewSysdiagnose(out: string, options?: SysdiagnoseOptions): Promise<void> {
     const {erase = true, timeoutMs} = options ?? {};
-    const deadlineMs = timeoutMs === undefined ? undefined : Date.now() + timeoutMs;
+    const deadlineMs = timeoutMs === undefined ? undefined : performance.now() + timeoutMs;
 
-    const archivePath = await this.waitForSysdiagnoseArchivePath(deadlineMs);
+    const archivePath = await this.waitForSysdiagnoseArchivePath(deadlineMs, timeoutMs);
     log.info(`Sysdiagnose archive creation has been started: ${archivePath}`);
 
-    await this.waitForSysdiagnoseToStop(deadlineMs);
+    await this.waitForSysdiagnoseToStop(deadlineMs, timeoutMs);
 
     // The AFC connection sat idle during the (multi-minute) wait for the completion
     // notification, so the device may have dropped it. AfcService does not reconnect once a
     // connection is marked dead, so renew it before the remaining file operations.
-    this.renewAfcConnection();
+    await this.afc.reconnect();
 
     // The stop notification can fire slightly before the device renames the in-progress
     // temp file to the final archive, so wait for the archive to actually appear.
-    await this.waitForFileToExist(archivePath, deadlineMs);
+    await this.waitForFileToExist(archivePath, deadlineMs, timeoutMs);
 
     log.debug(`Pulling sysdiagnose archive '${archivePath}' to '${out}'`);
     await this.pull(out, archivePath, {erase});
@@ -301,7 +304,7 @@ export class CrashReportsService {
    * @returns The report, or `undefined` if it could not be read before the timeout
    */
   private async readReportWhenAvailable(fileName: string, timeoutMs: number): Promise<CrashReport | undefined> {
-    const deadlineMs = Date.now() + timeoutMs;
+    const deadlineMs = performance.now() + timeoutMs;
     let raw: string | undefined;
 
     do {
@@ -315,7 +318,7 @@ export class CrashReportsService {
         // File does not exist yet or is not readable yet
       }
       await delay(REPORT_READ_RETRY_INTERVAL_MS);
-    } while (Date.now() < deadlineMs);
+    } while (performance.now() < deadlineMs);
 
     // Readable but with an unparseable header: yield it anyway rather than dropping it
     return raw === undefined ? undefined : {filename: fileName, raw};
@@ -327,7 +330,7 @@ export class CrashReportsService {
    * In-progress files older than the TTL (by device clock) are ignored as leftovers of
    * previous runs.
    */
-  private async waitForSysdiagnoseArchivePath(deadlineMs?: number): Promise<string> {
+  private async waitForSysdiagnoseArchivePath(deadlineMs?: number, timeoutMs?: number): Promise<string> {
     const excludedStaleFiles = new Set<string>();
     let deviceClockOffsetMs: number | undefined;
 
@@ -371,8 +374,8 @@ export class CrashReportsService {
         return posixpath.join('/', SYSDIAGNOSE_DIR, archiveName);
       }
 
-      if (deadlineMs !== undefined && Date.now() > deadlineMs) {
-        throw new Error('Timed out waiting for an in-progress sysdiagnose archive to appear');
+      if (deadlineMs !== undefined && performance.now() > deadlineMs) {
+        throw new Error(`Timed out after ${timeoutMs}ms waiting for an in-progress sysdiagnose archive to appear`);
       }
       await delay(SYSDIAGNOSE_POLL_INTERVAL_MS);
     }
@@ -382,24 +385,27 @@ export class CrashReportsService {
    * Wait for the device to post the sysdiagnose completion notification, then give the
    * archive a moment to settle.
    */
-  private async waitForSysdiagnoseToStop(deadlineMs?: number): Promise<void> {
+  private async waitForSysdiagnoseToStop(deadlineMs?: number, timeoutMs?: number): Promise<void> {
     const notificationProxy = new NotificationProxyService(this.udid);
     try {
       await notificationProxy.observe(SYSDIAGNOSE_STOPPED_NOTIFICATION);
 
       while (true) {
-        const remainingMs = deadlineMs === undefined ? INDEFINITE_RECEIVE_TIMEOUT_MS : deadlineMs - Date.now();
+        const remainingMs = deadlineMs === undefined ? INDEFINITE_RECEIVE_TIMEOUT_MS : deadlineMs - performance.now();
         if (remainingMs <= 0) {
-          throw new Error('Timed out waiting for sysdiagnose completion');
+          throw new Error(`Timed out after ${timeoutMs}ms waiting for sysdiagnose completion`);
         }
 
         let notification;
         try {
           notification = await notificationProxy.expectNotification(remainingMs);
         } catch (error) {
-          throw new Error(`Timed out waiting for sysdiagnose completion: ${(error as Error).message}`, {
-            cause: error,
-          });
+          throw new Error(
+            `Timed out after ${timeoutMs}ms waiting for sysdiagnose completion: ${(error as Error).message}`,
+            {
+              cause: error,
+            },
+          );
         }
 
         if (notification.Name === SYSDIAGNOSE_STOPPED_NOTIFICATION) {
@@ -415,25 +421,13 @@ export class CrashReportsService {
   }
 
   /**
-   * Replace the AFC connection with a fresh one. Used after long idle periods during which
-   * the device may have dropped the connection (AfcService does not auto-reconnect once a
-   * connection is marked dead).
-   */
-  private renewAfcConnection(): void {
-    try {
-      this.afc.close();
-    } catch {}
-    this.afc = new AfcService(this.udid, true, CrashReportsService.RSD_COPY_MOBILE_NAME);
-  }
-
-  /**
    * Poll until a file exists on the device, bounded by the optional deadline.
    * @throws Error if the file has not appeared by the deadline
    */
-  private async waitForFileToExist(filePath: string, deadlineMs?: number): Promise<void> {
+  private async waitForFileToExist(filePath: string, deadlineMs?: number, timeoutMs?: number): Promise<void> {
     while (!(await this.afc.exists(filePath))) {
-      if (deadlineMs !== undefined && Date.now() > deadlineMs) {
-        throw new Error(`Timed out waiting for sysdiagnose archive to appear at '${filePath}'`);
+      if (deadlineMs !== undefined && performance.now() > deadlineMs) {
+        throw new Error(`Timed out after ${timeoutMs}ms waiting for sysdiagnose archive to appear at '${filePath}'`);
       }
       await delay(SYSDIAGNOSE_ARCHIVE_POLL_INTERVAL_MS);
     }
@@ -473,18 +467,18 @@ export function parseCrashReportMetadata(raw: string): CrashReportMetadata | und
   } catch {
     return undefined;
   }
-  if (header === null || typeof header !== 'object' || Array.isArray(header)) {
+  if (!util.isPlainObject(header)) {
     return undefined;
   }
 
   const fields = header as Record<string, unknown>;
-  const asString = (value: unknown): string | undefined => (typeof value === 'string' ? value : undefined);
+  const asOptionalString = (value: unknown): string | undefined => (typeof value === 'string' ? value : undefined);
   return {
-    name: asString(fields.name),
-    bugType: asString(fields.bug_type),
-    timestamp: asString(fields.timestamp),
-    incidentId: asString(fields.incident_id),
-    osVersion: asString(fields.os_version),
+    name: asOptionalString(fields.name),
+    bugType: asOptionalString(fields.bug_type),
+    timestamp: asOptionalString(fields.timestamp),
+    incidentId: asOptionalString(fields.incident_id),
+    osVersion: asOptionalString(fields.os_version),
   };
 }
 
