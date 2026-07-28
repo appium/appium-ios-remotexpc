@@ -1928,7 +1928,7 @@ export interface SysdiagnoseOptions {
   erase?: boolean;
   /**
    * Maximum time in ms to wait for the sysdiagnose archive to be created and completed.
-   * Waits indefinitely when omitted.
+   * When omitted, defaults to a 24h safety cap rather than waiting indefinitely.
    */
   timeoutMs?: number;
 }

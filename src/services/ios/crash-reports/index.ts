@@ -74,8 +74,10 @@ const REPORT_READ_RETRY_INTERVAL_MS = 100;
 /** Default limit for how long to retry reading a newly announced crash report */
 const DEFAULT_REPORT_READ_TIMEOUT_MS = 10_000;
 
-/** Receive timeout used when waiting indefinitely for a notification (24h) */
-const INDEFINITE_RECEIVE_TIMEOUT_MS = 24 * 60 * 60 * 1000;
+/**
+ * Safety cap for a sysdiagnose wait when no timeout is given (24h).
+ */
+const DEFAULT_SYSDIAGNOSE_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 
 /**
  * CrashReportsService provides an API to:
@@ -266,8 +268,8 @@ export class CrashReportsService {
    * @param options Sysdiagnose options (erase after pulling, timeout)
    */
   async getNewSysdiagnose(out: string, options?: SysdiagnoseOptions): Promise<void> {
-    const {erase = true, timeoutMs} = options ?? {};
-    const deadlineMs = timeoutMs === undefined ? undefined : performance.now() + timeoutMs;
+    const {erase = true, timeoutMs = DEFAULT_SYSDIAGNOSE_TIMEOUT_MS} = options ?? {};
+    const deadlineMs = performance.now() + timeoutMs;
 
     const archivePath = await this.waitForSysdiagnoseArchivePath(deadlineMs, timeoutMs);
     log.info(`Sysdiagnose archive creation has been started: ${archivePath}`);
@@ -330,7 +332,7 @@ export class CrashReportsService {
    * In-progress files older than the TTL (by device clock) are ignored as leftovers of
    * previous runs.
    */
-  private async waitForSysdiagnoseArchivePath(deadlineMs?: number, timeoutMs?: number): Promise<string> {
+  private async waitForSysdiagnoseArchivePath(deadlineMs: number, timeoutMs: number): Promise<string> {
     const excludedStaleFiles = new Set<string>();
     let deviceClockOffsetMs: number | undefined;
 
@@ -374,7 +376,7 @@ export class CrashReportsService {
         return posixpath.join('/', SYSDIAGNOSE_DIR, archiveName);
       }
 
-      if (deadlineMs !== undefined && performance.now() > deadlineMs) {
+      if (performance.now() > deadlineMs) {
         throw new Error(`Timed out after ${timeoutMs}ms waiting for an in-progress sysdiagnose archive to appear`);
       }
       await delay(SYSDIAGNOSE_POLL_INTERVAL_MS);
@@ -385,13 +387,13 @@ export class CrashReportsService {
    * Wait for the device to post the sysdiagnose completion notification, then give the
    * archive a moment to settle.
    */
-  private async waitForSysdiagnoseToStop(deadlineMs?: number, timeoutMs?: number): Promise<void> {
+  private async waitForSysdiagnoseToStop(deadlineMs: number, timeoutMs: number): Promise<void> {
     const notificationProxy = new NotificationProxyService(this.udid);
     try {
       await notificationProxy.observe(SYSDIAGNOSE_STOPPED_NOTIFICATION);
 
       while (true) {
-        const remainingMs = deadlineMs === undefined ? INDEFINITE_RECEIVE_TIMEOUT_MS : deadlineMs - performance.now();
+        const remainingMs = deadlineMs - performance.now();
         if (remainingMs <= 0) {
           throw new Error(`Timed out after ${timeoutMs}ms waiting for sysdiagnose completion`);
         }
@@ -424,9 +426,9 @@ export class CrashReportsService {
    * Poll until a file exists on the device, bounded by the optional deadline.
    * @throws Error if the file has not appeared by the deadline
    */
-  private async waitForFileToExist(filePath: string, deadlineMs?: number, timeoutMs?: number): Promise<void> {
+  private async waitForFileToExist(filePath: string, deadlineMs: number, timeoutMs: number): Promise<void> {
     while (!(await this.afc.exists(filePath))) {
-      if (deadlineMs !== undefined && performance.now() > deadlineMs) {
+      if (performance.now() > deadlineMs) {
         throw new Error(`Timed out after ${timeoutMs}ms waiting for sysdiagnose archive to appear at '${filePath}'`);
       }
       await delay(SYSDIAGNOSE_ARCHIVE_POLL_INTERVAL_MS);
