@@ -521,6 +521,20 @@ export class AfcService {
   }
 
   /**
+   * Re-establish the AFC connection, discarding any existing (possibly dead) socket.
+   * AfcService does not auto-reconnect once a connection is marked dead, so a caller that
+   * keeps a long-lived instance idle (e.g. across a multi-minute wait) can call this to
+   * recover instead of creating a new instance.
+   *
+   * Only supported for UDID-backed instances; a socket-backed instance
+   * (`AfcService.fromSocket`) cannot re-dial and will throw.
+   */
+  async reconnect(): Promise<void> {
+    this.close();
+    await this._connect();
+  }
+
+  /**
    * Private primitive to pull a single file from device to local filesystem.
    *
    * @param remoteSrc - Remote file path on the device (must be a file)

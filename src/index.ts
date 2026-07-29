@@ -77,8 +77,12 @@ export type {
 export type {SyslogEntry, SyslogLabel, SyslogLogLevel} from './services/ios/syslog-service/syslog-entry-parser.js';
 
 export type {
+  CrashReport,
+  CrashReportMetadata,
   CrashReportsService,
   CrashReportsPullOptions,
+  CrashReportsWatchOptions,
+  SysdiagnoseOptions,
   DiagnosticsService,
   MobileImageMounterService,
   NotificationProxyService,

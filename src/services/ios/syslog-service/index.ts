@@ -135,6 +135,17 @@ class SyslogService extends EventEmitter implements SyslogServiceInterface {
       this.rawDataHandler = null;
     }
 
+    // The syslog relay is a server-push stream: the device never closes it, so a
+    // graceful half-close (FIN) leaves the socket open and keeps the event loop alive.
+    // Destroy it to fully release the handle.
+    if (this.connection) {
+      try {
+        this.connection.getSocket().destroy();
+      } catch (error) {
+        log.debug(`Error destroying syslog socket: ${error}`);
+      }
+    }
+
     this.closeConnection();
     this.syslogParser.reset();
 

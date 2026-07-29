@@ -23,8 +23,9 @@ export class ProcessControl extends BaseInstrument {
     const channel = this.requireChannel();
 
     // Note: Arguments are swapped in the selector compared to typical kill(pid, sig)
-    // selector: signal:toPid:
-    const args = new MessageAux().appendInt(sig).appendInt(pid);
+    // selector: sendSignal:toPid:
+    // Both arguments must be archived objects; raw int32 primitives crash DTServiceHub
+    const args = new MessageAux().appendObj(sig).appendObj(pid);
 
     await channel.call('sendSignal_toPid_')(args);
     const result = await channel.receivePlist();
