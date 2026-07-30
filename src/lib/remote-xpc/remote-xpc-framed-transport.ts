@@ -38,6 +38,19 @@ export class RemoteXpcFramedTransport extends EventEmitter {
     return this.connected;
   }
 
+  /**
+   * The local (host-side) address of the connected socket — i.e. this host's
+   * address *on the tunnel*, as the device sees it.
+   *
+   * Services that ask the device to open a connection back to the host (for
+   * example the DisplayService RTP streams) must advertise this rather than a
+   * LAN address, since the tunnel is the only route the device can reach.
+   * `undefined` before {@link connect} succeeds.
+   */
+  get localAddress(): string | undefined {
+    return this.socket?.localAddress;
+  }
+
   async connect(options: RemoteXpcFramedTransportConnectOptions): Promise<void> {
     if (this.connected) {
       return;

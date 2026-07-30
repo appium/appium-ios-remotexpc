@@ -1,4 +1,5 @@
 import type {XPCArray, XPCDictionary, XPCValue} from '../types.js';
+import {XPCUUID} from './xpc-uuid.js';
 
 // Constants for XPC protocol.
 const BODY_VERSION: number = 0x00000005;
@@ -332,6 +333,13 @@ function encodeObject(writer: Writer, value: XPCValue): void {
     writer.writeBigInt64LE(BigInt(value.getTime()) * BigInt(1000000));
     return;
   }
+  // Must precede the Buffer and dictionary branches: an XPCUUID both carries a
+  // Buffer field and is structurally an object, so a later check never runs.
+  if (value instanceof XPCUUID) {
+    writer.writeUInt32LE(XPC_TYPES.uuid);
+    writer.writeBuffer(value.uuidBytes); // Fixed 16 bytes: no length prefix, no padding.
+    return;
+  }
   if (Buffer.isBuffer(value) || value instanceof Uint8Array) {
     const data = Buffer.isBuffer(value) ? value : Buffer.from(value);
     writer.writeUInt32LE(XPC_TYPES.data);
@@ -354,8 +362,9 @@ function encodeObject(writer: Writer, value: XPCValue): void {
     return;
   }
   if (typeof value === 'object') {
-    // Treat as a dictionary.
-    encodeDictionary(writer, value);
+    // Anything left is a dictionary. `IXPCUUID` was handled above; the cast
+    // covers the fact that `instanceof` narrows the class but not the interface.
+    encodeDictionary(writer, value as XPCDictionary);
     return;
   }
   throw new TypeError('Unsupported type: ' + typeof value);

@@ -50,6 +50,7 @@
     "test:device-control": "node --enable-source-maps --test --test-timeout=60000 \"build/test/integration/device-control.spec.js\"",
     "test:configuration": "node --enable-source-maps --test --test-timeout=60000 \"build/test/integration/configuration.spec.js\"",
     "test:crash-reports": "node --enable-source-maps --test --test-timeout=60000 \"build/test/integration/crash-reports.spec.js\"",
+    "test:display": "node --enable-source-maps --test --test-timeout=180000 \"build/test/integration/display-service.spec.js\"",
     "test:diagnostics": " node --enable-source-maps --test --test-timeout=60000 \"build/test/integration/diagnostics.spec.js\"",
     "test:dvt-service": "node --enable-source-maps --test --test-timeout=60000 \"build/test/integration/dvt-service.spec.js\"",
     "test:dvt:activity-trace-tap": "node --enable-source-maps --test --test-timeout=60000 \"build/test/integration/dvt-instruments/activity-trace-tap.spec.js\"",

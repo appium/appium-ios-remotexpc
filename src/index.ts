@@ -22,6 +22,7 @@ export type {
   UpstreamSocketConnector,
 } from './lib/port-forwarding/index.js';
 export type {RsdServiceCatalogClient} from './lib/remote-xpc/rsd-service-catalog-client.js';
+export {XPCUUID} from './lib/remote-xpc/xpc-uuid.js';
 /**
  * @deprecated Use RsdServiceCatalogClient instead.
  */
@@ -74,6 +75,53 @@ export type {
   SetColorFilterOptions,
   UserInterfaceStyle,
 } from './services/ios/configuration/index.js';
+export {DisplayService, REMOTE_CONTROL_UNSUPPORTED_ERROR_CODE} from './services/ios/display/index.js';
+export type {
+  MediaStreamAnswer,
+  MediaStreamEndpoint,
+  MediaStreamServerStatus,
+  MediaSupportInfo,
+  StartAudioStreamOptions,
+  StartVideoStreamOptions,
+} from './services/ios/display/index.js';
+export {ScreenStreamCapture, recordScreenToFile} from './services/ios/display/screen-stream-capture.js';
+export type {
+  RecordScreenOptions,
+  RecordScreenResult,
+  ScreenStreamCaptureOptions,
+} from './services/ios/display/screen-stream-capture.js';
+export {AccessUnitAssembler} from './services/ios/display/access-unit-assembler.js';
+export type {
+  HevcParameterSets,
+  ScreenStreamStats,
+  VideoAccessUnit,
+} from './services/ios/display/access-unit-assembler.js';
+export {
+  HevcDepacketizer,
+  HevcNalType,
+  buildHevcDecoderConfigurationRecord,
+  hevcCodecStringFromSps,
+  isKeyNalType,
+  nalTypeOf,
+  toAnnexB,
+  toLengthPrefixed,
+} from './services/ios/display/hevc.js';
+export {UdpMediaReceiver, isNextSequence, parseRtpPacket} from './services/ios/display/rtp.js';
+export type {RtpPacket, UdpMediaReceiverOptions} from './services/ios/display/rtp.js';
+export {
+  buildMediaBlobAudio,
+  buildMediaBlobVideo,
+  buildNegotiatorOfferAudio,
+  buildNegotiatorOfferVideo,
+  buildRemoteEndpointInfo,
+} from './services/ios/display/media-stream-offer.js';
+export type {
+  AudioMediaBlobOptions,
+  HostEndpointIdentity,
+  NegotiatorOfferOptions,
+  VideoMediaBlobOptions,
+} from './services/ios/display/media-stream-offer.js';
+
 export type {SyslogEntry, SyslogLabel, SyslogLogLevel} from './services/ios/syslog-service/syslog-entry-parser.js';
 
 export type {

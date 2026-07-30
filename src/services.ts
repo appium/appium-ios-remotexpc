@@ -12,6 +12,7 @@ import {CrashReportsService} from './services/ios/crash-reports/index.js';
 import {DeviceControlService} from './services/ios/device-control/index.js';
 import {CoreDeviceInfoService} from './services/ios/device-info/index.js';
 import DiagnosticsService from './services/ios/diagnostic-service/index.js';
+import {DisplayService} from './services/ios/display/index.js';
 import {DVTSecureSocketProxyService} from './services/ios/dvt/index.js';
 import {ActivityTraceTap} from './services/ios/dvt/instruments/activity-trace-tap.js';
 import {ApplicationListing} from './services/ios/dvt/instruments/application-listing.js';
@@ -156,6 +157,19 @@ export async function startDeviceControlService(udid: string): Promise<DeviceCon
 export async function startConfigurationService(udid: string): Promise<ConfigurationService> {
   await requireCatalogService(udid, ConfigurationService.RSD_SERVICE_NAME);
   return new ConfigurationService(udid);
+}
+
+/**
+ * Start the CoreDevice display service for the given device UDID.
+ *
+ * Negotiates live HEVC screen and system-audio streams over RTP — the backend
+ * behind Xcode's device mirroring. Streaming requires iOS 27.0+; the capability
+ * queries work on older versions, so check
+ * {@link DisplayService.isStreamingSupported} first.
+ */
+export async function startDisplayService(udid: string): Promise<DisplayService> {
+  await requireCatalogService(udid, DisplayService.RSD_SERVICE_NAME);
+  return new DisplayService(udid);
 }
 
 const RSD_SYSLOG_BINARY_SERVICE_NAME = 'com.apple.os_trace_relay.shim.remote';
