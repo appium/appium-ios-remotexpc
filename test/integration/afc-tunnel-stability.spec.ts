@@ -124,7 +124,7 @@ describe('AFC tunnel stability', {timeout: iterations * (maxRoundMs + 30_000) + 
 
       const totalMs = performance.now() - roundStart;
       const pulledSha256 = await logStep(round, 'verify.sha256', () => sha256File(pullPath));
-      assert.strictEqual(pulledSha256, sourceSha256);
+      assert.strictEqual(pulledSha256, sourceSha256, `round ${round}: pulled content mismatch`);
 
       const mibPerSecond = (2 * fileSizeBytes) / MIB / (totalMs / 1000);
       roundStats.push({
@@ -140,7 +140,7 @@ describe('AFC tunnel stability', {timeout: iterations * (maxRoundMs + 30_000) + 
           `total ${totalMs.toFixed(0)}ms (${mibPerSecond.toFixed(2)} MiB/s round-trip)`,
       );
 
-      assert.ok(totalMs < maxRoundMs);
+      assert.ok(totalMs < maxRoundMs, `round ${round} exceeded ${maxRoundMs}ms budget`);
 
       await logStep(round, 'cleanup.unlink', async () => {
         try {

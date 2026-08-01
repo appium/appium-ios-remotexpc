@@ -94,6 +94,9 @@ describe('mDNS discovery (live _remotepairing._tcp on LAN)', {timeout: 30000}, f
       domain: 'local',
     });
     const devices = await backend.discoverDevices(10000);
-    assert.ok(devices.length > 0);
+    assert.ok(
+      devices.length > 0,
+      'No _remotepairing._tcp advertisers found on the LAN — Macs and other paired Apple devices count',
+    );
   });
 });

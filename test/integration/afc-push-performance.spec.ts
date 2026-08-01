@@ -87,7 +87,10 @@ describe('AFC push performance', {timeout: maxDurationMs + 30_000}, function () 
     const mibPerSecond = pushSizeBytes / MIB / (elapsedMs / 1000);
     log.info(`AFC push completed in ${elapsedMs.toFixed(0)}ms (${mibPerSecond.toFixed(2)} MiB/s)`);
 
-    assert.ok(elapsedMs < maxDurationMs);
+    assert.ok(
+      elapsedMs < maxDurationMs,
+      `expected push to finish within ${maxDurationMs}ms but took ${elapsedMs.toFixed(0)}ms (${mibPerSecond.toFixed(2)} MiB/s)`,
+    );
   });
 });
 

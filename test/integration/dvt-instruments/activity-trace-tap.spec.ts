@@ -145,7 +145,7 @@ describe('ActivityTraceTap', {timeout: 60000}, function () {
 
       // The device advertises 4 tables (os-log, os-log-arg, os-signpost, os-signpost-arg)
       // so allow up to 4 distinct schemas.
-      assert.ok(unique.size < 5);
+      assert.ok(unique.size < 5, `too many distinct column schemas: ${[...unique].join(' | ')}`);
 
       log.info(`${unique.size} distinct column schema(s) across ${pool.length} entries`);
     });
