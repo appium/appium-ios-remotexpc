@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {NSKeyedArchiverDecoder, decodeNSKeyedArchiver} from '../../src/services/ios/dvt/index.js';
 
@@ -14,15 +13,15 @@ describe('NSKeyedArchiver Decoder', () => {
         $objects: ['$null', 'test'],
       };
 
-      expect(NSKeyedArchiverDecoder.isNSKeyedArchive(validArchive)).to.be.true;
+      assert.strictEqual(NSKeyedArchiverDecoder.isNSKeyedArchive(validArchive), true);
     });
 
     it('should reject non-NSKeyedArchiver format', () => {
-      expect(NSKeyedArchiverDecoder.isNSKeyedArchive(null)).to.be.false;
-      expect(NSKeyedArchiverDecoder.isNSKeyedArchive(undefined)).to.be.false;
-      expect(NSKeyedArchiverDecoder.isNSKeyedArchive('string')).to.be.false;
-      expect(NSKeyedArchiverDecoder.isNSKeyedArchive([])).to.be.false;
-      expect(NSKeyedArchiverDecoder.isNSKeyedArchive({someKey: 'value'})).to.be.false;
+      assert.strictEqual(NSKeyedArchiverDecoder.isNSKeyedArchive(null), false);
+      assert.strictEqual(NSKeyedArchiverDecoder.isNSKeyedArchive(undefined), false);
+      assert.strictEqual(NSKeyedArchiverDecoder.isNSKeyedArchive('string'), false);
+      assert.strictEqual(NSKeyedArchiverDecoder.isNSKeyedArchive([]), false);
+      assert.strictEqual(NSKeyedArchiverDecoder.isNSKeyedArchive({someKey: 'value'}), false);
     });
   });
 
@@ -36,7 +35,7 @@ describe('NSKeyedArchiver Decoder', () => {
       };
 
       const result = decodeNSKeyedArchiver(archive);
-      expect(result).to.equal('Hello World');
+      assert.strictEqual(result, 'Hello World');
     });
 
     it('should decode simple arrays', () => {
@@ -58,7 +57,7 @@ describe('NSKeyedArchiver Decoder', () => {
       };
 
       const result = decodeNSKeyedArchiver(archive);
-      expect(result).to.deep.equal(['item1', 'item2', 'item3']);
+      assert.deepStrictEqual(result, ['item1', 'item2', 'item3']);
     });
 
     it('should decode dictionaries', () => {
@@ -82,7 +81,7 @@ describe('NSKeyedArchiver Decoder', () => {
       };
 
       const result = decodeNSKeyedArchiver(archive);
-      expect(result).to.deep.equal({
+      assert.deepStrictEqual(result, {
         key1: 'value1',
         key2: 'value2',
       });
@@ -120,13 +119,13 @@ describe('NSKeyedArchiver Decoder', () => {
       };
 
       const result = decodeNSKeyedArchiver(archive);
-      expect(result).to.be.an('array');
-      expect(result).to.have.lengthOf(2);
-      expect(result[0]).to.deep.equal({
+      assert.ok(Array.isArray(result));
+      assert.strictEqual(result.length, 2);
+      assert.deepStrictEqual(result[0], {
         identifier: 'group1',
         name: 'test1',
       });
-      expect(result[1]).to.deep.equal({
+      assert.deepStrictEqual(result[1], {
         identifier: 'group2',
         name: 'test1',
       });
@@ -135,20 +134,20 @@ describe('NSKeyedArchiver Decoder', () => {
     it('should return non-archived data as-is', () => {
       const plainData = {key: 'value'};
       const result = decodeNSKeyedArchiver(plainData);
-      expect(result).to.deep.equal(plainData);
+      assert.deepStrictEqual(result, plainData);
 
       const arrayData = [1, 2, 3];
       const result2 = decodeNSKeyedArchiver(arrayData);
-      expect(result2).to.deep.equal(arrayData);
+      assert.deepStrictEqual(result2, arrayData);
 
       const stringData = 'plain string';
       const result3 = decodeNSKeyedArchiver(stringData);
-      expect(result3).to.equal(stringData);
+      assert.strictEqual(result3, stringData);
     });
 
     it('should handle null and undefined', () => {
-      expect(decodeNSKeyedArchiver(null)).to.be.null;
-      expect(decodeNSKeyedArchiver(undefined)).to.be.undefined;
+      assert.strictEqual(decodeNSKeyedArchiver(null), null);
+      assert.strictEqual(decodeNSKeyedArchiver(undefined), undefined);
     });
 
     it('should handle complex condition inducer response structure', () => {
@@ -217,26 +216,26 @@ describe('NSKeyedArchiver Decoder', () => {
 
       const result = decodeNSKeyedArchiver(archive);
 
-      expect(result).to.be.an('array');
-      expect(result).to.have.lengthOf(2);
+      assert.ok(Array.isArray(result));
+      assert.strictEqual(result.length, 2);
 
       // Check first group
-      expect(result[0]).to.have.property('identifier', 'NetworkLink');
-      expect(result[0]).to.have.property('name', 'Network Link');
-      expect(result[0]).to.have.property('profiles');
-      expect(result[0].profiles).to.be.an('array');
-      expect(result[0].profiles).to.have.lengthOf(1);
-      expect(result[0].profiles[0]).to.have.property('identifier', 'NetworkLink3G');
-      expect(result[0].profiles[0]).to.have.property('description', '3G Network');
+      assert.strictEqual(result[0].identifier, 'NetworkLink');
+      assert.strictEqual(result[0].name, 'Network Link');
+      assert.ok('profiles' in result[0]);
+      assert.ok(Array.isArray(result[0].profiles));
+      assert.strictEqual(result[0].profiles.length, 1);
+      assert.strictEqual(result[0].profiles[0].identifier, 'NetworkLink3G');
+      assert.strictEqual(result[0].profiles[0].description, '3G Network');
 
       // Check second group
-      expect(result[1]).to.have.property('identifier', 'GPUPerformanceState');
-      expect(result[1]).to.have.property('name', 'GPU Performance State');
-      expect(result[1]).to.have.property('profiles');
-      expect(result[1].profiles).to.be.an('array');
-      expect(result[1].profiles).to.have.lengthOf(1);
-      expect(result[1].profiles[0]).to.have.property('identifier', 'GPUPerformanceStateMin');
-      expect(result[1].profiles[0]).to.have.property('description', 'Minimum GPU Performance');
+      assert.strictEqual(result[1].identifier, 'GPUPerformanceState');
+      assert.strictEqual(result[1].name, 'GPU Performance State');
+      assert.ok('profiles' in result[1]);
+      assert.ok(Array.isArray(result[1].profiles));
+      assert.strictEqual(result[1].profiles.length, 1);
+      assert.strictEqual(result[1].profiles[0].identifier, 'GPUPerformanceStateMin');
+      assert.strictEqual(result[1].profiles[0].description, 'Minimum GPU Performance');
     });
   });
 });

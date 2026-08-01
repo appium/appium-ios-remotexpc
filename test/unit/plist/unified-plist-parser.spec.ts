@@ -1,9 +1,9 @@
+import assert from 'node:assert/strict';
 import path from 'node:path';
 import {before, describe, it} from 'node:test';
 import {fileURLToPath} from 'node:url';
 
 import {fs, node} from '@appium/support';
-import {expect} from 'chai';
 
 import {isBinaryPlist} from '../../../src/lib/plist/binary-plist-parser.js';
 import {parsePlist} from '../../../src/lib/plist/unified-plist-parser.js';
@@ -31,62 +31,62 @@ describe('Unified Plist Parser', function () {
     it('should correctly detect and parse XML plists', function () {
       // Test with string input
       const resultFromString = parsePlist(sampleXmlPlistContent) as PlistDictionary;
-      expect(resultFromString).to.be.an('object');
-      expect(resultFromString).to.have.property('stringValue', 'Hello, World!');
-      expect(resultFromString).to.have.property('integerValue', 42);
+      assert.ok(typeof resultFromString === 'object' && resultFromString !== null && !Array.isArray(resultFromString));
+      assert.strictEqual(resultFromString.stringValue, 'Hello, World!');
+      assert.strictEqual(resultFromString.integerValue, 42);
 
       // Test with Buffer input (converted from string)
       const xmlBuffer = Buffer.from(sampleXmlPlistContent, 'utf8');
       const resultFromBuffer = parsePlist(xmlBuffer) as PlistDictionary;
-      expect(resultFromBuffer).to.be.an('object');
-      expect(resultFromBuffer).to.have.property('stringValue', 'Hello, World!');
+      assert.ok(typeof resultFromBuffer === 'object' && resultFromBuffer !== null && !Array.isArray(resultFromBuffer));
+      assert.strictEqual(resultFromBuffer.stringValue, 'Hello, World!');
     });
 
     it('should correctly detect and parse binary plists', function () {
       // Verify it's actually a binary plist
-      expect(isBinaryPlist(sampleBinaryPlistContent)).to.be.true;
+      assert.strictEqual(isBinaryPlist(sampleBinaryPlistContent), true);
 
       // Parse the binary plist
       const result = parsePlist(sampleBinaryPlistContent) as PlistDictionary;
-      expect(result).to.be.an('object');
-      expect(result).to.have.property('stringValue', 'Hello, World!');
-      expect(result).to.have.property('integerValue', 42);
+      assert.ok(typeof result === 'object' && result !== null && !Array.isArray(result));
+      assert.strictEqual(result.stringValue, 'Hello, World!');
+      assert.strictEqual(result.integerValue, 42);
     });
 
     it('should throw an error for invalid plist data', function () {
       try {
         parsePlist('not a plist at all');
-        expect.fail('Should have thrown an error for invalid data');
+        assert.fail('Should have thrown an error for invalid data');
       } catch (error) {
-        expect(error).to.exist;
+        assert.ok(error !== null && error !== undefined);
       }
 
       try {
         parsePlist(Buffer.from('not a plist at all'));
-        expect.fail('Should have thrown an error for invalid data buffer');
+        assert.fail('Should have thrown an error for invalid data buffer');
       } catch (error) {
-        expect(error).to.exist;
+        assert.ok(error !== null && error !== undefined);
       }
 
       try {
         parsePlist('');
-        expect.fail('Should have thrown an error for empty string');
+        assert.fail('Should have thrown an error for empty string');
       } catch (error) {
-        expect(error).to.exist;
+        assert.ok(error !== null && error !== undefined);
       }
 
       try {
         parsePlist(Buffer.alloc(0));
-        expect.fail('Should have thrown an error for empty buffer');
+        assert.fail('Should have thrown an error for empty buffer');
       } catch (error) {
-        expect(error).to.exist;
+        assert.ok(error !== null && error !== undefined);
       }
 
       try {
         parsePlist('<plist><dict><key>test</key></dict></plist>');
-        expect.fail('Should have thrown an error for malformed XML');
+        assert.fail('Should have thrown an error for malformed XML');
       } catch (error) {
-        expect(error).to.exist;
+        assert.ok(error !== null && error !== undefined);
       }
     });
   });
@@ -103,7 +103,7 @@ describe('Unified Plist Parser', function () {
       </plist>`;
 
       const result = parsePlist(xmlWithPI) as PlistDictionary;
-      expect(result).to.have.property('test', 'value');
+      assert.strictEqual(result.test, 'value');
     });
 
     it('should handle XML with DOCTYPE declarations', function () {
@@ -117,7 +117,7 @@ describe('Unified Plist Parser', function () {
       </plist>`;
 
       const result = parsePlist(xmlWithDoctype) as PlistDictionary;
-      expect(result).to.have.property('test', 'value');
+      assert.strictEqual(result.test, 'value');
     });
 
     it('should handle XML with Unicode characters', function () {
@@ -130,7 +130,7 @@ describe('Unified Plist Parser', function () {
       </plist>`;
 
       const result = parsePlist(xmlWithUnicode) as PlistDictionary;
-      expect(result).to.have.property('unicodeKey', 'こんにちは世界');
+      assert.strictEqual(result.unicodeKey, 'こんにちは世界');
     });
 
     it('should handle XML with special characters that need escaping', function () {
@@ -143,7 +143,7 @@ describe('Unified Plist Parser', function () {
       </plist>`;
 
       const result = parsePlist(xmlWithSpecialChars) as PlistDictionary;
-      expect(result).to.have.property('specialChars', '<Hello & World>');
+      assert.strictEqual(result.specialChars, '<Hello & World>');
     });
   });
 
@@ -162,7 +162,7 @@ describe('Unified Plist Parser', function () {
       `;
 
       const result = parsePlist(xmlWithWhitespace) as PlistDictionary;
-      expect(result).to.have.property('  spaced  key  ', '  spaced  value  ');
+      assert.strictEqual(result['  spaced  key  '], '  spaced  value  ');
     });
 
     it('should handle XML with comments', function () {
@@ -177,7 +177,7 @@ describe('Unified Plist Parser', function () {
       </plist>`;
 
       const result = parsePlist(xmlWithComments) as PlistDictionary;
-      expect(result).to.have.property('commentedKey', 'value');
+      assert.strictEqual(result.commentedKey, 'value');
     });
 
     it('should handle XML with mixed line endings', function () {
@@ -192,7 +192,7 @@ describe('Unified Plist Parser', function () {
         '</plist>';
 
       const result = parsePlist(xmlWithMixedLineEndings) as PlistDictionary;
-      expect(result).to.have.property('test', 'value');
+      assert.strictEqual(result.test, 'value');
     });
 
     it('should handle XML with BOM (Byte Order Mark)', function () {
@@ -203,7 +203,7 @@ describe('Unified Plist Parser', function () {
       const xmlWithBOM = Buffer.concat([bomPrefix, xmlContent]);
 
       const result = parsePlist(xmlWithBOM) as PlistDictionary;
-      expect(result).to.have.property('test', 'value');
+      assert.strictEqual(result.test, 'value');
     });
   });
 
@@ -213,7 +213,7 @@ describe('Unified Plist Parser', function () {
         'Some garbage data<?xml version="1.0" encoding="UTF-8"?><plist><dict><key>test</key><string>value</string></dict></plist>';
 
       const result = parsePlist(xmlWithPrefix) as PlistDictionary;
-      expect(result).to.have.property('test', 'value');
+      assert.strictEqual(result.test, 'value');
     });
 
     it('should recover from XML with multiple XML declarations', function () {
@@ -221,7 +221,7 @@ describe('Unified Plist Parser', function () {
         '<?xml version="1.0" encoding="UTF-8"?><?xml version="1.1"?><plist><dict><key>test</key><string>value</string></dict></plist>';
 
       const result = parsePlist(xmlWithMultipleDeclarations) as PlistDictionary;
-      expect(result).to.have.property('test', 'value');
+      assert.strictEqual(result.test, 'value');
     });
   });
 });

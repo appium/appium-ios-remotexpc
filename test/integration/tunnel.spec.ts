@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {afterEach, before, describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import type {SyslogService as ISyslogService} from '../../src/lib/types.js';
 import {startSyslogBinaryService, startSyslogTextService} from '../../src/services.js';
@@ -13,8 +12,8 @@ function registerCommonSyslogTests(
   getOptions: () => object,
 ) {
   it('should resolve service descriptor', function () {
-    expect(getDescriptor()).to.not.be.undefined;
-    expect(getDescriptor().port).to.be.a('string');
+    assert.notStrictEqual(getDescriptor(), undefined);
+    assert.ok(typeof getDescriptor().port === 'string');
   });
 
   it('should start without error', async function () {
@@ -63,7 +62,7 @@ describe('Tunnel and Syslog Service', {timeout: 60000}, function () {
       await syslogService.start(serviceDescriptor, {pid: -1});
       await new Promise((resolve) => setTimeout(resolve, 3000));
       await syslogService.stop();
-      expect(messages.length).to.be.greaterThan(0);
+      assert.ok(messages.length > 0);
     });
   });
 

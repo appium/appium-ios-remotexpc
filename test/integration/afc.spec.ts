@@ -1,10 +1,9 @@
+import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {Readable} from 'node:stream';
 import {after, before, describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {Services} from '../../src/index.js';
 import {AfcFileMode} from '../../src/services/ios/afc/enums.js';
@@ -32,11 +31,11 @@ describe('AFC Service', {timeout: 60000}, function () {
 
   it('should list root directory and contain standard folders', async function () {
     const entries = await afc.listdir('/');
-    expect(entries).to.be.an('array');
+    assert.ok(Array.isArray(entries));
     // Common AFC-visible directories
-    expect(entries).to.include('DCIM');
-    expect(entries).to.include('Downloads');
-    expect(entries).to.include('Books');
+    assert.ok(entries.includes('DCIM'));
+    assert.ok(entries.includes('Downloads'));
+    assert.ok(entries.includes('Books'));
   });
 
   it('should write, read, rename and delete a file in Downloads', async function () {
@@ -49,22 +48,22 @@ describe('AFC Service', {timeout: 60000}, function () {
 
     // Stat
     const stat1 = await afc.stat(name1);
-    expect(stat1.st_ifmt).to.equal(AfcFileMode.S_IFREG);
-    expect(stat1.st_size).to.equal(BigInt(data.length));
+    assert.strictEqual(stat1.st_ifmt, AfcFileMode.S_IFREG);
+    assert.strictEqual(stat1.st_size, BigInt(data.length));
 
     // Read back
     const read = await afc.getFileContents(name1);
-    expect(Buffer.compare(read, data)).to.equal(0);
+    assert.strictEqual(Buffer.compare(read, data), 0);
 
     // Rename
     await afc.rename(name1, name2);
     const read2 = await afc.getFileContents(name2);
-    expect(Buffer.compare(read2, data)).to.equal(0);
+    assert.strictEqual(Buffer.compare(read2, data), 0);
 
     // Remove
     await afc.rm(name2);
     const exists = await afc.exists(name2);
-    expect(exists).to.equal(false);
+    assert.strictEqual(exists, false);
   });
 
   it('should read and write files using streams', async function () {
@@ -75,8 +74,8 @@ describe('AFC Service', {timeout: 60000}, function () {
     await afc.writeFromStream(testFileName, readableStream);
 
     const stat = await afc.stat(testFileName);
-    expect(stat.st_ifmt).to.equal(AfcFileMode.S_IFREG);
-    expect(stat.st_size).to.equal(BigInt(testData.length));
+    assert.strictEqual(stat.st_ifmt, AfcFileMode.S_IFREG);
+    assert.strictEqual(stat.st_size, BigInt(testData.length));
 
     const fileStream = await afc.readToStream(testFileName);
     const chunks: Buffer[] = [];
@@ -84,7 +83,7 @@ describe('AFC Service', {timeout: 60000}, function () {
       chunks.push(chunk);
     }
     const readData = Buffer.concat(chunks);
-    expect(Buffer.compare(readData, testData)).to.equal(0);
+    assert.strictEqual(Buffer.compare(readData, testData), 0);
 
     await afc.rm(testFileName);
   });
@@ -101,12 +100,12 @@ describe('AFC Service', {timeout: 60000}, function () {
       await afc.push(localSrcPath, remotePath);
 
       const deviceContent = await afc.getFileContents(remotePath);
-      expect(deviceContent.toString('utf8')).to.equal(testContent);
+      assert.strictEqual(deviceContent.toString('utf8'), testContent);
 
       await afc.pull(remotePath, localDstPath);
 
       const pulledContent = await fs.readFile(localDstPath, 'utf8');
-      expect(pulledContent).to.equal(testContent);
+      assert.strictEqual(pulledContent, testContent);
     } finally {
       try {
         await fs.unlink(localSrcPath);
@@ -129,17 +128,18 @@ describe('AFC Service', {timeout: 60000}, function () {
   it('should walk directories and include expected entries', async function () {
     // Walk the root and verify known top-level dirs
     const rootWalk = await afc.walk('/');
-    expect(rootWalk).to.be.an('array').and.not.empty;
+    assert.ok(Array.isArray(rootWalk));
+    assert.ok(rootWalk.length > 0);
 
     const rootEntry = rootWalk.find((e) => e.dir === '/');
-    expect(rootEntry).to.exist;
-    expect(rootEntry!.dirs).to.be.an('array');
-    expect(rootEntry!.files).to.be.an('array');
+    assert.ok(rootEntry !== null && rootEntry !== undefined);
+    assert.ok(Array.isArray(rootEntry!.dirs));
+    assert.ok(Array.isArray(rootEntry!.files));
 
     // Reuse the same assumptions as the listdir("/") test
-    expect(rootEntry!.dirs).to.include('DCIM');
-    expect(rootEntry!.dirs).to.include('Downloads');
-    expect(rootEntry!.dirs).to.include('Books');
+    assert.ok(rootEntry!.dirs.includes('DCIM'));
+    assert.ok(rootEntry!.dirs.includes('Downloads'));
+    assert.ok(rootEntry!.dirs.includes('Books'));
 
     // Create deterministic files in Downloads and verify walk("/Downloads")
     const ts = Date.now();
@@ -155,9 +155,9 @@ describe('AFC Service', {timeout: 60000}, function () {
 
       const dlWalk = await afc.walk('/Downloads');
       const downloadsEntry = dlWalk.find((e) => e.dir === '/Downloads');
-      expect(downloadsEntry).to.exist;
-      expect(downloadsEntry!.files).to.include(fname1);
-      expect(downloadsEntry!.files).to.include(fname2);
+      assert.ok(downloadsEntry !== null && downloadsEntry !== undefined);
+      assert.ok(downloadsEntry!.files.includes(fname1));
+      assert.ok(downloadsEntry!.files.includes(fname2));
     } finally {
       try {
         await afc.rm(p1);
@@ -196,7 +196,7 @@ describe('AFC Service', {timeout: 60000}, function () {
 
       // Verify file contents
       const localData = await fs.readFile(path.join(localDownloads, `file1_${ts}.txt`));
-      expect(Buffer.compare(localData, testData)).to.equal(0);
+      assert.strictEqual(Buffer.compare(localData, testData), 0);
     } finally {
       try {
         await afc.rm(file1);
@@ -239,7 +239,7 @@ describe('AFC Service', {timeout: 60000}, function () {
           overwrite: false,
         });
       } catch (error: any) {
-        expect(error.message).to.include('Local file already exists');
+        assert.ok(error.message.includes('Local file already exists'));
       }
 
       // Third pull with overwrite=true (default) should succeed
@@ -304,7 +304,7 @@ describe('AFC Service', {timeout: 60000}, function () {
       } catch {
         noMatchDirExists = false;
       }
-      expect(noMatchDirExists).to.be.false;
+      assert.strictEqual(noMatchDirExists, false);
 
       let emptyDirExists: boolean;
       try {
@@ -313,12 +313,12 @@ describe('AFC Service', {timeout: 60000}, function () {
       } catch {
         emptyDirExists = false;
       }
-      expect(emptyDirExists).to.be.false;
+      assert.strictEqual(emptyDirExists, false);
 
       const entries = await fs.readdir(localTestDir);
-      expect(entries).to.have.lengthOf(2);
-      expect(entries).to.include('has_match');
-      expect(entries).to.include('also_has_match');
+      assert.strictEqual(entries.length, 2);
+      assert.ok(entries.includes('has_match'));
+      assert.ok(entries.includes('also_has_match'));
     } finally {
       try {
         await afc.rm(testDir, true);

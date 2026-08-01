@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {DataFrame} from '../../../src/lib/remote-xpc/handshake-frames.js';
 import {Http2FrameParser, buildWindowUpdateFrames} from '../../../src/lib/remote-xpc/http2-frame-parser.js';
@@ -39,15 +38,16 @@ describe('RSD service catalog discovery', function () {
       };
 
       const result = servicesFromXpcBody(body);
-      expect(result).not.to.be.null;
-      expect(result!.services).to.have.lengthOf(2);
-      expect(
+      assert.notStrictEqual(result, null);
+      assert.strictEqual(result!.services.length, 2);
+      assert.strictEqual(
         result!.services.find((s) => s.serviceName === 'com.apple.mobile.diagnostics_relay.shim.remote')?.port,
-      ).to.equal('52299');
+        '52299',
+      );
     });
 
     it('returns null when Services is missing', function () {
-      expect(servicesFromXpcBody({MessageType: 'Handshake'})).to.be.null;
+      assert.strictEqual(servicesFromXpcBody({MessageType: 'Handshake'}), null);
     });
   });
 
@@ -57,8 +57,8 @@ describe('RSD service catalog discovery', function () {
       const splitAt = Math.floor(payload.length / 3);
       const collector = new ServiceCatalogCollector();
 
-      expect(collector.ingestDataPayload(payload.subarray(0, splitAt))).to.be.null;
-      expect(collector.ingestDataPayload(payload.subarray(splitAt))).to.not.be.null;
+      assert.strictEqual(collector.ingestDataPayload(payload.subarray(0, splitAt)), null);
+      assert.notStrictEqual(collector.ingestDataPayload(payload.subarray(splitAt)), null);
     });
 
     it('parses multiple back-to-back XPC messages in one chunk', function () {
@@ -72,9 +72,11 @@ describe('RSD service catalog discovery', function () {
 
       const result = collector.ingestDataPayload(Buffer.concat([prelude, catalog]));
 
-      expect(result).not.to.be.null;
-      expect(result!.services.some((s) => s.serviceName === 'com.apple.mobile.diagnostics_relay.shim.remote')).to.be
-        .true;
+      assert.notStrictEqual(result, null);
+      assert.strictEqual(
+        result!.services.some((s) => s.serviceName === 'com.apple.mobile.diagnostics_relay.shim.remote'),
+        true,
+      );
     });
 
     it('preserves trailing bytes after a decoded non-catalog message', function () {
@@ -86,9 +88,11 @@ describe('RSD service catalog discovery', function () {
       const catalog = buildCatalogXpcPayload(2);
       const collector = new ServiceCatalogCollector();
 
-      expect(collector.ingestDataPayload(prelude.subarray(0, prelude.length - 4))).to.be.null;
-      expect(collector.ingestDataPayload(Buffer.concat([prelude.subarray(prelude.length - 4), catalog]))).to.not.be
-        .null;
+      assert.strictEqual(collector.ingestDataPayload(prelude.subarray(0, prelude.length - 4)), null);
+      assert.notStrictEqual(
+        collector.ingestDataPayload(Buffer.concat([prelude.subarray(prelude.length - 4), catalog])),
+        null,
+      );
     });
 
     it('returns the complete catalog across many TCP-sized chunks', function () {
@@ -102,10 +106,12 @@ describe('RSD service catalog discovery', function () {
         result = collector.ingestDataPayload(chunk) ?? result;
       }
 
-      expect(result).not.to.be.null;
-      expect(result!.services.length).to.be.at.least(50);
-      expect(result!.services.some((s) => s.serviceName === 'com.apple.mobile.diagnostics_relay.shim.remote')).to.be
-        .true;
+      assert.notStrictEqual(result, null);
+      assert.ok(result!.services.length >= 50);
+      assert.strictEqual(
+        result!.services.some((s) => s.serviceName === 'com.apple.mobile.diagnostics_relay.shim.remote'),
+        true,
+      );
     });
   });
 
@@ -120,7 +126,7 @@ describe('RSD service catalog discovery', function () {
       header.writeUInt32BE(1, 5); // stream 1
       const body = Buffer.from([5]); // pad length 5 >= body length 1
 
-      expect(() => parser.append(Buffer.concat([header, body]))).to.throw(/PROTOCOL_ERROR: Padding exceeds frame size/);
+      assert.throws(() => parser.append(Buffer.concat([header, body])), /PROTOCOL_ERROR: Padding exceeds frame size/);
     });
 
     it('reassembles a DATA frame split across multiple socket reads', function () {
@@ -132,21 +138,21 @@ describe('RSD service catalog discovery', function () {
       const first = parser.append(dataFrame.subarray(0, mid));
       const second = parser.append(dataFrame.subarray(mid));
 
-      expect(first).to.have.lengthOf(0);
-      expect(second).to.have.lengthOf(1);
-      expect(second[0].type).to.equal('data');
-      expect(second[0].type === 'data' && second[0].frame.data.length).to.equal(xpcPayload.length);
+      assert.strictEqual(first.length, 0);
+      assert.strictEqual(second.length, 1);
+      assert.strictEqual(second[0].type, 'data');
+      assert.strictEqual(second[0].type === 'data' && second[0].frame.data.length, xpcPayload.length);
     });
   });
 
   describe('buildWindowUpdateFrames', function () {
     it('emits window updates for even-numbered streams', function () {
       const frames = buildWindowUpdateFrames(2, 1024);
-      expect(frames).to.have.lengthOf(2);
+      assert.strictEqual(frames.length, 2);
     });
 
     it('skips window updates for odd-numbered streams', function () {
-      expect(buildWindowUpdateFrames(1, 1024)).to.have.lengthOf(0);
+      assert.strictEqual(buildWindowUpdateFrames(1, 1024).length, 0);
     });
   });
 });

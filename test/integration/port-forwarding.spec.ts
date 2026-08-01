@@ -1,7 +1,6 @@
+import assert from 'node:assert/strict';
 import {createConnection} from 'node:net';
 import {after, before, describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {DevicePortForwarder, connectViaTunnel, connectViaUsbmux, createUsbmux} from '../../src/index.js';
 import {requireDeviceUdid} from './helpers/device.js';
@@ -137,7 +136,7 @@ describe('Port forwarding (usbmux)', {timeout: 30000}, function () {
   });
 
   it('should complete upstream after connecting to the local forwarder', async function () {
-    expect(forwarder).to.exist;
+    assert.ok(forwarder !== null && forwarder !== undefined);
     await assertUpstreamConnects(forwarder!, localHost, localPort);
   });
 });
@@ -178,7 +177,7 @@ describe('Port forwarding (tunnel)', {timeout: 30000}, function () {
   });
 
   it('should complete upstream after connecting to the local forwarder', async function () {
-    expect(forwarder).to.exist;
+    assert.ok(forwarder !== null && forwarder !== undefined);
     await assertUpstreamConnects(forwarder!, localHost, localPort);
   });
 });

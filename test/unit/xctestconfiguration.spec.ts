@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {beforeEach, describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {PlistUID} from '../../src/lib/plist/index.js';
 import {
@@ -32,15 +31,15 @@ describe('XCTestConfigurationEncoder', function () {
       const {objects} = getRootConfig(result);
 
       const nsUrlObj = getNSURLObj(objects);
-      expect(nsUrlObj).to.not.be.undefined;
-      expect(nsUrlObj['NS.relative']).to.be.instanceOf(PlistUID);
-      expect(nsUrlObj['NS.base']).to.be.instanceOf(PlistUID);
-      expect(nsUrlObj['NS.base'].value).to.equal(0);
-      expect(objects[nsUrlObj['NS.relative'].value]).to.equal('file:///path/to/test.xctest');
+      assert.notStrictEqual(nsUrlObj, undefined);
+      assert.ok(nsUrlObj['NS.relative'] instanceof PlistUID);
+      assert.ok(nsUrlObj['NS.base'] instanceof PlistUID);
+      assert.strictEqual(nsUrlObj['NS.base'].value, 0);
+      assert.strictEqual(objects[nsUrlObj['NS.relative'].value], 'file:///path/to/test.xctest');
 
       const classObj = objects.find((o: any) => o && typeof o === 'object' && o.$classname === 'NSURL');
-      expect(classObj).to.not.be.undefined;
-      expect(classObj.$classes).to.deep.equal(['NSURL', 'NSObject']);
+      assert.notStrictEqual(classObj, undefined);
+      assert.deepStrictEqual(classObj.$classes, ['NSURL', 'NSObject']);
     });
 
     it('should encode NSURL with base', function () {
@@ -48,9 +47,9 @@ describe('XCTestConfigurationEncoder', function () {
       const {objects} = getRootConfig(result);
 
       const nsUrlObj = getNSURLObj(objects);
-      expect(nsUrlObj).to.not.be.undefined;
-      expect(nsUrlObj['NS.base'].value).to.not.equal(0);
-      expect(objects[nsUrlObj['NS.base'].value]).to.equal('file:///base');
+      assert.notStrictEqual(nsUrlObj, undefined);
+      assert.notStrictEqual(nsUrlObj['NS.base'].value, 0);
+      assert.strictEqual(objects[nsUrlObj['NS.base'].value], 'file:///base');
     });
   });
 
@@ -64,21 +63,21 @@ describe('XCTestConfigurationEncoder', function () {
         reportResultsToIDE: true,
       });
 
-      expect(result).to.have.property('$archiver', 'NSKeyedArchiver');
-      expect(result).to.have.property('$version', 100000);
-      expect(result).to.have.property('$objects').that.is.an('array');
-      expect(result).to.have.property('$top');
-      expect(result.$top).to.have.property('root');
-      expect(result.$top.root).to.be.instanceOf(PlistUID);
-      expect(result.$objects[0]).to.equal('$null');
+      assert.strictEqual(result.$archiver, 'NSKeyedArchiver');
+      assert.strictEqual(result.$version, 100000);
+      assert.ok(Array.isArray(result.$objects));
+      assert.ok('$top' in result);
+      assert.ok('root' in result.$top);
+      assert.ok(result.$top.root instanceof PlistUID);
+      assert.strictEqual(result.$objects[0], '$null');
 
       const rootIndex = result.$top.root.value;
-      expect(rootIndex).to.be.greaterThan(0);
-      expect(rootIndex).to.be.lessThan(result.$objects.length);
+      assert.ok(rootIndex > 0);
+      assert.ok(rootIndex < result.$objects.length);
 
       for (const className of ['XCTestConfiguration', 'NSUUID', 'NSURL']) {
         const classObj = result.$objects.find((o: any) => o && typeof o === 'object' && o.$classname === className);
-        expect(classObj, `Missing class ${className}`).to.not.be.undefined;
+        assert.notStrictEqual(classObj, undefined, `Missing class ${className}`);
       }
     });
 
@@ -92,8 +91,8 @@ describe('XCTestConfigurationEncoder', function () {
       const {configObj} = getRootConfig(result);
 
       // testsToRun should be a PlistUID pointing to $null (index 0)
-      expect(configObj.testsToRun).to.be.instanceOf(PlistUID);
-      expect(configObj.testsToRun.value).to.equal(0);
+      assert.ok(configObj.testsToRun instanceof PlistUID);
+      assert.strictEqual(configObj.testsToRun.value, 0);
     });
 
     it('should store booleans inline', function () {
@@ -106,8 +105,8 @@ describe('XCTestConfigurationEncoder', function () {
       const {configObj} = getRootConfig(result);
 
       // Booleans should be stored inline, not as PlistUID references
-      expect(configObj.initializeForUITesting).to.equal(true);
-      expect(configObj.reportResultsToIDE).to.equal(false);
+      assert.strictEqual(configObj.initializeForUITesting, true);
+      assert.strictEqual(configObj.reportResultsToIDE, false);
     });
 
     it('should store non-primitive values as $objects entries referenced by PlistUID', function () {
@@ -119,14 +118,14 @@ describe('XCTestConfigurationEncoder', function () {
       const {objects, configObj} = getRootConfig(result);
 
       // formatVersion should be a PlistUID reference to another PlistUID object
-      expect(configObj.formatVersion).to.be.instanceOf(PlistUID);
+      assert.ok(configObj.formatVersion instanceof PlistUID);
       const referencedValue = objects[configObj.formatVersion.value];
-      expect(referencedValue).to.be.instanceOf(PlistUID);
-      expect(referencedValue.value).to.equal(2);
+      assert.ok(referencedValue instanceof PlistUID);
+      assert.strictEqual(referencedValue.value, 2);
 
       // targetApplicationBundleID should be a PlistUID reference to a string
-      expect(configObj.targetApplicationBundleID).to.be.instanceOf(PlistUID);
-      expect(objects[configObj.targetApplicationBundleID.value]).to.equal('com.example.app');
+      assert.ok(configObj.targetApplicationBundleID instanceof PlistUID);
+      assert.strictEqual(objects[configObj.targetApplicationBundleID.value], 'com.example.app');
     });
   });
 
@@ -137,9 +136,9 @@ describe('XCTestConfigurationEncoder', function () {
       const objects = result.$objects;
 
       const nsUuidObj = objects.find((o: any) => o && typeof o === 'object' && 'NS.uuidbytes' in o);
-      expect(nsUuidObj).to.not.be.undefined;
-      expect(nsUuidObj['NS.uuidbytes']).to.be.instanceOf(Buffer);
-      expect(nsUuidObj['NS.uuidbytes'].equals(Buffer.from(uuid.replace(/-/g, ''), 'hex'))).to.be.true;
+      assert.notStrictEqual(nsUuidObj, undefined);
+      assert.ok(nsUuidObj['NS.uuidbytes'] instanceof Buffer);
+      assert.strictEqual(nsUuidObj['NS.uuidbytes'].equals(Buffer.from(uuid.replace(/-/g, ''), 'hex')), true);
     });
   });
 });

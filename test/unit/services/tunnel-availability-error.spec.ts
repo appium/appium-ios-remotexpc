@@ -1,6 +1,6 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
 
-import {expect} from 'chai';
 import esmock from 'esmock';
 
 class MockTunnelAvailabilityError extends Error {
@@ -34,11 +34,11 @@ async function loadServices(tunnelAvailabilityOverrides: Record<string, unknown>
 async function expectTunnelAvailabilityError(action: () => Promise<unknown>, expectedMessage: string) {
   try {
     await action();
-    expect.fail('Expected action to throw');
+    assert.fail('Expected action to throw');
   } catch (err) {
-    expect(err).to.be.instanceOf(MockTunnelAvailabilityError);
-    expect((err as Error).message).to.equal(expectedMessage);
-    expect((err as {code?: string}).code).to.equal('ERR_TUNNEL_AVAILABILITY');
+    assert.ok(err instanceof MockTunnelAvailabilityError);
+    assert.strictEqual((err as Error).message, expectedMessage);
+    assert.strictEqual((err as {code?: string}).code, 'ERR_TUNNEL_AVAILABILITY');
   }
 }
 

@@ -1,7 +1,7 @@
+import assert from 'node:assert/strict';
 import {type TestContext, afterEach, beforeEach, describe, it} from 'node:test';
 
 import {logger} from '@appium/support';
-import {expect} from 'chai';
 
 import type {DVTInstruments, SysmonProcessInfo, SysmonSample} from '../../../src/index.js';
 import * as Services from '../../../src/services.js';
@@ -56,20 +56,20 @@ describe('Sysmontap', {timeout: 60000}, function () {
     it('should fetch sysmon process attributes', async function () {
       const attributes = await dvt.deviceInfo.sysmonProcessAttributes();
 
-      expect(attributes).to.be.an('array');
-      expect(attributes.length).to.be.greaterThan(0);
-      attributes.forEach((attr) => expect(attr).to.be.a('string'));
+      assert.ok(Array.isArray(attributes));
+      assert.ok(attributes.length > 0);
+      attributes.forEach((attr) => assert.ok(typeof attr === 'string'));
       // 'pid' is always part of the per-process attribute set.
-      expect(attributes).to.include('pid');
+      assert.ok(attributes.includes('pid'));
       log.info(`process attributes (${attributes.length}):`, attributes);
     });
 
     it('should fetch sysmon system attributes', async function () {
       const attributes = await dvt.deviceInfo.sysmonSystemAttributes();
 
-      expect(attributes).to.be.an('array');
-      expect(attributes.length).to.be.greaterThan(0);
-      attributes.forEach((attr) => expect(attr).to.be.a('string'));
+      assert.ok(Array.isArray(attributes));
+      assert.ok(attributes.length > 0);
+      attributes.forEach((attr) => assert.ok(typeof attr === 'string'));
       log.info(`system attributes (${attributes.length}):`, attributes);
     });
   });
@@ -82,9 +82,11 @@ describe('Sysmontap', {timeout: 60000}, function () {
       const processAttributes = sysmontap.getProcessAttributes();
       const systemAttributes = sysmontap.getSystemAttributes();
 
-      expect(processAttributes).to.be.an('array').with.length.greaterThan(0);
-      expect(systemAttributes).to.be.an('array').with.length.greaterThan(0);
-      expect(processAttributes).to.include('pid');
+      assert.ok(Array.isArray(processAttributes));
+      assert.ok(processAttributes.length > 0);
+      assert.ok(Array.isArray(systemAttributes));
+      assert.ok(systemAttributes.length > 0);
+      assert.ok(processAttributes.includes('pid'));
     });
   });
 
@@ -93,24 +95,24 @@ describe('Sysmontap', {timeout: 60000}, function () {
       const sysmontap = dvt.sysmontap;
 
       const snapshots = await collectProcessSnapshots(sysmontap, 2);
-      expect(snapshots).to.have.length.greaterThan(0);
+      assert.ok(snapshots.length > 0);
 
       const processAttributes = sysmontap.getProcessAttributes();
       const populated = snapshots.find((snapshot) => snapshot.length > 0);
-      expect(populated, 'expected at least one populated process snapshot').to.exist;
+      assert.ok(populated !== null && populated !== undefined, 'expected at least one populated process snapshot');
 
       const processes = populated!;
-      expect(processes.length).to.be.greaterThan(0);
+      assert.ok(processes.length > 0);
 
       const sample = processes[0];
-      expect(sample).to.be.an('object');
+      assert.ok(typeof sample === 'object' && sample !== null && !Array.isArray(sample));
       // Every labelled record is keyed by the discovered attribute names and
       // exposes one value per attribute.
       const recordKeys = Object.keys(sample);
-      expect(recordKeys).to.have.lengthOf(processAttributes.length);
-      recordKeys.forEach((key) => expect(processAttributes).to.include(key));
-      expect(sample).to.have.property('pid');
-      expect(sample.pid).to.satisfy((v: unknown) => typeof v === 'number' || typeof v === 'bigint');
+      assert.strictEqual(recordKeys.length, processAttributes.length);
+      recordKeys.forEach((key) => assert.ok(processAttributes.includes(key)));
+      assert.ok('pid' in sample);
+      assert.ok(((v: unknown) => typeof v === 'number' || typeof v === 'bigint')(sample.pid));
 
       log.info(
         `received ${processes.length} processes; first record:`,
@@ -131,14 +133,14 @@ describe('Sysmontap', {timeout: 60000}, function () {
 
       const snapshots = await collectProcessSnapshots(sysmontap, 3);
       const allProcesses = snapshots.flat();
-      expect(allProcesses.length).to.be.greaterThan(0);
+      assert.ok(allProcesses.length > 0);
 
       // Correctness check on the positional attribute mapping: pid 1 must be
       // launchd. This only holds if the DeviceInfo attribute order matches the
       // order of the streamed per-process value tuples.
       const launchd = allProcesses.find((proc) => proc.pid === 1);
-      expect(launchd, 'expected pid 1 in a snapshot').to.exist;
-      expect(launchd!.name).to.equal('launchd');
+      assert.ok(launchd !== null && launchd !== undefined, 'expected pid 1 in a snapshot');
+      assert.strictEqual(launchd!.name, 'launchd');
 
       log.info('pid 1 record name:', launchd!.name);
     });
@@ -157,16 +159,17 @@ describe('Sysmontap', {timeout: 60000}, function () {
         }
       }
 
-      expect(samples).to.have.lengthOf(maxSamples);
-      samples.forEach((sample) => expect(sample).to.be.an('object'));
+      assert.strictEqual(samples.length, maxSamples);
+      samples.forEach((sample) => assert.ok(typeof sample === 'object' && sample !== null && !Array.isArray(sample)));
 
       // Control/heartbeat frames are filtered out, so every yielded sample is
       // either a system sample or a process sample.
       samples.forEach((sample) =>
-        expect(
+        assert.strictEqual(
           sample.Processes !== undefined || sample.System !== undefined,
+          true,
           `sample keys: ${Object.keys(sample).join(', ')}`,
-        ).to.equal(true),
+        ),
       );
 
       // Over a handful of samples we expect to observe both kinds.
@@ -184,11 +187,11 @@ describe('Sysmontap', {timeout: 60000}, function () {
         break;
       }
 
-      expect(parsedSystem, 'expected to observe a system sample').to.exist;
+      assert.ok(parsedSystem !== null && parsedSystem !== undefined, 'expected to observe a system sample');
       const systemAttributes = sysmontap.getSystemAttributes();
       const keys = Object.keys(parsedSystem!);
-      expect(keys.length).to.equal(systemAttributes.length);
-      keys.forEach((key) => expect(systemAttributes).to.include(key));
+      assert.strictEqual(keys.length, systemAttributes.length);
+      keys.forEach((key) => assert.ok(systemAttributes.includes(key)));
       log.info('parsed system sample keys:', keys);
     });
   });
@@ -217,7 +220,7 @@ describe('Sysmontap', {timeout: 60000}, function () {
         ),
       ]);
 
-      expect(terminal.done).to.equal(true);
+      assert.strictEqual(terminal.done, true);
     });
 
     it('should handle break in iteration properly', async function () {
@@ -225,14 +228,14 @@ describe('Sysmontap', {timeout: 60000}, function () {
 
       let iterationCount = 0;
       for await (const sample of sysmontap.messages()) {
-        expect(sample).to.be.an('object');
+        assert.ok(typeof sample === 'object' && sample !== null && !Array.isArray(sample));
         iterationCount++;
         if (iterationCount === 2) {
           break;
         }
       }
 
-      expect(iterationCount).to.equal(2);
+      assert.strictEqual(iterationCount, 2);
     });
 
     it('should treat a second start() while sampling as a no-op', async function () {
@@ -245,11 +248,11 @@ describe('Sysmontap', {timeout: 60000}, function () {
       // Sampling is still healthy: a snapshot can be read.
       let received = false;
       for await (const sample of sysmontap.messages()) {
-        expect(sample).to.be.an('object');
+        assert.ok(typeof sample === 'object' && sample !== null && !Array.isArray(sample));
         received = true;
         break;
       }
-      expect(received).to.equal(true);
+      assert.strictEqual(received, true);
     });
 
     it('should end the stream without throwing when the DVT connection is closed', async function () {
@@ -276,7 +279,7 @@ describe('Sysmontap', {timeout: 60000}, function () {
         ),
       ]);
 
-      expect(terminal.done).to.equal(true);
+      assert.strictEqual(terminal.done, true);
     });
   });
 });

@@ -1,7 +1,6 @@
+import assert from 'node:assert/strict';
 import {constants as osConstants} from 'node:os';
 import {type TestContext, after, before, describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {type AppService, CoreDeviceError} from '../../src/index.js';
 import * as Services from '../../src/services.js';
@@ -42,21 +41,25 @@ describe('AppService', {timeout: 60000}, function () {
 
   it('lists running processes', async function () {
     const processes = await appService!.listProcesses();
-    expect(processes).to.be.an('array');
-    expect(processes.length).to.be.greaterThan(0);
-    expect(processes[0]).to.have.property('processIdentifier');
-    expect(processes[0].processIdentifier).to.be.a('number');
+    assert.ok(Array.isArray(processes));
+    assert.ok(processes.length > 0);
+    assert.ok('processIdentifier' in processes[0]);
+    assert.ok(typeof processes[0].processIdentifier === 'number');
   });
 
   it('launches an application and confirms it is running', async function () {
     const launched = await appService!.launchApplication(bundleId);
-    expect(launched.processIdentifier).to.be.a('number');
-    expect(launched.processToken).to.be.an('object');
+    assert.ok(typeof launched.processIdentifier === 'number');
+    assert.ok(
+      typeof launched.processToken === 'object' &&
+        launched.processToken !== null &&
+        !Array.isArray(launched.processToken),
+    );
 
     await sleep(800);
     const processes = await appService!.listProcesses();
     const running = processes.some((p) => p.processIdentifier === launched.processIdentifier);
-    expect(running, 'launched process should appear in listProcesses').to.equal(true);
+    assert.strictEqual(running, true, 'launched process should appear in listProcesses');
 
     // Clean up.
     await appService!.sendSignalToProcess(launched.processIdentifier!, osConstants.signals.SIGKILL);
@@ -67,12 +70,12 @@ describe('AppService', {timeout: 60000}, function () {
     await sleep(800);
 
     const result = await appService!.sendSignalToProcess(launched.processIdentifier!, osConstants.signals.SIGKILL);
-    expect(result).to.be.an('object');
+    assert.ok(typeof result === 'object' && result !== null && !Array.isArray(result));
 
     await sleep(1500);
     const processes = await appService!.listProcesses();
     const stillRunning = processes.some((p) => p.processIdentifier === launched.processIdentifier);
-    expect(stillRunning, 'signalled process should be gone').to.equal(false);
+    assert.strictEqual(stillRunning, false, 'signalled process should be gone');
   });
 
   it('throws a descriptive error when launching a non-existent bundle', async function () {
@@ -84,8 +87,8 @@ describe('AppService', {timeout: 60000}, function () {
     } catch (error) {
       caught = error;
     }
-    expect(caught).to.be.instanceOf(CoreDeviceError);
-    expect((caught as Error).message.toLowerCase()).to.contain('not installed');
+    assert.ok(caught instanceof CoreDeviceError);
+    assert.ok((caught as Error).message.toLowerCase().includes('not installed'));
   });
 
   it('uninstall is idempotent for a non-installed bundle', async function () {
@@ -97,7 +100,7 @@ describe('AppService', {timeout: 60000}, function () {
     const result = await appService!.monitorProcessTermination(987654, {
       timeoutMs: 8000,
     });
-    expect(result).to.be.an('object');
+    assert.ok(typeof result === 'object' && result !== null && !Array.isArray(result));
   });
 
   it('reuses a single service across multiple operations', async function () {
@@ -107,8 +110,8 @@ describe('AppService', {timeout: 60000}, function () {
     const launched = await appService!.launchApplication(bundleId);
     const b = await appService!.listProcesses();
     await appService!.sendSignalToProcess(launched.processIdentifier!, osConstants.signals.SIGKILL);
-    expect(a.length).to.be.greaterThan(0);
-    expect(b.length).to.be.greaterThan(0);
+    assert.ok(a.length > 0);
+    assert.ok(b.length > 0);
   });
 
   it('lists apps (bounded; iOS 26 may not enumerate over this path)', async function (ctx: TestContext) {
@@ -121,7 +124,7 @@ describe('AppService', {timeout: 60000}, function () {
         includeInternalApps: false,
         timeoutMs: 8000,
       });
-      expect(apps).to.be.an('array');
+      assert.ok(Array.isArray(apps));
     } catch {
       // iOS 26 may not respond to app enumeration over the AppService path.
       ctx.skip();

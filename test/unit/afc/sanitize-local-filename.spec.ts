@@ -1,7 +1,7 @@
+import assert from 'node:assert/strict';
 import os from 'node:os';
 import {afterEach, beforeEach, describe, it} from 'node:test';
 
-import {expect} from 'chai';
 import sinon from 'sinon';
 
 import {
@@ -15,17 +15,17 @@ describe('appendUniqueSuffix', function () {
     const longBase = 'a'.repeat(300);
     const result = appendUniqueSuffix(`${longBase}.txt`, 'deadbeef');
 
-    expect(result.endsWith('_deadbeef.txt')).to.equal(true);
-    expect(Buffer.byteLength(result, 'utf8')).to.be.at.most(255);
-    expect(result).to.include('deadbeef');
+    assert.strictEqual(result.endsWith('_deadbeef.txt'), true);
+    assert.ok(Buffer.byteLength(result, 'utf8') <= 255);
+    assert.ok(result.includes('deadbeef'));
   });
 
   it('should preserve the suffix when there is no extension', function () {
     const longBase = 'b'.repeat(300);
     const result = appendUniqueSuffix(longBase, 'cafebabe');
 
-    expect(result.endsWith('_cafebabe')).to.equal(true);
-    expect(Buffer.byteLength(result, 'utf8')).to.be.at.most(255);
+    assert.strictEqual(result.endsWith('_cafebabe'), true);
+    assert.ok(Buffer.byteLength(result, 'utf8') <= 255);
   });
 });
 
@@ -46,21 +46,21 @@ describe('sanitizeLocalFilename', function () {
     });
 
     it('should remove Windows-illegal characters', function () {
-      expect(sanitizeLocalFilename('report>file.txt')).to.equal('reportfile.txt');
-      expect(sanitizeLocalFilename('a/b\\c:d*e?f"g|h')).to.equal('abcdefgh');
+      assert.strictEqual(sanitizeLocalFilename('report>file.txt'), 'reportfile.txt');
+      assert.strictEqual(sanitizeLocalFilename('a/b\\c:d*e?f"g|h'), 'abcdefgh');
     });
 
     it('should reject reserved device names', function () {
-      expect(sanitizeLocalFilename('CON')).to.equal(EMPTY_SANITIZED_FILENAME);
-      expect(sanitizeLocalFilename('com1.log')).to.equal(EMPTY_SANITIZED_FILENAME);
+      assert.strictEqual(sanitizeLocalFilename('CON'), EMPTY_SANITIZED_FILENAME);
+      assert.strictEqual(sanitizeLocalFilename('com1.log'), EMPTY_SANITIZED_FILENAME);
     });
 
     it('should strip trailing dots and spaces', function () {
-      expect(sanitizeLocalFilename('name. ')).to.equal('name');
+      assert.strictEqual(sanitizeLocalFilename('name. '), 'name');
     });
 
     it('should return a fallback for empty results', function () {
-      expect(sanitizeLocalFilename('..')).to.equal(EMPTY_SANITIZED_FILENAME);
+      assert.strictEqual(sanitizeLocalFilename('..'), EMPTY_SANITIZED_FILENAME);
     });
   });
 
@@ -70,17 +70,17 @@ describe('sanitizeLocalFilename', function () {
     });
 
     it('should remove path separators and colons', function () {
-      expect(sanitizeLocalFilename('folder:name')).to.equal('foldername');
-      expect(sanitizeLocalFilename('nested/name')).to.equal('nestedname');
+      assert.strictEqual(sanitizeLocalFilename('folder:name'), 'foldername');
+      assert.strictEqual(sanitizeLocalFilename('nested/name'), 'nestedname');
     });
 
     it('should keep characters that are valid on macOS but not Windows', function () {
-      expect(sanitizeLocalFilename('bad>char')).to.equal('bad>char');
-      expect(sanitizeLocalFilename('keeps*star')).to.equal('keeps*star');
+      assert.strictEqual(sanitizeLocalFilename('bad>char'), 'bad>char');
+      assert.strictEqual(sanitizeLocalFilename('keeps*star'), 'keeps*star');
     });
 
     it('should return a fallback for reserved dot names', function () {
-      expect(sanitizeLocalFilename('..')).to.equal(EMPTY_SANITIZED_FILENAME);
+      assert.strictEqual(sanitizeLocalFilename('..'), EMPTY_SANITIZED_FILENAME);
     });
   });
 
@@ -90,13 +90,13 @@ describe('sanitizeLocalFilename', function () {
     });
 
     it('should only strip path separators and control chars', function () {
-      expect(sanitizeLocalFilename('keeps>chars')).to.equal('keeps>chars');
-      expect(sanitizeLocalFilename('nested/name')).to.equal('nestedname');
-      expect(sanitizeLocalFilename('also:colon')).to.equal('also:colon');
+      assert.strictEqual(sanitizeLocalFilename('keeps>chars'), 'keeps>chars');
+      assert.strictEqual(sanitizeLocalFilename('nested/name'), 'nestedname');
+      assert.strictEqual(sanitizeLocalFilename('also:colon'), 'also:colon');
     });
 
     it('should return a fallback for reserved dot names', function () {
-      expect(sanitizeLocalFilename('..')).to.equal(EMPTY_SANITIZED_FILENAME);
+      assert.strictEqual(sanitizeLocalFilename('..'), EMPTY_SANITIZED_FILENAME);
     });
   });
 });

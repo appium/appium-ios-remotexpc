@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {TLV8_MAX_FRAGMENT_SIZE} from '../../../../src/lib/apple-tv/constants.js';
 import {decodeTLV8, decodeTLV8ToDict} from '../../../../src/lib/apple-tv/tlv/decoder.js';
@@ -19,7 +18,7 @@ describe('TLV8 Integration Tests', function () {
       const encoded = encodeTLV8(originalItems);
       const decoded = decodeTLV8(encoded);
 
-      expect(decoded).to.deep.equal(originalItems);
+      assert.deepStrictEqual(decoded, originalItems);
     });
 
     it('should handle fragmented data round-trip', function () {
@@ -33,13 +32,13 @@ describe('TLV8 Integration Tests', function () {
       const encoded = encodeTLV8(originalItems);
       const decoded = decodeTLV8(encoded);
 
-      expect(decoded).to.have.lengthOf(3);
-      expect(decoded[0].type).to.equal(0x05);
-      expect(decoded[1].type).to.equal(0x05);
-      expect(decoded[2].type).to.equal(0x05);
+      assert.strictEqual(decoded.length, 3);
+      assert.strictEqual(decoded[0].type, 0x05);
+      assert.strictEqual(decoded[1].type, 0x05);
+      assert.strictEqual(decoded[2].type, 0x05);
 
       const reassembled = Buffer.concat(decoded.map((item) => item.data));
-      expect(reassembled).to.deep.equal(largeData);
+      assert.deepStrictEqual(reassembled, largeData);
     });
 
     it('should handle mixed fragmented and non-fragmented items', function () {
@@ -56,16 +55,16 @@ describe('TLV8 Integration Tests', function () {
       const encoded = encodeTLV8(originalItems);
       const decoded = decodeTLV8(encoded);
 
-      expect(decoded).to.have.lengthOf(4);
+      assert.strictEqual(decoded.length, 4);
 
-      expect(decoded[0]).to.deep.equal({type: 0x01, data: smallData});
+      assert.deepStrictEqual(decoded[0], {type: 0x01, data: smallData});
 
-      expect(decoded[1].type).to.equal(0x02);
-      expect(decoded[1].data.length).to.equal(255);
-      expect(decoded[2].type).to.equal(0x02);
-      expect(decoded[2].data.length).to.equal(45);
+      assert.strictEqual(decoded[1].type, 0x02);
+      assert.strictEqual(decoded[1].data.length, 255);
+      assert.strictEqual(decoded[2].type, 0x02);
+      assert.strictEqual(decoded[2].data.length, 45);
 
-      expect(decoded[3]).to.deep.equal({type: 0x03, data: mediumData});
+      assert.deepStrictEqual(decoded[3], {type: 0x03, data: mediumData});
     });
   });
 
@@ -77,7 +76,7 @@ describe('TLV8 Integration Tests', function () {
       const encoded = encodeTLV8(originalItems);
       const decodedDict = decodeTLV8ToDict(encoded);
 
-      expect(decodedDict[0x10]).to.deep.equal(largeData);
+      assert.deepStrictEqual(decodedDict[0x10], largeData);
     });
 
     it('should handle multiple types with fragmentation', function () {
@@ -94,9 +93,9 @@ describe('TLV8 Integration Tests', function () {
       const encoded = encodeTLV8(originalItems);
       const decodedDict = decodeTLV8ToDict(encoded);
 
-      expect(decodedDict[0x01]).to.deep.equal(data1);
-      expect(decodedDict[0x02]).to.deep.equal(data2);
-      expect(decodedDict[0x03]).to.deep.equal(data3);
+      assert.deepStrictEqual(decodedDict[0x01], data1);
+      assert.deepStrictEqual(decodedDict[0x02], data2);
+      assert.deepStrictEqual(decodedDict[0x03], data3);
     });
   });
 
@@ -112,8 +111,8 @@ describe('TLV8 Integration Tests', function () {
       const encoded = encodeTLV8(items);
       const decoded = decodeTLV8(encoded);
 
-      expect(decoded).to.have.lengthOf(1);
-      expect(decoded[0]).to.deep.equal(items[0]);
+      assert.strictEqual(decoded.length, 1);
+      assert.deepStrictEqual(decoded[0], items[0]);
     });
 
     it('should handle empty items array', function () {
@@ -123,9 +122,9 @@ describe('TLV8 Integration Tests', function () {
       const decoded = decodeTLV8(encoded);
       const decodedDict = decodeTLV8ToDict(encoded);
 
-      expect(encoded).to.deep.equal(Buffer.alloc(0));
-      expect(decoded).to.deep.equal([]);
-      expect(decodedDict).to.deep.equal({});
+      assert.deepStrictEqual(encoded, Buffer.alloc(0));
+      assert.deepStrictEqual(decoded, []);
+      assert.deepStrictEqual(decodedDict, {});
     });
 
     it('should preserve exact byte sequences through round-trip', function () {
@@ -138,7 +137,7 @@ describe('TLV8 Integration Tests', function () {
       const encoded = encodeTLV8(items);
       const decoded = decodeTLV8(encoded);
 
-      expect(decoded[0].data).to.deep.equal(problematicData);
+      assert.deepStrictEqual(decoded[0].data, problematicData);
     });
   });
 });

@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import _fs from 'node:fs';
 import _fsp from 'node:fs/promises';
 import path from 'node:path';
@@ -5,7 +6,6 @@ import {after, beforeEach, describe, it} from 'node:test';
 import {fileURLToPath} from 'node:url';
 
 import {fs, node} from '@appium/support';
-import {expect} from 'chai';
 
 import {StreamZip} from '../../../src/services/ios/zipconduit/stream-zip.js';
 
@@ -43,7 +43,7 @@ function normalizeBufferText(buf: Buffer): string {
 }
 
 function assertBuffersEqual(actual: Buffer, expected: Buffer, label?: string): void {
-  expect(normalizeBufferText(actual), label).to.equal(normalizeBufferText(expected));
+  assert.strictEqual(normalizeBufferText(actual), normalizeBufferText(expected), label);
 }
 
 async function assertFilesEqual(actualPath: string, expectedPath: string): Promise<void> {
@@ -104,7 +104,7 @@ describe('zipconduit/stream-zip', function () {
 
       const zip = openZip(fixture(OK_DIR, file));
       const entries = await zip.entries();
-      expect(zip.entriesCount).to.equal(expEntriesCount);
+      assert.strictEqual(zip.entriesCount, expEntriesCount);
       const expectedFiles = [
         'BSDmakefile',
         'README.md',
@@ -113,20 +113,23 @@ describe('zipconduit/stream-zip', function () {
         'doc/changelog-foot.html',
         'doc/sh_javascript.min.js',
       ];
-      expect(expectedFiles.every((expFile) => entries[expFile])).to.be.true;
-      expect(entries['not-existing-file']).to.be.undefined;
+      assert.strictEqual(
+        expectedFiles.every((expFile) => entries[expFile]),
+        true,
+      );
+      assert.strictEqual(entries['not-existing-file'], undefined);
 
       const entry = entries.BSDmakefile;
-      expect(entry).to.exist;
-      expect(entry!.isDirectory).to.be.false;
-      expect(entry!.isFile).to.be.true;
+      assert.ok(entry !== null && entry !== undefined);
+      assert.strictEqual(entry!.isDirectory, false);
+      assert.strictEqual(entry!.isFile, true);
 
       const dirEntry = entries['doc/'];
       const dirShouldExist = file !== 'windows.zip';
       if (dirShouldExist) {
-        expect(dirEntry).to.exist;
-        expect(dirEntry!.isDirectory).to.be.true;
-        expect(dirEntry!.isFile).to.be.false;
+        assert.ok(dirEntry !== null && dirEntry !== undefined);
+        assert.strictEqual(dirEntry!.isDirectory, true);
+        assert.strictEqual(dirEntry!.isFile, false);
       }
 
       await extractViaStream(zip, 'README.md', path.join(testPathTmp, 'README.md'));
@@ -146,7 +149,7 @@ describe('zipconduit/stream-zip', function () {
         await extractViaStream(zip, name, path.join(docDir, relative));
         docExtracted++;
       }
-      expect(docExtracted).to.equal(expEntriesCountInDocDir);
+      assert.strictEqual(docExtracted, expEntriesCountInDocDir);
       await assertFilesEqual(path.join(docDir, 'api_assets/sh.css'), fixture(CONTENT_DIR, 'doc/api_assets/sh.css'));
 
       const syncData = await readEntryData(zip, 'README.md');
@@ -160,7 +163,7 @@ describe('zipconduit/stream-zip', function () {
   it('reads special/tiny.zip via stream', async function () {
     const zip = openZip(fixture(SPECIAL_DIR, 'tiny.zip'));
     const data = await readEntryData(zip, 'BSDmakefile');
-    expect(data.toString('utf8').slice(0, 4)).to.equal('all:');
+    assert.strictEqual(data.toString('utf8').slice(0, 4), 'all:');
     await zip.close();
   });
 
@@ -173,7 +176,7 @@ describe('zipconduit/stream-zip', function () {
 
     const filesZip = openZip(filesZipTmp);
     await filesZip.waitUntilReady();
-    expect(filesZip.entriesCount).to.equal(66667);
+    assert.strictEqual(filesZip.entriesCount, 66667);
     await filesZip.close();
   });
 
@@ -181,10 +184,10 @@ describe('zipconduit/stream-zip', function () {
     const zip = openZip(fixture(OK_DIR, 'normal.zip'));
     const entries = await zip.entries();
     const entry = entries['doc/changelog-foot.html'];
-    expect(entry).to.exist;
+    assert.ok(entry !== null && entry !== undefined);
     const entryBeforeOpen = {...entry!};
     const entryAfterOpen = await zip.openEntry(entry!);
-    expect(entryAfterOpen).to.not.deep.equal(entryBeforeOpen);
+    assert.notDeepStrictEqual(entryAfterOpen, entryBeforeOpen);
     await zip.close();
   });
 
@@ -192,7 +195,7 @@ describe('zipconduit/stream-zip', function () {
     const fd = await fs.open(fixture(SPECIAL_DIR, 'tiny.zip'), 'r');
     const zip = openZip(undefined, {fd});
     const data = await readEntryData(zip, 'BSDmakefile');
-    expect(data.toString('utf8').slice(0, 4)).to.equal('all:');
+    assert.strictEqual(data.toString('utf8').slice(0, 4), 'all:');
     await zip.close();
   });
 
@@ -203,7 +206,7 @@ describe('zipconduit/stream-zip', function () {
       .map((e) => e.name)
       .sort();
     const expectedNames = alphabets.map((a) => `${a}/${a}.txt`);
-    expect(names).to.deep.equal(expectedNames);
+    assert.deepStrictEqual(names, expectedNames);
     await zip.close();
   });
 
@@ -221,15 +224,15 @@ describe('zipconduit/stream-zip', function () {
       .filter((e) => e.isFile)
       .map((e) => e.name)
       .sort();
-    expect(names).to.deep.equal(expectedNames);
+    assert.deepStrictEqual(names, expectedNames);
     await zip.close();
   });
 
   it('rejects AES encrypted entries on stream', async function () {
     const zip = openZip(fixture(ERR_DIR, 'enc_aes.zip'));
     await readEntryData(zip, 'README.md').catch((err) => {
-      expect(err).to.be.instanceOf(Error);
-      expect(err.message).to.include('Entry encrypted');
+      assert.ok(err instanceof Error);
+      assert.ok(err.message.includes('Entry encrypted'));
     });
     await zip.close();
   });
@@ -237,8 +240,8 @@ describe('zipconduit/stream-zip', function () {
   it('rejects ZipCrypto encrypted entries on stream', async function () {
     const zip = openZip(fixture(ERR_DIR, 'enc_zipcrypto.zip'));
     await readEntryData(zip, 'README.md').catch((err) => {
-      expect(err).to.be.instanceOf(Error);
-      expect(err.message).to.include('Entry encrypted');
+      assert.ok(err instanceof Error);
+      assert.ok(err.message.includes('Entry encrypted'));
     });
     await zip.close();
   });
@@ -246,8 +249,8 @@ describe('zipconduit/stream-zip', function () {
   it('rejects LZMA compression', async function () {
     const zip = openZip(fixture(ERR_DIR, 'lzma.zip'));
     await readEntryData(zip, 'README.md').catch((err) => {
-      expect(err).to.be.instanceOf(Error);
-      expect(err.message).to.include('Unknown compression method: 14');
+      assert.ok(err instanceof Error);
+      assert.ok(err.message.includes('Unknown compression method: 14'));
     });
     await zip.close();
   });
@@ -255,8 +258,8 @@ describe('zipconduit/stream-zip', function () {
   it('rejects non-zip archives', async function () {
     const zip = openZip(fixture(ERR_DIR, 'rar.rar'));
     await zip.entries().catch((err) => {
-      expect(err).to.be.instanceOf(Error);
-      expect(err.message).to.include('Bad archive');
+      assert.ok(err instanceof Error);
+      assert.ok(err.message.includes('Bad archive'));
     });
     await zip.close();
   });
@@ -264,8 +267,8 @@ describe('zipconduit/stream-zip', function () {
   it('reports CRC errors while streaming corrupt entries', async function () {
     const zip = openZip(fixture(ERR_DIR, 'corrupt_entry.zip'));
     await readEntryData(zip, 'doc/api_assets/logo.svg').catch((err) => {
-      expect(err).to.be.instanceOf(Error);
-      expect(err.message).to.include('invalid distance too far back');
+      assert.ok(err instanceof Error);
+      assert.ok(err.message.includes('invalid distance too far back'));
     });
     await zip.close();
   });
@@ -273,8 +276,8 @@ describe('zipconduit/stream-zip', function () {
   it('reports invalid CRC on stream', async function () {
     const zip = openZip(fixture(ERR_DIR, 'bad_crc.zip'));
     await readEntryData(zip, 'doc/api_assets/logo.svg').catch((err) => {
-      expect(err).to.be.instanceOf(Error);
-      expect(err.message).to.include('Invalid CRC');
+      assert.ok(err instanceof Error);
+      assert.ok(err.message.includes('Invalid CRC'));
     });
     await zip.close();
   });
@@ -283,8 +286,8 @@ describe('zipconduit/stream-zip', function () {
     const entryName = '..\\..\\..\\..\\..\\..\\..\\..\\file.txt';
     const zip = openZip(fixture(ERR_DIR, 'evil.zip'));
     await zip.entries().catch((err) => {
-      expect(err).to.be.instanceOf(Error);
-      expect(err.message).to.include(`Malicious entry: ${entryName}`);
+      assert.ok(err instanceof Error);
+      assert.ok(err.message.includes(`Malicious entry: ${entryName}`));
     });
     await zip.close();
 
@@ -292,7 +295,7 @@ describe('zipconduit/stream-zip', function () {
       skipEntryNameValidation: true,
     });
     const entries = await zipLenient.entries();
-    expect(entries[entryName]).to.exist;
+    assert.ok(entries[entryName] !== null && entries[entryName] !== undefined);
     await zipLenient.close();
   });
 
@@ -300,8 +303,8 @@ describe('zipconduit/stream-zip', function () {
     const missingPath = fixture(ERR_DIR, 'doesnotexist.zip');
     const zip = openZip(missingPath);
     await zip.entries().catch((err) => {
-      expect(err).to.be.instanceOf(Error);
-      expect(err.message).to.include(`ENOENT: no such file or directory, open '${missingPath}'`);
+      assert.ok(err instanceof Error);
+      assert.ok(err.message.includes(`ENOENT: no such file or directory, open '${missingPath}'`));
     });
     await zip.close();
   });
@@ -309,8 +312,8 @@ describe('zipconduit/stream-zip', function () {
   it('rejects deflate64 compression', async function () {
     const zip = openZip(fixture(ERR_DIR, 'deflate64.zip'));
     await readEntryData(zip, 'README.md').catch((err) => {
-      expect(err).to.be.instanceOf(Error);
-      expect(err.message).to.include('Unknown compression method: 9');
+      assert.ok(err instanceof Error);
+      assert.ok(err.message.includes('Unknown compression method: 9'));
     });
     await zip.close();
   });
@@ -334,15 +337,15 @@ describe('zipconduit/stream-zip', function () {
     let entryEventCount = 0;
     zip.on('entry', () => entryEventCount++);
     const entries = await zip.entries();
-    expect(Object.keys(entries)).to.have.length(10);
-    expect(entryEventCount).to.equal(10);
+    assert.strictEqual(Object.keys(entries).length, 10);
+    assert.strictEqual(entryEventCount, 10);
     await zip.close();
   });
 
   it('streams README.md contents', async function () {
     const zip = openZip(fixture(OK_DIR, 'normal.zip'));
     const data = await streamToBuffer(await zip.stream('README.md'));
-    expect(data.toString('utf8')).to.include('Evented I/O for V8 javascript');
+    assert.ok(data.toString('utf8').includes('Evented I/O for V8 javascript'));
     await zip.close();
   });
 });

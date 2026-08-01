@@ -1,6 +1,6 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
 
-import {expect} from 'chai';
 import esmock from 'esmock';
 
 const TEST_UDID = 'test-udid';
@@ -78,11 +78,11 @@ async function expectTunnelAvailabilityError(
 ) {
   try {
     await action();
-    expect.fail('Expected action to throw');
+    assert.fail('Expected action to throw');
   } catch (err) {
-    expect(err).to.be.instanceOf(TunnelAvailabilityError);
-    expect((err as Error).message).to.equal(expectedMessage);
-    expect((err as {code?: string}).code).to.equal('ERR_TUNNEL_AVAILABILITY');
+    assert.ok(err instanceof TunnelAvailabilityError);
+    assert.strictEqual((err as Error).message, expectedMessage);
+    assert.strictEqual((err as {code?: string}).code, 'ERR_TUNNEL_AVAILABILITY');
   }
 }
 
@@ -144,7 +144,7 @@ describe('tunnel-availability', function () {
     });
 
     const endpoint = await mod.getTunnelForDevice(TEST_UDID);
-    expect(endpoint).to.deep.equal({
+    assert.deepStrictEqual(endpoint, {
       host: 'fe80::1',
       port: 62078,
       udid: TEST_UDID,

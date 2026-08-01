@@ -1,7 +1,7 @@
+import assert from 'node:assert/strict';
 import {type TestContext, after, before, describe, it} from 'node:test';
 
 import {logger} from '@appium/support';
-import {expect} from 'chai';
 
 import type {WebInspectorService} from '../../src/index.js';
 import * as Services from '../../src/services.js';
@@ -30,10 +30,10 @@ describe('WebInspectorService', {timeout: 60000}, function () {
   });
 
   it('should connect and have valid connection ID', function () {
-    expect(service).to.not.be.null;
+    assert.notStrictEqual(service, null);
     const connectionId = service.getConnectionId();
-    expect(connectionId).to.be.a('string');
-    expect(connectionId.length).to.be.greaterThan(0);
+    assert.ok(typeof connectionId === 'string');
+    assert.ok(connectionId.length > 0);
   });
 
   it('should send messages', async function () {
@@ -55,9 +55,9 @@ describe('WebInspectorService', {timeout: 60000}, function () {
     await service.getConnectedApplications();
     await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    expect(messages.length).to.be.greaterThan(0);
-    expect(messages[0]).to.have.property('__selector');
-    expect(messages[0]).to.have.property('__argument');
+    assert.ok(messages.length > 0);
+    assert.ok('__selector' in messages[0]);
+    assert.ok('__argument' in messages[0]);
 
     await service.stopListeningAsync();
     await listenTask;
@@ -146,7 +146,7 @@ describe('WebInspectorService', {timeout: 60000}, function () {
       await new Promise((resolve) => setTimeout(resolve, 3000));
 
       log.info(messages);
-      expect(messages.length).to.be.greaterThan(0);
+      assert.ok(messages.length > 0);
       await service.stopListeningAsync();
       await listenTask;
     });
@@ -192,7 +192,7 @@ describe('WebInspectorService', {timeout: 60000}, function () {
       }
 
       const targetId = targetEvent.params?.targetInfo?.targetId;
-      expect(targetId).to.be.a('string');
+      assert.ok(typeof targetId === 'string');
 
       // Send CDP command via Target.sendMessageToTarget
       await service.forwardSocketData(sessionId, realAppId, realPageId, {
@@ -213,11 +213,11 @@ describe('WebInspectorService', {timeout: 60000}, function () {
       // Parse nested responses
       const dispatchMessages = cdpResponses.filter((msg) => msg.method === 'Target.dispatchMessageFromTarget');
 
-      expect(dispatchMessages.length).to.be.greaterThan(0);
+      assert.ok(dispatchMessages.length > 0);
 
       const nestedResponse = JSON.parse(dispatchMessages[0].params.message);
-      expect(nestedResponse.result).to.exist;
-      expect(nestedResponse.result.result.value).to.equal(2);
+      assert.ok(nestedResponse.result !== null && nestedResponse.result !== undefined);
+      assert.strictEqual(nestedResponse.result.result.value, 2);
 
       await service.stopListeningAsync();
       await listenTask;
@@ -284,7 +284,7 @@ describe('WebInspectorService', {timeout: 60000}, function () {
     await service.getConnectedApplications();
     await new Promise((resolve) => setTimeout(resolve, 500));
 
-    expect(count).to.equal(firstCount); // No new messages
+    assert.strictEqual(count, firstCount); // No new messages
 
     // Second listening session
     listenTask = (async () => {
@@ -297,7 +297,7 @@ describe('WebInspectorService', {timeout: 60000}, function () {
     await service.getConnectedApplications();
     await new Promise((resolve) => setTimeout(resolve, 500));
 
-    expect(count).to.be.greaterThan(firstCount);
+    assert.ok(count > firstCount);
     await service.stopListeningAsync();
     await listenTask;
   });

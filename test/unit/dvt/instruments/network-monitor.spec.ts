@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {beforeEach, describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import type {NetworkAddress} from '../../../../src/index.js';
 import {NetworkMonitor} from '../../../../src/services/ios/dvt/instruments/network-monitor.js';
@@ -38,12 +37,12 @@ describe('NetworkMonitor', function () {
 
         const result: NetworkAddress = (monitor as any).parseAddress(buffer);
 
-        expect(result.len).to.equal(0x10);
-        expect(result.family).to.equal(2);
-        expect(result.port).to.equal(80);
-        expect(result.address).to.equal('192.168.1.1');
-        expect(result.flowInfo).to.be.undefined;
-        expect(result.scopeId).to.be.undefined;
+        assert.strictEqual(result.len, 0x10);
+        assert.strictEqual(result.family, 2);
+        assert.strictEqual(result.port, 80);
+        assert.strictEqual(result.address, '192.168.1.1');
+        assert.strictEqual(result.flowInfo, undefined);
+        assert.strictEqual(result.scopeId, undefined);
       });
 
       it('should parse IPv4 with port 443', function () {
@@ -68,8 +67,8 @@ describe('NetworkMonitor', function () {
 
         const result: NetworkAddress = (monitor as any).parseAddress(buffer);
 
-        expect(result.port).to.equal(443);
-        expect(result.address).to.equal('10.0.0.1');
+        assert.strictEqual(result.port, 443);
+        assert.strictEqual(result.address, '10.0.0.1');
       });
 
       it('should parse IPv4 localhost', function () {
@@ -94,8 +93,8 @@ describe('NetworkMonitor', function () {
 
         const result: NetworkAddress = (monitor as any).parseAddress(buffer);
 
-        expect(result.address).to.equal('127.0.0.1');
-        expect(result.port).to.equal(8080);
+        assert.strictEqual(result.address, '127.0.0.1');
+        assert.strictEqual(result.port, 8080);
       });
 
       it('should parse IPv4 with port 0', function () {
@@ -120,8 +119,8 @@ describe('NetworkMonitor', function () {
 
         const result: NetworkAddress = (monitor as any).parseAddress(buffer);
 
-        expect(result.address).to.equal('0.0.0.0');
-        expect(result.port).to.equal(0);
+        assert.strictEqual(result.address, '0.0.0.0');
+        assert.strictEqual(result.port, 0);
       });
     });
 
@@ -162,12 +161,12 @@ describe('NetworkMonitor', function () {
 
         const result: NetworkAddress = (monitor as any).parseAddress(buffer);
 
-        expect(result.len).to.equal(0x1c);
-        expect(result.family).to.equal(30);
-        expect(result.port).to.equal(8080);
-        expect(result.address).to.equal('2001:db8:0:0:0:0:0:1');
-        expect(result.flowInfo).to.equal(0);
-        expect(result.scopeId).to.equal(0);
+        assert.strictEqual(result.len, 0x1c);
+        assert.strictEqual(result.family, 30);
+        assert.strictEqual(result.port, 8080);
+        assert.strictEqual(result.address, '2001:db8:0:0:0:0:0:1');
+        assert.strictEqual(result.flowInfo, 0);
+        assert.strictEqual(result.scopeId, 0);
       });
 
       it('should parse IPv6 localhost', function () {
@@ -205,8 +204,8 @@ describe('NetworkMonitor', function () {
 
         const result: NetworkAddress = (monitor as any).parseAddress(buffer);
 
-        expect(result.address).to.equal('0:0:0:0:0:0:0:1');
-        expect(result.port).to.equal(80);
+        assert.strictEqual(result.address, '0:0:0:0:0:0:0:1');
+        assert.strictEqual(result.port, 80);
       });
 
       it('should parse IPv6 with non-zero flow info and scope ID', function () {
@@ -243,11 +242,11 @@ describe('NetworkMonitor', function () {
 
         const result: NetworkAddress = (monitor as any).parseAddress(buffer);
 
-        expect(result.family).to.equal(30);
-        expect(result.port).to.equal(8080);
-        expect(result.address).to.equal('fe80:0:0:0:215:5dff:fe12:3456');
-        expect(result.flowInfo).to.equal(0x04030201);
-        expect(result.scopeId).to.equal(5);
+        assert.strictEqual(result.family, 30);
+        assert.strictEqual(result.port, 8080);
+        assert.strictEqual(result.address, 'fe80:0:0:0:215:5dff:fe12:3456');
+        assert.strictEqual(result.flowInfo, 0x04030201);
+        assert.strictEqual(result.scopeId, 5);
       });
     });
 
@@ -274,8 +273,8 @@ describe('NetworkMonitor', function () {
 
         const result: NetworkAddress = (monitor as any).parseAddress(uint8Array);
 
-        expect(result.address).to.equal('192.168.1.1');
-        expect(result.port).to.equal(80);
+        assert.strictEqual(result.address, '192.168.1.1');
+        assert.strictEqual(result.port, 80);
       });
 
       it('should handle high port numbers', function () {
@@ -301,7 +300,7 @@ describe('NetworkMonitor', function () {
 
         const result: NetworkAddress = (monitor as any).parseAddress(buffer);
 
-        expect(result.port).to.equal(65535);
+        assert.strictEqual(result.port, 65535);
       });
 
       it('should format IPv6 addresses with hex values', function () {
@@ -339,7 +338,7 @@ describe('NetworkMonitor', function () {
 
         const result: NetworkAddress = (monitor as any).parseAddress(buffer);
 
-        expect(result.address).to.equal('abcd:1234:5678:9abc:def0:1122:3344:5566');
+        assert.strictEqual(result.address, 'abcd:1234:5678:9abc:def0:1122:3344:5566');
       });
     });
   });

@@ -1,6 +1,6 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
 
-import {expect} from 'chai';
 import esmock from 'esmock';
 import * as sinon from 'sinon';
 
@@ -85,8 +85,8 @@ describe('start*Service — registry catalog resolution', function () {
 
       const afc = await services.startAfcService(TEST_UDID);
 
-      expect(afc).to.exist;
-      expect(resolveTunnelService.calledOnceWith(TEST_UDID, 'com.apple.afc.shim.remote', WAIT_OPTS)).to.equal(true);
+      assert.ok(afc !== null && afc !== undefined);
+      assert.strictEqual(resolveTunnelService.calledOnceWith(TEST_UDID, 'com.apple.afc.shim.remote', WAIT_OPTS), true);
     });
 
     it('propagates resolver errors', async function () {
@@ -103,7 +103,7 @@ describe('start*Service — registry catalog resolution', function () {
         caught = err as Error;
       }
 
-      expect(caught?.message).to.equal('catalog missing service');
+      assert.strictEqual(caught?.message, 'catalog missing service');
     });
   });
 
@@ -116,10 +116,11 @@ describe('start*Service — registry catalog resolution', function () {
         serviceDescriptor: {serviceName: string; port: string};
       };
 
-      expect(
+      assert.strictEqual(
         resolveTunnelService.calledOnceWith(TEST_UDID, 'com.apple.os_trace_relay.shim.remote', WAIT_OPTS),
-      ).to.equal(true);
-      expect(serviceDescriptor).to.deep.equal({
+        true,
+      );
+      assert.deepStrictEqual(serviceDescriptor, {
         serviceName: 'com.apple.os_trace_relay.shim.remote',
         port: String(TEST_PORT),
       });
@@ -136,7 +137,7 @@ describe('start*Service — registry catalog resolution', function () {
       it(`${fn} resolves ${serviceName} from the catalog`, async function () {
         const {services, resolveTunnelService} = await loadServicesWithStubs();
         await services[fn](TEST_UDID);
-        expect(resolveTunnelService.calledOnceWith(TEST_UDID, serviceName, WAIT_OPTS)).to.equal(true);
+        assert.strictEqual(resolveTunnelService.calledOnceWith(TEST_UDID, serviceName, WAIT_OPTS), true);
       });
     }
 
@@ -145,7 +146,7 @@ describe('start*Service — registry catalog resolution', function () {
 
       await services.startCrashReportsService(TEST_UDID);
 
-      expect(resolveTunnelServicePorts.callCount).to.equal(1);
+      assert.strictEqual(resolveTunnelServicePorts.callCount, 1);
       sinon.assert.calledWith(
         resolveTunnelServicePorts.firstCall,
         TEST_UDID,

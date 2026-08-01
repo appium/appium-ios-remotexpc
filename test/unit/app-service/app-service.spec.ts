@@ -1,8 +1,7 @@
+import assert from 'node:assert/strict';
 import {EventEmitter} from 'node:events';
 import {constants as osConstants} from 'node:os';
 import {describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {CoreDeviceError} from '../../../src/index.js';
 import {decodeMessage} from '../../../src/lib/remote-xpc/xpc-protocol.js';
@@ -70,18 +69,18 @@ describe('AppService', function () {
       await service.listApps();
 
       const sent = fake.sentBodies[0];
-      expect(sent['CoreDevice.CoreDeviceDDIProtocolVersion']).to.equal(2);
-      expect(sent['CoreDevice.coreDeviceVersion']).to.deep.equal({
+      assert.strictEqual(sent['CoreDevice.CoreDeviceDDIProtocolVersion'], 2);
+      assert.deepStrictEqual(sent['CoreDevice.coreDeviceVersion'], {
         components: [629, 3],
         originalComponentsCount: 2,
         stringValue: '629.3',
       });
-      expect(sent['CoreDevice.featureIdentifier']).to.equal('com.apple.coredevice.feature.listapps');
-      expect(sent['CoreDevice.action']).to.deep.equal({});
-      expect(sent['CoreDevice.deviceIdentifier']).to.be.a('string');
-      expect(sent['CoreDevice.invocationIdentifier']).to.be.a('string');
+      assert.strictEqual(sent['CoreDevice.featureIdentifier'], 'com.apple.coredevice.feature.listapps');
+      assert.deepStrictEqual(sent['CoreDevice.action'], {});
+      assert.ok(typeof sent['CoreDevice.deviceIdentifier'] === 'string');
+      assert.ok(typeof sent['CoreDevice.invocationIdentifier'] === 'string');
       // Each invocation gets a fresh identifier.
-      expect(sent['CoreDevice.deviceIdentifier']).to.not.equal(sent['CoreDevice.invocationIdentifier']);
+      assert.notStrictEqual(sent['CoreDevice.deviceIdentifier'], sent['CoreDevice.invocationIdentifier']);
     });
   });
 
@@ -95,7 +94,7 @@ describe('AppService', function () {
 
       const result = await service.listApps();
 
-      expect(input(fake.sentBodies[0])).to.deep.equal({
+      assert.deepStrictEqual(input(fake.sentBodies[0]), {
         includeAppClips: true,
         includeRemovableApps: true,
         includeHiddenApps: true,
@@ -105,7 +104,7 @@ describe('AppService', function () {
         includeAppGroupIdentifiers: false,
         includeContainerPaths: false,
       });
-      expect(result).to.deep.equal(apps);
+      assert.deepStrictEqual(result, apps);
     });
 
     it('honors explicit include options', async function () {
@@ -114,8 +113,8 @@ describe('AppService', function () {
 
       await service.listApps({includeHiddenApps: false});
 
-      expect(input(fake.sentBodies[0]).includeHiddenApps).to.equal(false);
-      expect(input(fake.sentBodies[0]).includeAppClips).to.equal(true);
+      assert.strictEqual(input(fake.sentBodies[0]).includeHiddenApps, false);
+      assert.strictEqual(input(fake.sentBodies[0]).includeAppClips, true);
     });
 
     it('forwards the iOS 26 container/metadata flags', async function () {
@@ -129,9 +128,9 @@ describe('AppService', function () {
       });
 
       const sent = input(fake.sentBodies[0]);
-      expect(sent.requireContainerAccess).to.equal(true);
-      expect(sent.includeAppGroupIdentifiers).to.equal(true);
-      expect(sent.includeContainerPaths).to.equal(true);
+      assert.strictEqual(sent.requireContainerAccess, true);
+      assert.strictEqual(sent.includeAppGroupIdentifiers, true);
+      assert.strictEqual(sent.includeContainerPaths, true);
     });
   });
 
@@ -146,21 +145,21 @@ describe('AppService', function () {
       });
 
       const sentInput = input(fake.sentBodies[0]);
-      expect(sentInput.applicationSpecifier).to.deep.equal({
+      assert.deepStrictEqual(sentInput.applicationSpecifier, {
         bundleIdentifier: {_0: 'com.apple.Preferences'},
       });
       const opts = sentInput.options as XPCDictionary;
-      expect(opts.arguments).to.deep.equal(['--foo']);
-      expect(opts.environmentVariables).to.deep.equal({A: 'B'});
-      expect(opts.terminateExisting).to.equal(true);
-      expect(opts.startStopped).to.equal(false);
-      expect(opts.user).to.deep.equal({shortName: 'mobile'});
+      assert.deepStrictEqual(opts.arguments, ['--foo']);
+      assert.deepStrictEqual(opts.environmentVariables, {A: 'B'});
+      assert.strictEqual(opts.terminateExisting, true);
+      assert.strictEqual(opts.startStopped, false);
+      assert.deepStrictEqual(opts.user, {shortName: 'mobile'});
       // platformSpecificOptions is a serialized plist (XPC data -> Buffer).
-      expect(Buffer.isBuffer(opts.platformSpecificOptions)).to.equal(true);
-      expect((opts.platformSpecificOptions as Buffer).toString('utf8')).to.contain('plist');
+      assert.strictEqual(Buffer.isBuffer(opts.platformSpecificOptions), true);
+      assert.ok((opts.platformSpecificOptions as Buffer).toString('utf8').includes('plist'));
 
-      expect(launched.processIdentifier).to.equal(99);
-      expect(launched.processToken).to.deep.equal({processIdentifier: 99});
+      assert.strictEqual(launched.processIdentifier, 99);
+      assert.deepStrictEqual(launched.processToken, {processIdentifier: 99});
     });
 
     it('defaults arguments/environment and allows disabling terminateExisting', async function () {
@@ -170,9 +169,9 @@ describe('AppService', function () {
       await service.launchApplication('com.x', {terminateExisting: false});
 
       const opts = input(fake.sentBodies[0]).options as XPCDictionary;
-      expect(opts.arguments).to.deep.equal([]);
-      expect(opts.environmentVariables).to.deep.equal({});
-      expect(opts.terminateExisting).to.equal(false);
+      assert.deepStrictEqual(opts.arguments, []);
+      assert.deepStrictEqual(opts.environmentVariables, {});
+      assert.strictEqual(opts.terminateExisting, false);
     });
   });
 
@@ -184,8 +183,8 @@ describe('AppService', function () {
 
       const result = await service.listProcesses();
 
-      expect(feature(fake.sentBodies[0])).to.equal('com.apple.coredevice.feature.listprocesses');
-      expect(result).to.deep.equal(tokens);
+      assert.strictEqual(feature(fake.sentBodies[0]), 'com.apple.coredevice.feature.listprocesses');
+      assert.deepStrictEqual(result, tokens);
     });
   });
 
@@ -196,8 +195,8 @@ describe('AppService', function () {
 
       await service.sendSignalToProcess(123, osConstants.signals.SIGKILL);
 
-      expect(feature(fake.sentBodies[0])).to.equal('com.apple.coredevice.feature.sendsignaltoprocess');
-      expect(input(fake.sentBodies[0])).to.deep.equal({
+      assert.strictEqual(feature(fake.sentBodies[0]), 'com.apple.coredevice.feature.sendsignaltoprocess');
+      assert.deepStrictEqual(input(fake.sentBodies[0]), {
         process: {processIdentifier: 123},
         signal: osConstants.signals.SIGKILL,
       });
@@ -211,8 +210,8 @@ describe('AppService', function () {
 
       await service.uninstallApp('com.apple.Preferences');
 
-      expect(feature(fake.sentBodies[0])).to.equal('com.apple.coredevice.feature.uninstallapp');
-      expect(input(fake.sentBodies[0])).to.deep.equal({
+      assert.strictEqual(feature(fake.sentBodies[0]), 'com.apple.coredevice.feature.uninstallapp');
+      assert.deepStrictEqual(input(fake.sentBodies[0]), {
         bundleIdentifier: 'com.apple.Preferences',
       });
     });
@@ -229,7 +228,7 @@ describe('AppService', function () {
       } catch (error) {
         caught = error;
       }
-      expect(caught).to.be.instanceOf(CoreDeviceError);
+      assert.ok(caught instanceof CoreDeviceError);
     });
 
     it('surfaces the device NSError reason in the message', async function () {
@@ -251,11 +250,11 @@ describe('AppService', function () {
       } catch (error) {
         caught = error;
       }
-      expect(caught).to.be.instanceOf(CoreDeviceError);
+      assert.ok(caught instanceof CoreDeviceError);
       const message = (caught as Error).message;
-      expect(message).to.contain('is not installed');
-      expect(message).to.contain('com.apple.dt.CoreDeviceError');
-      expect(message).to.contain('10002');
+      assert.ok(message.includes('is not installed'));
+      assert.ok(message.includes('com.apple.dt.CoreDeviceError'));
+      assert.ok(message.includes('10002'));
     });
 
     it('times out when no reply arrives', async function () {
@@ -268,8 +267,8 @@ describe('AppService', function () {
       } catch (error) {
         caught = error;
       }
-      expect(caught).to.be.instanceOf(CoreDeviceError);
-      expect((caught as Error).message).to.contain('timed out');
+      assert.ok(caught instanceof CoreDeviceError);
+      assert.ok((caught as Error).message.includes('timed out'));
     });
   });
 
@@ -285,9 +284,9 @@ describe('AppService', function () {
 
       const [apps, procs] = await Promise.all([service.listApps(), service.listProcesses()]);
 
-      expect(apps).to.deep.equal([{bundleIdentifier: 'a'}]);
-      expect(procs).to.deep.equal([{processIdentifier: 7}]);
-      expect(fake.sentBodies).to.have.length(2);
+      assert.deepStrictEqual(apps, [{bundleIdentifier: 'a'}]);
+      assert.deepStrictEqual(procs, [{processIdentifier: 7}]);
+      assert.strictEqual(fake.sentBodies.length, 2);
     });
   });
 
@@ -299,7 +298,7 @@ describe('AppService', function () {
       await service.listApps();
       await service.close();
 
-      expect(fake.closeCalls).to.equal(1);
+      assert.strictEqual(fake.closeCalls, 1);
     });
   });
 });

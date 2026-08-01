@@ -1,10 +1,10 @@
+import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {after, afterEach, before, describe, it} from 'node:test';
 
 import {logger} from '@appium/support';
-import {expect} from 'chai';
 
 import type {HouseArrestService} from '../../src/index.js';
 import * as Services from '../../src/services.js';
@@ -46,15 +46,15 @@ describe('House Arrest Service', {timeout: 60000}, function () {
 
     it('should successfully vend into application container', async function () {
       afcService = await houseArrestService.vendContainer(bundleId);
-      expect(afcService).to.be.instanceOf(AfcService);
+      assert.ok(afcService instanceof AfcService);
     });
 
     it('should list directories in the application container', async function () {
       afcService = await houseArrestService.vendContainer(bundleId);
 
       const entries = await afcService.listdir('/');
-      expect(entries).to.be.an('array');
-      expect(entries).to.include.members(['Documents', 'Library']);
+      assert.ok(Array.isArray(entries));
+      assert.ok(['Documents', 'Library'].every((__item) => entries.includes(__item)));
     });
 
     it('should pull a file from Documents directory', async function () {
@@ -70,7 +70,7 @@ describe('House Arrest Service', {timeout: 60000}, function () {
       await afcService.pull(remotePath, localPath);
 
       const localData = await fs.readFile(localPath);
-      expect(Buffer.compare(localData, testData)).to.equal(0);
+      assert.strictEqual(Buffer.compare(localData, testData), 0);
 
       await afcService.rm(remotePath);
       await fs.unlink(localPath).catch(() => {});
@@ -89,13 +89,13 @@ describe('House Arrest Service', {timeout: 60000}, function () {
       await afcService.push(localPath, remotePath);
 
       const remoteData = await afcService.getFileContents(remotePath);
-      expect(Buffer.compare(remoteData, testData)).to.equal(0);
+      assert.strictEqual(Buffer.compare(remoteData, testData), 0);
 
       await afcService.rm(remotePath);
 
       // verify file removal from device
       const exists = await afcService.exists(remotePath);
-      expect(exists).to.be.false;
+      assert.strictEqual(exists, false);
 
       await fs.unlink(localPath);
     });
@@ -106,9 +106,9 @@ describe('House Arrest Service', {timeout: 60000}, function () {
       try {
         const invalidAfcService = await houseArrestService.vendContainer(invalidBundleId);
         invalidAfcService.close();
-        expect.fail('Should have thrown error for non-existent bundle ID');
+        assert.fail('Should have thrown error for non-existent bundle ID');
       } catch (error) {
-        expect((error as Error).message).to.include('Application not installed');
+        assert.ok((error as Error).message.includes('Application not installed'));
       }
     });
   });
@@ -133,21 +133,21 @@ describe('House Arrest Service', {timeout: 60000}, function () {
       const localPath = path.join(os.tmpdir(), testFileName);
 
       afcService = await houseArrestService.vendDocuments(adobeReader);
-      expect(afcService).to.be.instanceOf(AfcService);
+      assert.ok(afcService instanceof AfcService);
 
       // when adobe reader is installed and initial setup is done, there should be a Welcome.pdf file in the Documents directory
       const entries = await afcService.listdir('/Documents');
-      expect(entries).to.be.an('array');
+      assert.ok(Array.isArray(entries));
 
       await afcService.setFileContents(remotePath, testData);
 
       await afcService.pull(remotePath, localPath);
       const pulledData = await fs.readFile(localPath);
-      expect(Buffer.compare(pulledData, testData)).to.equal(0);
+      assert.strictEqual(Buffer.compare(pulledData, testData), 0);
 
       await afcService.rm(remotePath);
       const exists = await afcService.exists(remotePath);
-      expect(exists).to.be.false;
+      assert.strictEqual(exists, false);
 
       await fs.unlink(localPath);
     });

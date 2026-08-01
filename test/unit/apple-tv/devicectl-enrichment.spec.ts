@@ -1,6 +1,6 @@
+import assert from 'node:assert/strict';
 import {afterEach, beforeEach, describe, it} from 'node:test';
 
-import {expect} from 'chai';
 import esmock from 'esmock';
 
 import type {DevicectlDeviceRecord} from '../../../src/lib/discovery/devicectl-device-records.js';
@@ -61,12 +61,12 @@ describe('devicectl-enrichment', function () {
     const enrichDiscoveredDevicesWithDevicectl = await loadEnricher(records);
     const enriched = await enrichDiscoveredDevicesWithDevicectl(devices);
 
-    expect(enriched).to.have.lengthOf(1);
-    expect(enriched[0].metadata.identifier).to.equal('udid-123');
-    expect(enriched[0].metadata.identifierSource).to.equal('devicectl');
-    expect(enriched[0].metadata.model).to.equal('AppleTV6,2');
-    expect(enriched[0].metadata.version).to.equal('17.4');
-    expect(enriched[0].metadata.deviceType).to.equal('tv');
+    assert.strictEqual(enriched.length, 1);
+    assert.strictEqual(enriched[0].metadata.identifier, 'udid-123');
+    assert.strictEqual(enriched[0].metadata.identifierSource, 'devicectl');
+    assert.strictEqual(enriched[0].metadata.model, 'AppleTV6,2');
+    assert.strictEqual(enriched[0].metadata.version, '17.4');
+    assert.strictEqual(enriched[0].metadata.deviceType, 'tv');
   });
 
   it('keeps device unchanged when hostnames do not match', async function () {
@@ -95,6 +95,6 @@ describe('devicectl-enrichment', function () {
     const enrichDiscoveredDevicesWithDevicectl = await loadEnricher(records);
     const enriched = await enrichDiscoveredDevicesWithDevicectl(devices);
 
-    expect(enriched).to.deep.equal(devices);
+    assert.deepStrictEqual(enriched, devices);
   });
 });

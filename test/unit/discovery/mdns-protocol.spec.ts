@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {
   QTYPE_PTR,
@@ -20,14 +19,14 @@ describe('mdns-protocol', function () {
       const fqdn = '_remotepairing._tcp.local.';
       const encoded = encodeName(fqdn);
       const {name} = decodeName(encoded, 0);
-      expect(name).to.equal(fqdn);
+      assert.strictEqual(name, fqdn);
     });
 
     it('round-trips Apple long service type names', function () {
       const fqdn = '_remotepairing-manual-pairing._tcp.local.';
       const encoded = encodeName(fqdn);
       const {name} = decodeName(encoded, 0);
-      expect(name).to.equal(fqdn);
+      assert.strictEqual(name, fqdn);
     });
 
     it('reports which label exceeds the 63-octet limit', function () {
@@ -38,17 +37,18 @@ describe('mdns-protocol', function () {
       } catch (err) {
         message = err instanceof Error ? err.message : String(err);
       }
-      expect(message).to.match(/^DNS label "/);
-      expect(message).to.include('…');
-      expect(message).to.include('65 octets in UTF-8');
-      expect(message).to.include('at most 63 octets');
+      assert.match(message, /^DNS label "/);
+      assert.ok(message.includes('…'));
+      assert.ok(message.includes('65 octets in UTF-8'));
+      assert.ok(message.includes('at most 63 octets'));
     });
   });
 
   describe('buildServiceTypeFqdn', function () {
     it('builds a trailing-dot FQDN from type and domain', function () {
-      expect(buildServiceTypeFqdn('_remotepairing._tcp', 'local')).to.equal('_remotepairing._tcp.local.');
-      expect(buildServiceTypeFqdn('_remotepairing-manual-pairing._tcp', 'local')).to.equal(
+      assert.strictEqual(buildServiceTypeFqdn('_remotepairing._tcp', 'local'), '_remotepairing._tcp.local.');
+      assert.strictEqual(
+        buildServiceTypeFqdn('_remotepairing-manual-pairing._tcp', 'local'),
         '_remotepairing-manual-pairing._tcp.local.',
       );
     });
@@ -57,17 +57,17 @@ describe('mdns-protocol', function () {
   describe('decodeDnsSdInstanceName', function () {
     it('decodes decimal-escaped spaces', function () {
       const wireName = `Living${String.fromCharCode(92)}032Room`;
-      expect(decodeDnsSdInstanceName(wireName)).to.equal('Living Room');
+      assert.strictEqual(decodeDnsSdInstanceName(wireName), 'Living Room');
     });
   });
 
   describe('buildQuery', function () {
     it('encodes a PTR question for the service type', function () {
       const query = buildQuery('_remotepairing._tcp.local.', QTYPE_PTR);
-      expect(query.readUInt16BE(4)).to.equal(1);
+      assert.strictEqual(query.readUInt16BE(4), 1);
       const {name, offset} = decodeName(query, 12);
-      expect(name).to.equal('_remotepairing._tcp.local.');
-      expect(query.readUInt16BE(offset)).to.equal(QTYPE_PTR);
+      assert.strictEqual(name, '_remotepairing._tcp.local.');
+      assert.strictEqual(query.readUInt16BE(offset), QTYPE_PTR);
     });
   });
 
@@ -120,11 +120,11 @@ describe('mdns-protocol', function () {
       const packet = Buffer.concat([header, ptrRR, srvRR, txtRR]);
       const records = parseMdnsMessage(packet);
 
-      expect(records).to.have.length(3);
-      expect(records[0]?.ptrdname).to.equal(instance);
-      expect(records[1]?.port).to.equal(49152);
-      expect(records[1]?.target).to.equal(target);
-      expect(records[2]?.txt).to.deep.equal({identifier: 'tv1'});
+      assert.strictEqual(records.length, 3);
+      assert.strictEqual(records[0]?.ptrdname, instance);
+      assert.strictEqual(records[1]?.port, 49152);
+      assert.strictEqual(records[1]?.target, target);
+      assert.deepStrictEqual(records[2]?.txt, {identifier: 'tv1'});
     });
   });
 });

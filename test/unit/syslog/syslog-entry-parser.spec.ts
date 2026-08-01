@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {
   type SyslogEntry,
@@ -109,17 +108,17 @@ function createProtocolFrame(entryData: Buffer): Buffer {
 describe('syslog-entry-parser', function () {
   describe('getLogLevelName', function () {
     it('should return correct name for known log levels', function () {
-      expect(getLogLevelName(SyslogLogLevel.Notice)).to.equal('NOTICE');
-      expect(getLogLevelName(SyslogLogLevel.Info)).to.equal('INFO');
-      expect(getLogLevelName(SyslogLogLevel.Debug)).to.equal('DEBUG');
-      expect(getLogLevelName(SyslogLogLevel.UserAction)).to.equal('USER_ACTION');
-      expect(getLogLevelName(SyslogLogLevel.Error)).to.equal('ERROR');
-      expect(getLogLevelName(SyslogLogLevel.Fault)).to.equal('FAULT');
+      assert.strictEqual(getLogLevelName(SyslogLogLevel.Notice), 'NOTICE');
+      assert.strictEqual(getLogLevelName(SyslogLogLevel.Info), 'INFO');
+      assert.strictEqual(getLogLevelName(SyslogLogLevel.Debug), 'DEBUG');
+      assert.strictEqual(getLogLevelName(SyslogLogLevel.UserAction), 'USER_ACTION');
+      assert.strictEqual(getLogLevelName(SyslogLogLevel.Error), 'ERROR');
+      assert.strictEqual(getLogLevelName(SyslogLogLevel.Fault), 'FAULT');
     });
 
     it('should return UNKNOWN with hex value for unknown log levels', function () {
-      expect(getLogLevelName(0xff)).to.equal('UNKNOWN(0xff)');
-      expect(getLogLevelName(0x20)).to.equal('UNKNOWN(0x20)');
+      assert.strictEqual(getLogLevelName(0xff), 'UNKNOWN(0xff)');
+      assert.strictEqual(getLogLevelName(0x20), 'UNKNOWN(0x20)');
     });
   });
 
@@ -140,20 +139,20 @@ describe('syslog-entry-parser', function () {
 
       const entry = parseSyslogEntry(entryData);
 
-      expect(entry.pid).to.equal(5678);
-      expect(entry.timestampSeconds).to.equal(1700000000);
-      expect(entry.timestampMicroseconds).to.equal(123456);
-      expect(entry.level).to.equal(SyslogLogLevel.Debug);
-      expect(entry.levelName).to.equal('DEBUG');
-      expect(entry.filename).to.equal('/usr/bin/testapp');
-      expect(entry.imageName).to.equal('TestApp');
-      expect(entry.message).to.equal('Hello World');
-      expect(entry.imageOffset).to.equal(0x2000);
-      expect(entry.label).to.deep.equal({
+      assert.strictEqual(entry.pid, 5678);
+      assert.strictEqual(entry.timestampSeconds, 1700000000);
+      assert.strictEqual(entry.timestampMicroseconds, 123456);
+      assert.strictEqual(entry.level, SyslogLogLevel.Debug);
+      assert.strictEqual(entry.levelName, 'DEBUG');
+      assert.strictEqual(entry.filename, '/usr/bin/testapp');
+      assert.strictEqual(entry.imageName, 'TestApp');
+      assert.strictEqual(entry.message, 'Hello World');
+      assert.strictEqual(entry.imageOffset, 0x2000);
+      assert.deepStrictEqual(entry.label, {
         subsystem: 'com.example.test',
         category: 'networking',
       });
-      expect(entry.timestamp).to.be.instanceOf(Date);
+      assert.ok(entry.timestamp instanceof Date);
     });
 
     it('should parse an entry without label', function () {
@@ -163,8 +162,8 @@ describe('syslog-entry-parser', function () {
 
       const entry = parseSyslogEntry(entryData);
 
-      expect(entry.message).to.equal('Message without label');
-      expect(entry.label).to.be.undefined;
+      assert.strictEqual(entry.message, 'Message without label');
+      assert.strictEqual(entry.label, undefined);
     });
 
     it('should parse an entry with empty strings', function () {
@@ -175,8 +174,8 @@ describe('syslog-entry-parser', function () {
 
       const entry = parseSyslogEntry(entryData);
 
-      expect(entry.imageName).to.equal('');
-      expect(entry.message).to.equal('');
+      assert.strictEqual(entry.imageName, '');
+      assert.strictEqual(entry.message, '');
     });
 
     it('should handle different log levels', function () {
@@ -190,19 +189,25 @@ describe('syslog-entry-parser', function () {
       ]) {
         const entryData = createSyslogEntryBuffer({level});
         const entry = parseSyslogEntry(entryData);
-        expect(entry.level).to.equal(level);
+        assert.strictEqual(entry.level, level);
       }
     });
 
     it('should throw error for entry data that is too short', function () {
       const tooShort = Buffer.alloc(100);
-      expect(() => parseSyslogEntry(tooShort)).to.throw('Entry data too short');
+      assert.throws(
+        () => parseSyslogEntry(tooShort),
+        (err: any) => err.message.includes('Entry data too short'),
+      );
     });
 
     it('should throw error when filename null terminator is missing', function () {
       const buffer = Buffer.alloc(200);
       buffer.fill(0xff, 129); // Fill with non-null bytes
-      expect(() => parseSyslogEntry(buffer)).to.throw('Could not find null terminator for filename');
+      assert.throws(
+        () => parseSyslogEntry(buffer),
+        (err: any) => err.message.includes('Could not find null terminator for filename'),
+      );
     });
 
     it('should correctly calculate timestamp from seconds and microseconds', function () {
@@ -216,7 +221,7 @@ describe('syslog-entry-parser', function () {
       const entry = parseSyslogEntry(entryData);
 
       const expectedMs = seconds * 1000 + microseconds / 1000;
-      expect(entry.timestamp.getTime()).to.equal(expectedMs);
+      assert.strictEqual(entry.timestamp.getTime(), expectedMs);
     });
   });
 
@@ -241,12 +246,12 @@ describe('syslog-entry-parser', function () {
 
       const formatted = formatSyslogEntry(entry);
 
-      expect(formatted).to.include('myapp');
-      expect(formatted).to.include('MyApp');
-      expect(formatted).to.include('[1234]');
-      expect(formatted).to.include('<INFO>');
-      expect(formatted).to.include('Test message');
-      expect(formatted).to.include('[com.example.app][network]');
+      assert.ok(formatted.includes('myapp'));
+      assert.ok(formatted.includes('MyApp'));
+      assert.ok(formatted.includes('[1234]'));
+      assert.ok(formatted.includes('<INFO>'));
+      assert.ok(formatted.includes('Test message'));
+      assert.ok(formatted.includes('[com.example.app][network]'));
     });
 
     it('should format entry without label', function () {
@@ -265,10 +270,10 @@ describe('syslog-entry-parser', function () {
 
       const formatted = formatSyslogEntry(entry);
 
-      expect(formatted).to.include('myapp');
-      expect(formatted).to.include('ERROR');
-      expect(formatted).to.include('Error occurred');
-      expect(formatted).not.to.include('[][]');
+      assert.ok(formatted.includes('myapp'));
+      assert.ok(formatted.includes('ERROR'));
+      assert.ok(formatted.includes('Error occurred'));
+      assert.ok(!formatted.includes('[][]'));
     });
 
     it('should extract basename from paths', function () {
@@ -287,10 +292,10 @@ describe('syslog-entry-parser', function () {
 
       const formatted = formatSyslogEntry(entry);
 
-      expect(formatted).to.include('MyApp');
-      expect(formatted).to.include('Foundation');
-      expect(formatted).not.to.include('/System/Library');
-      expect(formatted).not.to.include('/Applications');
+      assert.ok(formatted.includes('MyApp'));
+      assert.ok(formatted.includes('Foundation'));
+      assert.ok(!formatted.includes('/System/Library'));
+      assert.ok(!formatted.includes('/Applications'));
     });
   });
 
@@ -312,12 +317,12 @@ describe('syslog-entry-parser', function () {
       const formatted = formatSyslogEntryColored(entry);
 
       // Check for ANSI escape sequences
-      expect(formatted).to.match(new RegExp(`${ESC}\\[\\d+m`));
+      assert.match(formatted, new RegExp(`${ESC}\\[\\d+m`));
       // Check for reset code
-      expect(formatted).to.include(`${ESC}[0m`);
+      assert.ok(formatted.includes(`${ESC}[0m`));
       // Should still contain the content
-      expect(formatted).to.include('ERROR');
-      expect(formatted).to.include('Error message');
+      assert.ok(formatted.includes('ERROR'));
+      assert.ok(formatted.includes('Error message'));
     });
 
     it('should format entry with label using colors', function () {
@@ -340,8 +345,8 @@ describe('syslog-entry-parser', function () {
 
       const formatted = formatSyslogEntryColored(entry);
 
-      expect(formatted).to.include('[com.test][ui]');
-      expect(formatted).to.match(new RegExp(`${ESC}\\[\\d+m`));
+      assert.ok(formatted.includes('[com.test][ui]'));
+      assert.match(formatted, new RegExp(`${ESC}\\[\\d+m`));
     });
   });
 
@@ -361,9 +366,9 @@ describe('syslog-entry-parser', function () {
 
       parser.addData(frame);
 
-      expect(entries).to.have.lengthOf(1);
-      expect(entries[0]?.message).to.equal('Single entry test');
-      expect(errors).to.have.lengthOf(0);
+      assert.strictEqual(entries.length, 1);
+      assert.strictEqual(entries[0]?.message, 'Single entry test');
+      assert.strictEqual(errors.length, 0);
     });
 
     it('should handle fragmented data across multiple chunks', function () {
@@ -381,14 +386,14 @@ describe('syslog-entry-parser', function () {
       const chunk3 = frame.subarray(100);
 
       parser.addData(chunk1);
-      expect(entries).to.have.lengthOf(0); // Not complete yet
+      assert.strictEqual(entries.length, 0); // Not complete yet
 
       parser.addData(chunk2);
-      expect(entries).to.have.lengthOf(0); // Still not complete
+      assert.strictEqual(entries.length, 0); // Still not complete
 
       parser.addData(chunk3);
-      expect(entries).to.have.lengthOf(1); // Now complete
-      expect(entries[0]?.message).to.equal('Fragmented entry');
+      assert.strictEqual(entries.length, 1); // Now complete
+      assert.strictEqual(entries[0]?.message, 'Fragmented entry');
     });
 
     it('should parse multiple entries in a single chunk', function () {
@@ -407,10 +412,10 @@ describe('syslog-entry-parser', function () {
 
       parser.addData(frame);
 
-      expect(entries).to.have.lengthOf(3);
-      expect(entries[0]?.message).to.equal('First');
-      expect(entries[1]?.message).to.equal('Second');
-      expect(entries[2]?.message).to.equal('Third');
+      assert.strictEqual(entries.length, 3);
+      assert.strictEqual(entries[0]?.message, 'First');
+      assert.strictEqual(entries[1]?.message, 'Second');
+      assert.strictEqual(entries[2]?.message, 'Third');
     });
 
     it('should skip garbage data before the marker', function () {
@@ -425,8 +430,8 @@ describe('syslog-entry-parser', function () {
 
       parser.addData(dataWithGarbage);
 
-      expect(entries).to.have.lengthOf(1);
-      expect(entries[0]?.message).to.equal('Valid entry');
+      assert.strictEqual(entries.length, 1);
+      assert.strictEqual(entries[0]?.message, 'Valid entry');
     });
 
     it('should handle false markers with invalid lengths', function () {
@@ -445,8 +450,8 @@ describe('syslog-entry-parser', function () {
 
       parser.addData(combined);
 
-      expect(entries).to.have.lengthOf(1);
-      expect(entries[0]?.message).to.equal('Valid entry');
+      assert.strictEqual(entries.length, 1);
+      assert.strictEqual(entries[0]?.message, 'Valid entry');
     });
 
     it('should handle entry length that exceeds maximum', function () {
@@ -461,15 +466,15 @@ describe('syslog-entry-parser', function () {
       parser.addData(falseMarker);
 
       // Parser should skip this false marker and continue
-      expect(entries).to.have.lengthOf(0);
+      assert.strictEqual(entries.length, 0);
 
       // Now add a valid entry
       const entryData = createSyslogEntryBuffer({message: 'Valid entry'});
       const validFrame = createProtocolFrame(entryData);
       parser.addData(validFrame);
 
-      expect(entries).to.have.lengthOf(1);
-      expect(entries[0]?.message).to.equal('Valid entry');
+      assert.strictEqual(entries.length, 1);
+      assert.strictEqual(entries[0]?.message, 'Valid entry');
     });
 
     it('should call error callback when entry parsing fails', function () {
@@ -486,9 +491,9 @@ describe('syslog-entry-parser', function () {
 
       parser.addData(frame);
 
-      expect(entries).to.have.lengthOf(0);
-      expect(errors).to.have.lengthOf(1);
-      expect(errors[0]).to.be.instanceOf(Error);
+      assert.strictEqual(entries.length, 0);
+      assert.strictEqual(errors.length, 1);
+      assert.ok(errors[0] instanceof Error);
     });
 
     it('should reset buffer when exceeding maximum size', function () {
@@ -501,15 +506,15 @@ describe('syslog-entry-parser', function () {
       parser.addData(hugeBuffer);
 
       // Buffer should be reset, so no entries parsed
-      expect(entries).to.have.lengthOf(0);
+      assert.strictEqual(entries.length, 0);
 
       // Parser should still work after reset
       const entryData = createSyslogEntryBuffer({message: 'After reset'});
       const frame = createProtocolFrame(entryData);
       parser.addData(frame);
 
-      expect(entries).to.have.lengthOf(1);
-      expect(entries[0]?.message).to.equal('After reset');
+      assert.strictEqual(entries.length, 1);
+      assert.strictEqual(entries[0]?.message, 'After reset');
     });
 
     it('should reset buffer when accumulated data would exceed limit', function () {
@@ -525,7 +530,7 @@ describe('syslog-entry-parser', function () {
       parser.addData(additionalBuffer);
 
       // Buffer should have been reset before adding new data
-      expect(entries).to.have.lengthOf(0);
+      assert.strictEqual(entries.length, 0);
     });
 
     it('should handle partial marker and length', function () {
@@ -537,16 +542,16 @@ describe('syslog-entry-parser', function () {
 
       // Send only the marker byte
       parser.addData(frame.subarray(0, 1));
-      expect(entries).to.have.lengthOf(0);
+      assert.strictEqual(entries.length, 0);
 
       // Send marker + partial length (3 bytes total, need 5)
       parser.addData(frame.subarray(1, 3));
-      expect(entries).to.have.lengthOf(0);
+      assert.strictEqual(entries.length, 0);
 
       // Send the rest
       parser.addData(frame.subarray(3));
-      expect(entries).to.have.lengthOf(1);
-      expect(entries[0]?.message).to.equal('Partial test');
+      assert.strictEqual(entries.length, 1);
+      assert.strictEqual(entries[0]?.message, 'Partial test');
     });
 
     it('should handle reset method', function () {
@@ -558,7 +563,7 @@ describe('syslog-entry-parser', function () {
 
       // Send partial data
       parser.addData(frame.subarray(0, 50));
-      expect(entries).to.have.lengthOf(0);
+      assert.strictEqual(entries.length, 0);
 
       // Reset the parser
       parser.reset();
@@ -570,8 +575,8 @@ describe('syslog-entry-parser', function () {
       const newFrame = createProtocolFrame(newEntryData);
       parser.addData(newFrame);
 
-      expect(entries).to.have.lengthOf(1);
-      expect(entries[0]?.message).to.equal('After reset');
+      assert.strictEqual(entries.length, 1);
+      assert.strictEqual(entries[0]?.message, 'After reset');
     });
 
     it('should handle no marker in buffer', function () {
@@ -582,7 +587,7 @@ describe('syslog-entry-parser', function () {
       const noMarker = Buffer.from('This has no marker byte');
       parser.addData(noMarker);
 
-      expect(entries).to.have.lengthOf(0);
+      assert.strictEqual(entries.length, 0);
     });
 
     it('should work with default error callback', function () {
@@ -595,8 +600,8 @@ describe('syslog-entry-parser', function () {
       const frame = createProtocolFrame(invalidEntryData);
 
       // Should not throw even without error handler
-      expect(() => parser.addData(frame)).not.to.throw();
-      expect(entries).to.have.lengthOf(0);
+      assert.doesNotThrow(() => parser.addData(frame));
+      assert.strictEqual(entries.length, 0);
     });
 
     it('should handle complex real-world scenario', function () {
@@ -624,18 +629,18 @@ describe('syslog-entry-parser', function () {
       // Send: garbage + half of frame1
       const chunk1 = Buffer.concat([garbage, frame1.subarray(0, 100)]);
       parser.addData(chunk1);
-      expect(entries).to.have.lengthOf(0);
+      assert.strictEqual(entries.length, 0);
 
       // Send: rest of frame1 + frame2
       const chunk2 = Buffer.concat([frame1.subarray(100), frame2]);
       parser.addData(chunk2);
 
-      expect(entries).to.have.lengthOf(2);
-      expect(entries[0]?.pid).to.equal(100);
-      expect(entries[0]?.message).to.equal('First log');
-      expect(entries[1]?.pid).to.equal(200);
-      expect(entries[1]?.message).to.equal('Second log');
-      expect(entries[1]?.label).to.deep.equal({
+      assert.strictEqual(entries.length, 2);
+      assert.strictEqual(entries[0]?.pid, 100);
+      assert.strictEqual(entries[0]?.message, 'First log');
+      assert.strictEqual(entries[1]?.pid, 200);
+      assert.strictEqual(entries[1]?.message, 'Second log');
+      assert.deepStrictEqual(entries[1]?.label, {
         subsystem: 'com.test',
         category: 'network',
       });

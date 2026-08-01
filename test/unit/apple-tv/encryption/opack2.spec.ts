@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {Opack2} from '../../../../src/lib/apple-tv/encryption/opack2.js';
 import {AppleTVError} from '../../../../src/lib/apple-tv/errors.js';
@@ -8,10 +7,10 @@ import {AppleTVError} from '../../../../src/lib/apple-tv/errors.js';
 describe('Apple TV Encryption - Opack2', function () {
   describe('loads', function () {
     it('should decode primitive types', function () {
-      expect(Opack2.loads(Buffer.from([0x03]))).to.equal(null);
-      expect(Opack2.loads(Buffer.from([0x01]))).to.equal(true);
-      expect(Opack2.loads(Buffer.from([0x02]))).to.equal(false);
-      expect(Opack2.loads(Buffer.from([0x0a]))).to.equal(2);
+      assert.strictEqual(Opack2.loads(Buffer.from([0x03])), null);
+      assert.strictEqual(Opack2.loads(Buffer.from([0x01])), true);
+      assert.strictEqual(Opack2.loads(Buffer.from([0x02])), false);
+      assert.strictEqual(Opack2.loads(Buffer.from([0x0a])), 2);
     });
 
     it('should decode an Apple TV M6 INFO-shaped payload', function () {
@@ -24,10 +23,10 @@ describe('Apple TV Encryption - Opack2', function () {
 
       const decoded = Opack2.loads(info) as Record<string, unknown>;
 
-      expect(decoded.remotepairing_udid).to.equal('synthetic-remote-pairing-udid');
-      expect(decoded.remotepairing_serial_number).to.equal('SYNTHETIC123');
-      expect(decoded.model).to.equal('AppleTV-Test');
-      expect(decoded.name).to.equal('Test Apple TV');
+      assert.strictEqual(decoded.remotepairing_udid, 'synthetic-remote-pairing-udid');
+      assert.strictEqual(decoded.remotepairing_serial_number, 'SYNTHETIC123');
+      assert.strictEqual(decoded.model, 'AppleTV-Test');
+      assert.strictEqual(decoded.name, 'Test Apple TV');
     });
 
     it('should round-trip objects encoded with dumps', function () {
@@ -37,129 +36,132 @@ describe('Apple TV Encryption - Opack2', function () {
         data: Buffer.from([1, 2, 3]),
       };
 
-      expect(Opack2.loads(Opack2.dumps(value))).to.deep.equal(value);
+      assert.deepStrictEqual(Opack2.loads(Opack2.dumps(value)), value);
     });
   });
 
   describe('dumps - primitive types', function () {
     it('should encode null', function () {
       const result = Opack2.dumps(null);
-      expect(result).to.deep.equal(Buffer.from([0x03]));
+      assert.deepStrictEqual(result, Buffer.from([0x03]));
     });
 
     it('should encode undefined as null', function () {
       const result = Opack2.dumps(undefined);
-      expect(result).to.deep.equal(Buffer.from([0x03]));
+      assert.deepStrictEqual(result, Buffer.from([0x03]));
     });
 
     it('should encode boolean true', function () {
       const result = Opack2.dumps(true);
-      expect(result).to.deep.equal(Buffer.from([0x01]));
+      assert.deepStrictEqual(result, Buffer.from([0x01]));
     });
 
     it('should encode boolean false', function () {
       const result = Opack2.dumps(false);
-      expect(result).to.deep.equal(Buffer.from([0x02]));
+      assert.deepStrictEqual(result, Buffer.from([0x02]));
     });
   });
 
   describe('dumps - number encoding', function () {
     it('should encode small integers (0-39)', function () {
-      expect(Opack2.dumps(0)).to.deep.equal(Buffer.from([0x08]));
-      expect(Opack2.dumps(1)).to.deep.equal(Buffer.from([0x09]));
-      expect(Opack2.dumps(39)).to.deep.equal(Buffer.from([0x2f]));
+      assert.deepStrictEqual(Opack2.dumps(0), Buffer.from([0x08]));
+      assert.deepStrictEqual(Opack2.dumps(1), Buffer.from([0x09]));
+      assert.deepStrictEqual(Opack2.dumps(39), Buffer.from([0x2f]));
     });
 
     it('should encode single byte integers (40-255)', function () {
       const result = Opack2.dumps(40);
-      expect(result).to.deep.equal(Buffer.from([0x30, 0x28]));
+      assert.deepStrictEqual(result, Buffer.from([0x30, 0x28]));
     });
 
     it('should encode 32-bit integers', function () {
       const result = Opack2.dumps(256);
-      expect(result[0]).to.equal(0x32);
-      expect(result.length).to.equal(5);
+      assert.strictEqual(result[0], 0x32);
+      assert.strictEqual(result.length, 5);
     });
 
     it('should encode negative numbers as float', function () {
       const result = Opack2.dumps(-1);
-      expect(result[0]).to.equal(0x35);
-      expect(result.length).to.equal(5);
+      assert.strictEqual(result[0], 0x35);
+      assert.strictEqual(result.length, 5);
     });
 
     it('should throw for numbers too large', function () {
       const tooLarge = Number.MAX_SAFE_INTEGER + 1;
-      expect(() => Opack2.dumps(tooLarge)).to.throw(AppleTVError, 'Number too large for OPACK2 encoding');
+      assert.throws(
+        () => Opack2.dumps(tooLarge),
+        (err: any) => err instanceof AppleTVError && err.message.includes('Number too large for OPACK2 encoding'),
+      );
     });
   });
 
   describe('dumps - string encoding', function () {
     it('should encode empty string', function () {
       const result = Opack2.dumps('');
-      expect(result).to.deep.equal(Buffer.from([0x40]));
+      assert.deepStrictEqual(result, Buffer.from([0x40]));
     });
 
     it('should encode short strings', function () {
       const result = Opack2.dumps('Hello');
-      expect(result[0]).to.equal(0x45);
-      expect(result.subarray(1).toString('utf8')).to.equal('Hello');
+      assert.strictEqual(result[0], 0x45);
+      assert.strictEqual(result.subarray(1).toString('utf8'), 'Hello');
     });
 
     it('should handle UTF-8 strings correctly', function () {
       const utf8Str = '你好世界🌍';
       const result = Opack2.dumps(utf8Str);
       const byteLength = Buffer.from(utf8Str, 'utf8').length;
-      expect(result[0]).to.equal(0x40 + byteLength);
-      expect(result.subarray(1).toString('utf8')).to.equal(utf8Str);
+      assert.strictEqual(result[0], 0x40 + byteLength);
+      assert.strictEqual(result.subarray(1).toString('utf8'), utf8Str);
     });
   });
 
   describe('dumps - buffer encoding', function () {
     it('should encode empty buffer', function () {
       const result = Opack2.dumps(Buffer.alloc(0));
-      expect(result).to.deep.equal(Buffer.from([0x70]));
+      assert.deepStrictEqual(result, Buffer.from([0x70]));
     });
 
     it('should encode short buffers', function () {
       const buf = Buffer.from([0x01, 0x02, 0x03]);
       const result = Opack2.dumps(buf);
-      expect(result[0]).to.equal(0x73);
-      expect(result.subarray(1)).to.deep.equal(buf);
+      assert.strictEqual(result[0], 0x73);
+      assert.deepStrictEqual(result.subarray(1), buf);
     });
   });
 
   describe('dumps - array encoding', function () {
     it('should encode empty array', function () {
       const result = Opack2.dumps([]);
-      expect(result).to.deep.equal(Buffer.from([0xd0]));
+      assert.deepStrictEqual(result, Buffer.from([0xd0]));
     });
 
     it('should encode small arrays', function () {
       const result = Opack2.dumps([1, 2, 3]);
-      expect(result[0]).to.equal(0xd3);
-      expect(result[1]).to.equal(0x09);
-      expect(result[2]).to.equal(0x0a);
-      expect(result[3]).to.equal(0x0b);
+      assert.strictEqual(result[0], 0xd3);
+      assert.strictEqual(result[1], 0x09);
+      assert.strictEqual(result[2], 0x0a);
+      assert.strictEqual(result[3], 0x0b);
     });
 
     it('should encode large arrays', function () {
       const arr = Array(20).fill(true);
       const result = Opack2.dumps(arr);
-      expect(result[0]).to.equal(0xdf);
-      expect(result[result.length - 1]).to.equal(0x03);
+      assert.strictEqual(result[0], 0xdf);
+      assert.strictEqual(result[result.length - 1], 0x03);
     });
   });
 
   describe('dumps - object encoding', function () {
     it('should encode empty object', function () {
       const result = Opack2.dumps({});
-      expect(result).to.deep.equal(Buffer.from([0xe0]));
+      assert.deepStrictEqual(result, Buffer.from([0xe0]));
     });
 
     it('should encode small objects', function () {
       const obj = {a: 1, b: 2};
       const result = Opack2.dumps(obj);
-      expect(result[0]).to.equal(0xe2);
+      assert.strictEqual(result[0], 0xe2);
     });
 
     it('should handle objects with undefined values', function () {
@@ -169,7 +171,7 @@ describe('Apple TV Encryption - Opack2', function () {
         c: 3,
       };
       const result = Opack2.dumps(obj);
-      expect(result[0]).to.equal(0xe3);
+      assert.strictEqual(result[0], 0xe3);
     });
 
     it('should encode large objects', function () {
@@ -178,26 +180,28 @@ describe('Apple TV Encryption - Opack2', function () {
         obj[`key${i}`] = i;
       }
       const result = Opack2.dumps(obj);
-      expect(result[0]).to.equal(0xef);
-      expect(result[result.length - 2]).to.equal(0x03);
-      expect(result[result.length - 1]).to.equal(0x03);
+      assert.strictEqual(result[0], 0xef);
+      assert.strictEqual(result[result.length - 2], 0x03);
+      assert.strictEqual(result[result.length - 1], 0x03);
     });
   });
 
   describe('dumps - error handling', function () {
     it('should throw for unsupported types - function', function () {
       const fn = () => {};
-      expect(() => Opack2.dumps(fn as any)).to.throw(
-        AppleTVError,
-        'Unsupported type for OPACK2 serialization: function',
+      assert.throws(
+        () => Opack2.dumps(fn as any),
+        (err: any) =>
+          err instanceof AppleTVError && err.message.includes('Unsupported type for OPACK2 serialization: function'),
       );
     });
 
     it('should throw for unsupported types - symbol', function () {
       const sym = Symbol('test');
-      expect(() => Opack2.dumps(sym as any)).to.throw(
-        AppleTVError,
-        'Unsupported type for OPACK2 serialization: symbol',
+      assert.throws(
+        () => Opack2.dumps(sym as any),
+        (err: any) =>
+          err instanceof AppleTVError && err.message.includes('Unsupported type for OPACK2 serialization: symbol'),
       );
     });
   });
@@ -220,8 +224,8 @@ describe('Apple TV Encryption - Opack2', function () {
       };
 
       const result = Opack2.dumps(complex);
-      expect(result).to.be.instanceOf(Buffer);
-      expect(result.length).to.be.greaterThan(20);
+      assert.ok(result instanceof Buffer);
+      assert.ok(result.length > 20);
     });
   });
 });

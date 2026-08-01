@@ -1,7 +1,7 @@
+import assert from 'node:assert/strict';
 import {after, before, describe, it} from 'node:test';
 
 import {logger} from '@appium/support';
-import {expect} from 'chai';
 import sinon from 'sinon';
 
 import type {DVTInstruments} from '../../../src/lib/types.js';
@@ -36,18 +36,18 @@ describe('Notifications', {timeout: 30000}, function () {
       const notifications = dvtServiceConnection!.notification;
 
       for await (const msg of notifications.messages()) {
-        expect(msg).to.exist;
-        expect(msg).to.have.property('selector');
-        expect(msg).to.have.property('data');
+        assert.ok(msg !== null && msg !== undefined);
+        assert.ok('selector' in msg);
+        assert.ok('data' in msg);
 
-        expect(msg.selector).to.be.a('string');
-        expect(msg.data).to.be.an('object');
+        assert.ok(typeof msg.selector === 'string');
+        assert.ok(typeof msg.data === 'object' && msg.data !== null && !Array.isArray(msg.data));
 
         if (msg.selector === 'memoryLevelNotification:') {
-          expect(msg.data).to.have.property('code');
+          assert.ok('code' in msg.data);
           break;
         } else if (msg.selector === 'applicationStateNotification:') {
-          expect(msg.data).to.have.property('appName');
+          assert.ok('appName' in msg.data);
           break;
         }
       }
@@ -78,12 +78,12 @@ describe('Notifications', {timeout: 30000}, function () {
           }
         }
 
-        expect(iterationCount).to.equal(2);
-        expect(logCalls.length).to.be.greaterThan(0);
+        assert.strictEqual(iterationCount, 2);
+        assert.ok(logCalls.length > 0);
 
         const allLogs = logCalls.join('');
-        expect(allLogs).to.include('Network monitoring has started');
-        expect(allLogs).to.include('Network monitoring has ended');
+        assert.ok(allLogs.includes('Network monitoring has started'));
+        assert.ok(allLogs.includes('Network monitoring has ended'));
       } finally {
         sandbox.restore();
       }

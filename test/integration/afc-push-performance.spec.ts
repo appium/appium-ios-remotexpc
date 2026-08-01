@@ -1,9 +1,8 @@
+import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {after, before, describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {getLogger} from '../../src/lib/logger.js';
 import * as Services from '../../src/services.js';
@@ -82,16 +81,13 @@ describe('AFC push performance', {timeout: maxDurationMs + 30_000}, function () 
     const elapsedMs = performance.now() - startedAt;
 
     const stat = await afc.stat(remotePath);
-    expect(stat.st_ifmt).to.equal(AfcFileMode.S_IFREG);
-    expect(stat.st_size).to.equal(BigInt(pushSizeBytes));
+    assert.strictEqual(stat.st_ifmt, AfcFileMode.S_IFREG);
+    assert.strictEqual(stat.st_size, BigInt(pushSizeBytes));
 
     const mibPerSecond = pushSizeBytes / MIB / (elapsedMs / 1000);
     log.info(`AFC push completed in ${elapsedMs.toFixed(0)}ms (${mibPerSecond.toFixed(2)} MiB/s)`);
 
-    expect(elapsedMs).to.be.lessThan(
-      maxDurationMs,
-      `expected push to finish within ${maxDurationMs}ms but took ${elapsedMs.toFixed(0)}ms (${mibPerSecond.toFixed(2)} MiB/s)`,
-    );
+    assert.ok(elapsedMs < maxDurationMs);
   });
 });
 

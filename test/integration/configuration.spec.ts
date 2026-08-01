@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {after, before, describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {
   CoreDeviceError,
@@ -41,7 +40,7 @@ describe('ConfigurationService', {timeout: 60000}, function () {
 
   it('getUserInterfaceStyle returns "dark" or "light"', async function () {
     const style = await service!.getUserInterfaceStyle();
-    expect(style).to.be.oneOf(['dark', 'light']);
+    assert.ok(['dark', 'light'].includes(style));
   });
 
   it('setUserInterfaceStyle round-trips (dark <-> light)', async function () {
@@ -49,22 +48,22 @@ describe('ConfigurationService', {timeout: 60000}, function () {
     const toggled = original === 'dark' ? 'light' : 'dark';
     try {
       await service!.setUserInterfaceStyle(toggled);
-      expect(await service!.getUserInterfaceStyle()).to.equal(toggled);
+      assert.strictEqual(await service!.getUserInterfaceStyle(), toggled);
     } finally {
       await service!.setUserInterfaceStyle(original);
     }
-    expect(await service!.getUserInterfaceStyle()).to.equal(original);
+    assert.strictEqual(await service!.getUserInterfaceStyle(), original);
   });
 
   it('reduce motion round-trips', async function () {
     const original = await service!.getReduceMotion();
     try {
       await service!.setReduceMotion(!original);
-      expect(await service!.getReduceMotion()).to.equal(!original);
+      assert.strictEqual(await service!.getReduceMotion(), !original);
     } finally {
       await service!.setReduceMotion(original);
     }
-    expect(await service!.getReduceMotion()).to.equal(original);
+    assert.strictEqual(await service!.getReduceMotion(), original);
   });
 
   it('boolean accessibility knobs round-trip (transparency, borders, contrast)', async function () {
@@ -77,11 +76,11 @@ describe('ConfigurationService', {timeout: 60000}, function () {
       const original = await get();
       try {
         await set(!original);
-        expect(await get()).to.equal(!original);
+        assert.strictEqual(await get(), !original);
       } finally {
         await set(original);
       }
-      expect(await get()).to.equal(original);
+      assert.strictEqual(await get(), original);
     }
   });
 
@@ -96,18 +95,18 @@ describe('ConfigurationService', {timeout: 60000}, function () {
       'extraExtraExtraLarge',
     ];
     const original = await service!.getDeviceTextSize();
-    expect(original, 'original text size').to.be.oneOf(sizes);
+    assert.ok(sizes.includes(original), 'original text size');
     try {
       for (const size of sizes) {
         await service!.setDeviceTextSize(size);
-        expect(await service!.getDeviceTextSize(), size).to.equal(size);
+        assert.strictEqual(await service!.getDeviceTextSize(), size, size);
       }
     } finally {
       if (original) {
         await service!.setDeviceTextSize(original);
       }
     }
-    expect(await service!.getDeviceTextSize()).to.equal(original);
+    assert.strictEqual(await service!.getDeviceTextSize(), original);
   });
 
   it('every color-filter preset enables, reports its name, and disables', async function () {
@@ -118,11 +117,11 @@ describe('ConfigurationService', {timeout: 60000}, function () {
         // Enable each preset (no intensity — intensity is device-gated, 21056).
         await service!.setColorFilter(true, {filterType: preset});
         const enabled = await service!.getColorFilter();
-        expect(enabled.enabled, preset).to.equal(true);
-        expect(enabled.filterType?.name, preset).to.equal(preset);
+        assert.strictEqual(enabled.enabled, true, preset);
+        assert.strictEqual(enabled.filterType?.name, preset, preset);
 
         await service!.setColorFilter(false);
-        expect((await service!.getColorFilter()).enabled, `${preset} disabled`).to.equal(false);
+        assert.strictEqual((await service!.getColorFilter()).enabled, false, `${preset} disabled`);
       }
     } finally {
       if (original.enabled && original.filterType?.name) {
@@ -140,7 +139,7 @@ describe('ConfigurationService', {timeout: 60000}, function () {
     } catch (error) {
       // Device-gated (not just OS-gated): hardware without Liquid Glass support rejects with
       // CoreDeviceError 21035 even on iOS 26. Tested on iPhone 11 might work on newer models
-      expect(error).to.be.instanceOf(CoreDeviceError);
+      assert.ok(error instanceof CoreDeviceError);
     }
   });
 });

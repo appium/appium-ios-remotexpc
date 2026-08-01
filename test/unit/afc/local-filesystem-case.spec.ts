@@ -1,7 +1,6 @@
+import assert from 'node:assert/strict';
 import os from 'node:os';
 import {afterEach, describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {
   type DiskutilInfoPlist,
@@ -17,7 +16,7 @@ describe('parseDiskutilInfoPlist', function () {
       FilesystemUserVisibleName: 'APFS',
       FilesystemType: 'apfs',
     };
-    expect(parseDiskutilInfoPlist(info)).to.equal(false);
+    assert.strictEqual(parseDiskutilInfoPlist(info), false);
   });
 
   it('should detect case-sensitive APFS', function () {
@@ -26,7 +25,7 @@ describe('parseDiskutilInfoPlist', function () {
       FilesystemUserVisibleName: 'APFS (Case-sensitive)',
       FilesystemType: 'apfs',
     };
-    expect(parseDiskutilInfoPlist(info)).to.equal(true);
+    assert.strictEqual(parseDiskutilInfoPlist(info), true);
   });
 
   it('should detect case-sensitive HFS+', function () {
@@ -34,18 +33,19 @@ describe('parseDiskutilInfoPlist', function () {
       FilesystemName: 'HFS+ (Case-sensitive)',
       FilesystemUserVisibleName: 'Mac OS Extended (Case-sensitive, Journaled)',
     };
-    expect(parseDiskutilInfoPlist(info)).to.equal(true);
+    assert.strictEqual(parseDiskutilInfoPlist(info), true);
   });
 
   it('should throw when diskutil plist omits case semantics', function () {
-    expect(() => parseDiskutilInfoPlist({VolumeName: 'Mystery'})).to.throw(
-      'diskutil info plist did not include recognizable case-sensitivity details',
+    assert.throws(
+      () => parseDiskutilInfoPlist({VolumeName: 'Mystery'}),
+      (err: any) => err.message.includes('diskutil info plist did not include recognizable case-sensitivity details'),
     );
   });
 
   it('should honor explicit case-sensitive plist fields when present', function () {
-    expect(parseDiskutilInfoPlist({'Name (Case-Sensitive)': 'Yes'})).to.equal(true);
-    expect(parseDiskutilInfoPlist({'Name (Case-Sensitive)': 'No'})).to.equal(false);
+    assert.strictEqual(parseDiskutilInfoPlist({'Name (Case-Sensitive)': 'Yes'}), true);
+    assert.strictEqual(parseDiskutilInfoPlist({'Name (Case-Sensitive)': 'No'}), false);
   });
 });
 
@@ -58,7 +58,7 @@ describe('isCaseSensitiveDirectory', function () {
     'should match diskutil info -plist for the tmpdir volume on macOS',
     async function () {
       const detected = await isCaseSensitiveDirectory(os.tmpdir());
-      expect(detected).to.be.a('boolean');
+      assert.ok(typeof detected === 'boolean');
     },
   );
 
@@ -68,7 +68,7 @@ describe('isCaseSensitiveDirectory', function () {
       const dir = os.tmpdir();
       const first = await isCaseSensitiveDirectory(dir);
       const second = await isCaseSensitiveDirectory(dir);
-      expect(second).to.equal(first);
+      assert.strictEqual(second, first);
     },
   );
 });

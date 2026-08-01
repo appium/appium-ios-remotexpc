@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -5,7 +6,6 @@ import {after, afterEach, before, beforeEach, describe, it} from 'node:test';
 import {setTimeout as delay} from 'node:timers/promises';
 
 import {logger} from '@appium/support';
-import {expect} from 'chai';
 
 import {Services} from '../../src/index.js';
 import type {CrashReport, CrashReportsService, DVTInstruments} from '../../src/index.js';
@@ -108,12 +108,12 @@ describe('Crash Reports Service', {timeout: 120000}, function () {
   describe('ls', function () {
     it('should list crash reports in root directory', async function () {
       const entries = await crashReportsService.ls('/', 3);
-      expect(entries).to.be.an('array');
+      assert.ok(Array.isArray(entries));
     });
 
     it('should list crash reports with infinite depth (-1)', async function () {
       const entries = await crashReportsService.ls('/', -1);
-      expect(entries).to.be.an('array');
+      assert.ok(Array.isArray(entries));
     });
   });
 
@@ -145,8 +145,8 @@ describe('Crash Reports Service', {timeout: 120000}, function () {
       await fs.access(tempDir);
       const entries = await fs.readdir(tempDir);
 
-      expect(entries).to.not.be.empty;
-      expect(entries).to.be.an('array');
+      assert.ok(entries.length > 0);
+      assert.ok(Array.isArray(entries));
     });
 
     it('should filter files by glob pattern and pull', async function () {
@@ -157,8 +157,11 @@ describe('Crash Reports Service', {timeout: 120000}, function () {
       await crashReportsService.pull(tempDir, '/', {match});
 
       const files = await listFilesRecursive(tempDir);
-      expect(files.length).to.be.greaterThan(0);
-      expect(files.every((file) => path.basename(file).includes(TEST_REPORT_STEM))).to.be.true;
+      assert.ok(files.length > 0);
+      assert.strictEqual(
+        files.every((file) => path.basename(file).includes(TEST_REPORT_STEM)),
+        true,
+      );
     });
   });
 
@@ -182,7 +185,7 @@ describe('Crash Reports Service', {timeout: 120000}, function () {
       const match = testReportGlob();
 
       const beforeEntries = await crashReportsService.ls('/', -1);
-      expect(beforeEntries).to.include(remotePath);
+      assert.ok(beforeEntries.includes(remotePath));
 
       await crashReportsService.pull(tempDir, '/', {
         erase: true,
@@ -190,11 +193,14 @@ describe('Crash Reports Service', {timeout: 120000}, function () {
       });
 
       const files = await listFilesRecursive(tempDir);
-      expect(files.length).to.be.greaterThan(0);
-      expect(files.every((file) => path.basename(file).includes(TEST_REPORT_STEM))).to.be.true;
+      assert.ok(files.length > 0);
+      assert.strictEqual(
+        files.every((file) => path.basename(file).includes(TEST_REPORT_STEM)),
+        true,
+      );
 
       const afterEntries = await crashReportsService.ls('/', -1);
-      expect(afterEntries).to.not.include(remotePath);
+      assert.ok(!afterEntries.includes(remotePath));
     });
   });
 
@@ -205,7 +211,11 @@ describe('Crash Reports Service', {timeout: 120000}, function () {
       const afterEntries = await crashReportsService.ls('/', 2);
       const unexpectedEntries = afterEntries.filter((entry) => !entry.includes('com.apple.appstored'));
 
-      expect(unexpectedEntries, `Unexpected crash report entries found: ${unexpectedEntries.join(', ')}`).to.be.empty;
+      assert.strictEqual(
+        unexpectedEntries.length,
+        0,
+        `Unexpected crash report entries found: ${unexpectedEntries.join(', ')}`,
+      );
     });
 
     it('should be idempotent, clearing empty directory should not error', async function () {
@@ -264,7 +274,7 @@ describe('Crash Reports Service (advanced)', {timeout: 25 * 60 * 1000}, function
           bundleId: CRASH_HELPER_BUNDLE_ID,
           killExisting: true,
         });
-        expect(pid).to.be.greaterThan(0);
+        assert.ok(pid > 0);
 
         // Modern iOS rejects crash-inducing signals ("Unsupported signal"), so no app
         // crash can be triggered directly. Instead, crash the DVT service hub itself:
@@ -288,9 +298,9 @@ describe('Crash Reports Service (advanced)', {timeout: 25 * 60 * 1000}, function
           throw new Error('watch() ended unexpectedly');
         }
         log.debug(`watch() yielded report: ${report.filename} (process: ${report.metadata?.name})`);
-        expect(report.filename).to.match(/\.(ips|panic)$/);
-        expect(report.raw).to.not.be.empty;
-        expect(report.metadata?.name).to.equal(CRASH_TARGET_PROCESS_NAME);
+        assert.match(report.filename, /\.(ips|panic)$/);
+        assert.ok(report.raw.length > 0);
+        assert.strictEqual(report.metadata?.name, CRASH_TARGET_PROCESS_NAME);
       } finally {
         // Aborting settles a pending iteration even while the watcher is between reports
         watchAbort.abort();
@@ -343,9 +353,9 @@ describe('Crash Reports Service (advanced)', {timeout: 25 * 60 * 1000}, function
         const files = await fs.readdir(tempDir);
         log.debug(`Pulled sysdiagnose files: ${files.join(', ')}`);
         const archive = files.find((file) => file.startsWith('sysdiagnose_') && file.endsWith('.tar.gz'));
-        expect(archive, 'a sysdiagnose_*.tar.gz archive should have been pulled').to.not.be.undefined;
+        assert.notStrictEqual(archive, undefined, 'a sysdiagnose_*.tar.gz archive should have been pulled');
         const {size} = await fs.stat(path.join(tempDir, archive!));
-        expect(size).to.be.greaterThan(1024 * 1024);
+        assert.ok(size > 1024 * 1024);
       } finally {
         await trigger.close().catch(() => {});
         await fs.rm(tempDir, {recursive: true, force: true}).catch(() => {});

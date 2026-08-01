@@ -1,7 +1,7 @@
+import assert from 'node:assert/strict';
 import {after, before, describe, it} from 'node:test';
 
 import {logger} from '@appium/support';
-import {expect} from 'chai';
 
 import type {NotificationProxyService} from '../../src/lib/types.js';
 import * as Services from '../../src/services.js';
@@ -34,7 +34,7 @@ describe('NotificationProxyService', {timeout: 60000}, function () {
       await notificationProxyService.observe('com.apple.springboard.lockstate');
       const notification = await notificationProxyService.expectNotification();
       log.debug('Received notification:', notification);
-      expect(notification).to.be.an('object');
+      assert.ok(typeof notification === 'object' && notification !== null && !Array.isArray(notification));
     } catch (error) {
       log.error('Error receiving notification:', (error as Error).message);
       throw error;
@@ -50,7 +50,7 @@ describe('NotificationProxyService', {timeout: 60000}, function () {
     }
     for await (const msg of gen) {
       log.debug('Received notification:', msg);
-      expect(msg).to.be.an('object');
+      assert.ok(typeof msg === 'object' && msg !== null && !Array.isArray(msg));
     } // Keep the generator running to receive more notifications
   });
 
@@ -70,7 +70,7 @@ describe('NotificationProxyService', {timeout: 60000}, function () {
     if (relayedDone || !relayed) {
       throw new Error('No relayed notification received after post().');
     }
-    expect(relayed).to.be.an('object');
+    assert.ok(typeof relayed === 'object' && relayed !== null && !Array.isArray(relayed));
     log.debug('Received relayed notification after post:', relayed);
   });
 
@@ -83,7 +83,7 @@ describe('NotificationProxyService', {timeout: 60000}, function () {
     } catch (error) {
       // Verify the error is the expected one
       if (error instanceof Error) {
-        expect(error.message).to.equal('You must call observe() before posting notifications.');
+        assert.strictEqual(error.message, 'You must call observe() before posting notifications.');
       } else {
         throw new Error('Unexpected error type', {cause: error});
       }

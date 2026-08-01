@@ -1,7 +1,7 @@
+import assert from 'node:assert/strict';
 import {after, before, describe, it} from 'node:test';
 
 import {logger} from '@appium/support';
-import {expect} from 'chai';
 
 import {type MisagentService} from '../../src/lib/types.js';
 import * as Services from '../../src/services.js';
@@ -39,11 +39,11 @@ describe('MisagentService', {timeout: 60000}, function () {
       try {
         const res = await misagentService.fetchAll();
         log.info('CopyAll response:', JSON.stringify(res, null, 2));
-        expect(res).to.be.an('array');
+        assert.ok(Array.isArray(res));
         res.forEach((profile) => {
-          expect(profile.plist.UUID).to.be.a('string');
-          expect(profile.plist.TeamName).to.be.a('string');
-          expect(profile.plist.Version).to.be.a('number');
+          assert.ok(typeof profile.plist.UUID === 'string');
+          assert.ok(typeof profile.plist.TeamName === 'string');
+          assert.ok(typeof profile.plist.Version === 'number');
         });
       } catch (error) {
         log.error('Error copying profiles:', (error as Error).message);

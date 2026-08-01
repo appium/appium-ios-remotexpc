@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {after, before, describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {Services} from '../../src/index.js';
 import type {DiagnosticsService} from '../../src/lib/types.js';
@@ -26,7 +25,7 @@ describe('Diagnostics Service', {timeout: 60000}, function () {
       returnRawJson: true,
     })) as Record<string, any>;
 
-    expect(info).to.be.an('object');
-    expect(info.BatteryInstalled).to.equal(true);
+    assert.ok(typeof info === 'object' && info !== null && !Array.isArray(info));
+    assert.strictEqual(info.BatteryInstalled, true);
   });
 });

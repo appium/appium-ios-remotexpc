@@ -1,7 +1,7 @@
+import assert from 'node:assert/strict';
 import {PassThrough} from 'node:stream';
 import {describe, it} from 'node:test';
 
-import {expect} from 'chai';
 import esmock from 'esmock';
 
 import {SyslogLogLevel} from '../../../src/services/ios/syslog-service/syslog-entry-parser.js';
@@ -76,6 +76,9 @@ describe('SyslogService binary mode', function () {
 
     await service.stop();
 
-    expect(messages.some((m) => m.includes('hello from socket'))).to.equal(true);
+    assert.strictEqual(
+      messages.some((m) => m.includes('hello from socket')),
+      true,
+    );
   });
 });

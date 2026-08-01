@@ -1,7 +1,6 @@
+import assert from 'node:assert/strict';
 import {EventEmitter} from 'node:events';
 import {describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {CoreDeviceError} from '../../../src/index.js';
 import {decodeMessage} from '../../../src/lib/remote-xpc/xpc-protocol.js';
@@ -68,9 +67,9 @@ describe('CoreDeviceInfoService', function () {
 
     const result = await service.getDeviceInfo();
 
-    expect(feature(fake.sentBodies[0])).to.equal('com.apple.coredevice.feature.getdeviceinfo');
-    expect(input(fake.sentBodies[0])).to.deep.equal({});
-    expect(result).to.deep.equal(out);
+    assert.strictEqual(feature(fake.sentBodies[0]), 'com.apple.coredevice.feature.getdeviceinfo');
+    assert.deepStrictEqual(input(fake.sentBodies[0]), {});
+    assert.deepStrictEqual(result, out);
   });
 
   it('getDisplayInfo invokes getdisplayinfo and returns the output', async function () {
@@ -80,8 +79,8 @@ describe('CoreDeviceInfoService', function () {
 
     const result = await service.getDisplayInfo();
 
-    expect(feature(fake.sentBodies[0])).to.equal('com.apple.coredevice.feature.getdisplayinfo');
-    expect(result).to.deep.equal(out);
+    assert.strictEqual(feature(fake.sentBodies[0]), 'com.apple.coredevice.feature.getdisplayinfo');
+    assert.deepStrictEqual(result, out);
   });
 
   it('getLockState invokes getlockstate', async function () {
@@ -90,8 +89,8 @@ describe('CoreDeviceInfoService', function () {
 
     const result = await service.getLockState();
 
-    expect(feature(fake.sentBodies[0])).to.equal('com.apple.coredevice.feature.getlockstate');
-    expect(result).to.deep.equal({locked: false});
+    assert.strictEqual(feature(fake.sentBodies[0]), 'com.apple.coredevice.feature.getlockstate');
+    assert.deepStrictEqual(result, {locked: false});
   });
 
   it('queryMobileGestalt sends the keys and returns the output', async function () {
@@ -100,9 +99,9 @@ describe('CoreDeviceInfoService', function () {
 
     const result = await service.queryMobileGestalt(['ProductType']);
 
-    expect(feature(fake.sentBodies[0])).to.equal('com.apple.coredevice.feature.querymobilegestalt');
-    expect(input(fake.sentBodies[0])).to.deep.equal({keys: ['ProductType']});
-    expect(result).to.deep.equal({ProductType: 'iPhone12,1'});
+    assert.strictEqual(feature(fake.sentBodies[0]), 'com.apple.coredevice.feature.querymobilegestalt');
+    assert.deepStrictEqual(input(fake.sentBodies[0]), {keys: ['ProductType']});
+    assert.deepStrictEqual(result, {ProductType: 'iPhone12,1'});
   });
 
   it('surfaces a device ActionError (unimplemented / gated feature)', async function () {
@@ -123,10 +122,10 @@ describe('CoreDeviceInfoService', function () {
     } catch (error) {
       caught = error;
     }
-    expect(caught).to.be.instanceOf(CoreDeviceError);
+    assert.ok(caught instanceof CoreDeviceError);
     const message = (caught as Error).message;
-    expect(message).to.contain('not implemented');
-    expect(message).to.contain('CoreDevice.ActionError');
+    assert.ok(message.includes('not implemented'));
+    assert.ok(message.includes('CoreDevice.ActionError'));
   });
 
   it('closes the active transport', async function () {
@@ -136,6 +135,6 @@ describe('CoreDeviceInfoService', function () {
     await service.getDeviceInfo();
     await service.close();
 
-    expect(fake.closeCalls).to.equal(1);
+    assert.strictEqual(fake.closeCalls, 1);
   });
 });

@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {PairingDataComponentType} from '../../../../src/lib/apple-tv/constants.js';
 import {decodeTLV8ToDict} from '../../../../src/lib/apple-tv/tlv/decoder.js';
@@ -14,8 +13,8 @@ describe('Pairing TLV', function () {
     it('should create valid base64-encoded TLV8 data', function () {
       const result = createSetupManualPairingData();
 
-      expect(result).to.be.a('string');
-      expect(() => Buffer.from(result, 'base64')).to.not.throw();
+      assert.ok(typeof result === 'string');
+      assert.doesNotThrow(() => Buffer.from(result, 'base64'));
     });
 
     it('should contain correct METHOD and STATE values', function () {
@@ -23,18 +22,22 @@ describe('Pairing TLV', function () {
       const decoded = Buffer.from(result, 'base64');
       const tlvDict = decodeTLV8ToDict(decoded);
 
-      expect(tlvDict[PairingDataComponentType.METHOD]).to.exist;
-      expect(tlvDict[PairingDataComponentType.METHOD]).to.deep.equal(Buffer.from([0x00]));
+      assert.ok(
+        tlvDict[PairingDataComponentType.METHOD] !== null && tlvDict[PairingDataComponentType.METHOD] !== undefined,
+      );
+      assert.deepStrictEqual(tlvDict[PairingDataComponentType.METHOD], Buffer.from([0x00]));
 
-      expect(tlvDict[PairingDataComponentType.STATE]).to.exist;
-      expect(tlvDict[PairingDataComponentType.STATE]).to.deep.equal(Buffer.from([0x01]));
+      assert.ok(
+        tlvDict[PairingDataComponentType.STATE] !== null && tlvDict[PairingDataComponentType.STATE] !== undefined,
+      );
+      assert.deepStrictEqual(tlvDict[PairingDataComponentType.STATE], Buffer.from([0x01]));
     });
 
     it('should always return the same value', function () {
       const result1 = createSetupManualPairingData();
       const result2 = createSetupManualPairingData();
 
-      expect(result1).to.equal(result2);
+      assert.strictEqual(result1, result2);
     });
   });
 
@@ -43,8 +46,8 @@ describe('Pairing TLV', function () {
       const publicKey = Buffer.from([0x01, 0x02, 0x03, 0x04]);
       const result = createPairVerificationData(publicKey);
 
-      expect(result).to.be.a('string');
-      expect(() => Buffer.from(result, 'base64')).to.not.throw();
+      assert.ok(typeof result === 'string');
+      assert.doesNotThrow(() => Buffer.from(result, 'base64'));
     });
 
     it('should contain correct STATE and PUBLIC_KEY values', function () {
@@ -53,11 +56,16 @@ describe('Pairing TLV', function () {
       const decoded = Buffer.from(result, 'base64');
       const tlvDict = decodeTLV8ToDict(decoded);
 
-      expect(tlvDict[PairingDataComponentType.STATE]).to.exist;
-      expect(tlvDict[PairingDataComponentType.STATE]).to.deep.equal(Buffer.from([0x01]));
+      assert.ok(
+        tlvDict[PairingDataComponentType.STATE] !== null && tlvDict[PairingDataComponentType.STATE] !== undefined,
+      );
+      assert.deepStrictEqual(tlvDict[PairingDataComponentType.STATE], Buffer.from([0x01]));
 
-      expect(tlvDict[PairingDataComponentType.PUBLIC_KEY]).to.exist;
-      expect(tlvDict[PairingDataComponentType.PUBLIC_KEY]).to.deep.equal(publicKey);
+      assert.ok(
+        tlvDict[PairingDataComponentType.PUBLIC_KEY] !== null &&
+          tlvDict[PairingDataComponentType.PUBLIC_KEY] !== undefined,
+      );
+      assert.deepStrictEqual(tlvDict[PairingDataComponentType.PUBLIC_KEY], publicKey);
     });
 
     it('should handle typical X25519 public key (32 bytes)', function () {
@@ -66,7 +74,7 @@ describe('Pairing TLV', function () {
       const decoded = Buffer.from(result, 'base64');
       const tlvDict = decodeTLV8ToDict(decoded);
 
-      expect(tlvDict[PairingDataComponentType.PUBLIC_KEY]).to.deep.equal(x25519PublicKey);
+      assert.deepStrictEqual(tlvDict[PairingDataComponentType.PUBLIC_KEY], x25519PublicKey);
     });
 
     it('should handle large public key that requires fragmentation', function () {
@@ -75,7 +83,7 @@ describe('Pairing TLV', function () {
       const decoded = Buffer.from(result, 'base64');
       const tlvDict = decodeTLV8ToDict(decoded);
 
-      expect(tlvDict[PairingDataComponentType.PUBLIC_KEY]).to.deep.equal(largeKey);
+      assert.deepStrictEqual(tlvDict[PairingDataComponentType.PUBLIC_KEY], largeKey);
     });
 
     it('should produce different results for different public keys', function () {
@@ -85,7 +93,7 @@ describe('Pairing TLV', function () {
       const result1 = createPairVerificationData(key1);
       const result2 = createPairVerificationData(key2);
 
-      expect(result1).to.not.equal(result2);
+      assert.notStrictEqual(result1, result2);
     });
   });
 });

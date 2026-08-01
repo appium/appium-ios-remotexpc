@@ -1,7 +1,7 @@
+import assert from 'node:assert/strict';
 import {after, before, describe, it} from 'node:test';
 
 import {logger} from '@appium/support';
-import {expect} from 'chai';
 
 import type {DVTInstruments} from '../../../src/index.js';
 import * as Services from '../../../src/services.js';
@@ -79,13 +79,13 @@ describe('Location Simulation Instrument', {timeout: 30000}, function () {
       try {
         await dvtServiceConnection!.locationSimulation.setLocation(91.0, 0.0);
       } catch (error) {
-        expect(error).to.exist;
+        assert.ok(error !== null && error !== undefined);
       }
 
       try {
         await dvtServiceConnection!.locationSimulation.setLocation(0.0, 181.0);
       } catch (error) {
-        expect(error).to.exist;
+        assert.ok(error !== null && error !== undefined);
       }
     });
   });

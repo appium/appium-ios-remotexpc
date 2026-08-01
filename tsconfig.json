@@ -8,7 +8,7 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "outDir": "build",
-    "types": ["node", "chai"]
+    "types": ["node"]
   },
   "include": ["src", "scripts", "test"],
   "exclude": ["build"]

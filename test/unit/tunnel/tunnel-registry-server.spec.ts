@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {afterEach, beforeEach, describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {type TunnelRegistryServer, startTunnelRegistryServer} from '../../../src/lib/tunnel/tunnel-registry-server.js';
 import type {TunnelRegistry, TunnelRegistryEntry} from '../../../src/lib/types.js';
@@ -49,10 +48,10 @@ describe('TunnelRegistryServer', function () {
       const response = await fetch(`http://localhost:${testPort}/remotexpc/tunnels`);
       const data = (await response.json()) as TunnelRegistry;
 
-      expect(response.status).to.equal(200);
-      expect(data).to.have.property('tunnels');
-      expect(data).to.have.property('metadata');
-      expect(data.tunnels).to.have.property('test-udid-123');
+      assert.strictEqual(response.status, 200);
+      assert.ok('tunnels' in data);
+      assert.ok('metadata' in data);
+      assert.ok('test-udid-123' in data.tunnels);
     });
   });
 
@@ -63,12 +62,12 @@ describe('TunnelRegistryServer', function () {
         status: string;
       };
 
-      expect(response.status).to.equal(200);
-      expect(data).to.have.property('totalTunnels');
-      expect(data).to.have.property('activeTunnels');
-      expect(data).to.have.property('lastUpdated');
-      expect(data.totalTunnels).to.equal(1);
-      expect(data.activeTunnels).to.equal(1);
+      assert.strictEqual(response.status, 200);
+      assert.ok('totalTunnels' in data);
+      assert.ok('activeTunnels' in data);
+      assert.ok('lastUpdated' in data);
+      assert.strictEqual(data.totalTunnels, 1);
+      assert.strictEqual(data.activeTunnels, 1);
     });
   });
 
@@ -77,18 +76,18 @@ describe('TunnelRegistryServer', function () {
       const response = await fetch(`http://localhost:${testPort}/remotexpc/tunnels/test-udid-123`);
       const data = (await response.json()) as TunnelRegistryEntry;
 
-      expect(response.status).to.equal(200);
-      expect(data.udid).to.equal('test-udid-123');
-      expect(data.deviceId).to.equal(1);
+      assert.strictEqual(response.status, 200);
+      assert.strictEqual(data.udid, 'test-udid-123');
+      assert.strictEqual(data.deviceId, 1);
     });
 
     it('should return 404 for non-existent UDID', async function () {
       const response = await fetch(`http://localhost:${testPort}/remotexpc/tunnels/non-existent`);
       const data = (await response.json()) as {error: string};
 
-      expect(response.status).to.equal(404);
-      expect(data).to.have.property('error');
-      expect(data.error).to.include('Tunnel not found');
+      assert.strictEqual(response.status, 404);
+      assert.ok('error' in data);
+      assert.ok(data.error.includes('Tunnel not found'));
     });
 
     it('should return 404 for a pending tunnel when waitMs=0', async function () {
@@ -115,8 +114,8 @@ describe('TunnelRegistryServer', function () {
         const response = await fetch(`http://localhost:${pendingPort}/remotexpc/tunnels/pending-udid?waitMs=0`);
         const data = (await response.json()) as {error: string};
 
-        expect(response.status).to.equal(404);
-        expect(data.error).to.include('Tunnel not found');
+        assert.strictEqual(response.status, 404);
+        assert.ok(data.error.includes('Tunnel not found'));
       } finally {
         await pendingServer.stop();
       }
@@ -153,8 +152,8 @@ describe('TunnelRegistryServer', function () {
         );
         const data = (await response.json()) as TunnelRegistryEntry;
 
-        expect(response.status).to.equal(200);
-        expect(data.services['com.apple.dvt.shim.remote']?.port).to.equal('62078');
+        assert.strictEqual(response.status, 200);
+        assert.strictEqual(data.services['com.apple.dvt.shim.remote']?.port, '62078');
       } finally {
         await refreshServer.stop();
       }
@@ -166,27 +165,27 @@ describe('TunnelRegistryServer', function () {
       const response = await fetch(`http://localhost:${testPort}/remotexpc/tunnels/device/1`);
       const data = (await response.json()) as TunnelRegistryEntry;
 
-      expect(response.status).to.equal(200);
-      expect(data.udid).to.equal('test-udid-123');
-      expect(data.deviceId).to.equal(1);
+      assert.strictEqual(response.status, 200);
+      assert.strictEqual(data.udid, 'test-udid-123');
+      assert.strictEqual(data.deviceId, 1);
     });
 
     it('should return 404 for non-existent device ID', async function () {
       const response = await fetch(`http://localhost:${testPort}/remotexpc/tunnels/device/999`);
       const data = (await response.json()) as {error: string};
 
-      expect(response.status).to.equal(404);
-      expect(data).to.have.property('error');
-      expect(data.error).to.include('Tunnel not found');
+      assert.strictEqual(response.status, 404);
+      assert.ok('error' in data);
+      assert.ok(data.error.includes('Tunnel not found'));
     });
 
     it('should return 400 for invalid device ID', async function () {
       const response = await fetch(`http://localhost:${testPort}/remotexpc/tunnels/device/invalid`);
       const data = (await response.json()) as {error: string};
 
-      expect(response.status).to.equal(400);
-      expect(data).to.have.property('error');
-      expect(data.error).to.equal('Invalid device ID');
+      assert.strictEqual(response.status, 400);
+      assert.ok('error' in data);
+      assert.strictEqual(data.error, 'Invalid device ID');
     });
   });
 
@@ -207,9 +206,9 @@ describe('TunnelRegistryServer', function () {
         tunnel: TunnelRegistryEntry;
       };
 
-      expect(response.status).to.equal(200);
-      expect(data).to.have.property('success', true);
-      expect(data.tunnel.rsdPort).to.equal(58784);
+      assert.strictEqual(response.status, 200);
+      assert.strictEqual(data.success, true);
+      assert.strictEqual(data.tunnel.rsdPort, 58784);
     });
 
     it('should return 400 for UDID mismatch', async function () {
@@ -225,9 +224,9 @@ describe('TunnelRegistryServer', function () {
       });
       const data = (await response.json()) as {error: string};
 
-      expect(response.status).to.equal(400);
-      expect(data).to.have.property('error');
-      expect(data.error).to.include('UDID mismatch');
+      assert.strictEqual(response.status, 400);
+      assert.ok('error' in data);
+      assert.ok(data.error.includes('UDID mismatch'));
     });
 
     it('should return 400 for invalid JSON', async function () {
@@ -238,8 +237,8 @@ describe('TunnelRegistryServer', function () {
       });
       const data = (await response.json()) as {error: string};
 
-      expect(response.status).to.equal(400);
-      expect(data).to.have.property('error');
+      assert.strictEqual(response.status, 400);
+      assert.ok('error' in data);
     });
   });
 
@@ -248,8 +247,8 @@ describe('TunnelRegistryServer', function () {
       const response = await fetch(`http://localhost:${testPort}/unknown/route`);
       const data = (await response.json()) as {error: string};
 
-      expect(response.status).to.equal(404);
-      expect(data).to.have.property('error', 'Not found');
+      assert.strictEqual(response.status, 404);
+      assert.strictEqual(data.error, 'Not found');
     });
   });
 });

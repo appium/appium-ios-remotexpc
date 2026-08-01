@@ -1,8 +1,7 @@
+import assert from 'node:assert/strict';
 import {once} from 'node:events';
 import {type AddressInfo, createConnection, createServer} from 'node:net';
 import {describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {
   watchTunnelRegistryOnDead,
@@ -69,8 +68,8 @@ describe('watchTunnelRegistrySockets', function () {
     await once(client, 'close');
     await new Promise<void>((resolve) => setImmediate(resolve));
 
-    expect(registry.tunnels['dev-1']).to.equal(undefined);
-    expect(removedUdid).to.equal('dev-1');
+    assert.strictEqual(registry.tunnels['dev-1'], undefined);
+    assert.strictEqual(removedUdid, 'dev-1');
 
     stop();
     await new Promise<void>((resolve) => server.close(() => resolve()));
@@ -96,7 +95,7 @@ describe('watchTunnelRegistrySockets', function () {
 
     stop();
 
-    expect(Object.keys(registry.tunnels)).to.have.lengthOf(1);
+    assert.strictEqual(Object.keys(registry.tunnels).length, 1);
 
     client.destroy();
     await new Promise<void>((resolve) => server.close(() => resolve()));
@@ -129,8 +128,8 @@ describe('watchTunnelRegistryOnDead', function () {
     onDeadHandler('SSL read failed');
     await new Promise<void>((resolve) => setImmediate(resolve));
 
-    expect(registry.tunnels['dev-3']).to.equal(undefined);
-    expect(removedUdid).to.equal('dev-3');
+    assert.strictEqual(registry.tunnels['dev-3'], undefined);
+    assert.strictEqual(removedUdid, 'dev-3');
 
     stop();
   });
@@ -156,6 +155,6 @@ describe('watchTunnelRegistryOnDead', function () {
     stop();
     onDeadHandler('should be ignored');
 
-    expect(Object.keys(registry.tunnels)).to.have.lengthOf(1);
+    assert.strictEqual(Object.keys(registry.tunnels).length, 1);
   });
 });

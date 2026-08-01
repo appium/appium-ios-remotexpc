@@ -1,7 +1,7 @@
+import assert from 'node:assert/strict';
 import {after, before, describe, it} from 'node:test';
 
 import {logger} from '@appium/support';
-import {expect} from 'chai';
 
 import type {DVTInstruments} from '../../../src/index.js';
 import * as Services from '../../../src/services.js';
@@ -39,8 +39,8 @@ describe('EnergyMonitor Service', {timeout: 60000}, function () {
   });
 
   it('should have energyMonitor service', function () {
-    expect(dvt).to.not.be.null;
-    expect(dvt!.energyMonitor).to.not.be.null;
+    assert.notStrictEqual(dvt, null);
+    assert.notStrictEqual(dvt!.energyMonitor, null);
   });
 
   it('should start and stop sampling without error', async function () {
@@ -57,9 +57,13 @@ describe('EnergyMonitor Service', {timeout: 60000}, function () {
       const sample = await dvt!.energyMonitor.sample(pids);
       log.debug('Energy sample:', JSON.stringify(sample, null, 2));
 
-      expect(sample).to.be.an('object');
-      expect(sample).to.have.property(String(calculatorPid));
-      expect(sample[String(calculatorPid)]).to.be.an('object');
+      assert.ok(typeof sample === 'object' && sample !== null && !Array.isArray(sample));
+      assert.ok(String(calculatorPid) in sample);
+      assert.ok(
+        typeof sample[String(calculatorPid)] === 'object' &&
+          sample[String(calculatorPid)] !== null &&
+          !Array.isArray(sample[String(calculatorPid)]),
+      );
     } finally {
       await dvt!.energyMonitor.stopSampling(pids);
     }
@@ -73,11 +77,11 @@ describe('EnergyMonitor Service', {timeout: 60000}, function () {
       const sample = await dvt!.energyMonitor.sample(pids);
       const metrics = sample[String(calculatorPid)];
 
-      expect(metrics).to.be.an('object');
-      expect(metrics).to.have.property('energy.cost');
-      expect(metrics).to.have.property('energy.overhead');
-      expect(metrics['energy.cost']).to.be.a('number');
-      expect(metrics['energy.overhead']).to.be.a('number');
+      assert.ok(typeof metrics === 'object' && metrics !== null && !Array.isArray(metrics));
+      assert.ok('energy.cost' in metrics);
+      assert.ok('energy.overhead' in metrics);
+      assert.ok(typeof metrics['energy.cost'] === 'number');
+      assert.ok(typeof metrics['energy.overhead'] === 'number');
     } finally {
       await dvt!.energyMonitor.stopSampling(pids);
     }
@@ -99,9 +103,9 @@ describe('EnergyMonitor Service', {timeout: 60000}, function () {
       await gen.return(undefined);
     }
 
-    expect(samples).to.have.length(3);
+    assert.strictEqual(samples.length, 3);
     for (const sample of samples) {
-      expect(sample).to.have.property(String(calculatorPid));
+      assert.ok(String(calculatorPid) in sample);
     }
   });
 
@@ -112,7 +116,7 @@ describe('EnergyMonitor Service', {timeout: 60000}, function () {
     const {value: firstSample} = await gen.next();
     await gen.return(undefined);
 
-    expect(firstSample).to.be.an('object');
-    expect(firstSample).to.have.property(String(calculatorPid));
+    assert.ok(typeof firstSample === 'object' && firstSample !== null && !Array.isArray(firstSample));
+    assert.ok(String(calculatorPid) in firstSample);
   });
 });

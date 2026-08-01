@@ -1,6 +1,6 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
 
-import {expect} from 'chai';
 import esmock from 'esmock';
 
 function slugify(value: string): string {
@@ -55,6 +55,6 @@ describe('PairingStorage', function () {
       maxRetries: 1,
     });
 
-    expect(await storage.getAvailableDeviceIds()).to.deep.equal(['device-1', 'device-2']);
+    assert.deepStrictEqual(await storage.getAvailableDeviceIds(), ['device-1', 'device-2']);
   });
 });

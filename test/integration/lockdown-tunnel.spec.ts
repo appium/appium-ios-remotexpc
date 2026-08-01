@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {before, describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {createLockdownServiceForTunnel} from '../../src/index.js';
 import type {LockdownDeviceInfo} from '../../src/lib/types.js';
@@ -26,9 +25,11 @@ describe('Lockdown over tunnel (getDeviceInfo)', {timeout: 60000}, function () {
     const lockdown = await createLockdownServiceForTunnel(udid);
     try {
       const info: LockdownDeviceInfo = await lockdown.getDeviceInfo();
-      expect(info).to.be.an('object');
-      expect(info.UniqueDeviceID).to.be.a('string').and.not.empty;
-      expect(info.ProductVersion).to.be.a('string').and.not.empty;
+      assert.ok(typeof info === 'object' && info !== null && !Array.isArray(info));
+      assert.ok(typeof info.UniqueDeviceID === 'string');
+      assert.ok(info.UniqueDeviceID.length > 0);
+      assert.ok(typeof info.ProductVersion === 'string');
+      assert.ok(info.ProductVersion.length > 0);
     } finally {
       lockdown.close();
     }

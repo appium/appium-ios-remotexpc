@@ -1,7 +1,7 @@
+import assert from 'node:assert/strict';
 import {after, before, describe, it} from 'node:test';
 
 import {logger} from '@appium/support';
-import {expect} from 'chai';
 
 import type {DVTInstruments, HouseArrestService, TestmanagerdService} from '../../src/index.js';
 import {XCTestAttachment, XCTestConfigurationEncoder, runXCTest} from '../../src/index.js';
@@ -33,8 +33,8 @@ async function safeClose(...closeables: Array<{close(): Promise<void>} | null | 
 
 async function makeControlChannel(service: TestmanagerdService): Promise<number> {
   const channel = await service.makeChannel(TESTMANAGERD_CHANNEL);
-  expect(channel).to.not.be.null;
-  expect(channel.getCode()).to.be.greaterThan(0);
+  assert.notStrictEqual(channel, null);
+  assert.ok(channel.getCode() > 0);
   return channel.getCode();
 }
 
@@ -43,14 +43,14 @@ async function initiateControlSession(service: TestmanagerdService, channelCode:
   args.appendObj(XCODE_VERSION);
   await service.sendMessage(channelCode, '_IDE_initiateControlSessionWithProtocolVersion:', {args});
   const [result] = await service.recvPlist(channelCode);
-  expect(result).to.not.be.null;
+  assert.notStrictEqual(result, null);
   return result;
 }
 
 function assertNSKeyedArchiverShape(obj: any): void {
-  expect(obj).to.have.property('$archiver', 'NSKeyedArchiver');
-  expect(obj).to.have.property('$version', 100000);
-  expect(obj).to.have.property('$objects').that.is.an('array');
+  assert.strictEqual(obj.$archiver, 'NSKeyedArchiver');
+  assert.strictEqual(obj.$version, 100000);
+  assert.ok(Array.isArray(obj.$objects));
 }
 
 /**
@@ -80,8 +80,8 @@ describe('Testmanagerd Service', {timeout: 120000}, function () {
       controlConnection = await Services.startTestmanagerdService(udid);
       execConnection = await Services.startTestmanagerdService(udid);
 
-      expect(controlConnection).to.not.be.null;
-      expect(execConnection).to.not.be.null;
+      assert.notStrictEqual(controlConnection, null);
+      assert.notStrictEqual(execConnection, null);
     });
 
     it('should create channels on both connections', async function () {
@@ -118,7 +118,7 @@ describe('Testmanagerd Service', {timeout: 120000}, function () {
           returnAttributes: ['Path'],
         });
         appPath = (lookup[TEST_RUNNER_BUNDLE_ID!] as any)?.Path;
-        expect(appPath, 'Runner app not found on device').to.be.a('string');
+        assert.ok(typeof appPath === 'string', 'Runner app not found on device');
       } finally {
         try {
           installProxy.close();
@@ -141,8 +141,8 @@ describe('Testmanagerd Service', {timeout: 120000}, function () {
       assertNSKeyedArchiverShape(archived);
 
       const plistData = createBinaryPlist(archived);
-      expect(plistData).to.be.instanceOf(Buffer);
-      expect(plistData.length).to.be.greaterThan(0);
+      assert.ok(plistData instanceof Buffer);
+      assert.ok(plistData.length > 0);
 
       log.debug(`Serialized XCTestConfiguration: ${plistData.length} bytes`);
 
@@ -160,8 +160,8 @@ describe('Testmanagerd Service', {timeout: 120000}, function () {
         log.debug(`Wrote XCTestConfiguration to ${remotePath}`);
 
         const readBack = await afcService.getFileContents(remotePath);
-        expect(readBack).to.be.instanceOf(Buffer);
-        expect(readBack.length).to.equal(plistData.length);
+        assert.ok(readBack instanceof Buffer);
+        assert.strictEqual(readBack.length, plistData.length);
 
         assertNSKeyedArchiverShape(parseBinaryPlist(readBack));
       } finally {
@@ -198,8 +198,8 @@ describe('Testmanagerd Service', {timeout: 120000}, function () {
         bundleId: 'com.apple.calculator',
         killExisting: true,
       });
-      expect(pid).to.be.a('number');
-      expect(pid).to.not.equal(0);
+      assert.ok(typeof pid === 'number');
+      assert.notStrictEqual(pid, 0);
       log.debug(`Launched Calculator with PID: ${pid}`);
 
       const authArgs = new MessageAux();
@@ -245,10 +245,10 @@ describe('Testmanagerd Service', {timeout: 120000}, function () {
 
         log.debug('XCTest run result:', result);
 
-        expect(result.status).to.equal('passed');
-        expect(result.sessionIdentifier).to.be.a('string');
-        expect(result.testRunnerPid).to.be.greaterThan(0);
-        expect(result.durationMs).to.be.greaterThan(0);
+        assert.strictEqual(result.status, 'passed');
+        assert.ok(typeof result.sessionIdentifier === 'string');
+        assert.ok(result.testRunnerPid > 0);
+        assert.ok(result.durationMs > 0);
       },
     );
   });
@@ -262,7 +262,7 @@ describe('Testmanagerd Service', {timeout: 120000}, function () {
 
     it('should delete attachments via XCTestAttachment', async function () {
       const attachments = new XCTestAttachment(udid);
-      expect(attachments.deviceId).to.equal(udid);
+      assert.strictEqual(attachments.deviceId, udid);
       await attachments.delete([XCTEST_DELETE_ATTACHMENT_TEST_UUID]);
     });
   });

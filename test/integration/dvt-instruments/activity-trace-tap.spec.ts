@@ -1,7 +1,7 @@
+import assert from 'node:assert/strict';
 import {after, before, describe, it} from 'node:test';
 
 import {logger} from '@appium/support';
-import {expect} from 'chai';
 
 import type {ActivityTraceMessage, DVTInstruments} from '../../../src/index.js';
 import {ActivityTraceTap} from '../../../src/index.js';
@@ -77,13 +77,13 @@ describe('ActivityTraceTap', {timeout: 60000}, function () {
     });
 
     it('should yield at least one log entry', function () {
-      expect(pool).to.have.length.greaterThan(0);
+      assert.ok(pool.length > 0);
     });
 
     it('every entry should carry a "message" field as a string', function () {
       for (const msg of pool) {
-        expect(msg, JSON.stringify(Object.keys(msg))).to.have.property('message');
-        expect(msg.message, 'message field').to.be.a('string');
+        assert.ok('message' in msg, JSON.stringify(Object.keys(msg)));
+        assert.ok(typeof msg.message === 'string', 'message field');
       }
     });
 
@@ -91,39 +91,43 @@ describe('ActivityTraceTap', {timeout: 60000}, function () {
       // pid 0 is the kernel: kernel/DriverKit os-log rows (process_image_path
       // "/kernel") legitimately carry process 0, so only assert non-negative.
       for (const msg of pool) {
-        expect(msg, JSON.stringify(Object.keys(msg))).to.have.property('process');
-        expect(msg.process, 'process in entry').to.be.a('number').and.satisfy(Number.isInteger).and.at.least(0);
+        assert.ok('process' in msg, JSON.stringify(Object.keys(msg)));
+        assert.ok(typeof msg.process === 'number', 'process in entry');
+        assert.ok(Number.isInteger(msg.process), 'process in entry');
+        assert.ok(msg.process >= 0, 'process in entry');
       }
     });
 
     it('should decode "thread" as a positive integer on every entry', function () {
       for (const msg of pool) {
-        expect(msg, JSON.stringify(Object.keys(msg))).to.have.property('thread');
-        expect(msg.thread, 'thread in entry').to.be.a('number').and.greaterThan(0);
+        assert.ok('thread' in msg, JSON.stringify(Object.keys(msg)));
+        assert.ok(typeof msg.thread === 'number', 'thread in entry');
+        assert.ok(msg.thread > 0, 'thread in entry');
       }
     });
 
     it('should decode "subsystem" as a string on every entry', function () {
       for (const msg of pool) {
-        expect(msg, JSON.stringify(Object.keys(msg))).to.have.property('subsystem');
-        expect(msg.subsystem, 'subsystem field').to.be.a('string');
+        assert.ok('subsystem' in msg, JSON.stringify(Object.keys(msg)));
+        assert.ok(typeof msg.subsystem === 'string', 'subsystem field');
       }
     });
 
     it('should decode "category" as a string on every entry', function () {
       for (const msg of pool) {
-        expect(msg, JSON.stringify(Object.keys(msg))).to.have.property('category');
-        expect(msg.category, 'category field').to.be.a('string');
+        assert.ok('category' in msg, JSON.stringify(Object.keys(msg)));
+        assert.ok(typeof msg.category === 'string', 'category field');
       }
     });
 
     it('should decode "message_type" as a known log level on os-log entries', function () {
       const withType = pool.filter((m) => 'message_type' in m && m.message_type != null);
-      expect(withType, 'expected at least one entry with message_type').to.have.length.greaterThan(0);
+      assert.ok(withType.length > 0, 'expected at least one entry with message_type');
 
       for (const msg of withType) {
-        expect(KNOWN_MESSAGE_TYPES, `unexpected message_type value: ${JSON.stringify(msg.message_type)}`).to.include(
-          msg.message_type,
+        assert.ok(
+          KNOWN_MESSAGE_TYPES.has(msg.message_type as string),
+          `unexpected message_type value: ${JSON.stringify(msg.message_type)}`,
         );
       }
 
@@ -141,7 +145,7 @@ describe('ActivityTraceTap', {timeout: 60000}, function () {
 
       // The device advertises 4 tables (os-log, os-log-arg, os-signpost, os-signpost-arg)
       // so allow up to 4 distinct schemas.
-      expect(unique.size).to.be.lessThan(5, `too many distinct column schemas: ${[...unique].join(' | ')}`);
+      assert.ok(unique.size < 5);
 
       log.info(`${unique.size} distinct column schema(s) across ${pool.length} entries`);
     });
@@ -149,10 +153,11 @@ describe('ActivityTraceTap', {timeout: 60000}, function () {
     it('should never leak a raw Buffer in any decoded field', function () {
       for (const msg of pool) {
         for (const [key, value] of Object.entries(msg)) {
-          expect(
+          assert.strictEqual(
             Buffer.isBuffer(value),
+            false,
             `field "${key}" leaked a raw Buffer instead of a decoded value: ${JSON.stringify(Object.keys(msg))}`,
-          ).to.equal(false);
+          );
         }
       }
     });
@@ -167,17 +172,16 @@ describe('ActivityTraceTap', {timeout: 60000}, function () {
       for (const msg of signposts) {
         // Regression guard: signpost begin/end rows carry a literal null
         // "message" column, so message must still resolve to a string.
-        expect(msg.message, 'signpost message must be a non-null string').to.be.a('string');
+        assert.ok(typeof msg.message === 'string', 'signpost message must be a non-null string');
 
         for (const field of ['signpost_name', 'scope'] as const) {
           if (field in msg) {
-            expect(msg[field], `signpost "${field}"`).to.be.a('string');
+            assert.ok(typeof msg[field] === 'string', `signpost "${field}"`);
           }
         }
         if ('identifier' in msg) {
-          expect(msg.identifier, 'signpost identifier should be a hex string')
-            .to.be.a('string')
-            .and.match(/^[0-9a-f]*$/);
+          assert.ok(typeof msg.identifier === 'string', 'signpost identifier should be a hex string');
+          assert.match(msg.identifier, /^[0-9a-f]*$/, 'signpost identifier should be a hex string');
         }
       }
 
@@ -199,7 +203,7 @@ describe('ActivityTraceTap', {timeout: 60000}, function () {
         await dvt.activityTraceTap.start();
 
         for await (const msg of dvt.activityTraceTap.messages()) {
-          expect(msg).to.be.an('object');
+          assert.ok(typeof msg === 'object' && msg !== null && !Array.isArray(msg));
           break;
         }
       });
@@ -209,13 +213,13 @@ describe('ActivityTraceTap', {timeout: 60000}, function () {
       await withDVT(async (dvt) => {
         let count = 0;
         for await (const msg of dvt.activityTraceTap.messages()) {
-          expect(msg).to.be.an('object');
+          assert.ok(typeof msg === 'object' && msg !== null && !Array.isArray(msg));
           count++;
           if (count === 3) {
             break;
           }
         }
-        expect(count).to.equal(3);
+        assert.strictEqual(count, 3);
       });
     });
 
@@ -223,8 +227,8 @@ describe('ActivityTraceTap', {timeout: 60000}, function () {
       await withDVT(async (dvt) => {
         const gen = dvt.activityTraceTap.messages();
         const {value: first, done} = await gen.next();
-        expect(done).to.not.equal(true);
-        expect(first).to.be.an('object');
+        assert.notStrictEqual(done, true);
+        assert.ok(typeof first === 'object' && first !== null && !Array.isArray(first));
         await gen.return(undefined);
       });
     });
@@ -252,7 +256,7 @@ describe('ActivityTraceTap', {timeout: 60000}, function () {
           ),
         ]);
 
-        expect(terminal.done).to.equal(true);
+        assert.strictEqual(terminal.done, true);
       });
     });
 
@@ -280,7 +284,7 @@ describe('ActivityTraceTap', {timeout: 60000}, function () {
         ),
       ]);
 
-      expect(terminal.done).to.equal(true);
+      assert.strictEqual(terminal.done, true);
     });
   });
 
@@ -293,8 +297,8 @@ describe('ActivityTraceTap', {timeout: 60000}, function () {
 
       try {
         for await (const msg of tap.messages()) {
-          expect(msg).to.be.an('object');
-          expect(msg).to.have.property('message');
+          assert.ok(typeof msg === 'object' && msg !== null && !Array.isArray(msg));
+          assert.ok('message' in msg);
           break;
         }
       } finally {

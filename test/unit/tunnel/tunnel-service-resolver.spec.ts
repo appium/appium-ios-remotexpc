@@ -1,6 +1,6 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
 
-import {expect} from 'chai';
 import esmock from 'esmock';
 import * as sinon from 'sinon';
 
@@ -44,9 +44,9 @@ describe('tunnel-service-resolver', function () {
     });
 
     const resolved = await resolveTunnelService('dev-1', 'com.apple.afc.shim.remote');
-    expect(resolved.host).to.equal('fd00::1');
-    expect(resolved.port).to.equal(49_374);
-    expect(refreshServiceCatalog.called).to.equal(false);
+    assert.strictEqual(resolved.host, 'fd00::1');
+    assert.strictEqual(resolved.port, 49_374);
+    assert.strictEqual(refreshServiceCatalog.called, false);
   });
 
   it('resolveTunnelService refreshes once when the service is missing', async function () {
@@ -72,7 +72,7 @@ describe('tunnel-service-resolver', function () {
     });
 
     const resolved = await resolveTunnelService('dev-1', 'com.apple.dvt.shim.remote');
-    expect(refreshServiceCatalog.calledOnceWith('dev-1')).to.equal(true);
-    expect(resolved.port).to.equal(62_078);
+    assert.strictEqual(refreshServiceCatalog.calledOnceWith('dev-1'), true);
+    assert.strictEqual(resolved.port, 62_078);
   });
 });

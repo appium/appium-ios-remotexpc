@@ -1,7 +1,6 @@
+import assert from 'node:assert/strict';
 import path from 'node:path';
 import {after, before, describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {getLogger} from '../../src/lib/logger.js';
 import * as Services from '../../src/services.js';
@@ -88,8 +87,8 @@ describe('ZipConduit Install', {timeout: 600000}, function () {
     await new Promise((resolve) => setTimeout(resolve, 5000));
 
     const appsAfter = await installationProxyService.lookup([testBundleId]);
-    expect(appsAfter[testBundleId]).to.exist;
-    expect(progressUpdates.length).to.be.greaterThan(0);
-    expect(path.basename(testIpaPath)).to.match(/\.ipa$/i);
+    assert.ok(appsAfter[testBundleId] !== null && appsAfter[testBundleId] !== undefined);
+    assert.ok(progressUpdates.length > 0);
+    assert.match(path.basename(testIpaPath), /\.ipa$/i);
   });
 });

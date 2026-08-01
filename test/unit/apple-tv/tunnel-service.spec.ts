@@ -1,6 +1,6 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
 
-import {expect} from 'chai';
 import esmock from 'esmock';
 import * as sinon from 'sinon';
 
@@ -84,8 +84,8 @@ describe('AppleTVTunnelService', function () {
       timeoutMs: 20_000,
     });
 
-    expect(discovered).to.deep.equal(devices);
-    expect(discoverDevices.calledOnceWithExactly(20_000)).to.equal(true);
+    assert.deepStrictEqual(discovered, devices);
+    assert.strictEqual(discoverDevices.calledOnceWithExactly(20_000), true);
   });
 
   it('uses provided devices without running discovery', async function () {
@@ -133,8 +133,8 @@ describe('AppleTVTunnelService', function () {
       error = err instanceof Error ? err : new Error(String(err));
     }
 
-    expect(error?.message).to.equal('No pair records found');
-    expect(discoverDevices.called).to.equal(false);
+    assert.strictEqual(error?.message, 'No pair records found');
+    assert.strictEqual(discoverDevices.called, false);
   });
 
   it('uses remotePairingUdid from the pair record as the tunnel identifier', async function () {
@@ -157,7 +157,7 @@ describe('AppleTVTunnelService', function () {
       remotePairingUdid: 'synthetic-remote-pairing-udid',
     });
 
-    expect(tunnelDevice.identifier).to.equal('SYNTHETIC-REMOTE-PAIRING-UDID');
+    assert.strictEqual(tunnelDevice.identifier, 'SYNTHETIC-REMOTE-PAIRING-UDID');
   });
 
   it('falls back to devicectl identifiers only on macOS', async function () {
@@ -185,7 +185,7 @@ describe('AppleTVTunnelService', function () {
         remoteUnlockHostKey: '',
       });
 
-      expect(tunnelDevice.identifier).to.equal('SYNTHETIC-DEVICECTL-UDID');
+      assert.strictEqual(tunnelDevice.identifier, 'SYNTHETIC-DEVICECTL-UDID');
     } finally {
       Object.defineProperty(process, 'platform', {
         value: originalPlatform,
@@ -213,13 +213,18 @@ describe('AppleTVTunnelService', function () {
         version: '17.0',
       };
 
-      expect(() =>
-        (tunnelService as any).withTunnelIdentifier(device, {
-          publicKey: Buffer.alloc(0),
-          privateKey: Buffer.alloc(0),
-          remoteUnlockHostKey: '',
-        }),
-      ).to.throw('Pair record does not include remote_pairing_udid and no macOS devicectl fallback is available');
+      assert.throws(
+        () =>
+          (tunnelService as any).withTunnelIdentifier(device, {
+            publicKey: Buffer.alloc(0),
+            privateKey: Buffer.alloc(0),
+            remoteUnlockHostKey: '',
+          }),
+        (err: any) =>
+          err.message.includes(
+            'Pair record does not include remote_pairing_udid and no macOS devicectl fallback is available',
+          ),
+      );
     } finally {
       Object.defineProperty(process, 'platform', {
         value: originalPlatform,

@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {extractSavedReportFileName, parseCrashReportMetadata} from '../../../src/services/ios/crash-reports/index.js';
 import type {SyslogEntry} from '../../../src/services/ios/syslog-service/syslog-entry-parser.js';
@@ -31,76 +30,76 @@ describe('parseCrashReportMetadata', function () {
 
     const metadata = parseCrashReportMetadata(raw);
 
-    expect(metadata).to.not.be.undefined;
-    expect(metadata?.name).to.equal('SampleApp');
-    expect(metadata?.bugType).to.equal('309');
-    expect(metadata?.timestamp).to.equal('2026-07-14 12:00:00.00 +0530');
-    expect(metadata?.incidentId).to.equal('AAAA-BBBB');
-    expect(metadata?.osVersion).to.equal('iPhone OS 26.0 (23A100)');
+    assert.notStrictEqual(metadata, undefined);
+    assert.strictEqual(metadata?.name, 'SampleApp');
+    assert.strictEqual(metadata?.bugType, '309');
+    assert.strictEqual(metadata?.timestamp, '2026-07-14 12:00:00.00 +0530');
+    assert.strictEqual(metadata?.incidentId, 'AAAA-BBBB');
+    assert.strictEqual(metadata?.osVersion, 'iPhone OS 26.0 (23A100)');
   });
 
   it('should parse a header without a trailing newline', function () {
     const metadata = parseCrashReportMetadata('{"name":"foo","bug_type":"298"}');
-    expect(metadata?.name).to.equal('foo');
-    expect(metadata?.bugType).to.equal('298');
+    assert.strictEqual(metadata?.name, 'foo');
+    assert.strictEqual(metadata?.bugType, '298');
   });
 
   it('should leave missing fields undefined', function () {
     const metadata = parseCrashReportMetadata('{"bug_type":"309"}\nrest');
-    expect(metadata).to.not.be.undefined;
-    expect(metadata?.name).to.be.undefined;
-    expect(metadata?.incidentId).to.be.undefined;
+    assert.notStrictEqual(metadata, undefined);
+    assert.strictEqual(metadata?.name, undefined);
+    assert.strictEqual(metadata?.incidentId, undefined);
   });
 
   it('should return undefined for a non-JSON header', function () {
-    expect(parseCrashReportMetadata('Incident Identifier: AAAA\nProcess: foo')).to.be.undefined;
+    assert.strictEqual(parseCrashReportMetadata('Incident Identifier: AAAA\nProcess: foo'), undefined);
   });
 
   it('should return undefined for a non-object JSON header', function () {
-    expect(parseCrashReportMetadata('["array"]\nbody')).to.be.undefined;
-    expect(parseCrashReportMetadata('42\nbody')).to.be.undefined;
-    expect(parseCrashReportMetadata('null\nbody')).to.be.undefined;
+    assert.strictEqual(parseCrashReportMetadata('["array"]\nbody'), undefined);
+    assert.strictEqual(parseCrashReportMetadata('42\nbody'), undefined);
+    assert.strictEqual(parseCrashReportMetadata('null\nbody'), undefined);
   });
 
   it('should ignore non-string values for known fields', function () {
     const metadata = parseCrashReportMetadata('{"name":42,"bug_type":"309"}\n');
-    expect(metadata?.name).to.be.undefined;
-    expect(metadata?.bugType).to.equal('309');
+    assert.strictEqual(metadata?.name, undefined);
+    assert.strictEqual(metadata?.bugType, '309');
   });
 });
 
 describe('extractSavedReportFileName', function () {
   it('should extract the report file name from a saved-report announcement', function () {
     const fileName = extractSavedReportFileName(createSyslogEntry());
-    expect(fileName).to.equal('SampleApp-2026-07-14-120000.ips');
+    assert.strictEqual(fileName, 'SampleApp-2026-07-14-120000.ips');
   });
 
   it('should accept .panic reports', function () {
     const entry = createSyslogEntry({
       message: "Saved type '210' report at /var/mobile/Library/Logs/CrashReporter/kernel-2026-07-14-120000.panic",
     });
-    expect(extractSavedReportFileName(entry)).to.equal('kernel-2026-07-14-120000.panic');
+    assert.strictEqual(extractSavedReportFileName(entry), 'kernel-2026-07-14-120000.panic');
   });
 
   it('should ignore entries from other processes', function () {
     const entry = createSyslogEntry({filename: '/usr/libexec/otherd'});
-    expect(extractSavedReportFileName(entry)).to.be.undefined;
+    assert.strictEqual(extractSavedReportFileName(entry), undefined);
   });
 
   it('should ignore entries from other images', function () {
     const entry = createSyslogEntry({imageName: '/usr/lib/libSystem.dylib'});
-    expect(extractSavedReportFileName(entry)).to.be.undefined;
+    assert.strictEqual(extractSavedReportFileName(entry), undefined);
   });
 
   it('should ignore non saved-report messages', function () {
     const entry = createSyslogEntry({message: 'some unrelated log line'});
-    expect(extractSavedReportFileName(entry)).to.be.undefined;
+    assert.strictEqual(extractSavedReportFileName(entry), undefined);
   });
 
   it('should ignore reports with other extensions', function () {
     const entry = createSyslogEntry({
       message: "Saved type '298' report at /var/mobile/Library/Logs/CrashReporter/log.txt",
     });
-    expect(extractSavedReportFileName(entry)).to.be.undefined;
+    assert.strictEqual(extractSavedReportFileName(entry), undefined);
   });
 });

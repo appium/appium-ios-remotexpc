@@ -1,7 +1,7 @@
+import assert from 'node:assert/strict';
 import {after, before, describe, it} from 'node:test';
 
 import {logger} from '@appium/support';
-import {expect} from 'chai';
 
 import type {DVTInstruments} from '../../src/index.js';
 import * as Services from '../../src/services.js';
@@ -28,16 +28,16 @@ describe('ProcessControl Service', {timeout: 60000}, function () {
   });
 
   it('should have processControl service', function () {
-    expect(dvtServiceConnection).to.not.be.null;
-    expect(dvtServiceConnection!.processControl).to.not.be.null;
+    assert.notStrictEqual(dvtServiceConnection, null);
+    assert.notStrictEqual(dvtServiceConnection!.processControl, null);
   });
 
   it('should get process identifier for system app (Settings)', async function () {
     // com.apple.Preferences is the bundle ID for Settings
     try {
       const pid = await dvtServiceConnection!.processControl.getPidForBundleIdentifier('com.apple.Preferences');
-      expect(pid).to.be.a('number');
-      expect(pid).to.be.greaterThan(0);
+      assert.ok(typeof pid === 'number');
+      assert.ok(pid > 0);
       log.debug(`Settings PID: ${pid}`);
     } catch (error) {
       log.error('Failed to get PID:', error);
@@ -47,7 +47,7 @@ describe('ProcessControl Service', {timeout: 60000}, function () {
 
   it('should return 0 for non-existent bundle identifier', async function () {
     const pid = await dvtServiceConnection!.processControl.getPidForBundleIdentifier('com.fake.nonexistent.bundle');
-    expect(pid).to.equal(0);
+    assert.strictEqual(pid, 0);
   });
 
   it('should launch an application (Calculator)', async function () {
@@ -57,7 +57,7 @@ describe('ProcessControl Service', {timeout: 60000}, function () {
         bundleId: 'com.apple.calculator',
         killExisting: true,
       });
-      expect(pid).to.be.greaterThan(0);
+      assert.ok(pid > 0);
       log.debug(`Launched Calculator PID: ${pid}`);
 
       // Allow some time for launch
@@ -65,7 +65,7 @@ describe('ProcessControl Service', {timeout: 60000}, function () {
 
       // Verify it's running using DeviceInfo
       const isRunning = await dvtServiceConnection!.deviceInfo.isRunningPid(pid);
-      expect(isRunning).to.be.true;
+      assert.strictEqual(isRunning, true);
 
       // Clean up
       await dvtServiceConnection!.processControl.kill(pid);
@@ -82,7 +82,7 @@ describe('ProcessControl Service', {timeout: 60000}, function () {
         bundleId: 'com.apple.calculator',
         killExisting: true,
       });
-      expect(pid).to.be.greaterThan(0);
+      assert.ok(pid > 0);
 
       // Kill it
       await dvtServiceConnection!.processControl.kill(pid);
@@ -92,7 +92,7 @@ describe('ProcessControl Service', {timeout: 60000}, function () {
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       const isRunning = await dvtServiceConnection!.deviceInfo.isRunningPid(pid);
-      expect(isRunning).to.be.false;
+      assert.strictEqual(isRunning, false);
     } catch (error) {
       log.error('Kill test failed:', error);
       throw error;
@@ -104,7 +104,7 @@ describe('ProcessControl Service', {timeout: 60000}, function () {
       bundleId: 'com.apple.calculator',
       killExisting: true,
     });
-    expect(pid).to.be.greaterThan(0);
+    assert.ok(pid > 0);
 
     try {
       await dvtServiceConnection!.processControl.disableMemoryLimitForPid(pid);

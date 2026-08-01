@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {after, before, describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {type PasteboardService} from '../../src/index.js';
 import * as Services from '../../src/services.js';
@@ -36,7 +35,7 @@ describe('PasteboardService', {timeout: 60000}, function () {
     try {
       await pasteboardService!.setText(text);
 
-      expect(await pasteboardService!.getText()).to.equal(text);
+      assert.strictEqual(await pasteboardService!.getText(), text);
     } finally {
       if (originalText !== undefined) {
         await pasteboardService!.setText(originalText);
@@ -51,7 +50,7 @@ describe('PasteboardService', {timeout: 60000}, function () {
     try {
       await pasteboardService!.setUrl(url);
 
-      expect((await pasteboardService!.getUrl())?.toString()).to.equal(url);
+      assert.strictEqual((await pasteboardService!.getUrl())?.toString(), url);
     } finally {
       if (originalText !== undefined) {
         await pasteboardService!.setText(originalText);
@@ -65,7 +64,7 @@ describe('PasteboardService', {timeout: 60000}, function () {
     try {
       await pasteboardService!.setImage(PNG_1X1);
 
-      expect(await pasteboardService!.getImage()).to.deep.equal(PNG_1X1);
+      assert.deepStrictEqual(await pasteboardService!.getImage(), PNG_1X1);
     } finally {
       if (originalText !== undefined) {
         await pasteboardService!.setText(originalText);

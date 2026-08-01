@@ -1,7 +1,6 @@
+import assert from 'node:assert/strict';
 import net from 'node:net';
 import {describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {readUInt64LE} from '../../../src/services/ios/afc/codec.js';
 import {AFC_HEADER_SIZE} from '../../../src/services/ios/afc/constants.js';
@@ -31,8 +30,8 @@ describe('AfcPacketDemux', function () {
     deviceSide.write(encodeResponse(AfcOpcode.DATA, packetNum, Buffer.from('file.txt\0\0')));
 
     const {status, data} = await responseTask;
-    expect(status).to.equal(AfcError.SUCCESS);
-    expect(data.toString('utf8')).to.include('file.txt');
+    assert.strictEqual(status, AfcError.SUCCESS);
+    assert.ok(data.toString('utf8').includes('file.txt'));
 
     demux.stop();
     server.close();
@@ -53,8 +52,8 @@ describe('AfcPacketDemux', function () {
     deviceSide.write(encodeResponse(AfcOpcode.STATUS, packetNum, statusPayload));
 
     const {status, data} = await responseTask;
-    expect(status).to.equal(AfcError.OBJECT_NOT_FOUND);
-    expect(data.length).to.equal(0);
+    assert.strictEqual(status, AfcError.OBJECT_NOT_FOUND);
+    assert.strictEqual(data.length, 0);
 
     demux.stop();
     server.close();
@@ -75,8 +74,8 @@ describe('AfcPacketDemux', function () {
     deviceSide.write(encodeResponse(AfcOpcode.FILE_OPEN_RES, packetNum, handlePayload));
 
     const {status, data} = await responseTask;
-    expect(status).to.equal(AfcError.SUCCESS);
-    expect(data.readBigUInt64LE(0)).to.equal(1n);
+    assert.strictEqual(status, AfcError.SUCCESS);
+    assert.strictEqual(data.readBigUInt64LE(0), 1n);
 
     demux.stop();
     server.close();
@@ -90,7 +89,7 @@ describe('AfcPacketDemux', function () {
 
     const firstTask = demux.sendAndWait(AfcOpcode.GET_DEVINFO);
     const firstHeader = await readExactFromSocket(deviceSide, AFC_HEADER_SIZE);
-    expect(readUInt64LE(firstHeader, 24)).to.equal(0n);
+    assert.strictEqual(readUInt64LE(firstHeader, 24), 0n);
     deviceSide.write(encodeResponse(AfcOpcode.DATA, 0n, Buffer.from('ok\0\0')));
     await firstTask;
 
@@ -98,7 +97,7 @@ describe('AfcPacketDemux', function () {
 
     const secondTask = demux.sendAndWait(AfcOpcode.GET_DEVINFO);
     const secondHeader = await readExactFromSocket(deviceSide, AFC_HEADER_SIZE);
-    expect(readUInt64LE(secondHeader, 24)).to.equal(0n);
+    assert.strictEqual(readUInt64LE(secondHeader, 24), 0n);
     deviceSide.write(encodeResponse(AfcOpcode.DATA, 0n, Buffer.from('ok\0\0')));
     await secondTask;
 

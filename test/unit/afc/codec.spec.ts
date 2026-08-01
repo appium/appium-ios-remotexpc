@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {
   cstr,
@@ -17,17 +16,17 @@ import {AfcFopenMode} from '../../../src/services/ios/afc/enums.js';
 
 describe('AFC Codec Utilities', function () {
   it('should expose correct header size and magic', function () {
-    expect(AFC_HEADER_SIZE).to.equal(40);
-    expect(AFCMAGIC.length).to.equal(8);
-    expect(AFCMAGIC.toString('ascii')).to.equal('CFA6LPAA');
+    assert.strictEqual(AFC_HEADER_SIZE, 40);
+    assert.strictEqual(AFCMAGIC.length, 8);
+    assert.strictEqual(AFCMAGIC.toString('ascii'), 'CFA6LPAA');
   });
 
   it('should write and read UInt64LE consistently', function () {
     const val = 0x1234567890abcdefn;
     const buf = writeUInt64LE(val);
-    expect(buf.length).to.equal(8);
+    assert.strictEqual(buf.length, 8);
     const read = readUInt64LE(buf);
-    expect(read).to.equal(val);
+    assert.strictEqual(read, val);
   });
 
   it('should encode header with proper lengths', function () {
@@ -35,26 +34,26 @@ describe('AFC Codec Utilities', function () {
     const packetNum = 7n;
     const payloadLen = 100;
     const hdr = encodeHeader(Number(op), packetNum, payloadLen);
-    expect(hdr.length).to.equal(AFC_HEADER_SIZE);
+    assert.strictEqual(hdr.length, AFC_HEADER_SIZE);
 
     // magic
-    expect(hdr.subarray(0, 8).equals(AFCMAGIC)).to.be.true;
+    assert.strictEqual(hdr.subarray(0, 8).equals(AFCMAGIC), true);
 
     // entire_length = header + payload
     const entire = readUInt64LE(hdr, 8);
-    expect(Number(entire)).to.equal(AFC_HEADER_SIZE + payloadLen);
+    assert.strictEqual(Number(entire), AFC_HEADER_SIZE + payloadLen);
 
     // this_length defaults to entire_length
     const thisLen = readUInt64LE(hdr, 16);
-    expect(Number(thisLen)).to.equal(AFC_HEADER_SIZE + payloadLen);
+    assert.strictEqual(Number(thisLen), AFC_HEADER_SIZE + payloadLen);
 
     // packet_num
     const pn = readUInt64LE(hdr, 24);
-    expect(pn).to.equal(packetNum);
+    assert.strictEqual(pn, packetNum);
 
     // operation
     const opcode = readUInt64LE(hdr, 32);
-    expect(Number(opcode)).to.equal(Number(op));
+    assert.strictEqual(Number(opcode), Number(op));
   });
 
   it('should support WRITE-specific this_length for split payloads', function () {
@@ -63,21 +62,21 @@ describe('AFC Codec Utilities', function () {
     const thisLen = AFC_HEADER_SIZE + handleLen;
     const entireLen = thisLen + contentLen;
     const hdr = encodeHeaderExplicit(0x10 /* WRITE */, 0n, entireLen, thisLen);
-    expect(Number(readUInt64LE(hdr, 8))).to.equal(entireLen);
-    expect(Number(readUInt64LE(hdr, 16))).to.equal(thisLen);
+    assert.strictEqual(Number(readUInt64LE(hdr, 8)), entireLen);
+    assert.strictEqual(Number(readUInt64LE(hdr, 16)), thisLen);
   });
 
   it('should encode C-string with trailing null', function () {
     const buf = cstr('hello');
-    expect(buf[buf.length - 1]).to.equal(0);
-    expect(buf.subarray(0, buf.length - 1).toString('utf8')).to.equal('hello');
+    assert.strictEqual(buf[buf.length - 1], 0);
+    assert.strictEqual(buf.subarray(0, buf.length - 1).toString('utf8'), 'hello');
   });
 
   it('should parse CString array without trailing empty terminator', function () {
     // "a\0b\0\0" => ['a', 'b']
     const buf = Buffer.from([0x61, 0x00, 0x62, 0x00, 0x00]);
     const arr = parseCStringArray(buf);
-    expect(arr).to.deep.equal(['a', 'b']);
+    assert.deepStrictEqual(arr, ['a', 'b']);
   });
 
   it('should parse key/value null list with trailing empty', function () {
@@ -94,21 +93,21 @@ describe('AFC Codec Utilities', function () {
     ];
     const buf = Buffer.concat(parts);
     const kv = parseKeyValueNullList(buf);
-    expect(kv).to.deep.equal({st_size: '5', st_ifmt: 'S_IFREG'});
+    assert.deepStrictEqual(kv, {st_size: '5', st_ifmt: 'S_IFREG'});
   });
 
   it('should map textual fopen modes correctly', function () {
-    expect(AFC_FOPEN_TEXTUAL_MODES.r).to.equal(AfcFopenMode.RDONLY);
-    expect(AFC_FOPEN_TEXTUAL_MODES['r+']).to.equal(AfcFopenMode.RW);
-    expect(AFC_FOPEN_TEXTUAL_MODES.w).to.equal(AfcFopenMode.WRONLY);
-    expect(AFC_FOPEN_TEXTUAL_MODES['w+']).to.equal(AfcFopenMode.WR);
-    expect(AFC_FOPEN_TEXTUAL_MODES.a).to.equal(AfcFopenMode.APPEND);
-    expect(AFC_FOPEN_TEXTUAL_MODES['a+']).to.equal(AfcFopenMode.RDAPPEND);
+    assert.strictEqual(AFC_FOPEN_TEXTUAL_MODES.r, AfcFopenMode.RDONLY);
+    assert.strictEqual(AFC_FOPEN_TEXTUAL_MODES['r+'], AfcFopenMode.RW);
+    assert.strictEqual(AFC_FOPEN_TEXTUAL_MODES.w, AfcFopenMode.WRONLY);
+    assert.strictEqual(AFC_FOPEN_TEXTUAL_MODES['w+'], AfcFopenMode.WR);
+    assert.strictEqual(AFC_FOPEN_TEXTUAL_MODES.a, AfcFopenMode.APPEND);
+    assert.strictEqual(AFC_FOPEN_TEXTUAL_MODES['a+'], AfcFopenMode.RDAPPEND);
   });
 
   it('should convert nanoseconds to milliseconds without overflow', function () {
     const ns = '1729866045000000000';
     const ms = nanosecondsToMilliseconds(ns);
-    expect(ms).to.equal(1729866045000);
+    assert.strictEqual(ms, 1729866045000);
   });
 });

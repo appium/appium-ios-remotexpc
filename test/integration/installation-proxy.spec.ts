@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {after, before, describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {getLogger} from '../../src/lib/logger.js';
 import * as Services from '../../src/services.js';
@@ -39,12 +38,12 @@ describe('InstallationProxyService', {timeout: 60000}, function () {
         const apps = await installationProxyService.browse();
         log.debug(`Retrieved ${apps.length} applications`);
 
-        expect(apps).to.be.an('array');
-        expect(apps.length).to.be.greaterThan(0);
+        assert.ok(Array.isArray(apps));
+        assert.ok(apps.length > 0);
 
         // Check first app has expected properties
         const firstApp = apps[0];
-        expect(firstApp).to.have.property('CFBundleIdentifier');
+        assert.ok('CFBundleIdentifier' in firstApp);
         log.debug('Sample app details:', JSON.stringify(firstApp, null, 2));
         log.debug(
           `First 5 apps: ${apps
@@ -68,9 +67,9 @@ describe('InstallationProxyService', {timeout: 60000}, function () {
           log.debug(`User apps: ${apps.map((a) => a.CFBundleIdentifier).join(', ')}`);
         }
 
-        expect(apps).to.be.an('array');
+        assert.ok(Array.isArray(apps));
         // User apps might be 0 if none installed
-        expect(apps).to.satisfy((arr: any[]) => arr.length >= 0);
+        assert.ok(((arr: any[]) => arr.length >= 0)(apps));
       } catch (error) {
         log.error('Error listing user applications:', (error as Error).message);
         throw error;
@@ -83,11 +82,11 @@ describe('InstallationProxyService', {timeout: 60000}, function () {
           returnAttributes: ['CFBundleIdentifier', 'CFBundleName'],
         });
 
-        expect(apps).to.be.an('array');
-        expect(apps.length).to.be.greaterThan(0);
+        assert.ok(Array.isArray(apps));
+        assert.ok(apps.length > 0);
 
         const firstApp = apps[0];
-        expect(firstApp).to.have.property('CFBundleIdentifier');
+        assert.ok('CFBundleIdentifier' in firstApp);
         // CFBundleName might not always be present
       } catch (error) {
         log.error('Error with specific attributes:', (error as Error).message);
@@ -103,9 +102,9 @@ describe('InstallationProxyService', {timeout: 60000}, function () {
         const bundleId = 'com.apple.Preferences';
         const apps = await installationProxyService.lookup([bundleId]);
 
-        expect(apps).to.be.an('object');
-        expect(apps[bundleId]).to.exist;
-        expect(apps[bundleId].CFBundleIdentifier).to.equal(bundleId);
+        assert.ok(typeof apps === 'object' && apps !== null && !Array.isArray(apps));
+        assert.ok(apps[bundleId] !== null && apps[bundleId] !== undefined);
+        assert.strictEqual(apps[bundleId].CFBundleIdentifier, bundleId);
         log.debug(`Found app: ${apps[bundleId].CFBundleName || bundleId}`);
         log.debug('App details:', JSON.stringify(apps[bundleId], null, 2));
       } catch (error) {
@@ -119,8 +118,8 @@ describe('InstallationProxyService', {timeout: 60000}, function () {
         const bundleIds = ['com.apple.Preferences', 'com.apple.mobilesafari'];
         const apps = await installationProxyService.lookup(bundleIds);
 
-        expect(apps).to.be.an('object');
-        expect(Object.keys(apps).length).to.be.greaterThan(0);
+        assert.ok(typeof apps === 'object' && apps !== null && !Array.isArray(apps));
+        assert.ok(Object.keys(apps).length > 0);
         log.debug(`Found ${Object.keys(apps).length} applications`);
       } catch (error) {
         log.error('Error looking up multiple apps:', (error as Error).message);
@@ -133,8 +132,8 @@ describe('InstallationProxyService', {timeout: 60000}, function () {
         const bundleId = 'com.nonexistent.app.test';
         const apps = await installationProxyService.lookup([bundleId]);
 
-        expect(apps).to.be.an('object');
-        expect(Object.keys(apps).length).to.equal(0);
+        assert.ok(typeof apps === 'object' && apps !== null && !Array.isArray(apps));
+        assert.strictEqual(Object.keys(apps).length, 0);
       } catch (error) {
         log.error('Error with nonexistent app:', (error as Error).message);
         throw error;
@@ -147,8 +146,8 @@ describe('InstallationProxyService', {timeout: 60000}, function () {
       try {
         const apps = await installationProxyService.getApps();
 
-        expect(apps).to.be.an('object');
-        expect(Object.keys(apps).length).to.be.greaterThan(0);
+        assert.ok(typeof apps === 'object' && apps !== null && !Array.isArray(apps));
+        assert.ok(Object.keys(apps).length > 0);
         log.debug(`Retrieved ${Object.keys(apps).length} applications`);
       } catch (error) {
         log.error('Error getting all apps:', (error as Error).message);
@@ -160,9 +159,9 @@ describe('InstallationProxyService', {timeout: 60000}, function () {
       try {
         const apps = await installationProxyService.getApps('Any', true);
 
-        expect(apps).to.be.an('object');
+        assert.ok(typeof apps === 'object' && apps !== null && !Array.isArray(apps));
         const appIds = Object.keys(apps);
-        expect(appIds.length).to.be.greaterThan(0);
+        assert.ok(appIds.length > 0);
 
         // Check if at least one app has size information
         const firstAppId = appIds[0];
@@ -179,8 +178,8 @@ describe('InstallationProxyService', {timeout: 60000}, function () {
         const bundleIds = ['com.apple.Preferences'];
         const apps = await installationProxyService.getApps('Any', false, bundleIds);
 
-        expect(apps).to.be.an('object');
-        expect(apps['com.apple.Preferences']).to.exist;
+        assert.ok(typeof apps === 'object' && apps !== null && !Array.isArray(apps));
+        assert.ok(apps['com.apple.Preferences'] !== null && apps['com.apple.Preferences'] !== undefined);
       } catch (error) {
         log.error('Error getting specific apps:', (error as Error).message);
         throw error;
@@ -195,9 +194,9 @@ describe('InstallationProxyService', {timeout: 60000}, function () {
         const apps2 = await installationProxyService.lookup(['com.apple.Preferences']);
         const apps3 = await installationProxyService.getApps();
 
-        expect(apps1).to.be.an('array');
-        expect(apps2).to.be.an('object');
-        expect(apps3).to.be.an('object');
+        assert.ok(Array.isArray(apps1));
+        assert.ok(typeof apps2 === 'object' && apps2 !== null && !Array.isArray(apps2));
+        assert.ok(typeof apps3 === 'object' && apps3 !== null && !Array.isArray(apps3));
 
         log.debug('Successfully made multiple requests on same connection');
       } catch (error) {

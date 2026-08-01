@@ -1,7 +1,6 @@
+import assert from 'node:assert/strict';
 import {EventEmitter} from 'node:events';
 import {describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {HID_BUTTON_STATE_DOWN, HID_BUTTON_STATE_UP, HidIndigoService} from '../../../src/index.js';
 import {decodeMessage} from '../../../src/lib/remote-xpc/xpc-protocol.js';
@@ -40,8 +39,8 @@ describe('HidIndigoService', function () {
 
     await service.pressButton('home', {holdSeconds: 0});
 
-    expect(service.sentPayloads).to.have.length(2);
-    expect(decodeBody(service.sentPayloads[0])).to.deep.equal({
+    assert.strictEqual(service.sentPayloads.length, 2);
+    assert.deepStrictEqual(decodeBody(service.sentPayloads[0]), {
       featureIdentifier: 'com.apple.coredevice.feature.remote.hid.button',
       messageType: 'IndigoButtonEvent',
       payload: {
@@ -50,7 +49,7 @@ describe('HidIndigoService', function () {
         usagePage: 0x0c,
       },
     });
-    expect(decodeBody(service.sentPayloads[1])).to.deep.equal({
+    assert.deepStrictEqual(decodeBody(service.sentPayloads[1]), {
       featureIdentifier: 'com.apple.coredevice.feature.remote.hid.button',
       messageType: 'IndigoButtonEvent',
       payload: {
@@ -69,7 +68,7 @@ describe('HidIndigoService', function () {
       pressCount: 2,
     });
 
-    expect(service.sentPayloads).to.have.length(4);
+    assert.strictEqual(service.sentPayloads.length, 4);
   });
 
   it('closes the active transport', async function () {
@@ -82,7 +81,7 @@ describe('HidIndigoService', function () {
     });
     await service.close();
 
-    expect(service.closeCalls).to.equal(1);
+    assert.strictEqual(service.closeCalls, 1);
   });
 
   it('handles a late transport error after a fire-and-forget send', async function () {
@@ -96,7 +95,7 @@ describe('HidIndigoService', function () {
 
     // A socket error arriving after the (fire-and-forget) send must not surface
     // as an unhandled 'error' event — the base attaches a permanent listener.
-    expect(() => service.fake.emit('error', new Error('connection reset'))).to.not.throw();
+    assert.doesNotThrow(() => service.fake.emit('error', new Error('connection reset')));
   });
 });
 
