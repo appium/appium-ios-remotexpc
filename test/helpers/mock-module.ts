@@ -44,7 +44,10 @@ export async function mockImport<T = any>(
     }
   }
   for (const [resolved, exports] of resolvedMocks) {
-    t.mock.module(resolved, {exports});
+    const {default: defaultExport, ...namedExports} = exports;
+    // Node 22 doesn't understand the unified `exports` option yet (added in Node 23+),
+    // only the older `namedExports`/`defaultExport` pair — use those for engine coverage.
+    t.mock.module(resolved, 'default' in exports ? {defaultExport, namedExports} : {namedExports});
   }
   const targetUrl = `${resolveSpecifier(targetSpecifier, importerUrl)}?mock=${importCounter++}`;
   return (await import(targetUrl)) as T;
