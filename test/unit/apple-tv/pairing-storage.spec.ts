@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
 
-import esmock from 'esmock';
+import {mockImport} from '../../helpers/mock-module.js';
 
 function slugify(value: string): string {
   return value
@@ -13,7 +13,7 @@ function slugify(value: string): string {
 }
 
 describe('PairingStorage', function () {
-  it('discovers Apple TV pair records stored with slugified Strongbox filenames', async function () {
+  it('discovers Apple TV pair records stored with slugified Strongbox filenames', async function (t) {
     const container = '/tmp/appium-ios-remotexpc';
     const box = {
       container,
@@ -33,21 +33,26 @@ describe('PairingStorage', function () {
       ],
     };
 
-    const {PairingStorage} = await esmock('../../../src/lib/apple-tv/storage/pairing-storage.js', import.meta.url, {
-      '@appium/strongbox': {
-        strongbox: () => box,
-        BaseItem: class {
-          id: string;
+    const {PairingStorage} = await mockImport(
+      t,
+      '../../../src/lib/apple-tv/storage/pairing-storage.js',
+      import.meta.url,
+      {
+        '@appium/strongbox': {
+          strongbox: () => box,
+          BaseItem: class {
+            id: string;
 
-          constructor(
-            public readonly name: string,
-            parent: {container: string},
-          ) {
-            this.id = `${parent.container}/${slugify(name)}`;
-          }
+            constructor(
+              public readonly name: string,
+              parent: {container: string},
+            ) {
+              this.id = `${parent.container}/${slugify(name)}`;
+            }
+          },
         },
       },
-    });
+    );
 
     const storage = new PairingStorage({
       timeout: 1,
