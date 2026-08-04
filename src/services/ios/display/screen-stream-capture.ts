@@ -10,6 +10,7 @@ import {
 } from './access-unit-assembler.js';
 import {toAnnexB} from './hevc.js';
 import type {DisplayService, MediaStreamAnswer, StartVideoStreamOptions} from './index.js';
+import {RtcpKeepalive, rtcpIdentityFromStreamConfig} from './rtcp.js';
 import {UdpMediaReceiver, parseRtpPacket} from './rtp.js';
 
 export type {HevcParameterSets, ScreenStreamStats, VideoAccessUnit};
@@ -58,6 +59,8 @@ export class ScreenStreamCapture {
   private readonly receiver: UdpMediaReceiver;
   private readonly assembler = new AccessUnitAssembler();
   private readonly abortController = new AbortController();
+  /** Holds the device's video session open past its 20 s RTCP timeout. */
+  private keepalive: RtcpKeepalive | undefined;
 
   /**
    * The in-flight teardown, cached so concurrent {@link stop} callers all await
@@ -91,7 +94,16 @@ export class ScreenStreamCapture {
       const [receiverIp, senderIp] = await Promise.all([service.getTunnelLocalAddress(), service.getDeviceAddress()]);
       log.debug(`Media receiver bound on [${receiverIp}]:${receiver.port}, device at ${senderIp}`);
       const answer = await service.startVideoStream({receiverIp, receiverPort: receiver.port, senderIp}, streamOptions);
-      return new ScreenStreamCapture(service, receiver, answer);
+      const capture = new ScreenStreamCapture(service, receiver, answer);
+
+      // Without receiver reports the device stops sending video after ~20 s.
+      const identity = rtcpIdentityFromStreamConfig(answer.streamConfig, senderIp);
+      if (identity) {
+        capture.keepalive = RtcpKeepalive.start(receiver, identity, {label: 'video'});
+      } else {
+        log.warn('Video streamConfig lacked SSRCs or a source port; the session will end after ~20s');
+      }
+      return capture;
     } catch (error) {
       receiver.close();
       throw error;
@@ -158,6 +170,7 @@ export class ScreenStreamCapture {
   }
 
   private async tearDown(): Promise<void> {
+    this.keepalive?.stop();
     this.abortController.abort();
     this.receiver.close();
     await this.service.stopAllMediaStreams();
@@ -172,6 +185,7 @@ export class ScreenStreamCapture {
     if (!packet) {
       return undefined; // RTCP or malformed; not our concern here.
     }
+    this.keepalive?.observeSequence(packet.sequence);
     return this.assembler.push(packet);
   }
 }

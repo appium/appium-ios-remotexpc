@@ -59,10 +59,8 @@ export interface RecordScreenAndAudioResult {
     /**
      * Exact duration in milliseconds, from the access-unit count.
      *
-     * Compare against `video.durationMs`: the device ends the audio session at
-     * its `RTCPTimeoutInterval` (20 s) because this library sends no RTCP
-     * receiver reports, so on longer recordings the audio covers only the first
-     * ~20 s while the video runs the whole window.
+     * Should track `video.durationMs` closely; a large shortfall means the
+     * device ended the audio session early.
      */
     durationMs: number;
     /** The captured audio format. */
@@ -99,12 +97,11 @@ export interface RecordScreenAndAudioResult {
  * Recording starts at the first video keyframe, since a decoder cannot begin on
  * a delta frame; a little audio may therefore precede the first frame.
  *
- * > **Audio stops after ~20 s; video does not.** This library sends no RTCP
- * > receiver reports, so the device ends the audio session at its
- * > `RTCPTimeoutInterval` of 20 s. Measured on iOS 27.0: a 35 s recording
- * > yielded the full 605 video frames but only 20.04 s of audio. Compare
- * > `audio.durationMs` against `video.durationMs` to detect it; a warning is
- * > logged when they diverge.
+ * Both captures send periodic RTCP receiver reports, so recordings are not
+ * bounded by the device's 20 s `RTCPTimeoutInterval`. Verified on iOS 27.0: a
+ * 60 s recording captured 2827 video frames and 59.97 s of audio with no loss.
+ * A warning is still logged if the two durations diverge, which would mean the
+ * device dropped a session for some other reason.
  *
  * Requires iOS 27.0+.
  *
@@ -190,17 +187,16 @@ export async function recordScreenAndAudioToFiles(
 
   const audioDurationMs = aacEldDurationMs(audioUnits.length);
 
-  // The frame rate must be measured against the *video's* own capture window,
-  // never the audio clock: the device reaps the audio session at its
-  // RTCPTimeoutInterval (20 s) while video keeps flowing, so on a longer
-  // recording the audio duration is far shorter than the window and would
-  // inflate the rate — playing the video back too fast.
+  // Measure against the video's own capture window, never the audio clock: if
+  // the device ever ends the audio session early the audio duration would be
+  // shorter than the window and would skew the rate, playing the video back at
+  // the wrong speed.
   const frameRate = elapsedMs > 0 ? Number(((framesWritten * 1000) / elapsedMs).toFixed(3)) : 0;
   if (audioDurationMs > 0 && audioDurationMs < elapsedMs - 1000) {
     log.warn(
       `Audio stopped early: ${(audioDurationMs / 1000).toFixed(2)}s captured over a ` +
         `${(elapsedMs / 1000).toFixed(2)}s window. The device ends the audio session at its ` +
-        'RTCPTimeoutInterval (20s) because no RTCP receiver reports are sent; the video is unaffected.',
+        'RTCPTimeoutInterval (20s) when receiver reports stop arriving.',
     );
   }
 

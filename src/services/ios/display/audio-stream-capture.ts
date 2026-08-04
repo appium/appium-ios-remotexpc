@@ -4,6 +4,7 @@ import {getLogger} from '../../../lib/logger.js';
 import {AAC_ELD_FORMAT, type AacEldFormat, aacEldDurationMs} from './aac-eld.js';
 import type {DisplayService, MediaStreamAnswer, StartAudioStreamOptions} from './index.js';
 import {buildM4a} from './m4a-writer.js';
+import {RtcpKeepalive, rtcpIdentityFromStreamConfig} from './rtcp.js';
 import {UdpMediaReceiver, isNextSequence, parseRtpPacket} from './rtp.js';
 
 const log = getLogger('AudioStreamCapture');
@@ -73,6 +74,8 @@ export class AudioStreamCapture {
 
   private statsInternal: AudioStreamStats = {packetsReceived: 0, packetsLost: 0, accessUnitsEmitted: 0};
   private lastSequence: number | undefined;
+  /** Holds the device's audio session open past its 20 s RTCP timeout. */
+  private keepalive: RtcpKeepalive | undefined;
   /** In-flight teardown, so concurrent stop() callers await the same completion. */
   private stopPromise: Promise<void> | undefined;
 
@@ -101,7 +104,16 @@ export class AudioStreamCapture {
       const [receiverIp, senderIp] = await Promise.all([service.getTunnelLocalAddress(), service.getDeviceAddress()]);
       log.debug(`Audio receiver bound on [${receiverIp}]:${receiver.port}, device at ${senderIp}`);
       const answer = await service.startAudioStream({receiverIp, receiverPort: receiver.port, senderIp}, streamOptions);
-      return new AudioStreamCapture(service, receiver, answer);
+      const capture = new AudioStreamCapture(service, receiver, answer);
+
+      // Without receiver reports the device stops sending audio after ~20 s.
+      const identity = rtcpIdentityFromStreamConfig(answer.streamConfig, senderIp);
+      if (identity) {
+        capture.keepalive = RtcpKeepalive.start(receiver, identity, {label: 'audio'});
+      } else {
+        log.warn('Audio streamConfig lacked SSRCs or a source port; the session will end after ~20s');
+      }
+      return capture;
     } catch (error) {
       receiver.close();
       throw error;
@@ -140,6 +152,7 @@ export class AudioStreamCapture {
           log.debug(`Audio RTP gap: ${missing} packet(s) lost before sequence ${packet.sequence}`);
         }
         this.lastSequence = packet.sequence;
+        this.keepalive?.observeSequence(packet.sequence);
 
         this.statsInternal.accessUnitsEmitted += 1;
         yield {
@@ -168,6 +181,7 @@ export class AudioStreamCapture {
   }
 
   private async tearDown(): Promise<void> {
+    this.keepalive?.stop();
     this.abortController.abort();
     this.receiver.close();
     await this.service.stopAllMediaStreams();
