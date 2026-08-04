@@ -96,6 +96,29 @@ export type {
   ScreenStreamStats,
   VideoAccessUnit,
 } from './services/ios/display/access-unit-assembler.js';
+export {AudioStreamCapture, recordAudioToFile} from './services/ios/display/audio-stream-capture.js';
+export type {
+  AudioAccessUnit,
+  AudioStreamCaptureOptions,
+  AudioStreamStats,
+  RecordAudioOptions,
+  RecordAudioResult,
+} from './services/ios/display/audio-stream-capture.js';
+export {recordScreenAndAudioToFiles} from './services/ios/display/av-capture.js';
+export type {RecordScreenAndAudioOptions, RecordScreenAndAudioResult} from './services/ios/display/av-capture.js';
+export {
+  AAC_ELD_ASC_48K_STEREO_480,
+  AAC_ELD_ASC_DEVICE_ADVERTISED,
+  AAC_ELD_CHANNELS,
+  AAC_ELD_FORMAT,
+  AAC_ELD_FRAMES_PER_PACKET,
+  AAC_ELD_RTP_PAYLOAD_TYPE,
+  AAC_ELD_SAMPLE_RATE,
+  aacEldDurationMs,
+} from './services/ios/display/aac-eld.js';
+export type {AacEldFormat} from './services/ios/display/aac-eld.js';
+export {buildM4a} from './services/ios/display/m4a-writer.js';
+export type {BuildM4aOptions} from './services/ios/display/m4a-writer.js';
 export {
   HevcDepacketizer,
   HevcNalType,

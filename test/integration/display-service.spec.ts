@@ -6,12 +6,16 @@ import {after, before, describe, it} from 'node:test';
 import {expect} from 'chai';
 
 import {
+  AAC_ELD_FORMAT,
+  AudioStreamCapture,
   CoreDeviceError,
   type DisplayService,
   REMOTE_CONTROL_UNSUPPORTED_ERROR_CODE,
   ScreenStreamCapture,
   UdpMediaReceiver,
   XPCUUID,
+  recordAudioToFile,
+  recordScreenAndAudioToFiles,
   recordScreenToFile,
 } from '../../src/index.js';
 import * as Services from '../../src/services.js';
@@ -205,6 +209,112 @@ describe('DisplayService', {timeout: 120000}, function () {
         await service!.stopAllMediaStreams();
       } finally {
         receiver.close();
+      }
+    });
+  });
+
+  describe('audio capture', function () {
+    it('either captures AAC-ELD access units or reports the iOS 27 requirement', async function () {
+      let capture: AudioStreamCapture;
+      try {
+        capture = await AudioStreamCapture.start(service!);
+      } catch (error) {
+        expect(streamingSupported).to.equal(false);
+        expect((error as Error).message).to.contain('iOS 27');
+        return;
+      }
+
+      try {
+        const units = [];
+        const deadline = performance.now() + 5000;
+        for await (const unit of capture.accessUnits()) {
+          units.push(unit);
+          if (units.length >= 50 || performance.now() > deadline) {
+            break;
+          }
+        }
+
+        expect(units.length, 'the device streams silence frames even when idle').to.be.greaterThan(0);
+        // Each unit is one 10 ms AAC-ELD frame; they are small but never empty.
+        for (const unit of units.slice(0, 10)) {
+          expect(unit.data.length).to.be.greaterThan(0);
+        }
+        expect(capture.format).to.deep.equal(AAC_ELD_FORMAT);
+        expect(capture.stats.accessUnitsEmitted).to.equal(units.length);
+      } finally {
+        await capture.stop();
+      }
+    });
+
+    it('either records a playable .m4a or reports the iOS 27 requirement', async function () {
+      const outputPath = join(tmpdir(), `remotexpc-audio-${process.pid}.m4a`);
+      try {
+        let result;
+        try {
+          result = await recordAudioToFile(service!, outputPath, {durationMs: 3000});
+        } catch (error) {
+          expect(streamingSupported).to.equal(false);
+          expect((error as Error).message).to.contain('iOS 27');
+          return;
+        }
+
+        expect(result.accessUnitsWritten).to.be.greaterThan(0);
+        expect(result.bytesWritten).to.be.greaterThan(0);
+        // 480 frames @ 48 kHz => each access unit is exactly 10 ms.
+        expect(result.durationMs).to.equal(result.accessUnitsWritten * 10);
+        expect(result.format.audioSpecificConfig).to.deep.equal(AAC_ELD_FORMAT.audioSpecificConfig);
+
+        const written = await stat(outputPath);
+        expect(written.size).to.equal(result.bytesWritten);
+        // Must be a real MP4: 'ftyp' sits at offset 4 of every MP4 file.
+        const {open} = await import('node:fs/promises');
+        const handle = await open(outputPath, 'r');
+        try {
+          const header = Buffer.alloc(12);
+          await handle.read(header, 0, 12, 0);
+          expect(header.toString('ascii', 4, 8)).to.equal('ftyp');
+          expect(header.toString('ascii', 8, 12)).to.equal('M4A ');
+        } finally {
+          await handle.close();
+        }
+      } finally {
+        await rm(outputPath, {force: true});
+      }
+    });
+  });
+
+  describe('combined A/V recording', function () {
+    it('either writes both tracks plus a mux command or reports the iOS 27 requirement', async function () {
+      const videoPath = join(tmpdir(), `remotexpc-av-${process.pid}.h265`);
+      const audioPath = join(tmpdir(), `remotexpc-av-${process.pid}.m4a`);
+      try {
+        let result;
+        try {
+          result = await recordScreenAndAudioToFiles(service!, {videoPath, audioPath, durationMs: 5000});
+        } catch (error) {
+          expect(streamingSupported).to.equal(false);
+          expect((error as Error).message).to.contain('iOS 27');
+          return;
+        }
+
+        expect(result.video.framesWritten, 'video should have frames').to.be.greaterThan(0);
+        expect(result.audio.accessUnitsWritten, 'audio should have access units').to.be.greaterThan(0);
+        expect(result.video.frameRate).to.be.greaterThan(0);
+        expect(result.video.codecString).to.match(/^hev1\./);
+
+        // Both files must exist with the reported sizes.
+        expect((await stat(videoPath)).size).to.equal(result.video.bytesWritten);
+        expect((await stat(audioPath)).size).to.equal(result.audio.bytesWritten);
+
+        // The command must reference both inputs and carry the measured rate,
+        // since Annex-B has no timestamps of its own.
+        expect(result.ffmpegCommand).to.contain(videoPath);
+        expect(result.ffmpegCommand).to.contain(audioPath);
+        expect(result.ffmpegCommand).to.contain(`-r ${result.video.frameRate}`);
+        expect(result.ffmpegCommand).to.contain('-fflags +genpts');
+      } finally {
+        await rm(videoPath, {force: true});
+        await rm(audioPath, {force: true});
       }
     });
   });
