@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {AAC_ELD_ASC_48K_STEREO_480, AAC_ELD_FORMAT} from '../../../src/services/ios/display/aac-eld.js';
 import {buildM4a} from '../../../src/services/ios/display/m4a-writer.js';
@@ -40,20 +39,23 @@ describe('buildM4a', function () {
     it('emits ftyp, moov and mdat in order', function () {
       const file = buildM4a(samples);
 
-      expect(topLevelBoxes(file).map(([type]) => type)).to.deep.equal(['ftyp', 'moov', 'mdat']);
+      assert.deepStrictEqual(
+        topLevelBoxes(file).map(([type]) => type),
+        ['ftyp', 'moov', 'mdat'],
+      );
     });
 
     it('box sizes account for the whole file', function () {
       const file = buildM4a(samples);
 
       const total = topLevelBoxes(file).reduce((sum, [, size]) => sum + size, 0);
-      expect(total).to.equal(file.length);
+      assert.strictEqual(total, file.length);
     });
 
     it('declares an M4A brand', function () {
       const file = buildM4a(samples);
 
-      expect(file.toString('ascii', 8, 12)).to.equal('M4A ');
+      assert.strictEqual(file.toString('ascii', 8, 12), 'M4A ');
     });
   });
 
@@ -63,19 +65,22 @@ describe('buildM4a', function () {
       const stsz = findBox(file, 'stsz')!;
 
       // [1 version][3 flags][4 sample_size][4 sample_count][sizes...]
-      expect(stsz.readUInt32BE(4)).to.equal(0); // 0 => per-sample sizes follow
-      expect(stsz.readUInt32BE(8)).to.equal(samples.length);
+      assert.strictEqual(stsz.readUInt32BE(4), 0); // 0 => per-sample sizes follow
+      assert.strictEqual(stsz.readUInt32BE(8), samples.length);
       const sizes = samples.map((_, i) => stsz.readUInt32BE(12 + i * 4));
-      expect(sizes).to.deep.equal(samples.map((s) => s.length));
+      assert.deepStrictEqual(
+        sizes,
+        samples.map((s) => s.length),
+      );
     });
 
     it('gives every sample the same duration of one frame block', function () {
       const file = buildM4a(samples);
       const stts = findBox(file, 'stts')!;
 
-      expect(stts.readUInt32BE(4)).to.equal(1); // one entry covers all samples
-      expect(stts.readUInt32BE(8)).to.equal(samples.length);
-      expect(stts.readUInt32BE(12)).to.equal(AAC_ELD_FORMAT.framesPerPacket);
+      assert.strictEqual(stts.readUInt32BE(4), 1); // one entry covers all samples
+      assert.strictEqual(stts.readUInt32BE(8), samples.length);
+      assert.strictEqual(stts.readUInt32BE(12), AAC_ELD_FORMAT.framesPerPacket);
     });
 
     it('points stco at the actual mdat payload', function () {
@@ -84,7 +89,7 @@ describe('buildM4a', function () {
       const chunkOffset = stco.readUInt32BE(8);
 
       // The offset must land exactly on the first sample's bytes.
-      expect(file.subarray(chunkOffset, chunkOffset + samples[0].length)).to.deep.equal(samples[0]);
+      assert.deepStrictEqual(file.subarray(chunkOffset, chunkOffset + samples[0].length), samples[0]);
     });
 
     it('concatenates the samples into mdat in order', function () {
@@ -93,7 +98,7 @@ describe('buildM4a', function () {
       let offset = stco.readUInt32BE(8);
 
       for (const sample of samples) {
-        expect(file.subarray(offset, offset + sample.length)).to.deep.equal(sample);
+        assert.deepStrictEqual(file.subarray(offset, offset + sample.length), sample);
         offset += sample.length;
       }
     });
@@ -103,7 +108,7 @@ describe('buildM4a', function () {
     it('embeds the AudioSpecificConfig', function () {
       const file = buildM4a(samples);
 
-      expect(file.includes(AAC_ELD_ASC_48K_STEREO_480)).to.equal(true);
+      assert.strictEqual(file.includes(AAC_ELD_ASC_48K_STEREO_480), true);
     });
 
     it('marks the stream as MPEG-4 audio', function () {
@@ -112,8 +117,8 @@ describe('buildM4a', function () {
 
       // objectTypeIndication 0x40 = MPEG-4 Audio, streamType 0x05 = audio.
       const decoderConfigTag = esds.indexOf(0x04);
-      expect(esds[decoderConfigTag + 2]).to.equal(0x40);
-      expect(esds[decoderConfigTag + 3]).to.equal(0x15);
+      assert.strictEqual(esds[decoderConfigTag + 2], 0x40);
+      assert.strictEqual(esds[decoderConfigTag + 3], 0x15);
     });
 
     it('honours a custom format', function () {
@@ -122,10 +127,10 @@ describe('buildM4a', function () {
         format: {sampleRate: 44100, channels: 1, framesPerPacket: 1024, audioSpecificConfig: asc},
       });
 
-      expect(file.includes(asc)).to.equal(true);
-      expect(findBox(file, 'stts')!.readUInt32BE(12)).to.equal(1024);
+      assert.strictEqual(file.includes(asc), true);
+      assert.strictEqual(findBox(file, 'stts')!.readUInt32BE(12), 1024);
       // mdhd timescale must follow the sample rate.
-      expect(findBox(file, 'mdhd')!.readUInt32BE(12)).to.equal(44100);
+      assert.strictEqual(findBox(file, 'mdhd')!.readUInt32BE(12), 44100);
     });
   });
 
@@ -134,8 +139,8 @@ describe('buildM4a', function () {
       const file = buildM4a(samples);
       const mdhd = findBox(file, 'mdhd')!;
 
-      expect(mdhd.readUInt32BE(12)).to.equal(AAC_ELD_FORMAT.sampleRate); // timescale
-      expect(mdhd.readUInt32BE(16)).to.equal(samples.length * AAC_ELD_FORMAT.framesPerPacket);
+      assert.strictEqual(mdhd.readUInt32BE(12), AAC_ELD_FORMAT.sampleRate); // timescale
+      assert.strictEqual(mdhd.readUInt32BE(16), samples.length * AAC_ELD_FORMAT.framesPerPacket);
     });
 
     it('writes a 16.16 fixed-point sample rate without overflowing', function () {
@@ -148,8 +153,8 @@ describe('buildM4a', function () {
       const mp4aBody = stsd.indexOf('mp4a', 0, 'ascii') + 4;
       const sampleRateFixed = stsd.readUInt32BE(mp4aBody + 24);
 
-      expect(sampleRateFixed).to.equal(48000 * 0x10000);
-      expect(sampleRateFixed).to.equal(3145728000);
+      assert.strictEqual(sampleRateFixed, 48000 * 0x10000);
+      assert.strictEqual(sampleRateFixed, 3145728000);
     });
   });
 
@@ -157,17 +162,20 @@ describe('buildM4a', function () {
     it('produces a structurally valid file with no samples', function () {
       const file = buildM4a([]);
 
-      expect(topLevelBoxes(file).map(([type]) => type)).to.deep.equal(['ftyp', 'moov', 'mdat']);
-      expect(findBox(file, 'stsz')!.readUInt32BE(8)).to.equal(0);
-      expect(findBox(file, 'mdhd')!.readUInt32BE(16)).to.equal(0);
+      assert.deepStrictEqual(
+        topLevelBoxes(file).map(([type]) => type),
+        ['ftyp', 'moov', 'mdat'],
+      );
+      assert.strictEqual(findBox(file, 'stsz')!.readUInt32BE(8), 0);
+      assert.strictEqual(findBox(file, 'mdhd')!.readUInt32BE(16), 0);
     });
 
     it('handles a single sample', function () {
       const file = buildM4a([AU(0x99, 12)]);
 
-      expect(findBox(file, 'stsz')!.readUInt32BE(8)).to.equal(1);
+      assert.strictEqual(findBox(file, 'stsz')!.readUInt32BE(8), 1);
       const chunkOffset = findBox(file, 'stco')!.readUInt32BE(8);
-      expect(file.subarray(chunkOffset, chunkOffset + 12)).to.deep.equal(AU(0x99, 12));
+      assert.deepStrictEqual(file.subarray(chunkOffset, chunkOffset + 12), AU(0x99, 12));
     });
 
     it('encodes descriptor lengths above 127 as multi-byte', function () {
@@ -175,9 +183,12 @@ describe('buildM4a', function () {
       const asc = Buffer.alloc(200, 0xab);
       const file = buildM4a(samples, {format: {...AAC_ELD_FORMAT, audioSpecificConfig: asc}});
 
-      expect(file.includes(asc)).to.equal(true);
+      assert.strictEqual(file.includes(asc), true);
       // Total size still consistent, i.e. the VLQ length did not corrupt boxes.
-      expect(topLevelBoxes(file).reduce((sum, [, size]) => sum + size, 0)).to.equal(file.length);
+      assert.strictEqual(
+        topLevelBoxes(file).reduce((sum, [, size]) => sum + size, 0),
+        file.length,
+      );
     });
   });
 });

@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import type {XPCDictionary} from '../../../src/lib/types.js';
 import {
@@ -36,15 +35,15 @@ describe('RTCP', function () {
     it('emits a 44-byte RR + SDES compound', function () {
       const packet = buildReceiverReport(IDENTITY);
 
-      expect(packet).to.have.length(44); // 32-byte RR + 12-byte SDES
+      assert.strictEqual(packet.length, 44); // 32-byte RR + 12-byte SDES
     });
 
     it('builds the Receiver Report header per RFC 3550 §6.4.2', function () {
       const packet = buildReceiverReport(IDENTITY);
 
-      expect(packet.readUInt8(0)).to.equal(0x81); // version 2, one report block
-      expect(packet.readUInt8(1)).to.equal(0xc9); // PT 201 = RR
-      expect(packet.readUInt16BE(2)).to.equal(7); // (7 + 1) * 4 = 32 bytes
+      assert.strictEqual(packet.readUInt8(0), 0x81); // version 2, one report block
+      assert.strictEqual(packet.readUInt8(1), 0xc9); // PT 201 = RR
+      assert.strictEqual(packet.readUInt16BE(2), 7); // (7 + 1) * 4 = 32 bytes
     });
 
     it('reports our SSRC as sender and the device SSRC as the reported source', function () {
@@ -52,37 +51,37 @@ describe('RTCP', function () {
 
       // Getting these backwards makes the device ignore the report, so the
       // session still dies at 20s — worth pinning down explicitly.
-      expect(packet.readUInt32BE(4)).to.equal(IDENTITY.localSsrc);
-      expect(packet.readUInt32BE(8)).to.equal(IDENTITY.remoteSsrc);
+      assert.strictEqual(packet.readUInt32BE(4), IDENTITY.localSsrc);
+      assert.strictEqual(packet.readUInt32BE(8), IDENTITY.remoteSsrc);
     });
 
     it('reports no packet loss so the device does not throttle its encoder', function () {
       const packet = buildReceiverReport(IDENTITY, 1234);
 
-      expect(packet.readUInt32BE(12)).to.equal(0); // fraction lost + cumulative lost
+      assert.strictEqual(packet.readUInt32BE(12), 0); // fraction lost + cumulative lost
     });
 
     it('carries the extended highest sequence number', function () {
-      expect(buildReceiverReport(IDENTITY, 0x0001abcd).readUInt32BE(16)).to.equal(0x0001abcd);
-      expect(buildReceiverReport(IDENTITY).readUInt32BE(16)).to.equal(0);
+      assert.strictEqual(buildReceiverReport(IDENTITY, 0x0001abcd).readUInt32BE(16), 0x0001abcd);
+      assert.strictEqual(buildReceiverReport(IDENTITY).readUInt32BE(16), 0);
     });
 
     it('appends the SDES chunk Xcode sends', function () {
       const sdes = buildReceiverReport(IDENTITY).subarray(32);
 
-      expect(sdes.readUInt8(0)).to.equal(0x81);
-      expect(sdes.readUInt8(1)).to.equal(0xca); // PT 202 = SDES
-      expect(sdes.readUInt16BE(2)).to.equal(2); // (2 + 1) * 4 = 12 bytes
-      expect(sdes.readUInt32BE(4)).to.equal(IDENTITY.localSsrc);
-      expect(sdes.readUInt8(8)).to.equal(0x01); // CNAME item, zero length
-      expect(sdes.subarray(9)).to.deep.equal(Buffer.alloc(3)); // terminator + padding
+      assert.strictEqual(sdes.readUInt8(0), 0x81);
+      assert.strictEqual(sdes.readUInt8(1), 0xca); // PT 202 = SDES
+      assert.strictEqual(sdes.readUInt16BE(2), 2); // (2 + 1) * 4 = 12 bytes
+      assert.strictEqual(sdes.readUInt32BE(4), IDENTITY.localSsrc);
+      assert.strictEqual(sdes.readUInt8(8), 0x01); // CNAME item, zero length
+      assert.deepStrictEqual(sdes.subarray(9), Buffer.alloc(3)); // terminator + padding
     });
 
     it('handles SSRCs with the high bit set', function () {
       const packet = buildReceiverReport({...IDENTITY, localSsrc: 0xffffffff, remoteSsrc: 0x80000000});
 
-      expect(packet.readUInt32BE(4)).to.equal(0xffffffff);
-      expect(packet.readUInt32BE(8)).to.equal(0x80000000);
+      assert.strictEqual(packet.readUInt32BE(4), 0xffffffff);
+      assert.strictEqual(packet.readUInt32BE(8), 0x80000000);
     });
   });
 
@@ -92,7 +91,7 @@ describe('RTCP', function () {
       // is us, its "Local" is itself.
       const streamConfig: XPCDictionary = {RemoteSSRC: 111, LocalSSRC: 222, SourcePort: 50436};
 
-      expect(rtcpIdentityFromStreamConfig(streamConfig, 'fd00::1')).to.deep.equal({
+      assert.deepStrictEqual(rtcpIdentityFromStreamConfig(streamConfig, 'fd00::1'), {
         localSsrc: 111,
         remoteSsrc: 222,
         host: 'fd00::1',
@@ -101,13 +100,16 @@ describe('RTCP', function () {
     });
 
     it('returns undefined when the device omits the fields', function () {
-      expect(rtcpIdentityFromStreamConfig({}, 'fd00::1')).to.equal(undefined);
-      expect(rtcpIdentityFromStreamConfig({RemoteSSRC: 1, LocalSSRC: 2}, 'fd00::1')).to.equal(undefined);
-      expect(rtcpIdentityFromStreamConfig({RemoteSSRC: 1, SourcePort: 5}, 'fd00::1')).to.equal(undefined);
+      assert.strictEqual(rtcpIdentityFromStreamConfig({}, 'fd00::1'), undefined);
+      assert.strictEqual(rtcpIdentityFromStreamConfig({RemoteSSRC: 1, LocalSSRC: 2}, 'fd00::1'), undefined);
+      assert.strictEqual(rtcpIdentityFromStreamConfig({RemoteSSRC: 1, SourcePort: 5}, 'fd00::1'), undefined);
     });
 
     it('rejects a zero source port, which is not a valid destination', function () {
-      expect(rtcpIdentityFromStreamConfig({RemoteSSRC: 1, LocalSSRC: 2, SourcePort: 0}, 'fd00::1')).to.equal(undefined);
+      assert.strictEqual(
+        rtcpIdentityFromStreamConfig({RemoteSSRC: 1, LocalSSRC: 2, SourcePort: 0}, 'fd00::1'),
+        undefined,
+      );
     });
   });
 
@@ -120,9 +122,9 @@ describe('RTCP', function () {
 
       await flush();
 
-      expect(sent).to.have.length(1);
-      expect(sent[0].host).to.equal(IDENTITY.host);
-      expect(sent[0].port).to.equal(IDENTITY.port);
+      assert.strictEqual(sent.length, 1);
+      assert.strictEqual(sent[0].host, IDENTITY.host);
+      assert.strictEqual(sent[0].port, IDENTITY.port);
       keepalive.stop();
     });
 
@@ -133,7 +135,7 @@ describe('RTCP', function () {
       await new Promise((resolve) => setTimeout(resolve, 55));
       keepalive.stop();
 
-      expect(sent.length).to.be.greaterThan(2);
+      assert.ok(sent.length > 2);
     });
 
     it('stops sending after stop()', async function () {
@@ -145,7 +147,7 @@ describe('RTCP', function () {
       const afterStop = sent.length;
       await new Promise((resolve) => setTimeout(resolve, 40));
 
-      expect(sent.length).to.equal(afterStop);
+      assert.strictEqual(sent.length, afterStop);
     });
 
     it('is safe to stop twice', function () {
@@ -166,7 +168,7 @@ describe('RTCP', function () {
       await new Promise((resolve) => setTimeout(resolve, 20));
       keepalive.stop();
 
-      expect(sent[sent.length - 1].data.readUInt32BE(16)).to.equal(42);
+      assert.strictEqual(sent[sent.length - 1].data.readUInt32BE(16), 42);
     });
 
     it('counts a 16-bit wraparound as a new cycle', async function () {
@@ -180,7 +182,7 @@ describe('RTCP', function () {
       keepalive.stop();
 
       // One cycle elapsed, so the extended value is 65536, not 0.
-      expect(sent[sent.length - 1].data.readUInt32BE(16)).to.equal(0x10000);
+      assert.strictEqual(sent[sent.length - 1].data.readUInt32BE(16), 0x10000);
     });
   });
 });

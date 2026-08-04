@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {
   HevcDepacketizer,
@@ -86,17 +85,17 @@ const SAMPLE_SPS_PTL = SAMPLE_SPS_RBSP.subarray(1, 13);
 describe('HEVC helpers', function () {
   describe('nalTypeOf / isKeyNalType', function () {
     it('reads the 6-bit NAL type out of the header', function () {
-      expect(nalTypeOf(nalHeader(HevcNalType.SPS))).to.equal(33);
-      expect(nalTypeOf(nalHeader(HevcNalType.FU))).to.equal(49);
-      expect(nalTypeOf(nalHeader(HevcNalType.IDR_W_RADL))).to.equal(19);
+      assert.strictEqual(nalTypeOf(nalHeader(HevcNalType.SPS)), 33);
+      assert.strictEqual(nalTypeOf(nalHeader(HevcNalType.FU)), 49);
+      assert.strictEqual(nalTypeOf(nalHeader(HevcNalType.IDR_W_RADL)), 19);
     });
 
     it('classifies only IDR and CRA units as keyframes', function () {
-      expect(isKeyNalType(HevcNalType.IDR_W_RADL)).to.equal(true);
-      expect(isKeyNalType(HevcNalType.IDR_N_LP)).to.equal(true);
-      expect(isKeyNalType(HevcNalType.CRA)).to.equal(true);
-      expect(isKeyNalType(1)).to.equal(false); // TRAIL_R (delta)
-      expect(isKeyNalType(HevcNalType.SPS)).to.equal(false);
+      assert.strictEqual(isKeyNalType(HevcNalType.IDR_W_RADL), true);
+      assert.strictEqual(isKeyNalType(HevcNalType.IDR_N_LP), true);
+      assert.strictEqual(isKeyNalType(HevcNalType.CRA), true);
+      assert.strictEqual(isKeyNalType(1), false); // TRAIL_R (delta)
+      assert.strictEqual(isKeyNalType(HevcNalType.SPS), false);
     });
   });
 
@@ -105,7 +104,7 @@ describe('HEVC helpers', function () {
       const depacketizer = new HevcDepacketizer();
       const nal = makeNal(1, Buffer.from('slice-data'));
 
-      expect(depacketizer.push(nal)).to.deep.equal([nal]);
+      assert.deepStrictEqual(depacketizer.push(nal), [nal]);
     });
 
     it('splits an aggregation packet into its NAL units', function () {
@@ -119,28 +118,28 @@ describe('HEVC helpers', function () {
       };
       const ap = Buffer.concat([nalHeader(HevcNalType.AP), sizePrefix(first), first, sizePrefix(second), second]);
 
-      expect(depacketizer.push(ap)).to.deep.equal([first, second]);
+      assert.deepStrictEqual(depacketizer.push(ap), [first, second]);
     });
 
     it('reassembles a fragmented NAL across three packets', function () {
       const depacketizer = new HevcDepacketizer();
       const body = Buffer.from('abcdefghijkl');
 
-      expect(depacketizer.push(makeFu(1, body.subarray(0, 4), true, false))).to.deep.equal([]);
-      expect(depacketizer.push(makeFu(1, body.subarray(4, 8), false, false))).to.deep.equal([]);
+      assert.deepStrictEqual(depacketizer.push(makeFu(1, body.subarray(0, 4), true, false)), []);
+      assert.deepStrictEqual(depacketizer.push(makeFu(1, body.subarray(4, 8), false, false)), []);
       const completed = depacketizer.push(makeFu(1, body.subarray(8), false, true));
 
-      expect(completed).to.have.length(1);
+      assert.strictEqual(completed.length, 1);
       // The original NAL header must be reconstructed from the FU header's type.
-      expect(nalTypeOf(completed[0])).to.equal(1);
-      expect(completed[0].subarray(2)).to.deep.equal(body);
+      assert.strictEqual(nalTypeOf(completed[0]), 1);
+      assert.deepStrictEqual(completed[0].subarray(2), body);
     });
 
     it('drops a fragment continuation with no preceding start packet', function () {
       const depacketizer = new HevcDepacketizer();
 
       // Joining mid-NAL: there is no header to rebuild, so nothing can be emitted.
-      expect(depacketizer.push(makeFu(1, Buffer.from('tail'), false, true))).to.deep.equal([]);
+      assert.deepStrictEqual(depacketizer.push(makeFu(1, Buffer.from('tail'), false, true)), []);
     });
 
     it('discards in-flight fragments on reset', function () {
@@ -151,7 +150,7 @@ describe('HEVC helpers', function () {
 
       // Without the start fragment the remainder must not be emitted, otherwise
       // a packet loss would stitch two halves of different NALs together.
-      expect(depacketizer.push(makeFu(1, Buffer.from('tail'), false, true))).to.deep.equal([]);
+      assert.deepStrictEqual(depacketizer.push(makeFu(1, Buffer.from('tail'), false, true)), []);
     });
 
     it("strips Apple's proprietary trailer from a reassembled NAL", function () {
@@ -161,8 +160,8 @@ describe('HEVC helpers', function () {
       depacketizer.push(makeFu(1, body, true, false));
       const completed = depacketizer.push(makeFu(1, DISPLAY_SERVICE_TRAILER, false, true));
 
-      expect(completed).to.have.length(1);
-      expect(completed[0].subarray(2)).to.deep.equal(body);
+      assert.strictEqual(completed.length, 1);
+      assert.deepStrictEqual(completed[0].subarray(2), body);
     });
 
     it('strips the trailer from a single-packet NAL too', function () {
@@ -171,21 +170,21 @@ describe('HEVC helpers', function () {
 
       const [result] = depacketizer.push(nal);
 
-      expect(result.subarray(2)).to.deep.equal(Buffer.from('slice'));
+      assert.deepStrictEqual(result.subarray(2), Buffer.from('slice'));
     });
 
     it('leaves a NAL without the trailer untouched', function () {
       const depacketizer = new HevcDepacketizer();
       const nal = makeNal(1, Buffer.from('no trailer here'));
 
-      expect(depacketizer.push(nal)).to.deep.equal([nal]);
+      assert.deepStrictEqual(depacketizer.push(nal), [nal]);
     });
 
     it('ignores packets too short to carry a NAL header', function () {
       const depacketizer = new HevcDepacketizer();
 
-      expect(depacketizer.push(Buffer.from([0x00]))).to.deep.equal([]);
-      expect(depacketizer.push(Buffer.alloc(0))).to.deep.equal([]);
+      assert.deepStrictEqual(depacketizer.push(Buffer.from([0x00])), []);
+      assert.deepStrictEqual(depacketizer.push(Buffer.alloc(0)), []);
     });
   });
 
@@ -193,11 +192,11 @@ describe('HEVC helpers', function () {
     it('derives the canonical codec string from the profile_tier_level', function () {
       // Main profile, compatibility flags 0x60000000 reversed to 6, main tier
       // ('L'), level 120 (4.0), constraint flags trimmed to '90'.
-      expect(hevcCodecStringFromSps(SAMPLE_SPS)).to.equal('hev1.1.6.L120.90');
+      assert.strictEqual(hevcCodecStringFromSps(SAMPLE_SPS), 'hev1.1.6.L120.90');
     });
 
     it('omits the profile-space character when the space is 0', function () {
-      expect(hevcCodecStringFromSps(SAMPLE_SPS)).to.match(/^hev1\.1\./);
+      assert.match(hevcCodecStringFromSps(SAMPLE_SPS), /^hev1\.1\./);
     });
 
     it('marks the high tier with H', function () {
@@ -206,15 +205,15 @@ describe('HEVC helpers', function () {
 
       const codec = hevcCodecStringFromSps(Buffer.concat([nalHeader(HevcNalType.SPS), escapeRbsp(highTier)]));
 
-      expect(codec).to.contain('.H120.');
+      assert.ok(codec.includes('.H120.'));
     });
 
     it('removes emulation-prevention bytes before parsing', function () {
       // The encoded NAL is longer than its RBSP precisely because of the
       // inserted 0x03 bytes; reading it without unescaping would misalign every
       // field after the first zero run.
-      expect(SAMPLE_SPS.length - 2).to.be.greaterThan(SAMPLE_SPS_RBSP.length);
-      expect(hevcCodecStringFromSps(SAMPLE_SPS)).to.equal('hev1.1.6.L120.90');
+      assert.ok(SAMPLE_SPS.length - 2 > SAMPLE_SPS_RBSP.length);
+      assert.strictEqual(hevcCodecStringFromSps(SAMPLE_SPS), 'hev1.1.6.L120.90');
     });
   });
 
@@ -225,10 +224,10 @@ describe('HEVC helpers', function () {
     it('produces a well-formed hvcC record', function () {
       const record = buildHevcDecoderConfigurationRecord(vps, SAMPLE_SPS, pps);
 
-      expect(record[0]).to.equal(1); // configurationVersion
+      assert.strictEqual(record[0], 1); // configurationVersion
       // lengthSizeMinusOne = 3 lives in the low 2 bits of byte 21.
-      expect(record[21] & 0x03).to.equal(3);
-      expect(record[22]).to.equal(3); // numOfArrays: VPS, SPS, PPS
+      assert.strictEqual(record[21] & 0x03, 3);
+      assert.strictEqual(record[22], 3); // numOfArrays: VPS, SPS, PPS
     });
 
     it('embeds all three parameter sets with their lengths', function () {
@@ -240,13 +239,13 @@ describe('HEVC helpers', function () {
         [HevcNalType.SPS, SAMPLE_SPS],
         [HevcNalType.PPS, pps],
       ] as const) {
-        expect(record[offset]).to.equal(nalType);
-        expect(record.readUInt16BE(offset + 1)).to.equal(1); // numNalus
-        expect(record.readUInt16BE(offset + 3)).to.equal(nal.length);
-        expect(record.subarray(offset + 5, offset + 5 + nal.length)).to.deep.equal(nal);
+        assert.strictEqual(record[offset], nalType);
+        assert.strictEqual(record.readUInt16BE(offset + 1), 1); // numNalus
+        assert.strictEqual(record.readUInt16BE(offset + 3), nal.length);
+        assert.deepStrictEqual(record.subarray(offset + 5, offset + 5 + nal.length), nal);
         offset += 5 + nal.length;
       }
-      expect(offset).to.equal(record.length);
+      assert.strictEqual(offset, record.length);
     });
 
     it('copies the SPS profile_tier_level verbatim', function () {
@@ -254,11 +253,11 @@ describe('HEVC helpers', function () {
 
       // RBSP bytes 1..12 of the SPS land unchanged at record bytes 1..12 — and
       // must come from the *unescaped* RBSP, not the raw NAL payload.
-      expect(record.subarray(1, 13)).to.deep.equal(SAMPLE_SPS_PTL);
+      assert.deepStrictEqual(record.subarray(1, 13), SAMPLE_SPS_PTL);
     });
 
     it('rejects an SPS too short to hold a profile_tier_level', function () {
-      expect(() => buildHevcDecoderConfigurationRecord(vps, nalHeader(HevcNalType.SPS), pps)).to.throw(/too short/);
+      assert.throws(() => buildHevcDecoderConfigurationRecord(vps, nalHeader(HevcNalType.SPS), pps), /too short/);
     });
   });
 
@@ -269,23 +268,23 @@ describe('HEVC helpers', function () {
     it('prefixes each NAL with a 4-byte Annex-B start code', function () {
       const framed = toAnnexB([first, second]);
 
-      expect(framed.subarray(0, 4)).to.deep.equal(Buffer.from([0, 0, 0, 1]));
-      expect(framed.length).to.equal(first.length + second.length + 8);
-      expect(framed.subarray(4, 4 + first.length)).to.deep.equal(first);
-      expect(framed.subarray(8 + first.length)).to.deep.equal(second);
+      assert.deepStrictEqual(framed.subarray(0, 4), Buffer.from([0, 0, 0, 1]));
+      assert.strictEqual(framed.length, first.length + second.length + 8);
+      assert.deepStrictEqual(framed.subarray(4, 4 + first.length), first);
+      assert.deepStrictEqual(framed.subarray(8 + first.length), second);
     });
 
     it('prefixes each NAL with its big-endian length for hvcC framing', function () {
       const framed = toLengthPrefixed([first, second]);
 
-      expect(framed.readUInt32BE(0)).to.equal(first.length);
-      expect(framed.readUInt32BE(4 + first.length)).to.equal(second.length);
-      expect(framed.length).to.equal(first.length + second.length + 8);
+      assert.strictEqual(framed.readUInt32BE(0), first.length);
+      assert.strictEqual(framed.readUInt32BE(4 + first.length), second.length);
+      assert.strictEqual(framed.length, first.length + second.length + 8);
     });
 
     it('returns an empty buffer for no NAL units', function () {
-      expect(toAnnexB([])).to.have.length(0);
-      expect(toLengthPrefixed([])).to.have.length(0);
+      assert.strictEqual(toAnnexB([]).length, 0);
+      assert.strictEqual(toLengthPrefixed([]).length, 0);
     });
   });
 });

@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import type {DisplayService, MediaStreamAnswer} from '../../../src/services/ios/display/index.js';
 import {ScreenStreamCapture} from '../../../src/services/ios/display/screen-stream-capture.js';
@@ -55,8 +54,8 @@ describe('ScreenStreamCapture', function () {
       await capture.stop();
       await capture.stop();
 
-      expect(stopCalls).to.equal(1);
-      expect(receiverCloseCalls()).to.equal(1);
+      assert.strictEqual(stopCalls, 1);
+      assert.strictEqual(receiverCloseCalls(), 1);
     });
 
     it('makes a concurrent caller await the in-flight teardown, not return early', async function () {
@@ -79,11 +78,11 @@ describe('ScreenStreamCapture', function () {
 
       // Neither call may resolve while the teardown is still blocked.
       await new Promise((resolve) => setTimeout(resolve, 20));
-      expect(settled).to.equal(false);
+      assert.strictEqual(settled, false);
 
       released();
       await Promise.all([first, second]);
-      expect(settled).to.equal(true);
+      assert.strictEqual(settled, true);
     });
 
     it('propagates a teardown failure to every caller', async function () {
@@ -103,7 +102,7 @@ describe('ScreenStreamCapture', function () {
         } catch (error) {
           caught = error;
         }
-        expect((caught as Error | undefined)?.message).to.equal('device refused the stop');
+        assert.strictEqual((caught as Error | undefined)?.message, 'device refused the stop');
       }
     });
   });

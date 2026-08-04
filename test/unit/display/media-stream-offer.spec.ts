@@ -1,7 +1,6 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
 import {inflateSync} from 'node:zlib';
-
-import {expect} from 'chai';
 
 import {parseBinaryPlist} from '../../../src/lib/plist/binary-plist-parser.js';
 import {
@@ -51,13 +50,13 @@ describe('media stream offer', function () {
         fecEnabled: false,
       });
 
-      expect(blob.toString('hex')).to.equal(CAPTURED_VIDEO_TEMPLATE);
+      assert.strictEqual(blob.toString('hex'), CAPTURED_VIDEO_TEMPLATE);
     });
 
     it('reproduces the captured audio mediaBlob exactly', function () {
       const blob = buildMediaBlobAudio(CAPTURED_AUDIO_SESSION_ID);
 
-      expect(blob.toString('hex')).to.equal(CAPTURED_AUDIO_TEMPLATE);
+      assert.strictEqual(blob.toString('hex'), CAPTURED_AUDIO_TEMPLATE);
     });
 
     it('encodes the session id as a fixed-width 5-byte varint', function () {
@@ -67,11 +66,11 @@ describe('media stream offer', function () {
       const small = buildMediaBlobVideo(1, {ltrpEnabled: true, fecEnabled: false});
       const large = buildMediaBlobVideo(0xffff_ffff, {ltrpEnabled: true, fecEnabled: false});
 
-      expect(small.length).to.equal(large.length);
-      expect(small.length).to.equal(CAPTURED_VIDEO_TEMPLATE.length / 2);
+      assert.strictEqual(small.length, large.length);
+      assert.strictEqual(small.length, CAPTURED_VIDEO_TEMPLATE.length / 2);
       // Layout: 0801 (f1=1) 1001 (f2=1) 2a7f (f5, length 127), then the
       // VideoSettings body opens with field 1 (0x08) and exactly five bytes.
-      expect(small.subarray(6, 12).toString('hex')).to.equal('088180808000');
+      assert.strictEqual(small.subarray(6, 12).toString('hex'), '088180808000');
     });
   });
 
@@ -82,16 +81,16 @@ describe('media stream offer', function () {
 
       // The FEC field adds 2 bytes to VideoSettings, which pushes its length
       // varint from one byte to two — hence 3, not 2, at the top level.
-      expect(withFec.length).to.equal(withoutFec.length + 3);
+      assert.strictEqual(withFec.length, withoutFec.length + 3);
       // Disabling it is exactly what reproduces Apple's capture.
-      expect(withoutFec.toString('hex')).to.contain('2a7f');
+      assert.ok(withoutFec.toString('hex').includes('2a7f'));
     });
 
     it('omits tilesPerFrame at the default of 1', function () {
       const defaulted = buildMediaBlobVideo(CAPTURED_VIDEO_SESSION_ID, {tilesPerFrame: 1});
       const explicit = buildMediaBlobVideo(CAPTURED_VIDEO_SESSION_ID, {tilesPerFrame: 4});
 
-      expect(explicit.length).to.be.greaterThan(defaulted.length);
+      assert.ok(explicit.length > defaulted.length);
     });
 
     it('defaults to LTRP off and FEC on', function () {
@@ -101,7 +100,7 @@ describe('media stream offer', function () {
         fecEnabled: true,
       });
 
-      expect(defaulted.toString('hex')).to.equal(explicit.toString('hex'));
+      assert.strictEqual(defaulted.toString('hex'), explicit.toString('hex'));
     });
   });
 
@@ -109,7 +108,8 @@ describe('media stream offer', function () {
     it('encodes the host identity as the captured protobuf', function () {
       const info = buildRemoteEndpointInfo({model: 'Mac15,9', osVersion: '2205.3.1', build: '25F80'});
 
-      expect(info.toString('hex')).to.equal(
+      assert.strictEqual(
+        info.toString('hex'),
         '08001001' + // field1 = 0, field2 = 1
           '1a074d616331352c39' + // model "Mac15,9"
           '2208323230352e332e31' + // osVersion "2205.3.1"
@@ -118,7 +118,8 @@ describe('media stream offer', function () {
     });
 
     it('defaults to the identity Xcode reports', function () {
-      expect(buildRemoteEndpointInfo().toString('hex')).to.equal(
+      assert.strictEqual(
+        buildRemoteEndpointInfo().toString('hex'),
         buildRemoteEndpointInfo({model: 'Mac15,9', osVersion: '2205.3.1', build: '25F80'}).toString('hex'),
       );
     });
@@ -134,26 +135,26 @@ describe('media stream offer', function () {
       });
       const parsed = parseBinaryPlist(offer) as Record<string, unknown>;
 
-      expect(Object.keys(parsed).sort()).to.deep.equal([
+      assert.deepStrictEqual(Object.keys(parsed).sort(), [
         'avcMediaStreamNegotiatorMediaBlob',
         'avcMediaStreamNegotiatorMode',
         'avcMediaStreamOptionCallID',
         'avcMediaStreamOptionRemoteEndpointInfo',
       ]);
-      expect(parsed.avcMediaStreamNegotiatorMode).to.equal(5);
-      expect(parsed.avcMediaStreamOptionCallID).to.equal(callId);
+      assert.strictEqual(parsed.avcMediaStreamNegotiatorMode, 5);
+      assert.strictEqual(parsed.avcMediaStreamOptionCallID, callId);
       // The blob travels compressed; it must inflate back to the exact capture.
       const blob = inflateSync(parsed.avcMediaStreamNegotiatorMediaBlob as Buffer);
-      expect(blob.toString('hex')).to.equal(CAPTURED_VIDEO_TEMPLATE);
+      assert.strictEqual(blob.toString('hex'), CAPTURED_VIDEO_TEMPLATE);
     });
 
     it('uses negotiator mode 6 for audio', function () {
       const offer = buildNegotiatorOfferAudio(callId, CAPTURED_AUDIO_SESSION_ID);
       const parsed = parseBinaryPlist(offer) as Record<string, unknown>;
 
-      expect(parsed.avcMediaStreamNegotiatorMode).to.equal(6);
+      assert.strictEqual(parsed.avcMediaStreamNegotiatorMode, 6);
       const blob = inflateSync(parsed.avcMediaStreamNegotiatorMediaBlob as Buffer);
-      expect(blob.toString('hex')).to.equal(CAPTURED_AUDIO_TEMPLATE);
+      assert.strictEqual(blob.toString('hex'), CAPTURED_AUDIO_TEMPLATE);
     });
 
     it('compresses the blob at level 9, as Apple does', function () {
@@ -162,7 +163,7 @@ describe('media stream offer', function () {
       const compressed = parsed.avcMediaStreamNegotiatorMediaBlob as Buffer;
 
       // zlib header: 0x78 0xDA marks a level-9 ("best compression") stream.
-      expect(compressed.subarray(0, 2).toString('hex')).to.equal('78da');
+      assert.strictEqual(compressed.subarray(0, 2).toString('hex'), '78da');
     });
 
     it('threads a custom host identity into the offer', function () {
@@ -171,7 +172,8 @@ describe('media stream offer', function () {
       });
       const parsed = parseBinaryPlist(offer) as Record<string, unknown>;
 
-      expect((parsed.avcMediaStreamOptionRemoteEndpointInfo as Buffer).toString('hex')).to.equal(
+      assert.strictEqual(
+        (parsed.avcMediaStreamOptionRemoteEndpointInfo as Buffer).toString('hex'),
         buildRemoteEndpointInfo({model: 'Mac16,11'}).toString('hex'),
       );
     });
@@ -181,15 +183,15 @@ describe('media stream offer', function () {
     it('generates upper-case UUID call ids', function () {
       const callId = newCallId();
 
-      expect(callId).to.match(/^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/);
+      assert.match(callId, /^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/);
     });
 
     it('generates session ids inside the uint32 range', function () {
       for (let i = 0; i < 100; i++) {
         const sessionId = newSessionId();
-        expect(sessionId).to.be.at.least(0);
-        expect(sessionId).to.be.below(0x1_0000_0000);
-        expect(Number.isInteger(sessionId)).to.equal(true);
+        assert.ok(sessionId >= 0);
+        assert.ok(sessionId < 0x1_0000_0000);
+        assert.strictEqual(Number.isInteger(sessionId), true);
       }
     });
   });

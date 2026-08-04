@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {AccessUnitAssembler} from '../../../src/services/ios/display/access-unit-assembler.js';
 import {HevcNalType} from '../../../src/services/ios/display/hevc.js';
@@ -59,15 +58,15 @@ describe('AccessUnitAssembler', function () {
   it('emits an access unit on the marker bit', function () {
     const assembler = new AccessUnitAssembler();
 
-    expect(assembler.push(packet(VPS, {sequence: 1}))).to.equal(undefined);
-    expect(assembler.push(packet(SPS, {sequence: 2}))).to.equal(undefined);
-    expect(assembler.push(packet(PPS, {sequence: 3}))).to.equal(undefined);
+    assert.strictEqual(assembler.push(packet(VPS, {sequence: 1})), undefined);
+    assert.strictEqual(assembler.push(packet(SPS, {sequence: 2})), undefined);
+    assert.strictEqual(assembler.push(packet(PPS, {sequence: 3})), undefined);
     const unit = assembler.push(packet(IDR, {sequence: 4, marker: true}));
 
-    expect(unit).to.not.equal(undefined);
-    expect(unit?.nals).to.deep.equal([VPS, SPS, PPS, IDR]);
-    expect(unit?.isKeyFrame).to.equal(true);
-    expect(unit?.timestamp).to.equal(1000);
+    assert.notStrictEqual(unit, undefined);
+    assert.deepStrictEqual(unit?.nals, [VPS, SPS, PPS, IDR]);
+    assert.strictEqual(unit?.isKeyFrame, true);
+    assert.strictEqual(unit?.timestamp, 1000);
   });
 
   it('marks delta-only access units as non-key', function () {
@@ -75,7 +74,7 @@ describe('AccessUnitAssembler', function () {
 
     const unit = assembler.push(packet(DELTA, {sequence: 1, marker: true}));
 
-    expect(unit?.isKeyFrame).to.equal(false);
+    assert.strictEqual(unit?.isKeyFrame, false);
   });
 
   it('separates consecutive pictures', function () {
@@ -84,10 +83,10 @@ describe('AccessUnitAssembler', function () {
     const first = assembler.push(packet(IDR, {sequence: 1, marker: true, timestamp: 100}));
     const second = assembler.push(packet(DELTA, {sequence: 2, marker: true, timestamp: 200}));
 
-    expect(first?.nals).to.deep.equal([IDR]);
-    expect(second?.nals).to.deep.equal([DELTA]);
-    expect(second?.timestamp).to.equal(200);
-    expect(assembler.stats.accessUnitsEmitted).to.equal(2);
+    assert.deepStrictEqual(first?.nals, [IDR]);
+    assert.deepStrictEqual(second?.nals, [DELTA]);
+    assert.strictEqual(second?.timestamp, 200);
+    assert.strictEqual(assembler.stats.accessUnitsEmitted, 2);
   });
 
   it('reassembles a picture split across fragmentation units', function () {
@@ -98,8 +97,8 @@ describe('AccessUnitAssembler', function () {
     assembler.push(packet(fu(HevcNalType.IDR_W_RADL, body.subarray(8), false, true), {sequence: 2}));
     const unit = assembler.push(packet(DELTA, {sequence: 3, marker: true}));
 
-    expect(unit?.isKeyFrame).to.equal(true);
-    expect(unit?.nals[0].subarray(2)).to.deep.equal(body);
+    assert.strictEqual(unit?.isKeyFrame, true);
+    assert.deepStrictEqual(unit?.nals[0].subarray(2), body);
   });
 
   it('drops the access unit when a packet is lost', function () {
@@ -109,21 +108,21 @@ describe('AccessUnitAssembler', function () {
     // Sequence jumps 2 → 5: three packets vanished mid-picture.
     const unit = assembler.push(packet(IDR, {sequence: 5, marker: true}));
 
-    expect(unit).to.equal(undefined);
-    expect(assembler.stats.packetsLost).to.equal(3);
-    expect(assembler.stats.accessUnitsDropped).to.equal(1);
-    expect(assembler.stats.accessUnitsEmitted).to.equal(0);
+    assert.strictEqual(unit, undefined);
+    assert.strictEqual(assembler.stats.packetsLost, 3);
+    assert.strictEqual(assembler.stats.accessUnitsDropped, 1);
+    assert.strictEqual(assembler.stats.accessUnitsEmitted, 0);
   });
 
   it('recovers on the next intact access unit after a loss', function () {
     const assembler = new AccessUnitAssembler();
 
     assembler.push(packet(VPS, {sequence: 1}));
-    expect(assembler.push(packet(IDR, {sequence: 5, marker: true}))).to.equal(undefined);
+    assert.strictEqual(assembler.push(packet(IDR, {sequence: 5, marker: true})), undefined);
     const recovered = assembler.push(packet(IDR, {sequence: 6, marker: true}));
 
-    expect(recovered).to.not.equal(undefined);
-    expect(assembler.stats.accessUnitsEmitted).to.equal(1);
+    assert.notStrictEqual(recovered, undefined);
+    assert.strictEqual(assembler.stats.accessUnitsEmitted, 1);
   });
 
   it('does not count a wrapped sequence number as a loss', function () {
@@ -132,30 +131,30 @@ describe('AccessUnitAssembler', function () {
     assembler.push(packet(VPS, {sequence: 0xffff}));
     const unit = assembler.push(packet(IDR, {sequence: 0, marker: true}));
 
-    expect(unit).to.not.equal(undefined);
-    expect(assembler.stats.packetsLost).to.equal(0);
+    assert.notStrictEqual(unit, undefined);
+    assert.strictEqual(assembler.stats.packetsLost, 0);
   });
 
   it('caches parameter sets and derives the codec string', function () {
     const assembler = new AccessUnitAssembler();
 
-    expect(assembler.parameterSets).to.equal(undefined);
+    assert.strictEqual(assembler.parameterSets, undefined);
     assembler.push(packet(VPS, {sequence: 1}));
     assembler.push(packet(SPS, {sequence: 2}));
-    expect(assembler.codecString).to.equal('hev1.1.6.L120.90');
+    assert.strictEqual(assembler.codecString, 'hev1.1.6.L120.90');
     // Still incomplete until the PPS lands.
-    expect(assembler.parameterSets).to.equal(undefined);
+    assert.strictEqual(assembler.parameterSets, undefined);
     assembler.push(packet(PPS, {sequence: 3}));
 
-    expect(assembler.parameterSets).to.deep.equal({vps: VPS, sps: SPS, pps: PPS});
-    expect(assembler.decoderConfigurationRecord).to.be.instanceOf(Buffer);
+    assert.deepStrictEqual(assembler.parameterSets, {vps: VPS, sps: SPS, pps: PPS});
+    assert.ok(assembler.decoderConfigurationRecord instanceof Buffer);
   });
 
   it('has no decoder configuration record until every set has arrived', function () {
     const assembler = new AccessUnitAssembler();
     assembler.push(packet(SPS, {sequence: 1}));
 
-    expect(assembler.decoderConfigurationRecord).to.equal(undefined);
+    assert.strictEqual(assembler.decoderConfigurationRecord, undefined);
   });
 
   it('counts every packet it is fed', function () {
@@ -164,6 +163,6 @@ describe('AccessUnitAssembler', function () {
     assembler.push(packet(VPS, {sequence: 1}));
     assembler.push(packet(IDR, {sequence: 2, marker: true}));
 
-    expect(assembler.stats.packetsReceived).to.equal(2);
+    assert.strictEqual(assembler.stats.packetsReceived, 2);
   });
 });

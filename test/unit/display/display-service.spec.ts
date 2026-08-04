@@ -1,8 +1,7 @@
+import assert from 'node:assert/strict';
 import {EventEmitter} from 'node:events';
 import {describe, it} from 'node:test';
 import {inflateSync} from 'node:zlib';
-
-import {expect} from 'chai';
 
 import {parseBinaryPlist} from '../../../src/lib/plist/binary-plist-parser.js';
 import {XPC_TYPES, decodeMessage} from '../../../src/lib/remote-xpc/xpc-protocol.js';
@@ -99,13 +98,15 @@ describe('DisplayService', function () {
 
       const result = await service.getMediaSupportInfo();
 
-      expect(fake.sentBodies[0]['CoreDevice.featureIdentifier']).to.equal(
+      assert.strictEqual(
+        fake.sentBodies[0]['CoreDevice.featureIdentifier'],
         'com.apple.coredevice.feature.getmediasupportinfo',
       );
-      expect(fake.sentBodies[0]['CoreDevice.actionIdentifier']).to.equal(
+      assert.strictEqual(
+        fake.sentBodies[0]['CoreDevice.actionIdentifier'],
         'com.apple.coredevice.action.mediastreamgetsupportinfo',
       );
-      expect(result).to.deep.equal(info);
+      assert.deepStrictEqual(result, info);
     });
 
     it('getMediaStreamServerStatus invokes the status feature', async function () {
@@ -115,10 +116,11 @@ describe('DisplayService', function () {
 
       const result = await service.getMediaStreamServerStatus();
 
-      expect(fake.sentBodies[0]['CoreDevice.featureIdentifier']).to.equal(
+      assert.strictEqual(
+        fake.sentBodies[0]['CoreDevice.featureIdentifier'],
         'com.apple.coredevice.feature.getmediastreamserverstatus',
       );
-      expect(result).to.deep.equal(status);
+      assert.deepStrictEqual(result, status);
     });
 
     it('isStreamingSupported is false when the device reports no features', async function () {
@@ -126,21 +128,21 @@ describe('DisplayService', function () {
       const fake = new FakeTransport(() => coreDeviceOutput({supportedFeatures: 0}));
       const service = new TestDisplayService(fake);
 
-      expect(await service.isStreamingSupported()).to.equal(false);
+      assert.strictEqual(await service.isStreamingSupported(), false);
     });
 
     it('isStreamingSupported is true for a non-zero feature mask', async function () {
       const fake = new FakeTransport(() => coreDeviceOutput({supportedFeatures: 140}));
       const service = new TestDisplayService(fake);
 
-      expect(await service.isStreamingSupported()).to.equal(true);
+      assert.strictEqual(await service.isStreamingSupported(), true);
     });
 
     it('isStreamingSupported is false when the field is missing entirely', async function () {
       const fake = new FakeTransport(() => coreDeviceOutput({}));
       const service = new TestDisplayService(fake);
 
-      expect(await service.isStreamingSupported()).to.equal(false);
+      assert.strictEqual(await service.isStreamingSupported(), false);
     });
   });
 
@@ -162,21 +164,21 @@ describe('DisplayService', function () {
       await service.startVideoStream(ENDPOINT, {displayId: 2});
 
       const body = fake.sentBodies[0];
-      expect(body['CoreDevice.featureIdentifier']).to.equal('com.apple.coredevice.feature.startmediastream');
-      expect(body['CoreDevice.actionIdentifier']).to.equal('com.apple.coredevice.action.mediastreamstart');
+      assert.strictEqual(body['CoreDevice.featureIdentifier'], 'com.apple.coredevice.feature.startmediastream');
+      assert.strictEqual(body['CoreDevice.actionIdentifier'], 'com.apple.coredevice.action.mediastreamstart');
 
       const input = body['CoreDevice.input'] as XPCDictionary;
-      expect(input.type).to.equal('video');
-      expect(input.direction).to.equal('output');
-      expect(input.receiverIP).to.equal(ENDPOINT.receiverIp);
-      expect(input.receiverPort).to.equal(ENDPOINT.receiverPort);
-      expect(input.senderIP).to.equal(ENDPOINT.senderIp);
-      expect(input.timeout).to.equal(20);
-      expect(input.clientSupportedFeatures).to.equal(140);
+      assert.strictEqual(input.type, 'video');
+      assert.strictEqual(input.direction, 'output');
+      assert.strictEqual(input.receiverIP, ENDPOINT.receiverIp);
+      assert.strictEqual(input.receiverPort, ENDPOINT.receiverPort);
+      assert.strictEqual(input.senderIP, ENDPOINT.senderIp);
+      assert.strictEqual(input.timeout, 20);
+      assert.strictEqual(input.clientSupportedFeatures, 140);
 
       const options = input.options as XPCDictionary;
-      expect(options.CoreDeviceVideoDisplayMode).to.deep.equal({string: 'DisplayByID'});
-      expect(options.VideoStreamForDisplayID).to.deep.equal({int: 2});
+      assert.deepStrictEqual(options.CoreDeviceVideoDisplayMode, {string: 'DisplayByID'});
+      assert.deepStrictEqual(options.VideoStreamForDisplayID, {int: 2});
     });
 
     it('encodes the port, timeout and feature mask as XPC uint64 values', function (_t, done) {
@@ -189,9 +191,9 @@ describe('DisplayService', function () {
         .startVideoStream(ENDPOINT)
         .then(() => {
           const payload = fake.sentPayloads[0];
-          expect(containsXpcUint64(payload, BigInt(ENDPOINT.receiverPort))).to.equal(true);
-          expect(containsXpcUint64(payload, 20n)).to.equal(true); // timeout
-          expect(containsXpcUint64(payload, 140n)).to.equal(true); // clientSupportedFeatures
+          assert.strictEqual(containsXpcUint64(payload, BigInt(ENDPOINT.receiverPort)), true);
+          assert.strictEqual(containsXpcUint64(payload, 20n), true); // timeout
+          assert.strictEqual(containsXpcUint64(payload, 140n), true); // clientSupportedFeatures
           done();
         })
         .catch(done);
@@ -204,7 +206,7 @@ describe('DisplayService', function () {
       await service.startVideoStream(ENDPOINT);
 
       const input = fake.sentBodies[0]['CoreDevice.input'] as XPCDictionary;
-      expect((input.options as XPCDictionary).VideoStreamForDisplayID).to.deep.equal({int: 1});
+      assert.deepStrictEqual((input.options as XPCDictionary).VideoStreamForDisplayID, {int: 1});
     });
 
     it('carries a mode-5 negotiator offer that inflates to a valid mediaBlob', async function () {
@@ -215,8 +217,8 @@ describe('DisplayService', function () {
 
       const input = fake.sentBodies[0]['CoreDevice.input'] as XPCDictionary;
       const offer = parseBinaryPlist(input.negotiatorOffer as Buffer) as Record<string, unknown>;
-      expect(offer.avcMediaStreamNegotiatorMode).to.equal(5);
-      expect(() => inflateSync(offer.avcMediaStreamNegotiatorMediaBlob as Buffer)).to.not.throw();
+      assert.strictEqual(offer.avcMediaStreamNegotiatorMode, 5);
+      assert.doesNotThrow(() => inflateSync(offer.avcMediaStreamNegotiatorMediaBlob as Buffer));
     });
 
     it('sends the session id as an XPC UUID and returns it', async function () {
@@ -228,8 +230,8 @@ describe('DisplayService', function () {
 
       // Must be the XPC uuid type, not data or a string — the daemon rejects
       // anything else in this slot.
-      expect(containsXpcUuid(fake.sentPayloads[0], sessionId)).to.equal(true);
-      expect(answer.clientSessionId.toString()).to.equal(sessionId.toString());
+      assert.strictEqual(containsXpcUuid(fake.sentPayloads[0], sessionId), true);
+      assert.strictEqual(answer.clientSessionId.toString(), sessionId.toString());
     });
 
     it('generates a session id when none is supplied', async function () {
@@ -238,7 +240,7 @@ describe('DisplayService', function () {
 
       const answer = await service.startVideoStream(ENDPOINT);
 
-      expect(answer.clientSessionId).to.be.instanceOf(XPCUUID);
+      assert.ok(answer.clientSessionId instanceof XPCUUID);
     });
 
     it("prefers the session id echoed back in the device's answer", async function () {
@@ -257,7 +259,7 @@ describe('DisplayService', function () {
 
       const answer = await service.startVideoStream(ENDPOINT, {clientSessionId: XPCUUID.random()});
 
-      expect(answer.clientSessionId.toString()).to.equal(echoed.toString());
+      assert.strictEqual(answer.clientSessionId.toString(), echoed.toString());
     });
 
     it('surfaces the negotiated stream config', async function () {
@@ -266,7 +268,7 @@ describe('DisplayService', function () {
 
       const answer = await service.startVideoStream(ENDPOINT);
 
-      expect(answer.streamConfig).to.deep.equal({RxPayloadType: 123, SourcePort: 61000});
+      assert.deepStrictEqual(answer.streamConfig, {RxPayloadType: 123, SourcePort: 61000});
     });
 
     it('propagates the iOS 27 gate as a CoreDeviceError', async function () {
@@ -289,8 +291,8 @@ describe('DisplayService', function () {
         caught = error;
       }
 
-      expect(caught).to.be.instanceOf(CoreDeviceError);
-      expect((caught as Error).message).to.contain('Remote control requires iOS 27.0 or later');
+      assert.ok(caught instanceof CoreDeviceError);
+      assert.ok((caught as Error).message.includes('Remote control requires iOS 27.0 or later'));
     });
   });
 
@@ -302,13 +304,13 @@ describe('DisplayService', function () {
       await service.startAudioStream(ENDPOINT);
 
       const input = fake.sentBodies[0]['CoreDevice.input'] as XPCDictionary;
-      expect(input.type).to.equal('audio');
+      assert.strictEqual(input.type, 'audio');
       const options = input.options as XPCDictionary;
-      expect(options).to.not.have.property('CoreDeviceVideoDisplayMode');
-      expect(options).to.not.have.property('VideoStreamForDisplayID');
+      assert.ok(!('CoreDeviceVideoDisplayMode' in options));
+      assert.ok(!('VideoStreamForDisplayID' in options));
 
       const offer = parseBinaryPlist(input.negotiatorOffer as Buffer) as Record<string, unknown>;
-      expect(offer.avcMediaStreamNegotiatorMode).to.equal(6);
+      assert.strictEqual(offer.avcMediaStreamNegotiatorMode, 6);
     });
 
     it('accepts the video stream session id so the two are grouped', async function () {
@@ -318,7 +320,7 @@ describe('DisplayService', function () {
 
       await service.startAudioStream(ENDPOINT, {clientSessionId: shared});
 
-      expect(containsXpcUuid(fake.sentPayloads[0], shared)).to.equal(true);
+      assert.strictEqual(containsXpcUuid(fake.sentPayloads[0], shared), true);
     });
   });
 
@@ -330,26 +332,26 @@ describe('DisplayService', function () {
       await service.stopAllMediaStreams();
 
       const body = fake.sentBodies[0];
-      expect(body['CoreDevice.featureIdentifier']).to.equal('com.apple.coredevice.feature.stopmediastream');
-      expect(body['CoreDevice.actionIdentifier']).to.equal('com.apple.coredevice.action.mediastreamstop');
+      assert.strictEqual(body['CoreDevice.featureIdentifier'], 'com.apple.coredevice.feature.stopmediastream');
+      assert.strictEqual(body['CoreDevice.actionIdentifier'], 'com.apple.coredevice.action.mediastreamstop');
       // iOS 27 rejects a missing key ("Expected to find key stopAll"), a
       // wrapped value ("Expected to decode Bool but found a OS_xpc_dictionary")
       // and `false` ("Invalid request sent"). Only a bare `true` works.
-      expect(body['CoreDevice.input']).to.deep.equal({stopAll: true});
+      assert.deepStrictEqual(body['CoreDevice.input'], {stopAll: true});
     });
 
     it('returns the stopped streams ids', async function () {
       const fake = new FakeTransport(() => coreDeviceOutput({stoppedStreams: [2118279489, 3267750034]}));
       const service = new TestDisplayService(fake);
 
-      expect(await service.stopAllMediaStreams()).to.deep.equal([2118279489, 3267750034]);
+      assert.deepStrictEqual(await service.stopAllMediaStreams(), [2118279489, 3267750034]);
     });
 
     it('returns an empty array when the device reports no streams', async function () {
       const fake = new FakeTransport(() => coreDeviceOutput({serverInfo: {running: false}}));
       const service = new TestDisplayService(fake);
 
-      expect(await service.stopAllMediaStreams()).to.deep.equal([]);
+      assert.deepStrictEqual(await service.stopAllMediaStreams(), []);
     });
 
     it('treats the channel closing as success', async function () {
@@ -363,7 +365,7 @@ describe('DisplayService', function () {
       });
       const service = new TestDisplayService(fake);
 
-      expect(await service.stopAllMediaStreams()).to.deep.equal([]);
+      assert.deepStrictEqual(await service.stopAllMediaStreams(), []);
     });
 
     it('still propagates unrelated failures', async function () {
@@ -380,7 +382,7 @@ describe('DisplayService', function () {
         caught = error;
       }
 
-      expect((caught as Error | undefined)?.message).to.equal('tunnel exploded');
+      assert.strictEqual((caught as Error | undefined)?.message, 'tunnel exploded');
     });
   });
 
@@ -389,14 +391,14 @@ describe('DisplayService', function () {
       const fake = new FakeTransport(() => coreDeviceOutput({}));
       const service = new TestDisplayService(fake);
 
-      expect(await service.getTunnelLocalAddress()).to.equal(LOCAL_ADDRESS);
+      assert.strictEqual(await service.getTunnelLocalAddress(), LOCAL_ADDRESS);
     });
 
     it('reports the device address as the RTP sender', async function () {
       const fake = new FakeTransport(() => coreDeviceOutput({}));
       const service = new TestDisplayService(fake);
 
-      expect(await service.getDeviceAddress()).to.equal('fd02:1caa:f094::1');
+      assert.strictEqual(await service.getDeviceAddress(), 'fd02:1caa:f094::1');
     });
   });
 });

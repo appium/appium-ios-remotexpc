@@ -1,9 +1,8 @@
+import assert from 'node:assert/strict';
 import {readFile, rm, stat} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {after, before, describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {
   AAC_ELD_FORMAT,
@@ -120,19 +119,19 @@ describe('DisplayService', {timeout: 120000}, function () {
     it('getMediaSupportInfo reports the AVConference framework version', async function () {
       const info = await service!.getMediaSupportInfo();
 
-      expect(info).to.be.an('object');
-      expect(info.avcFrameworkVersion).to.be.a('string');
-      expect(info.supportedFeatures).to.be.a('number');
-      expect(info.supportedFeaturesDescription).to.be.a('string');
+      assert.strictEqual(typeof info, 'object');
+      assert.strictEqual(typeof info.avcFrameworkVersion, 'string');
+      assert.strictEqual(typeof info.supportedFeatures, 'number');
+      assert.strictEqual(typeof info.supportedFeaturesDescription, 'string');
     });
 
     it('getMediaStreamServerStatus reports the server state', async function () {
       const status = await service!.getMediaStreamServerStatus();
 
-      expect(status).to.be.an('object');
-      expect(status.running).to.be.a('boolean');
-      expect(status.sessions).to.be.an('array');
-      expect(status.runDurationSeconds).to.be.a('number');
+      assert.strictEqual(typeof status, 'object');
+      assert.strictEqual(typeof status.running, 'boolean');
+      assert.ok(Array.isArray(status.sessions));
+      assert.strictEqual(typeof status.runDurationSeconds, 'number');
     });
 
     it('isStreamingSupported agrees with the reported feature mask', async function (t) {
@@ -145,7 +144,7 @@ describe('DisplayService', {timeout: 120000}, function () {
           : 'device does not advertise media streaming (needs iOS 27+); ' +
               'the streaming tests assert the rejection path instead',
       );
-      expect(await service!.isStreamingSupported()).to.equal(supportedFeatures !== 0);
+      assert.strictEqual(await service!.isStreamingSupported(), supportedFeatures !== 0);
     });
   });
 
@@ -154,15 +153,17 @@ describe('DisplayService', {timeout: 120000}, function () {
       const [local, device] = await Promise.all([service!.getTunnelLocalAddress(), service!.getDeviceAddress()]);
 
       // Both sides of the tunnel are IPv6 and must differ.
-      expect(local).to.be.a('string').and.contain(':');
-      expect(device).to.be.a('string').and.contain(':');
-      expect(local).to.not.equal(device);
+      assert.strictEqual(typeof local, 'string');
+      assert.ok(local.includes(':'));
+      assert.strictEqual(typeof device, 'string');
+      assert.ok(device.includes(':'));
+      assert.notStrictEqual(local, device);
     });
 
     it('binds a UDP media receiver on an ephemeral port', async function () {
       const receiver = await UdpMediaReceiver.bind();
       try {
-        expect(receiver.port).to.be.greaterThan(0);
+        assert.ok(receiver.port > 0);
       } finally {
         receiver.close();
       }
@@ -186,25 +187,25 @@ describe('DisplayService', {timeout: 120000}, function () {
             {clientSessionId: sessionId},
           );
         } catch (error) {
-          expect(streamingSupported, 'a device advertising support should not reject the stream').to.equal(false);
-          expect(error).to.be.instanceOf(CoreDeviceError);
+          assert.strictEqual(streamingSupported, false, 'a device advertising support should not reject the stream');
+          assert.ok(error instanceof CoreDeviceError);
           const {response} = error as CoreDeviceError;
           const deviceError = response?.['CoreDevice.error'] as Record<string, unknown> | undefined;
-          expect(deviceError?.code).to.equal(REMOTE_CONTROL_UNSUPPORTED_ERROR_CODE);
-          expect((error as Error).message).to.contain('iOS 27');
+          assert.strictEqual(deviceError?.code, REMOTE_CONTROL_UNSUPPORTED_ERROR_CODE);
+          assert.ok((error as Error).message.includes('iOS 27'));
           return;
         }
 
-        expect(streamingSupported).to.equal(true);
-        expect(answer.clientSessionId).to.be.instanceOf(XPCUUID);
-        expect(answer.streamConfig).to.be.an('object');
+        assert.strictEqual(streamingSupported, true);
+        assert.ok(answer.clientSessionId instanceof XPCUUID);
+        assert.strictEqual(typeof answer.streamConfig, 'object');
         // The device streams from its own ephemeral port back to ours.
-        expect(answer.streamConfig.DestPort).to.equal(receiver.port);
-        expect(answer.streamConfig.RemoteSSRC).to.be.a('number');
+        assert.strictEqual(answer.streamConfig.DestPort, receiver.port);
+        assert.strictEqual(typeof answer.streamConfig.RemoteSSRC, 'number');
 
         const stopped = await service!.stopAllMediaStreams();
         // Streams are identified by their RemoteSSRC in the stop response.
-        expect(stopped).to.include(answer.streamConfig.RemoteSSRC);
+        assert.ok(stopped.includes(answer.streamConfig.RemoteSSRC as number));
       } finally {
         receiver.close();
       }
@@ -215,9 +216,9 @@ describe('DisplayService', {timeout: 120000}, function () {
       try {
         capture = await ScreenStreamCapture.start(service!, {displayId: 1});
       } catch (error) {
-        expect(streamingSupported).to.equal(false);
-        expect(error).to.be.instanceOf(CoreDeviceError);
-        expect((error as Error).message).to.contain('iOS 27');
+        assert.strictEqual(streamingSupported, false);
+        assert.ok(error instanceof CoreDeviceError);
+        assert.ok((error as Error).message.includes('iOS 27'));
         return;
       }
 
@@ -231,15 +232,16 @@ describe('DisplayService', {timeout: 120000}, function () {
           }
         }
 
-        expect(units.length, 'the device should push video once negotiated').to.be.greaterThan(0);
-        expect(
+        assert.ok(units.length > 0, 'the device should push video once negotiated');
+        assert.strictEqual(
           units.some((unit) => unit.isKeyFrame),
+          true,
           'a stream must open with a keyframe',
-        ).to.equal(true);
-        expect(capture.codecString, 'the SPS should yield a codec string').to.match(/^hev1\./);
-        expect(capture.parameterSets, 'VPS/SPS/PPS should all arrive').to.not.equal(undefined);
-        expect(capture.decoderConfigurationRecord).to.be.instanceOf(Buffer);
-        expect(capture.stats.packetsReceived).to.be.greaterThan(0);
+        );
+        assert.match(capture.codecString, /^hev1\./, 'the SPS should yield a codec string');
+        assert.notStrictEqual(capture.parameterSets, undefined, 'VPS/SPS/PPS should all arrive');
+        assert.ok(capture.decoderConfigurationRecord instanceof Buffer);
+        assert.ok(capture.stats.packetsReceived > 0);
       } finally {
         await capture.stop();
       }
@@ -259,15 +261,15 @@ describe('DisplayService', {timeout: 120000}, function () {
         try {
           answer = await service!.startAudioStream({receiverIp, receiverPort: receiver.port, senderIp});
         } catch (error) {
-          expect(streamingSupported).to.equal(false);
-          expect((error as Error).message).to.contain('iOS 27');
+          assert.strictEqual(streamingSupported, false);
+          assert.ok((error as Error).message.includes('iOS 27'));
           return;
         }
 
-        expect(streamingSupported).to.equal(true);
+        assert.strictEqual(streamingSupported, true);
         // AAC-ELD at 48 kHz stereo is advertised as payload type 101.
-        expect(answer.streamConfig.RxPayloadType).to.equal(101);
-        expect(answer.streamConfig.AudioStreamMode).to.equal(8);
+        assert.strictEqual(answer.streamConfig.RxPayloadType, 101);
+        assert.strictEqual(answer.streamConfig.AudioStreamMode, 8);
         await service!.stopAllMediaStreams();
       } finally {
         receiver.close();
@@ -281,8 +283,8 @@ describe('DisplayService', {timeout: 120000}, function () {
       try {
         capture = await AudioStreamCapture.start(service!);
       } catch (error) {
-        expect(streamingSupported).to.equal(false);
-        expect((error as Error).message).to.contain('iOS 27');
+        assert.strictEqual(streamingSupported, false);
+        assert.ok((error as Error).message.includes('iOS 27'));
         return;
       }
 
@@ -296,13 +298,13 @@ describe('DisplayService', {timeout: 120000}, function () {
           }
         }
 
-        expect(units.length, 'the device streams silence frames even when idle').to.be.greaterThan(0);
+        assert.ok(units.length > 0, 'the device streams silence frames even when idle');
         // Each unit is one 10 ms AAC-ELD frame; they are small but never empty.
         for (const unit of units.slice(0, 10)) {
-          expect(unit.data.length).to.be.greaterThan(0);
+          assert.ok(unit.data.length > 0);
         }
-        expect(capture.format).to.deep.equal(AAC_ELD_FORMAT);
-        expect(capture.stats.accessUnitsEmitted).to.equal(units.length);
+        assert.deepStrictEqual(capture.format, AAC_ELD_FORMAT);
+        assert.strictEqual(capture.stats.accessUnitsEmitted, units.length);
       } finally {
         await capture.stop();
       }
@@ -315,34 +317,34 @@ describe('DisplayService', {timeout: 120000}, function () {
         try {
           result = await recordAudioToFile(service!, outputPath, {durationMs: 3000});
         } catch (error) {
-          expect(streamingSupported).to.equal(false);
-          expect((error as Error).message).to.contain('iOS 27');
+          assert.strictEqual(streamingSupported, false);
+          assert.ok((error as Error).message.includes('iOS 27'));
           return;
         }
 
-        expect(result.accessUnitsWritten).to.be.greaterThan(0);
-        expect(result.bytesWritten).to.be.greaterThan(0);
+        assert.ok(result.accessUnitsWritten > 0);
+        assert.ok(result.bytesWritten > 0);
         // 480 frames @ 48 kHz => each access unit is exactly 10 ms.
-        expect(result.durationMs).to.equal(result.accessUnitsWritten * 10);
-        expect(result.format.audioSpecificConfig).to.deep.equal(AAC_ELD_FORMAT.audioSpecificConfig);
+        assert.strictEqual(result.durationMs, result.accessUnitsWritten * 10);
+        assert.deepStrictEqual(result.format.audioSpecificConfig, AAC_ELD_FORMAT.audioSpecificConfig);
 
         const written = await stat(outputPath);
-        expect(written.size).to.equal(result.bytesWritten);
+        assert.strictEqual(written.size, result.bytesWritten);
 
         const file = await readFile(outputPath);
         // Must be a real MP4: 'ftyp' sits at offset 4 of every MP4 file.
-        expect(file.toString('ascii', 4, 8)).to.equal('ftyp');
-        expect(file.toString('ascii', 8, 12)).to.equal('M4A ');
+        assert.strictEqual(file.toString('ascii', 4, 8), 'ftyp');
+        assert.strictEqual(file.toString('ascii', 8, 12), 'M4A ');
 
         // The esds must declare 480-sample frames. The device's own handshake
         // cookie says 512, and a file carrying that claim is rejected by every
         // standard decoder (ffmpeg errors, AudioToolbox refuses) — so this is
         // what makes the recording usable at all, and it must not regress.
         const asc = extractAudioSpecificConfig(file);
-        expect(asc, 'esds should carry an AudioSpecificConfig').to.not.equal(undefined);
+        assert.notStrictEqual(asc, undefined, 'esds should carry an AudioSpecificConfig');
         const {audioObjectType, frameLengthFlag} = parseAudioSpecificConfig(asc!);
-        expect(audioObjectType, 'AOT 39 = ER AAC ELD').to.equal(39);
-        expect(frameLengthFlag, '1 = 480-sample frames').to.equal(1);
+        assert.strictEqual(audioObjectType, 39, 'AOT 39 = ER AAC ELD');
+        assert.strictEqual(frameLengthFlag, 1, '1 = 480-sample frames');
       } finally {
         await rm(outputPath, {force: true});
       }
@@ -358,26 +360,26 @@ describe('DisplayService', {timeout: 120000}, function () {
         try {
           result = await recordScreenAndAudioToFiles(service!, {videoPath, audioPath, durationMs: 5000});
         } catch (error) {
-          expect(streamingSupported).to.equal(false);
-          expect((error as Error).message).to.contain('iOS 27');
+          assert.strictEqual(streamingSupported, false);
+          assert.ok((error as Error).message.includes('iOS 27'));
           return;
         }
 
-        expect(result.video.framesWritten, 'video should have frames').to.be.greaterThan(0);
-        expect(result.audio.accessUnitsWritten, 'audio should have access units').to.be.greaterThan(0);
-        expect(result.video.frameRate).to.be.greaterThan(0);
-        expect(result.video.codecString).to.match(/^hev1\./);
+        assert.ok(result.video.framesWritten > 0, 'video should have frames');
+        assert.ok(result.audio.accessUnitsWritten > 0, 'audio should have access units');
+        assert.ok(result.video.frameRate > 0);
+        assert.match(result.video.codecString, /^hev1\./);
 
         // Both files must exist with the reported sizes.
-        expect((await stat(videoPath)).size).to.equal(result.video.bytesWritten);
-        expect((await stat(audioPath)).size).to.equal(result.audio.bytesWritten);
+        assert.strictEqual((await stat(videoPath)).size, result.video.bytesWritten);
+        assert.strictEqual((await stat(audioPath)).size, result.audio.bytesWritten);
 
         // The command must reference both inputs and carry the measured rate,
         // since Annex-B has no timestamps of its own.
-        expect(result.ffmpegCommand).to.contain(videoPath);
-        expect(result.ffmpegCommand).to.contain(audioPath);
-        expect(result.ffmpegCommand).to.contain(`-r ${result.video.frameRate}`);
-        expect(result.ffmpegCommand).to.contain('-fflags +genpts');
+        assert.ok(result.ffmpegCommand.includes(videoPath));
+        assert.ok(result.ffmpegCommand.includes(audioPath));
+        assert.ok(result.ffmpegCommand.includes(`-r ${result.video.frameRate}`));
+        assert.ok(result.ffmpegCommand.includes('-fflags +genpts'));
       } finally {
         await rm(videoPath, {force: true});
         await rm(audioPath, {force: true});
@@ -400,25 +402,25 @@ describe('DisplayService', {timeout: 120000}, function () {
         try {
           result = await recordScreenAndAudioToFiles(service!, {videoPath, audioPath, durationMs: 25_000});
         } catch (error) {
-          expect(streamingSupported).to.equal(false);
-          expect((error as Error).message).to.contain('iOS 27');
+          assert.strictEqual(streamingSupported, false);
+          assert.ok((error as Error).message.includes('iOS 27'));
           return;
         }
 
         // Without RTCP receiver reports both streams stop dead at 20s: audio
         // would land at ~20.0s against a 25s window.
-        expect(result.audio.durationMs, 'audio should outlive the 20s timeout').to.be.greaterThan(22_000);
-        expect(result.video.durationMs, 'video window should be the full duration').to.be.greaterThan(24_000);
+        assert.ok(result.audio.durationMs > 22_000, 'audio should outlive the 20s timeout');
+        assert.ok(result.video.durationMs > 24_000, 'video window should be the full duration');
 
         // The two tracks should stay in step; a large shortfall means a session
         // was reaped.
         const skewMs = Math.abs(result.video.durationMs - result.audio.durationMs);
-        expect(skewMs, `video/audio duration skew was ${skewMs.toFixed(0)}ms`).to.be.lessThan(2000);
+        assert.ok(skewMs < 2000, `video/audio duration skew was ${skewMs.toFixed(0)}ms`);
 
         // Video must keep flowing too — the reap affects both streams.
-        expect(result.video.framesWritten).to.be.greaterThan(0);
-        expect(result.video.stats.packetsLost).to.equal(0);
-        expect(result.audio.stats.packetsLost).to.equal(0);
+        assert.ok(result.video.framesWritten > 0);
+        assert.strictEqual(result.video.stats.packetsLost, 0);
+        assert.strictEqual(result.audio.stats.packetsLost, 0);
       } finally {
         await rm(videoPath, {force: true});
         await rm(audioPath, {force: true});
@@ -438,18 +440,18 @@ describe('DisplayService', {timeout: 120000}, function () {
       try {
         result = await recordScreenToFile(service!, outputPath, {durationMs: 4000});
       } catch (error) {
-        expect(streamingSupported).to.equal(false);
-        expect((error as Error).message).to.contain('iOS 27');
+        assert.strictEqual(streamingSupported, false);
+        assert.ok((error as Error).message.includes('iOS 27'));
         return;
       }
 
-      expect(streamingSupported).to.equal(true);
-      expect(result.framesWritten).to.be.greaterThan(0);
-      expect(result.bytesWritten).to.be.greaterThan(0);
-      expect(result.codecString).to.match(/^hev1\./);
+      assert.strictEqual(streamingSupported, true);
+      assert.ok(result.framesWritten > 0);
+      assert.ok(result.bytesWritten > 0);
+      assert.match(result.codecString, /^hev1\./);
 
       const written = await stat(outputPath);
-      expect(written.size).to.equal(result.bytesWritten);
+      assert.strictEqual(written.size, result.bytesWritten);
     });
   });
 });

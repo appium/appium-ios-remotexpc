@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {UdpMediaReceiver, isNextSequence, parseRtpPacket} from '../../../src/services/ios/display/rtp.js';
 
@@ -57,78 +56,78 @@ describe('RTP', function () {
         makeRtpPacket({payloadType: 123, marker: true, sequence: 4242, timestamp: 99, ssrc: 7}),
       );
 
-      expect(packet).to.not.equal(undefined);
-      expect(packet?.payloadType).to.equal(123);
-      expect(packet?.marker).to.equal(true);
-      expect(packet?.sequence).to.equal(4242);
-      expect(packet?.timestamp).to.equal(99);
-      expect(packet?.ssrc).to.equal(7);
-      expect(packet?.payload).to.deep.equal(Buffer.from('payload'));
+      assert.notStrictEqual(packet, undefined);
+      assert.strictEqual(packet?.payloadType, 123);
+      assert.strictEqual(packet?.marker, true);
+      assert.strictEqual(packet?.sequence, 4242);
+      assert.strictEqual(packet?.timestamp, 99);
+      assert.strictEqual(packet?.ssrc, 7);
+      assert.deepStrictEqual(packet?.payload, Buffer.from('payload'));
     });
 
     it('skips the CSRC list when locating the payload', function () {
       const packet = parseRtpPacket(makeRtpPacket({csrcCount: 3, payload: Buffer.from('body')}));
 
-      expect(packet?.payload).to.deep.equal(Buffer.from('body'));
+      assert.deepStrictEqual(packet?.payload, Buffer.from('body'));
     });
 
     it('skips an extension header when locating the payload', function () {
       const packet = parseRtpPacket(makeRtpPacket({extensionWords: 2, payload: Buffer.from('body')}));
 
-      expect(packet?.payload).to.deep.equal(Buffer.from('body'));
+      assert.deepStrictEqual(packet?.payload, Buffer.from('body'));
     });
 
     it('skips both a CSRC list and an extension header together', function () {
       const packet = parseRtpPacket(makeRtpPacket({csrcCount: 2, extensionWords: 1, payload: Buffer.from('body')}));
 
-      expect(packet?.payload).to.deep.equal(Buffer.from('body'));
+      assert.deepStrictEqual(packet?.payload, Buffer.from('body'));
     });
 
     it('rejects RTCP packets, which share the port', function () {
       // RTCP types 200..207 appear as payload types 72..79 once the marker bit
       // is masked off; the whole 64..95 range is reserved for them.
       for (const payloadType of [64, 72, 78, 95]) {
-        expect(parseRtpPacket(makeRtpPacket({payloadType}))).to.equal(undefined);
+        assert.strictEqual(parseRtpPacket(makeRtpPacket({payloadType})), undefined);
       }
     });
 
     it('accepts payload types just outside the RTCP range', function () {
-      expect(parseRtpPacket(makeRtpPacket({payloadType: 63}))).to.not.equal(undefined);
-      expect(parseRtpPacket(makeRtpPacket({payloadType: 96}))).to.not.equal(undefined);
-      expect(parseRtpPacket(makeRtpPacket({payloadType: 101}))).to.not.equal(undefined); // audio
+      assert.notStrictEqual(parseRtpPacket(makeRtpPacket({payloadType: 63})), undefined);
+      assert.notStrictEqual(parseRtpPacket(makeRtpPacket({payloadType: 96})), undefined);
+      assert.notStrictEqual(parseRtpPacket(makeRtpPacket({payloadType: 101})), undefined); // audio
     });
 
     it('rejects datagrams shorter than the fixed header', function () {
-      expect(parseRtpPacket(Buffer.alloc(11))).to.equal(undefined);
-      expect(parseRtpPacket(Buffer.alloc(0))).to.equal(undefined);
+      assert.strictEqual(parseRtpPacket(Buffer.alloc(11)), undefined);
+      assert.strictEqual(parseRtpPacket(Buffer.alloc(0)), undefined);
     });
 
     it('rejects a packet whose declared extension runs past the end', function () {
       const truncated = makeRtpPacket({extensionWords: 4}).subarray(0, 14);
 
-      expect(parseRtpPacket(truncated)).to.equal(undefined);
+      assert.strictEqual(parseRtpPacket(truncated), undefined);
     });
 
     it('returns an empty payload for a header-only packet', function () {
       const packet = parseRtpPacket(makeRtpPacket({payload: Buffer.alloc(0)}));
 
-      expect(packet?.payload).to.have.length(0);
+      assert.strictEqual(packet?.payload.length, 0);
     });
   });
 
   describe('isNextSequence', function () {
     it('accepts consecutive sequence numbers', function () {
-      expect(isNextSequence(10, 11)).to.equal(true);
+      assert.strictEqual(isNextSequence(10, 11), true);
     });
 
     it('detects a gap', function () {
-      expect(isNextSequence(10, 12)).to.equal(false);
-      expect(isNextSequence(10, 10)).to.equal(false);
+      assert.strictEqual(isNextSequence(10, 12), false);
+      assert.strictEqual(isNextSequence(10, 10), false);
     });
 
     it('wraps at the 16-bit boundary', function () {
-      expect(isNextSequence(0xffff, 0)).to.equal(true);
-      expect(isNextSequence(0xffff, 1)).to.equal(false);
+      assert.strictEqual(isNextSequence(0xffff, 0), true);
+      assert.strictEqual(isNextSequence(0xffff, 1), false);
     });
   });
 
@@ -136,7 +135,7 @@ describe('RTP', function () {
     it('binds an ephemeral port and reports it', async function () {
       const receiver = await UdpMediaReceiver.bind();
       try {
-        expect(receiver.port).to.be.greaterThan(0);
+        assert.ok(receiver.port > 0);
       } finally {
         receiver.close();
       }
@@ -153,11 +152,11 @@ describe('RTP', function () {
 
         // Give the datagram time to land before anything starts consuming.
         await new Promise((resolve) => setTimeout(resolve, 50));
-        expect(receiver.pendingCount).to.equal(1);
+        assert.strictEqual(receiver.pendingCount, 1);
 
         const iterator = receiver.packets();
         const {value} = await iterator.next();
-        expect(value).to.deep.equal(Buffer.from('first'));
+        assert.deepStrictEqual(value, Buffer.from('first'));
 
         sender.close();
         await iterator.return?.(undefined);
@@ -173,7 +172,7 @@ describe('RTP', function () {
 
       receiver.close();
 
-      expect((await pending).done).to.equal(true);
+      assert.strictEqual((await pending).done, true);
     });
 
     it('ends the packet generator when the signal aborts', async function () {
@@ -185,7 +184,7 @@ describe('RTP', function () {
 
         controller.abort();
 
-        expect((await pending).done).to.equal(true);
+        assert.strictEqual((await pending).done, true);
       } finally {
         receiver.close();
       }
