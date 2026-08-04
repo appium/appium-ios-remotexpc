@@ -1,7 +1,7 @@
+import assert from 'node:assert/strict';
 import {after, before, describe, it} from 'node:test';
 
 import {logger} from '@appium/support';
-import {expect} from 'chai';
 
 import type {DVTInstruments} from '../../../src/index.js';
 import * as Services from '../../../src/services.js';
@@ -31,14 +31,14 @@ describe('Application Listing', {timeout: 30000}, function () {
   describe('List apps', () => {
     it('list all applications', async () => {
       const list = await dvtServiceConnection!.appListing.list();
-      expect(list).to.be.an('array');
-      expect(list).to.not.be.empty;
+      assert.ok(Array.isArray(list));
+      assert.ok(list.length > 0);
 
-      expect(list.length).to.greaterThan(0);
+      assert.ok(list.length > 0);
       list.forEach((app) => {
-        expect(app).to.have.property('CFBundleIdentifier');
-        expect(app).to.have.property('DisplayName');
-        expect(app).to.have.property('BundlePath');
+        assert.ok('CFBundleIdentifier' in app);
+        assert.ok('DisplayName' in app);
+        assert.ok('BundlePath' in app);
       });
     });
   });

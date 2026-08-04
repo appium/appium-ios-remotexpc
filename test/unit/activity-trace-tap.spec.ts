@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import type {DVTSecureSocketProxyService} from '../../src/services/ios/dvt/index.js';
 import {ActivityTraceTap} from '../../src/services/ios/dvt/instruments/activity-trace-tap.js';
@@ -36,14 +35,14 @@ describe('ActivityTraceTap.parseEndRow', () => {
     const tap = makeTap();
     tap.stack = [];
     tap.tables = new Map();
-    expect(tap.parseEndRow(endRow())).to.be.null;
+    assert.strictEqual(tap.parseEndRow(endRow()), null);
   });
 
   it('returns null when stack has fewer items than columns', () => {
     const tap = makeTap();
     tap.tables = new Map([[0, {name: 'test', columns: ['a', 'b']}]]);
     tap.stack = [Buffer.from('x')];
-    expect(tap.parseEndRow(endRow())).to.be.null;
+    assert.strictEqual(tap.parseEndRow(endRow()), null);
   });
 
   it('decodes time from LE uint64 buffer', () => {
@@ -51,43 +50,43 @@ describe('ActivityTraceTap.parseEndRow', () => {
     tap.tables = new Map([[0, {name: 't', columns: ['time', 'name']}]]);
     tap.stack = [le64(1_000_000_000n), Buffer.from('x\0')];
     const msg = tap.parseEndRow(endRow());
-    expect(msg).to.not.be.null;
-    expect(msg.time).to.equal(1_000_000_000);
+    assert.notStrictEqual(msg, null);
+    assert.strictEqual(msg.time, 1_000_000_000);
   });
 
   it('decodes process from struct (first element LE uint32)', () => {
     const tap = makeTap();
     tap.tables = new Map([[0, {name: 't', columns: ['process', 'name']}]]);
     tap.stack = [[le32(42)], Buffer.from('x\0')];
-    expect(tap.parseEndRow(endRow()).process).to.equal(42);
+    assert.strictEqual(tap.parseEndRow(endRow()).process, 42);
   });
 
   it('sets process to 0 when stack item is null', () => {
     const tap = makeTap();
     tap.tables = new Map([[0, {name: 't', columns: ['process', 'name']}]]);
     tap.stack = [null, Buffer.from('x\0')];
-    expect(tap.parseEndRow(endRow()).process).to.equal(0);
+    assert.strictEqual(tap.parseEndRow(endRow()).process, 0);
   });
 
   it('decodes thread from struct', () => {
     const tap = makeTap();
     tap.tables = new Map([[0, {name: 't', columns: ['thread', 'name']}]]);
     tap.stack = [[le32(7)], Buffer.from('x\0')];
-    expect(tap.parseEndRow(endRow()).thread).to.equal(7);
+    assert.strictEqual(tap.parseEndRow(endRow()).thread, 7);
   });
 
   it('decodes null-terminated string fields', () => {
     const tap = makeTap();
     tap.tables = new Map([[0, {name: 't', columns: ['subsystem', 'name']}]]);
     tap.stack = [Buffer.from('com.apple.test\0'), Buffer.from('x\0')];
-    expect(tap.parseEndRow(endRow()).subsystem).to.equal('com.apple.test');
+    assert.strictEqual(tap.parseEndRow(endRow()).subsystem, 'com.apple.test');
   });
 
   it('decodes message field as formatted string (string type)', () => {
     const tap = makeTap();
     tap.tables = new Map([[0, {name: 't', columns: ['message']}]]);
     tap.stack = [[[typeBuf('string'), Buffer.from('hello\0')]]];
-    expect(tap.parseEndRow(endRow()).message).to.equal('hello');
+    assert.strictEqual(tap.parseEndRow(endRow()).message, 'hello');
   });
 
   it('decodes message field with private argument', () => {
@@ -99,42 +98,42 @@ describe('ActivityTraceTap.parseEndRow', () => {
         [typeBuf('private'), null],
       ],
     ];
-    expect(tap.parseEndRow(endRow()).message).to.equal('user=<private>');
+    assert.strictEqual(tap.parseEndRow(endRow()).message, 'user=<private>');
   });
 
   it('decodes message field with uint64 argument', () => {
     const tap = makeTap();
     tap.tables = new Map([[0, {name: 't', columns: ['message']}]]);
     tap.stack = [[[typeBuf('uint64'), le64(42)]]];
-    expect(tap.parseEndRow(endRow()).message).to.equal('42');
+    assert.strictEqual(tap.parseEndRow(endRow()).message, '42');
   });
 
   it('synthesises message from format_string when message column is absent', () => {
     const tap = makeTap();
     tap.tables = new Map([[0, {name: 't', columns: ['format_string']}]]);
     tap.stack = [[[typeBuf('string'), Buffer.from('fmt\0')]]];
-    expect(tap.parseEndRow(endRow()).message).to.equal('fmt');
+    assert.strictEqual(tap.parseEndRow(endRow()).message, 'fmt');
   });
 
   it('uses name column as message for signpost rows', () => {
     const tap = makeTap();
     tap.tables = new Map([[0, {name: 't', columns: ['name']}]]);
     tap.stack = [Buffer.from('my-signpost\0')];
-    expect(tap.parseEndRow(endRow()).message).to.equal('my-signpost');
+    assert.strictEqual(tap.parseEndRow(endRow()).message, 'my-signpost');
   });
 
   it('drops rows with <5 columns and no message', () => {
     const tap = makeTap();
     tap.tables = new Map([[0, {name: 't', columns: ['a', 'b']}]]);
     tap.stack = [Buffer.from('x'), Buffer.from('y')];
-    expect(tap.parseEndRow(endRow())).to.be.null;
+    assert.strictEqual(tap.parseEndRow(endRow()), null);
   });
 
   it('synthesises message from longest buffer for rich tables (≥5 columns)', () => {
     const tap = makeTap();
     tap.tables = new Map([[0, {name: 't', columns: ['a', 'b', 'c', 'd', 'e']}]]);
     tap.stack = [Buffer.from('hi\0'), Buffer.from('longer text\0'), null, null, null];
-    expect(tap.parseEndRow(endRow()).message).to.equal('longer text');
+    assert.strictEqual(tap.parseEndRow(endRow()).message, 'longer text');
   });
 
   it('pops only the row columns leaving deeper stack items intact', () => {
@@ -142,7 +141,7 @@ describe('ActivityTraceTap.parseEndRow', () => {
     tap.tables = new Map([[0, {name: 't', columns: ['name']}]]);
     tap.stack = [Buffer.from('extra1'), Buffer.from('extra2'), Buffer.from('signpost\0')];
     tap.parseEndRow(endRow());
-    expect(tap.stack).to.have.lengthOf(2);
+    assert.strictEqual(tap.stack.length, 2);
   });
 
   it('decodes signpost_name and scope columns as strings', () => {
@@ -150,15 +149,15 @@ describe('ActivityTraceTap.parseEndRow', () => {
     tap.tables = new Map([[0, {name: 't', columns: ['signpost_name', 'scope', 'name']}]]);
     tap.stack = [Buffer.from('performBlock\0'), Buffer.from('Process\0'), Buffer.from('x\0')];
     const msg = tap.parseEndRow(endRow());
-    expect(msg.signpost_name).to.equal('performBlock');
-    expect(msg.scope).to.equal('Process');
+    assert.strictEqual(msg.signpost_name, 'performBlock');
+    assert.strictEqual(msg.scope, 'Process');
   });
 
   it('decodes identifier column as hex string and drops the trailing sentinel byte', () => {
     const tap = makeTap();
     tap.tables = new Map([[0, {name: 't', columns: ['identifier', 'name']}]]);
     tap.stack = [Buffer.from([0xee, 0xee, 0xb2, 0xb2, 0xb5, 0xb0, 0xee, 0xee, 0x00]), Buffer.from('x\0')];
-    expect(tap.parseEndRow(endRow()).identifier).to.equal('eeeeb2b2b5b0eeee');
+    assert.strictEqual(tap.parseEndRow(endRow()).identifier, 'eeeeb2b2b5b0eeee');
   });
 
   it('falls back to name when a literal message column is null (signpost begin/end rows)', () => {
@@ -166,6 +165,6 @@ describe('ActivityTraceTap.parseEndRow', () => {
     tap.tables = new Map([[0, {name: 't', columns: ['message', 'name', 'event_type']}]]);
     tap.stack = [null, Buffer.from('Ping\0'), Buffer.from('Begin\0')];
     const msg = tap.parseEndRow(endRow());
-    expect(msg.message, 'message should never leak null').to.equal('Ping');
+    assert.strictEqual(msg.message, 'Ping', 'message should never leak null');
   });
 });

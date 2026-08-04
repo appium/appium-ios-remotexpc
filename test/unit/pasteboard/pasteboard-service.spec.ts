@@ -1,7 +1,6 @@
+import assert from 'node:assert/strict';
 import {EventEmitter} from 'node:events';
 import {describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {decodeMessage} from '../../../src/lib/remote-xpc/xpc-protocol.js';
 import type {XPCDictionary} from '../../../src/lib/types.js';
@@ -55,13 +54,13 @@ describe('PasteboardService', function () {
 
       const result = await service.getText();
 
-      expect(fake.sentBodies[0]).to.deep.equal({
+      assert.deepStrictEqual(fake.sentBodies[0], {
         command: 'PULL',
         pasteboardName: 'general',
         dataPolicy: {allResolved: {}},
       });
-      expect(fake.sentBodies[0]).not.to.have.property('CoreDevice.featureIdentifier');
-      expect(result).to.equal('hello');
+      assert.ok(!('CoreDevice.featureIdentifier' in fake.sentBodies[0]));
+      assert.strictEqual(result, 'hello');
     });
 
     it('setText sends SET with a text item', async function () {
@@ -74,7 +73,7 @@ describe('PasteboardService', function () {
 
       await service.setText('hello');
 
-      expect(fake.sentBodies[0]).to.deep.equal({
+      assert.deepStrictEqual(fake.sentBodies[0], {
         command: 'SET',
         pasteboardName: 'general',
         items: [buildTextItem('hello')],
@@ -88,7 +87,7 @@ describe('PasteboardService', function () {
       }));
       const service = new TestPasteboardService(fake);
 
-      expect(await service.getText()).to.equal('hello');
+      assert.strictEqual(await service.getText(), 'hello');
     });
 
     it('setUrl sends SET with URL and text UTIs', async function () {
@@ -97,7 +96,7 @@ describe('PasteboardService', function () {
 
       await service.setUrl('https://example.test/path');
 
-      expect(fake.sentBodies[0]).to.deep.equal({
+      assert.deepStrictEqual(fake.sentBodies[0], {
         command: 'SET',
         pasteboardName: 'general',
         items: [buildUrlItem('https://example.test/path')],
@@ -111,7 +110,7 @@ describe('PasteboardService', function () {
       }));
       const service = new TestPasteboardService(fake);
 
-      expect((await service.getUrl())?.toString()).to.equal('https://example.test/path');
+      assert.strictEqual((await service.getUrl())?.toString(), 'https://example.test/path');
     });
 
     it('setImage sends SET with a PNG payload', async function () {
@@ -121,7 +120,7 @@ describe('PasteboardService', function () {
 
       await service.setImage(image);
 
-      expect(fake.sentBodies[0]).to.deep.equal({
+      assert.deepStrictEqual(fake.sentBodies[0], {
         command: 'SET',
         pasteboardName: 'general',
         items: [buildImageItem(image)],
@@ -136,7 +135,7 @@ describe('PasteboardService', function () {
       }));
       const service = new TestPasteboardService(fake);
 
-      expect(await service.getImage()).to.deep.equal(image);
+      assert.deepStrictEqual(await service.getImage(), image);
     });
   });
 });

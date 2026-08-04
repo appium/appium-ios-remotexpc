@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {after, before, describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {type DeviceControlService} from '../../src/index.js';
 import * as Services from '../../src/services.js';
@@ -33,8 +32,8 @@ describe('DeviceControlService', {timeout: 60000}, function () {
 
   it('rotates the device and returns the resulting orientation', async function () {
     const state = await deviceControl!.rotate('left');
-    expect(state).to.be.an('object');
-    expect(state.currentDeviceOrientation).to.be.a('string');
+    assert.ok(typeof state === 'object' && state !== null && !Array.isArray(state));
+    assert.ok(typeof state.currentDeviceOrientation === 'string');
 
     // Restore: 'right' undoes the 'left' step.
     await deviceControl!.rotate('right');
@@ -44,9 +43,9 @@ describe('DeviceControlService', {timeout: 60000}, function () {
     const first = await deviceControl!.rotate('left');
     const second = await deviceControl!.rotate('left');
 
-    expect(first.currentDeviceOrientation).to.be.a('string');
-    expect(second.currentDeviceOrientation).to.be.a('string');
-    expect(second.currentDeviceOrientation).to.not.equal(first.currentDeviceOrientation);
+    assert.ok(typeof first.currentDeviceOrientation === 'string');
+    assert.ok(typeof second.currentDeviceOrientation === 'string');
+    assert.notStrictEqual(second.currentDeviceOrientation, first.currentDeviceOrientation);
 
     // Restore: undo the two 'left' steps.
     await deviceControl!.rotate('right');

@@ -1,7 +1,6 @@
+import assert from 'node:assert/strict';
 import {EventEmitter} from 'node:events';
 import {describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {CoreDeviceError} from '../../../src/index.js';
 import {decodeMessage} from '../../../src/lib/remote-xpc/xpc-protocol.js';
@@ -77,10 +76,10 @@ describe('ConfigurationService', function () {
 
     const style = await service.getUserInterfaceStyle();
 
-    expect(actionId(fake.sentBodies[0])).to.equal('com.apple.coredevice.action.getuserinterfacestyle');
+    assert.strictEqual(actionId(fake.sentBodies[0]), 'com.apple.coredevice.action.getuserinterfacestyle');
     // Action-only invocations carry no feature identifier.
-    expect(fake.sentBodies[0]['CoreDevice.featureIdentifier']).to.equal(undefined);
-    expect(style).to.equal('dark');
+    assert.strictEqual(fake.sentBodies[0]['CoreDevice.featureIdentifier'], undefined);
+    assert.strictEqual(style, 'dark');
   });
 
   it('setUserInterfaceStyle sends the style input', async function () {
@@ -89,17 +88,17 @@ describe('ConfigurationService', function () {
 
     await service.setUserInterfaceStyle('light');
 
-    expect(actionId(fake.sentBodies[0])).to.equal('com.apple.coredevice.action.setuserinterfacestyle');
-    expect(input(fake.sentBodies[0])).to.deep.equal({style: 'light'});
+    assert.strictEqual(actionId(fake.sentBodies[0]), 'com.apple.coredevice.action.setuserinterfacestyle');
+    assert.deepStrictEqual(input(fake.sentBodies[0]), {style: 'light'});
   });
 
   it('setUserInterfaceStyle rejects an empty/non-string style without sending a message', async function () {
     const fake = new FakeTransport(() => reply({}));
     const service = new TestConfigurationService(fake);
 
-    expect(await rejection(service.setUserInterfaceStyle('' as any))).to.be.instanceOf(TypeError);
-    expect(await rejection(service.setUserInterfaceStyle(undefined as any))).to.be.instanceOf(TypeError);
-    expect(fake.sentBodies).to.have.length(0);
+    assert.ok((await rejection(service.setUserInterfaceStyle('' as any))) instanceof TypeError);
+    assert.ok((await rejection(service.setUserInterfaceStyle(undefined as any))) instanceof TypeError);
+    assert.strictEqual(fake.sentBodies.length, 0);
   });
 
   it('setUserInterfaceStyle forwards an unknown-but-non-empty style to the device (forward-compat)', async function () {
@@ -109,21 +108,21 @@ describe('ConfigurationService', function () {
     // A future OS style must not be blocked client-side; let the device decide.
     await service.setUserInterfaceStyle('auto');
 
-    expect(input(fake.sentBodies[0])).to.deep.equal({style: 'auto'});
+    assert.deepStrictEqual(input(fake.sentBodies[0]), {style: 'auto'});
   });
 
   it('getUserInterfaceStyle passes an unknown string through (forward-compat)', async function () {
     const fake = new FakeTransport(() => reply({style: 'auto'}));
     const service = new TestConfigurationService(fake);
 
-    expect(await service.getUserInterfaceStyle()).to.equal('auto');
+    assert.strictEqual(await service.getUserInterfaceStyle(), 'auto');
   });
 
   it('getUserInterfaceStyle throws on a missing/non-string style (malformed reply)', async function () {
     const fake = new FakeTransport(() => reply({}));
     const service = new TestConfigurationService(fake);
 
-    expect(await rejection(service.getUserInterfaceStyle())).to.be.instanceOf(CoreDeviceError);
+    assert.ok((await rejection(service.getUserInterfaceStyle())) instanceof CoreDeviceError);
   });
 
   it('setReduceMotion sends the enabled flag', async function () {
@@ -132,8 +131,8 @@ describe('ConfigurationService', function () {
 
     await service.setReduceMotion(true);
 
-    expect(actionId(fake.sentBodies[0])).to.equal('com.apple.coredevice.action.setreducemotion');
-    expect(input(fake.sentBodies[0])).to.deep.equal({reduceMotion: {enabled: true}});
+    assert.strictEqual(actionId(fake.sentBodies[0]), 'com.apple.coredevice.action.setreducemotion');
+    assert.deepStrictEqual(input(fake.sentBodies[0]), {reduceMotion: {enabled: true}});
   });
 
   it('getReduceTransparency reads the nested enabled flag', async function () {
@@ -142,8 +141,8 @@ describe('ConfigurationService', function () {
 
     const enabled = await service.getReduceTransparency();
 
-    expect(actionId(fake.sentBodies[0])).to.equal('com.apple.coredevice.action.getreducetransparency');
-    expect(enabled).to.equal(true);
+    assert.strictEqual(actionId(fake.sentBodies[0]), 'com.apple.coredevice.action.getreducetransparency');
+    assert.strictEqual(enabled, true);
   });
 
   it('getDeviceTextSize returns the first size key', async function () {
@@ -152,8 +151,8 @@ describe('ConfigurationService', function () {
 
     const size = await service.getDeviceTextSize();
 
-    expect(actionId(fake.sentBodies[0])).to.equal('com.apple.coredevice.action.getdevicetextsize');
-    expect(size).to.equal('large');
+    assert.strictEqual(actionId(fake.sentBodies[0]), 'com.apple.coredevice.action.getdevicetextsize');
+    assert.strictEqual(size, 'large');
   });
 
   it('setDeviceTextSize encodes the size as an enum-style single-key dict', async function () {
@@ -162,15 +161,15 @@ describe('ConfigurationService', function () {
 
     await service.setDeviceTextSize('extraLarge');
 
-    expect(input(fake.sentBodies[0])).to.deep.equal({textSize: {size: {extraLarge: {}}}});
+    assert.deepStrictEqual(input(fake.sentBodies[0]), {textSize: {size: {extraLarge: {}}}});
   });
 
   it('setDeviceTextSize rejects an unknown size without sending a message', async function () {
     const fake = new FakeTransport(() => reply({}));
     const service = new TestConfigurationService(fake);
 
-    expect(await rejection(service.setDeviceTextSize('humongous' as any))).to.be.instanceOf(TypeError);
-    expect(fake.sentBodies).to.have.length(0);
+    assert.ok((await rejection(service.setDeviceTextSize('humongous' as any))) instanceof TypeError);
+    assert.strictEqual(fake.sentBodies.length, 0);
   });
 
   it('getColorFilter returns the colorFilter dict', async function () {
@@ -179,16 +178,16 @@ describe('ConfigurationService', function () {
 
     const state = await service.getColorFilter();
 
-    expect(state.enabled).to.equal(true);
-    expect(state.filterType?.name).to.equal('Protanopia');
+    assert.strictEqual(state.enabled, true);
+    assert.strictEqual(state.filterType?.name, 'Protanopia');
   });
 
   it('setColorFilter(true) requires a filterType', async function () {
     const fake = new FakeTransport(() => reply({}));
     const service = new TestConfigurationService(fake);
 
-    expect(await rejection(service.setColorFilter(true))).to.be.instanceOf(TypeError);
-    expect(fake.sentBodies).to.have.length(0);
+    assert.ok((await rejection(service.setColorFilter(true))) instanceof TypeError);
+    assert.strictEqual(fake.sentBodies.length, 0);
   });
 
   it('setColorFilter(true) rejects an unknown filterType without sending', async function () {
@@ -196,8 +195,8 @@ describe('ConfigurationService', function () {
     const service = new TestConfigurationService(fake);
 
     // Case-sensitive: lowercase 'grayscale' is not a valid preset.
-    expect(await rejection(service.setColorFilter(true, {filterType: 'grayscale' as any}))).to.be.instanceOf(TypeError);
-    expect(fake.sentBodies).to.have.length(0);
+    assert.ok((await rejection(service.setColorFilter(true, {filterType: 'grayscale' as any}))) instanceof TypeError);
+    assert.strictEqual(fake.sentBodies.length, 0);
   });
 
   it('getIncreaseContrast reads the nested enabled flag', async function () {
@@ -206,8 +205,8 @@ describe('ConfigurationService', function () {
 
     const enabled = await service.getIncreaseContrast();
 
-    expect(actionId(fake.sentBodies[0])).to.equal('com.apple.coredevice.action.getdeviceincreasecontrast');
-    expect(enabled).to.equal(true);
+    assert.strictEqual(actionId(fake.sentBodies[0]), 'com.apple.coredevice.action.getdeviceincreasecontrast');
+    assert.strictEqual(enabled, true);
   });
 
   it('setColorFilter(true, ...) sends filterType and Float32-quantized intensity', async function () {
@@ -216,11 +215,11 @@ describe('ConfigurationService', function () {
 
     await service.setColorFilter(true, {filterType: 'Protanopia', intensity: 0.5});
 
-    expect(actionId(fake.sentBodies[0])).to.equal('com.apple.coredevice.action.setcolorfilter');
+    assert.strictEqual(actionId(fake.sentBodies[0]), 'com.apple.coredevice.action.setcolorfilter');
     const filter = input(fake.sentBodies[0]).colorFilter as XPCDictionary;
-    expect(filter.enabled).to.equal(true);
-    expect(filter.filterType).to.deep.equal({name: 'Protanopia'});
-    expect(filter.intensity).to.equal(0.5);
+    assert.strictEqual(filter.enabled, true);
+    assert.deepStrictEqual(filter.filterType, {name: 'Protanopia'});
+    assert.strictEqual(filter.intensity, 0.5);
   });
 
   it('setColorFilter(false) sends only enabled=false', async function () {
@@ -229,7 +228,7 @@ describe('ConfigurationService', function () {
 
     await service.setColorFilter(false, {filterType: 'Protanopia'});
 
-    expect(input(fake.sentBodies[0])).to.deep.equal({colorFilter: {enabled: false}});
+    assert.deepStrictEqual(input(fake.sentBodies[0]), {colorFilter: {enabled: false}});
   });
 
   it('setLiquidGlassOpacity quantizes to Float32 and nests under configuration', async function () {
@@ -238,20 +237,20 @@ describe('ConfigurationService', function () {
 
     await service.setLiquidGlassOpacity(0.55);
 
-    expect(actionId(fake.sentBodies[0])).to.equal('com.apple.coredevice.action.setliquidglassconfiguration');
+    assert.strictEqual(actionId(fake.sentBodies[0]), 'com.apple.coredevice.action.setliquidglassconfiguration');
     const config = input(fake.sentBodies[0]).configuration as XPCDictionary;
-    expect(config.opacity).to.be.a('number');
-    expect(config.opacity as number).to.be.closeTo(0.55, 1e-6);
+    assert.ok(typeof config.opacity === 'number');
+    assert.ok(Math.abs((config.opacity as number) - 0.55) <= 1e-6);
     // Round-trips exactly through IEEE-754 binary32.
-    expect(config.opacity).to.equal(Math.fround(0.55));
+    assert.strictEqual(config.opacity, Math.fround(0.55));
   });
 
   it('setLiquidGlassOpacity rejects out-of-range values without sending', async function () {
     const fake = new FakeTransport(() => reply({}));
     const service = new TestConfigurationService(fake);
 
-    expect(await rejection(service.setLiquidGlassOpacity(1.5))).to.be.instanceOf(RangeError);
-    expect(fake.sentBodies).to.have.length(0);
+    assert.ok((await rejection(service.setLiquidGlassOpacity(1.5))) instanceof RangeError);
+    assert.strictEqual(fake.sentBodies.length, 0);
   });
 
   it('closes the active transport', async function () {
@@ -261,6 +260,6 @@ describe('ConfigurationService', function () {
     await service.getUserInterfaceStyle();
     await service.close();
 
-    expect(fake.closeCalls).to.equal(1);
+    assert.strictEqual(fake.closeCalls, 1);
   });
 });

@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {beforeEach, describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {PlistUID, createBinaryPlist} from '../../src/lib/plist/index.js';
 import {DTX_CONSTANTS, MessageAux} from '../../src/services/ios/dvt/dtx-message.js';
@@ -64,15 +63,15 @@ function buildPrimitiveDictEntry(type: number, value: Buffer): Buffer {
 describe('canonicalizeUuidString', function () {
   it('should normalize dashed, brace, and undashed forms', function () {
     const expected = 'aabbccdd-1122-3344-5566-778899aabbcc';
-    expect(canonicalizeUuidString('AABBCCDD-1122-3344-5566-778899AABBCC')).to.equal(expected);
-    expect(canonicalizeUuidString('{aabbccdd-1122-3344-5566-778899aabbcc}')).to.equal(expected);
-    expect(canonicalizeUuidString('aabbccdd112233445566778899aabbcc')).to.equal(expected);
+    assert.strictEqual(canonicalizeUuidString('AABBCCDD-1122-3344-5566-778899AABBCC'), expected);
+    assert.strictEqual(canonicalizeUuidString('{aabbccdd-1122-3344-5566-778899aabbcc}'), expected);
+    assert.strictEqual(canonicalizeUuidString('aabbccdd112233445566778899aabbcc'), expected);
   });
 
   it('should reject invalid input', function () {
-    expect(() => canonicalizeUuidString('')).to.throw();
-    expect(() => canonicalizeUuidString('not-a-uuid')).to.throw();
-    expect(() => canonicalizeUuidString('11111111-1111-1111-1111-111')).to.throw();
+    assert.throws(() => canonicalizeUuidString(''));
+    assert.throws(() => canonicalizeUuidString('not-a-uuid'));
+    assert.throws(() => canonicalizeUuidString('11111111-1111-1111-1111-111'));
   });
 });
 
@@ -89,12 +88,12 @@ describe('TestmanagerdEncoder', function () {
     const objects = result.$objects;
 
     const nsUuidObj = objects.find((o: any) => o && typeof o === 'object' && 'NS.uuidbytes' in o);
-    expect(nsUuidObj['NS.uuidbytes']).to.be.instanceOf(Buffer);
-    expect(nsUuidObj['NS.uuidbytes'].length).to.equal(16);
-    expect(nsUuidObj['NS.uuidbytes'].equals(Buffer.from(uuid.replace(/-/g, ''), 'hex'))).to.be.true;
+    assert.ok(nsUuidObj['NS.uuidbytes'] instanceof Buffer);
+    assert.strictEqual(nsUuidObj['NS.uuidbytes'].length, 16);
+    assert.strictEqual(nsUuidObj['NS.uuidbytes'].equals(Buffer.from(uuid.replace(/-/g, ''), 'hex')), true);
 
     const classObj = objects.find((o: any) => o && typeof o === 'object' && o.$classname === 'NSUUID');
-    expect(classObj.$classes).to.deep.equal(['NSUUID', 'NSObject']);
+    assert.deepStrictEqual(classObj.$classes, ['NSUUID', 'NSObject']);
   });
 
   it('should encode NSSet of NSUUID for _IDE_deleteAttachmentsWithUUIDs payload', function () {
@@ -103,20 +102,20 @@ describe('TestmanagerdEncoder', function () {
     const objects = result.$objects as any[];
     const rootIdx = result.$top.root.value;
     const setObj = objects[rootIdx];
-    expect(setObj['NS.objects']).to.have.length(2);
+    assert.strictEqual(setObj['NS.objects'].length, 2);
     const classDef = objects[setObj.$class.value];
-    expect(classDef).to.have.property('$classname', 'NSSet');
-    expect(classDef.$classes).to.deep.equal(['NSSet', 'NSObject']);
+    assert.strictEqual(classDef.$classname, 'NSSet');
+    assert.deepStrictEqual(classDef.$classes, ['NSSet', 'NSObject']);
 
     const hexSorted = (buf: Buffer) => buf.toString('hex');
     const expectedHex = uuids.map((u) => hexSorted(Buffer.from(u.replace(/-/g, ''), 'hex'))).sort();
     const gotHex = setObj['NS.objects']
       .map((uid: PlistUID) => hexSorted(objects[uid.value]['NS.uuidbytes'] as Buffer))
       .sort();
-    expect(gotHex).to.deep.equal(expectedHex);
+    assert.deepStrictEqual(gotHex, expectedHex);
     for (const uid of setObj['NS.objects'] as PlistUID[]) {
       const uuidClass = objects[objects[uid.value].$class.value];
-      expect(uuidClass.$classname).to.equal('NSUUID');
+      assert.strictEqual(uuidClass.$classname, 'NSUUID');
     }
   });
 
@@ -128,11 +127,11 @@ describe('TestmanagerdEncoder', function () {
     const objects = result.$objects;
 
     const capObj = objects.find((o: any) => o && typeof o === 'object' && 'capabilities-dictionary' in o);
-    expect(capObj).to.not.be.undefined;
-    expect(capObj['capabilities-dictionary']).to.be.instanceOf(PlistUID);
+    assert.notStrictEqual(capObj, undefined);
+    assert.ok(capObj['capabilities-dictionary'] instanceof PlistUID);
 
     const dictObj = objects[capObj['capabilities-dictionary'].value];
-    expect(dictObj['NS.keys']).to.have.length(2);
+    assert.strictEqual(dictObj['NS.keys'].length, 2);
   });
 
   it('should encode empty/missing capabilities without error', function () {
@@ -146,15 +145,15 @@ describe('TestmanagerdEncoder', function () {
 
     for (const result of [empty, missing]) {
       const capObj = result.$objects.find((o: any) => o && typeof o === 'object' && 'capabilities-dictionary' in o);
-      expect(capObj).to.not.be.undefined;
+      assert.notStrictEqual(capObj, undefined);
     }
   });
 });
 
 describe('isExpectedCloseError', function () {
   it('should return true for EPIPE and ECONNRESET codes', function () {
-    expect(isExpectedCloseError(Object.assign(new Error(), {code: 'EPIPE'}))).to.be.true;
-    expect(isExpectedCloseError(Object.assign(new Error(), {code: 'ECONNRESET'}))).to.be.true;
+    assert.strictEqual(isExpectedCloseError(Object.assign(new Error(), {code: 'EPIPE'})), true);
+    assert.strictEqual(isExpectedCloseError(Object.assign(new Error(), {code: 'ECONNRESET'})), true);
   });
 
   it('should return true for expected close messages', function () {
@@ -164,15 +163,15 @@ describe('isExpectedCloseError', function () {
       'Socket closed during read',
       'This socket has been ended by the other party',
     ]) {
-      expect(isExpectedCloseError(new Error(msg))).to.be.true;
+      assert.strictEqual(isExpectedCloseError(new Error(msg)), true);
     }
   });
 
   it('should return false for non-matching inputs', function () {
-    expect(isExpectedCloseError(null)).to.be.false;
-    expect(isExpectedCloseError('string')).to.be.false;
-    expect(isExpectedCloseError(Object.assign(new Error(), {code: 'ETIMEDOUT'}))).to.be.false;
-    expect(isExpectedCloseError(new Error('Something else'))).to.be.false;
+    assert.strictEqual(isExpectedCloseError(null), false);
+    assert.strictEqual(isExpectedCloseError('string'), false);
+    assert.strictEqual(isExpectedCloseError(Object.assign(new Error(), {code: 'ETIMEDOUT'})), false);
+    assert.strictEqual(isExpectedCloseError(new Error('Something else')), false);
   });
 });
 
@@ -181,8 +180,8 @@ describe('readPrimitiveDictEntry', function () {
     const buf = Buffer.alloc(4);
     buf.writeUInt32LE(DTX_CONSTANTS.PRIMITIVE_TYPE_NULL, 0);
     const result = readPrimitiveDictEntry(buf, 0);
-    expect(result.data).to.be.null;
-    expect(result.newOffset).to.equal(4);
+    assert.strictEqual(result.data, null);
+    assert.strictEqual(result.newOffset, 4);
   });
 
   it('should parse uint32 type', function () {
@@ -190,8 +189,8 @@ describe('readPrimitiveDictEntry', function () {
     buf.writeUInt32LE(DTX_CONSTANTS.PRIMITIVE_TYPE_UINT32, 0);
     buf.writeUInt32LE(42, 4);
     const result = readPrimitiveDictEntry(buf, 0);
-    expect(result.data).to.equal(42);
-    expect(result.newOffset).to.equal(8);
+    assert.strictEqual(result.data, 42);
+    assert.strictEqual(result.newOffset, 8);
   });
 
   it('should parse string type', function () {
@@ -201,13 +200,16 @@ describe('readPrimitiveDictEntry', function () {
     buf.writeUInt32LE(strBuf.length, 4);
     strBuf.copy(buf, 8);
     const result = readPrimitiveDictEntry(buf, 0);
-    expect(result.data).to.equal('hello world');
+    assert.strictEqual(result.data, 'hello world');
   });
 
   it('should throw for unknown type', function () {
     const buf = Buffer.alloc(4);
     buf.writeUInt32LE(0xff, 0);
-    expect(() => readPrimitiveDictEntry(buf, 0)).to.throw('Unknown PrimitiveDict type: 0xff');
+    assert.throws(
+      () => readPrimitiveDictEntry(buf, 0),
+      (err: any) => err.message.includes('Unknown PrimitiveDict type: 0xff'),
+    );
   });
 });
 
@@ -224,7 +226,7 @@ describe('DvtTestmanagedProxyService auxiliary helpers', function () {
       val.writeUInt32LE(7, 0);
       const item = buildStandardItem(DTX_CONSTANTS.AUX_TYPE_INT32, val);
       const result = service.testParseAuxiliaryData(buildStandardAuxBuffer(item));
-      expect(result).to.deep.equal([7]);
+      assert.deepStrictEqual(result, [7]);
     });
 
     it('should route to primitive dict parser for non-standard magic', function () {
@@ -234,7 +236,7 @@ describe('DvtTestmanagedProxyService auxiliary helpers', function () {
 
       const entry = buildPrimitiveDictEntry(DTX_CONSTANTS.PRIMITIVE_TYPE_NULL, Buffer.alloc(0));
       const result = service.testParseAuxiliaryData(Buffer.concat([fakeHeader, entry]));
-      expect(result).to.deep.equal([null]);
+      assert.deepStrictEqual(result, [null]);
     });
   });
 
@@ -249,7 +251,7 @@ describe('DvtTestmanagedProxyService auxiliary helpers', function () {
       const item2 = buildStandardItem(DTX_CONSTANTS.AUX_TYPE_INT64, int64Val);
 
       const result = service.testParseAuxiliaryStandard(buildStandardAuxBuffer(Buffer.concat([item1, item2])));
-      expect(result).to.deep.equal([1, BigInt(2)]);
+      assert.deepStrictEqual(result, [1, BigInt(2)]);
     });
 
     it('should parse object values as binary plist', function () {
@@ -258,7 +260,7 @@ describe('DvtTestmanagedProxyService auxiliary helpers', function () {
       lengthBuf.writeUInt32LE(plistBuf.length, 0);
       const item = buildStandardItem(DTX_CONSTANTS.AUX_TYPE_OBJECT, Buffer.concat([lengthBuf, plistBuf]));
       const result = service.testParseAuxiliaryStandard(buildStandardAuxBuffer(item));
-      expect(result).to.deep.equal(['hello']);
+      assert.deepStrictEqual(result, ['hello']);
     });
   });
 
@@ -269,7 +271,7 @@ describe('DvtTestmanagedProxyService auxiliary helpers', function () {
       uint32Val.writeUInt32LE(77, 0);
       const uint32Entry = buildPrimitiveDictEntry(DTX_CONSTANTS.PRIMITIVE_TYPE_UINT32, uint32Val);
       const result = service.testParseAuxiliaryPrimitiveDictionary(Buffer.concat([nullEntry, uint32Entry]));
-      expect(result).to.deep.equal([null, 77]);
+      assert.deepStrictEqual(result, [null, 77]);
     });
 
     it('should stop on unexpected key type', function () {
@@ -277,7 +279,7 @@ describe('DvtTestmanagedProxyService auxiliary helpers', function () {
       const badKey = Buffer.alloc(4);
       badKey.writeUInt32LE(0xff, 0);
       const result = service.testParseAuxiliaryPrimitiveDictionary(Buffer.concat([validEntry, badKey]));
-      expect(result).to.deep.equal([null]);
+      assert.deepStrictEqual(result, [null]);
     });
   });
 
@@ -289,7 +291,7 @@ describe('DvtTestmanagedProxyService auxiliary helpers', function () {
       args.appendInt(3);
       const built = service.testBuildAuxiliaryData(args);
       const parsed = service.testParseAuxiliaryStandard(built);
-      expect(parsed).to.deep.equal([99, BigInt(123456789), 3]);
+      assert.deepStrictEqual(parsed, [99, BigInt(123456789), 3]);
     });
 
     it('should round-trip object values as NSKeyedArchiver', function () {
@@ -297,8 +299,8 @@ describe('DvtTestmanagedProxyService auxiliary helpers', function () {
       args.appendObj('hello');
       const built = service.testBuildAuxiliaryData(args);
       const parsed = service.testParseAuxiliaryStandard(built);
-      expect(parsed).to.have.length(1);
-      expect(parsed[0]).to.have.property('$archiver', 'NSKeyedArchiver');
+      assert.strictEqual(parsed.length, 1);
+      assert.strictEqual(parsed[0].$archiver, 'NSKeyedArchiver');
     });
   });
 });

@@ -1,7 +1,7 @@
+import assert from 'node:assert/strict';
 import {after, before, describe, it} from 'node:test';
 
 import {logger} from '@appium/support';
-import {expect} from 'chai';
 
 import {createUsbmux} from '../../src/lib/usbmux/index.js';
 
@@ -24,18 +24,18 @@ describe('Pair Record', {timeout: 60000}, function () {
     try {
       await usb.readPairRecord('');
       // If no error is thrown, the test passes
-      expect(true).to.be.true;
+      assert.strictEqual(true, true);
     } catch (err) {
       log.error(err);
       // If the error is expected (e.g., no pair record found), the test can still pass
       // Otherwise, fail the test
-      expect(err).to.not.be.undefined;
+      assert.notStrictEqual(err, undefined);
     }
   });
 
   it('should list devices', async function () {
     const devices = await usb.listDevices();
     log.debug(devices);
-    expect(devices).to.be.an('array');
+    assert.ok(Array.isArray(devices));
   });
 });

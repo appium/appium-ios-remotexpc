@@ -1,8 +1,8 @@
+import assert from 'node:assert/strict';
 import os from 'node:os';
 import path from 'node:path';
 import {afterEach, describe, it} from 'node:test';
 
-import {expect} from 'chai';
 import sinon from 'sinon';
 
 import {PullLocalNameAllocator} from '../../../src/services/ios/afc/pull-local-name-allocator.js';
@@ -10,11 +10,11 @@ import {withUniqueSuffix} from '../../../src/services/ios/afc/sanitize-local-fil
 
 describe('withUniqueSuffix', function () {
   it('should insert the suffix before the extension', function () {
-    expect(withUniqueSuffix('reportfile.txt', 'a1b2c3d4')).to.equal('reportfile_a1b2c3d4.txt');
+    assert.strictEqual(withUniqueSuffix('reportfile.txt', 'a1b2c3d4'), 'reportfile_a1b2c3d4.txt');
   });
 
   it('should append the suffix when there is no extension', function () {
-    expect(withUniqueSuffix('reportfile', 'a1b2c3d4')).to.equal('reportfile_a1b2c3d4');
+    assert.strictEqual(withUniqueSuffix('reportfile', 'a1b2c3d4'), 'reportfile_a1b2c3d4');
   });
 });
 
@@ -37,9 +37,9 @@ describe('PullLocalNameAllocator', function () {
 
     const name = await allocator.allocate(parentDir, 'keeps>chars');
 
-    expect(name).to.equal('keeps>chars');
-    expect(exists.calledOnce).to.equal(true);
-    expect(exists.firstCall.args[0]).to.equal(path.join(parentDir, 'keeps>chars'));
+    assert.strictEqual(name, 'keeps>chars');
+    assert.strictEqual(exists.calledOnce, true);
+    assert.strictEqual(exists.firstCall.args[0], path.join(parentDir, 'keeps>chars'));
   });
 
   it('should add a suffix when two remote names sanitize to the same local name', async function () {
@@ -50,9 +50,9 @@ describe('PullLocalNameAllocator', function () {
     const first = await allocator.allocate(parentDir, 'file?');
     const second = await allocator.allocate(parentDir, '*file*');
 
-    expect(first).to.equal('file');
-    expect(second).to.match(/^file_[0-9a-f]{8}$/);
-    expect(second).to.not.equal(first);
+    assert.strictEqual(first, 'file');
+    assert.match(second, /^file_[0-9a-f]{8}$/);
+    assert.notStrictEqual(second, first);
   });
 
   it('should add a suffix when the sanitized name already exists on disk and overwrite is false', async function () {
@@ -62,7 +62,7 @@ describe('PullLocalNameAllocator', function () {
 
     const name = await allocator.allocate(parentDir, 'report>file.txt');
 
-    expect(name).to.match(/^reportfile_[0-9a-f]{8}\.txt$/);
+    assert.match(name, /^reportfile_[0-9a-f]{8}\.txt$/);
   });
 
   it('should reuse the sanitized name when overwrite is true and the path exists on disk', async function () {
@@ -72,8 +72,8 @@ describe('PullLocalNameAllocator', function () {
 
     const name = await allocator.allocate(parentDir, 'report>file.txt');
 
-    expect(name).to.equal('reportfile.txt');
-    expect(exists.called).to.equal(false);
+    assert.strictEqual(name, 'reportfile.txt');
+    assert.strictEqual(exists.called, false);
   });
 
   it('should treat names as case-insensitive when the volume is case-insensitive', async function () {
@@ -83,7 +83,7 @@ describe('PullLocalNameAllocator', function () {
     await allocator.allocate(parentDir, 'File');
     const second = await allocator.allocate(parentDir, 'file');
 
-    expect(second).to.match(/^file_[0-9a-f]{8}$/);
+    assert.match(second, /^file_[0-9a-f]{8}$/);
   });
 
   it('should allow differing case when the volume is case-sensitive', async function () {
@@ -93,7 +93,7 @@ describe('PullLocalNameAllocator', function () {
     const first = await allocator.allocate(parentDir, 'File');
     const second = await allocator.allocate(parentDir, 'file');
 
-    expect(first).to.equal('File');
-    expect(second).to.equal('file');
+    assert.strictEqual(first, 'File');
+    assert.strictEqual(second, 'file');
   });
 });

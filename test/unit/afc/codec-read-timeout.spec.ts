@@ -1,8 +1,7 @@
+import assert from 'node:assert/strict';
 import {once} from 'node:events';
 import {type AddressInfo, createConnection, createServer} from 'node:net';
 import {after, before, describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {readExact} from '../../../src/services/ios/afc/codec.js';
 import {AfcConnectionError} from '../../../src/services/ios/afc/errors.js';
@@ -30,20 +29,20 @@ describe('AFC readExact timeout handling', function () {
 
     try {
       await readExact(client, 40, 50);
-      expect.fail('expected readExact to time out');
+      assert.fail('expected readExact to time out');
     } catch (err) {
-      expect(err).to.be.instanceof(AfcConnectionError);
-      expect((err as Error).message).to.include('readExact timeout');
+      assert.ok(err instanceof AfcConnectionError);
+      assert.ok((err as Error).message.includes('readExact timeout'));
     }
 
-    expect(client.destroyed).to.be.true;
+    assert.strictEqual(client.destroyed, true);
 
     try {
       await readExact(client, 40);
-      expect.fail('expected second readExact to fail');
+      assert.fail('expected second readExact to fail');
     } catch (err) {
-      expect(err).to.be.instanceof(AfcConnectionError);
-      expect((err as Error).message).to.match(/closed|destroyed/i);
+      assert.ok(err instanceof AfcConnectionError);
+      assert.match((err as Error).message, /closed|destroyed/i);
     }
   });
 
@@ -63,14 +62,14 @@ describe('AFC readExact timeout handling', function () {
     client.write(Buffer.alloc(40, 0xab));
 
     const firstErr = await readPromise;
-    expect(firstErr).to.be.instanceof(AfcConnectionError);
-    expect(client.destroyed).to.be.true;
+    assert.ok(firstErr instanceof AfcConnectionError);
+    assert.strictEqual(client.destroyed, true);
 
     try {
       await readExact(client, 40);
-      expect.fail('expected reuse after timeout to fail');
+      assert.fail('expected reuse after timeout to fail');
     } catch (err) {
-      expect(err).to.be.instanceof(AfcConnectionError);
+      assert.ok(err instanceof AfcConnectionError);
     }
   });
 });

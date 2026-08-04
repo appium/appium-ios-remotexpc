@@ -1,10 +1,9 @@
+import assert from 'node:assert/strict';
 import {PassThrough} from 'node:stream';
 import {describe, it} from 'node:test';
 
-import {expect} from 'chai';
-import esmock from 'esmock';
-
 import {SyslogLogLevel} from '../../../src/services/ios/syslog-service/syslog-entry-parser.js';
+import {mockImport} from '../../helpers/mock-module.js';
 
 function createSyslogEntryBuffer(message: string): Buffer {
   const filename = '/usr/bin/myapp\0';
@@ -39,7 +38,7 @@ function frameSyslogEntry(message: string): Buffer {
 }
 
 describe('SyslogService binary mode', function () {
-  it('reads framed syslog entries from the service socket after StartActivity', async function () {
+  it('reads framed syslog entries from the service socket after StartActivity', async function (t) {
     const socket = new PassThrough();
     const fakeConnection = {
       sendPlistRequest: async () => ({Status: 'RequestSuccessful'}),
@@ -49,18 +48,23 @@ describe('SyslogService binary mode', function () {
       },
     };
 
-    const SyslogService = await esmock('../../../src/services/ios/syslog-service/index.js', import.meta.url, {
-      '../../../src/services/ios/base-service.js': {
-        BaseService: class {
-          constructor(udid: string) {
-            void udid;
-          }
-          async startLockdownService() {
-            return fakeConnection;
-          }
+    const {default: SyslogService} = await mockImport(
+      t,
+      '../../../src/services/ios/syslog-service/index.js',
+      import.meta.url,
+      {
+        '../../../src/services/ios/base-service.js': {
+          BaseService: class {
+            constructor(udid: string) {
+              void udid;
+            }
+            async startLockdownService() {
+              return fakeConnection;
+            }
+          },
         },
       },
-    });
+    );
 
     const service = new SyslogService('test-udid');
     const messages: string[] = [];
@@ -76,6 +80,9 @@ describe('SyslogService binary mode', function () {
 
     await service.stop();
 
-    expect(messages.some((m) => m.includes('hello from socket'))).to.equal(true);
+    assert.strictEqual(
+      messages.some((m) => m.includes('hello from socket')),
+      true,
+    );
   });
 });

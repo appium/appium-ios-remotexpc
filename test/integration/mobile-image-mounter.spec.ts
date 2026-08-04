@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {promises as fs} from 'node:fs';
 import path from 'node:path';
@@ -5,7 +6,6 @@ import {after, before, describe, it} from 'node:test';
 import {fileURLToPath} from 'node:url';
 
 import {logger, node} from '@appium/support';
-import {expect} from 'chai';
 
 import {Services} from '../../src/index.js';
 import type {MobileImageMounterService} from '../../src/index.js';
@@ -51,7 +51,7 @@ describe('MobileImageMounterService Integration', {timeout: 40000}, function () 
 
   describe('Service Connection', () => {
     it('should connect to mobile image mounter service', async function () {
-      expect(mobileImageMounterService).to.not.be.null;
+      assert.notStrictEqual(mobileImageMounterService, null);
     });
   });
 
@@ -79,7 +79,7 @@ describe('MobileImageMounterService Integration', {timeout: 40000}, function () 
 
         if (isReal) {
           const mounted = await mobileImageMounterService!.isPersonalizedImageMounted();
-          expect(mounted).to.be.true;
+          assert.strictEqual(mounted, true);
         } else {
           log.warn('⚠️ Stub mount unexpectedly succeeded.');
         }
@@ -95,27 +95,27 @@ describe('MobileImageMounterService Integration', {timeout: 40000}, function () 
   describe('Image Lookup Operations', () => {
     it('should lookup mounted personalized images', async function () {
       const signatures = await mobileImageMounterService!.lookup('Personalized');
-      expect(signatures).to.be.an('array');
+      assert.ok(Array.isArray(signatures));
       log.debug(
         'Signatures:',
         signatures.map((s) => s.toString('hex')),
       );
 
       signatures.forEach((sig) => {
-        expect(sig).to.be.instanceOf(Buffer);
-        expect(sig.length).to.be.greaterThan(0);
+        assert.ok(sig instanceof Buffer);
+        assert.ok(sig.length > 0);
       });
     });
 
     it('should check if personalized image is mounted', async function () {
       const isImageMounted = await mobileImageMounterService!.isPersonalizedImageMounted();
       log.debug('Image mounted: ', isImageMounted);
-      expect(isImageMounted).to.be.a('boolean');
+      assert.ok(typeof isImageMounted === 'boolean');
     });
 
     it('should copy devices list', async function () {
       const devices = await mobileImageMounterService!.copyDevices();
-      expect(devices).to.be.an('array');
+      assert.ok(Array.isArray(devices));
     });
   });
 
@@ -123,7 +123,7 @@ describe('MobileImageMounterService Integration', {timeout: 40000}, function () 
     it('should query developer mode status', async function () {
       const isDeveloperModeEnabled = await mobileImageMounterService!.queryDeveloperModeStatus();
       log.debug('Developer mode enabled: ', isDeveloperModeEnabled);
-      expect(isDeveloperModeEnabled).to.be.a('boolean');
+      assert.ok(typeof isDeveloperModeEnabled === 'boolean');
     });
   });
 
@@ -131,24 +131,24 @@ describe('MobileImageMounterService Integration', {timeout: 40000}, function () 
     it('should query personalization identifiers only', async function () {
       const identifiers = await mobileImageMounterService!.queryPersonalizationIdentifiers();
       log.debug('Personalization Identifier:', identifiers);
-      expect(identifiers).to.be.an('object');
-      expect(Object.keys(identifiers)).to.have.length.greaterThan(0);
+      assert.ok(typeof identifiers === 'object' && identifiers !== null && !Array.isArray(identifiers));
+      assert.ok(Object.keys(identifiers).length > 0);
     });
 
     it('should test queryPersonalizationManifest behavior', async function () {
       const mountedSignatures = await mobileImageMounterService!.lookup();
-      expect(mountedSignatures).to.be.an('array');
+      assert.ok(Array.isArray(mountedSignatures));
 
       if (mountedSignatures.length > 0) {
         for (const sig of mountedSignatures) {
-          expect(sig).to.be.instanceOf(Buffer);
-          expect(sig.length).to.be.greaterThan(0);
+          assert.ok(sig instanceof Buffer);
+          assert.ok(sig.length > 0);
 
           try {
             const manifest = await mobileImageMounterService!.queryPersonalizationManifest('DeveloperDiskImage', sig);
             log.debug('First 100 bytes of Manifest: ', manifest.toString('hex', 0, 100));
-            expect(manifest).to.be.instanceOf(Buffer);
-            expect(manifest.length).to.be.greaterThan(0);
+            assert.ok(manifest instanceof Buffer);
+            assert.ok(manifest.length > 0);
             return;
           } catch {}
         }
@@ -161,15 +161,15 @@ describe('MobileImageMounterService Integration', {timeout: 40000}, function () 
       const image = await fs.readFile(imageFilePath);
       const imageHash = createHash('sha384').update(image).digest();
 
-      expect(imageHash).to.be.instanceOf(Buffer);
-      expect(imageHash.length).to.equal(48); // SHA384 produces 48 bytes
+      assert.ok(imageHash instanceof Buffer);
+      assert.strictEqual(imageHash.length, 48); // SHA384 produces 48 bytes
 
       try {
         const manifest = await mobileImageMounterService!.queryPersonalizationManifest('DeveloperDiskImage', imageHash);
 
         log.debug('First 100 bytes of Manifest: ', manifest.toString('hex', 0, 100));
-        expect(manifest).to.be.instanceOf(Buffer);
-        expect(manifest.length).to.be.greaterThan(0);
+        assert.ok(manifest instanceof Buffer);
+        assert.ok(manifest.length > 0);
       } catch (err) {
         if (isReal) {
           throw err;
@@ -181,9 +181,9 @@ describe('MobileImageMounterService Integration', {timeout: 40000}, function () 
     it('should query personalization nonce', async function () {
       const nonce = await mobileImageMounterService!.queryNonce();
       log.debug('Personalization nonce:', nonce.toString('hex'));
-      expect(nonce).to.be.instanceOf(Buffer);
-      expect(nonce.length).to.be.greaterThan(0);
-      expect(nonce.length).to.be.lessThan(64);
+      assert.ok(nonce instanceof Buffer);
+      assert.ok(nonce.length > 0);
+      assert.ok(nonce.length < 64);
     });
   });
 
@@ -194,7 +194,7 @@ describe('MobileImageMounterService Integration', {timeout: 40000}, function () 
       try {
         await mobileImageMounterService!.unmountImage();
         const isImageMounted = await mobileImageMounterService!.isPersonalizedImageMounted();
-        expect(isImageMounted).to.be.false;
+        assert.strictEqual(isImageMounted, false);
       } catch (err) {
         if (isReal) {
           throw err;

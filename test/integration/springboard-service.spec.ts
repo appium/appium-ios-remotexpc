@@ -1,7 +1,7 @@
+import assert from 'node:assert/strict';
 import {after, before, describe, it} from 'node:test';
 
 import {logger} from '@appium/support';
-import {expect} from 'chai';
 
 import type {SpringboardService} from '../../src/lib/types.js';
 import * as Services from '../../src/services.js';
@@ -36,7 +36,7 @@ describe('SpringBoardService', {timeout: 60000}, function () {
         const iconState = await springboardService.getIconState();
         log.debug('Retrieved icon state:', JSON.stringify(iconState, null, 2));
 
-        expect(iconState).not.be.empty;
+        assert.ok(Object.keys(iconState).length > 0);
       } catch (error) {
         log.error('Error getting icon state:', (error as Error).message);
         throw error;
@@ -62,7 +62,7 @@ describe('SpringBoardService', {timeout: 60000}, function () {
 
           // Verify the change was applied
           const newIconState = await springboardService.getIconState();
-          expect(newIconState).to.deep.equal(iconState);
+          assert.deepStrictEqual(newIconState, iconState);
         }
       } catch (error) {
         log.error('Error setting icon state:', (error as Error).message);
@@ -80,14 +80,14 @@ describe('SpringBoardService', {timeout: 60000}, function () {
         const pngData = await springboardService.getIconPNGData(bundleId);
         log.debug(`Retrieved PNG data for ${bundleId}, size: ${pngData.length} bytes`);
 
-        expect(pngData).to.be.instanceOf(Buffer);
-        expect(pngData.length).to.be.greaterThan(0);
+        assert.ok(pngData instanceof Buffer);
+        assert.ok(pngData.length > 0);
 
         // Verify it's actually PNG data by checking the PNG signature
         const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-        expect(pngData.subarray(0, 8)).to.deep.equal(pngSignature);
+        assert.deepStrictEqual(pngData.subarray(0, 8), pngSignature);
 
-        expect(pngData.length).to.be.greaterThan(10000); // Typical icon size
+        assert.ok(pngData.length > 10000); // Typical icon size
       } catch (error) {
         log.error(`Error getting PNG data for ${bundleId}:`, (error as Error).message);
         throw error;
@@ -102,12 +102,12 @@ describe('SpringBoardService', {timeout: 60000}, function () {
 
         // Invalid bundle IDs will return some default icon data
         // also have length between 7000 and 10000 bytes
-        expect(invalid.length).to.be.greaterThan(7000);
-        expect(invalid.length).to.be.lessThan(10000);
+        assert.ok(invalid.length > 7000);
+        assert.ok(invalid.length < 10000);
 
         // Verify it's actually PNG data by checking the PNG signature
         const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-        expect(invalid.subarray(0, 8)).to.deep.equal(pngSignature);
+        assert.deepStrictEqual(invalid.subarray(0, 8), pngSignature);
       } catch (error) {
         log.error(`Error getting PNG data for ${invalidBundleId}:`, (error as Error).message);
         throw error;
@@ -121,10 +121,10 @@ describe('SpringBoardService', {timeout: 60000}, function () {
         const metrics = await springboardService.getHomescreenIconMetrics();
         log.debug('Retrieved homescreen icon metrics:', JSON.stringify(metrics, null, 2));
 
-        expect(metrics).to.be.an('object');
-        expect(metrics).to.not.be.empty;
+        assert.ok(typeof metrics === 'object' && metrics !== null && !Array.isArray(metrics));
+        assert.ok(Object.keys(metrics).length > 0);
         Object.keys(metrics).forEach((key) => {
-          expect(key.startsWith('homeScreen')).to.be.true;
+          assert.strictEqual(key.startsWith('homeScreen'), true);
         });
       } catch (error) {
         log.error('Error getting homescreen icon metrics:', (error as Error).message);
@@ -138,7 +138,7 @@ describe('SpringBoardService', {timeout: 60000}, function () {
       try {
         const orientation = await springboardService.getInterfaceOrientation();
         log.debug('Retrieved interface orientation:', orientation);
-        expect(orientation).to.be.oneOf(Object.values(InterfaceOrientation));
+        assert.ok(Object.values(InterfaceOrientation).includes(orientation));
       } catch (error) {
         log.error('Error getting interface orientation:', (error as Error).message);
         throw error;
@@ -153,12 +153,12 @@ describe('SpringBoardService', {timeout: 60000}, function () {
         const pngData = await springboardService.getWallpaperPreviewImage(wallpaperName);
         log.debug(`Retrieved wallpaper preview image for ${wallpaperName}, size: ${pngData.length} bytes`);
 
-        expect(pngData.length).to.be.greaterThan(0);
-        expect(pngData).to.be.instanceOf(Buffer);
+        assert.ok(pngData.length > 0);
+        assert.ok(pngData instanceof Buffer);
 
         // Verify it's actually PNG data by checking the PNG signature
         const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-        expect(pngData.subarray(0, 8)).to.deep.equal(pngSignature);
+        assert.deepStrictEqual(pngData.subarray(0, 8), pngSignature);
       } catch (error) {
         log.error('Error getting wallpaper preview image:', (error as Error).message);
         throw error;
@@ -171,12 +171,12 @@ describe('SpringBoardService', {timeout: 60000}, function () {
         const pngData = await springboardService.getWallpaperPreviewImage(wallpaperName);
         log.debug(`Retrieved wallpaper preview image for ${wallpaperName}, size: ${pngData.length} bytes`);
 
-        expect(pngData.length).to.be.greaterThan(0);
-        expect(pngData).to.be.instanceOf(Buffer);
+        assert.ok(pngData.length > 0);
+        assert.ok(pngData instanceof Buffer);
 
         // Verify it's actually PNG data by checking the PNG signature
         const pngSignature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-        expect(pngData.subarray(0, 8)).to.deep.equal(pngSignature);
+        assert.deepStrictEqual(pngData.subarray(0, 8), pngSignature);
       } catch (error) {
         log.error('Error getting wallpaper preview image:', (error as Error).message);
         throw error;
@@ -192,12 +192,12 @@ describe('SpringBoardService', {timeout: 60000}, function () {
         const metrics = await springboardService.getHomescreenIconMetrics();
         const iconState2 = await springboardService.getIconState();
 
-        expect(iconState1).to.be.an('array');
-        expect(metrics).to.be.an('object');
-        expect(iconState2).to.be.an('array');
+        assert.ok(Array.isArray(iconState1));
+        assert.ok(typeof metrics === 'object' && metrics !== null && !Array.isArray(metrics));
+        assert.ok(Array.isArray(iconState2));
 
         // Verify that we get consistent results
-        expect(iconState1).to.deep.equal(iconState2);
+        assert.deepStrictEqual(iconState1, iconState2);
       } catch (error) {
         log.error('Error testing connection persistence:', (error as Error).message);
         throw error;
@@ -214,13 +214,13 @@ describe('SpringBoardService', {timeout: 60000}, function () {
         ).SpringBoardService('invalid-udid');
         await invalidService.getIconState();
 
-        expect.fail('Expected method to throw an error');
+        assert.fail('Expected method to throw an error');
       } catch (error) {
-        expect(error).to.be.an('error');
+        assert.ok(error instanceof Error);
         const errorMessage = (error as Error).message;
-        expect(errorMessage).to.be.a('string');
-        expect(errorMessage.length).to.be.greaterThan(0);
-        expect(errorMessage).to.include('Failed to get Icon state');
+        assert.ok(typeof errorMessage === 'string');
+        assert.ok(errorMessage.length > 0);
+        assert.ok(errorMessage.includes('Failed to get Icon state'));
       }
     });
   });

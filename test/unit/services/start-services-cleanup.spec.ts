@@ -1,8 +1,10 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
+import type {TestContext} from 'node:test';
 
-import {expect} from 'chai';
-import esmock from 'esmock';
 import * as sinon from 'sinon';
+
+import {mockImport} from '../../helpers/mock-module.js';
 
 const TEST_HOST = '127.0.0.1';
 const TEST_PORT = 49_374;
@@ -16,6 +18,7 @@ interface LoadedServices {
 }
 
 async function loadServicesWithStubs(
+  t: TestContext,
   options: {
     resolveTunnelServiceImpl?: (
       udid: string,
@@ -58,7 +61,7 @@ async function loadServicesWithStubs(
     }));
   }
 
-  const services = await esmock('../../../src/services.js', import.meta.url, {
+  const services = await mockImport(t, '../../../src/services.js', import.meta.url, {
     '../../../src/lib/tunnel/tunnel-service-resolver.js': {
       resolveTunnelService,
       resolveTunnelServicePorts,
@@ -80,17 +83,17 @@ async function loadServicesWithStubs(
 
 describe('start*Service — registry catalog resolution', function () {
   describe('resolveTunnelService (via startAfcService)', function () {
-    it('resolves the AFC RSD shim by name before creating the instance', async function () {
-      const {services, resolveTunnelService} = await loadServicesWithStubs();
+    it('resolves the AFC RSD shim by name before creating the instance', async function (t) {
+      const {services, resolveTunnelService} = await loadServicesWithStubs(t);
 
       const afc = await services.startAfcService(TEST_UDID);
 
-      expect(afc).to.exist;
-      expect(resolveTunnelService.calledOnceWith(TEST_UDID, 'com.apple.afc.shim.remote', WAIT_OPTS)).to.equal(true);
+      assert.ok(afc !== null && afc !== undefined);
+      assert.strictEqual(resolveTunnelService.calledOnceWith(TEST_UDID, 'com.apple.afc.shim.remote', WAIT_OPTS), true);
     });
 
-    it('propagates resolver errors', async function () {
-      const {services} = await loadServicesWithStubs({
+    it('propagates resolver errors', async function (t) {
+      const {services} = await loadServicesWithStubs(t, {
         resolveTunnelServiceImpl: async () => {
           throw new Error('catalog missing service');
         },
@@ -103,23 +106,24 @@ describe('start*Service — registry catalog resolution', function () {
         caught = err as Error;
       }
 
-      expect(caught?.message).to.equal('catalog missing service');
+      assert.strictEqual(caught?.message, 'catalog missing service');
     });
   });
 
   describe('RSD service-name correctness', function () {
-    it('startSyslogBinaryService queries the os_trace_relay RSD shim by name', async function () {
-      const {services, resolveTunnelService} = await loadServicesWithStubs();
+    it('startSyslogBinaryService queries the os_trace_relay RSD shim by name', async function (t) {
+      const {services, resolveTunnelService} = await loadServicesWithStubs(t);
 
       const result = await services.startSyslogBinaryService(TEST_UDID);
       const {serviceDescriptor} = result as {
         serviceDescriptor: {serviceName: string; port: string};
       };
 
-      expect(
+      assert.strictEqual(
         resolveTunnelService.calledOnceWith(TEST_UDID, 'com.apple.os_trace_relay.shim.remote', WAIT_OPTS),
-      ).to.equal(true);
-      expect(serviceDescriptor).to.deep.equal({
+        true,
+      );
+      assert.deepStrictEqual(serviceDescriptor, {
         serviceName: 'com.apple.os_trace_relay.shim.remote',
         port: String(TEST_PORT),
       });
@@ -133,19 +137,19 @@ describe('start*Service — registry catalog resolution', function () {
       ['startHidIndigoService', 'com.apple.coredevice.hid.indigo'],
       ['startPasteboardService', 'com.apple.coredevice.pasteboardservice'],
     ] as const) {
-      it(`${fn} resolves ${serviceName} from the catalog`, async function () {
-        const {services, resolveTunnelService} = await loadServicesWithStubs();
+      it(`${fn} resolves ${serviceName} from the catalog`, async function (t) {
+        const {services, resolveTunnelService} = await loadServicesWithStubs(t);
         await services[fn](TEST_UDID);
-        expect(resolveTunnelService.calledOnceWith(TEST_UDID, serviceName, WAIT_OPTS)).to.equal(true);
+        assert.strictEqual(resolveTunnelService.calledOnceWith(TEST_UDID, serviceName, WAIT_OPTS), true);
       });
     }
 
-    it('startCrashReportsService resolves both crash report shims', async function () {
-      const {services, resolveTunnelServicePorts} = await loadServicesWithStubs();
+    it('startCrashReportsService resolves both crash report shims', async function (t) {
+      const {services, resolveTunnelServicePorts} = await loadServicesWithStubs(t);
 
       await services.startCrashReportsService(TEST_UDID);
 
-      expect(resolveTunnelServicePorts.callCount).to.equal(1);
+      assert.strictEqual(resolveTunnelServicePorts.callCount, 1);
       sinon.assert.calledWith(
         resolveTunnelServicePorts.firstCall,
         TEST_UDID,

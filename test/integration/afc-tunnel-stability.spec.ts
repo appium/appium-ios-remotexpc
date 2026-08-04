@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
@@ -6,8 +7,6 @@ import os from 'node:os';
 import path from 'node:path';
 import {pipeline} from 'node:stream/promises';
 import {after, before, describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {getLogger} from '../../src/lib/logger.js';
 import * as Services from '../../src/services.js';
@@ -116,8 +115,8 @@ describe('AFC tunnel stability', {timeout: iterations * (maxRoundMs + 30_000) + 
       const pushMs = performance.now() - pushStart;
 
       const stat = await logStep(round, 'verify.stat', () => afc.stat(remotePath));
-      expect(stat.st_ifmt).to.equal(AfcFileMode.S_IFREG);
-      expect(stat.st_size).to.equal(BigInt(fileSizeBytes));
+      assert.strictEqual(stat.st_ifmt, AfcFileMode.S_IFREG);
+      assert.strictEqual(stat.st_size, BigInt(fileSizeBytes));
 
       const pullStart = performance.now();
       await pullWithSteps(afc, round, remotePath, pullPath);
@@ -125,7 +124,7 @@ describe('AFC tunnel stability', {timeout: iterations * (maxRoundMs + 30_000) + 
 
       const totalMs = performance.now() - roundStart;
       const pulledSha256 = await logStep(round, 'verify.sha256', () => sha256File(pullPath));
-      expect(pulledSha256).to.equal(sourceSha256, `round ${round}: pulled content mismatch`);
+      assert.strictEqual(pulledSha256, sourceSha256, `round ${round}: pulled content mismatch`);
 
       const mibPerSecond = (2 * fileSizeBytes) / MIB / (totalMs / 1000);
       roundStats.push({
@@ -141,7 +140,7 @@ describe('AFC tunnel stability', {timeout: iterations * (maxRoundMs + 30_000) + 
           `total ${totalMs.toFixed(0)}ms (${mibPerSecond.toFixed(2)} MiB/s round-trip)`,
       );
 
-      expect(totalMs).to.be.lessThan(maxRoundMs, `round ${round} exceeded ${maxRoundMs}ms budget`);
+      assert.ok(totalMs < maxRoundMs, `round ${round} exceeded ${maxRoundMs}ms budget`);
 
       await logStep(round, 'cleanup.unlink', async () => {
         try {

@@ -1,7 +1,7 @@
+import assert from 'node:assert/strict';
 import {after, before, describe, it} from 'node:test';
 
 import {logger} from '@appium/support';
-import {expect} from 'chai';
 
 import type {MobileConfigService} from '../../src/lib/types.js';
 import * as Services from '../../src/services.js';
@@ -26,9 +26,9 @@ describe('MobileConfigService', {timeout: 60000}, function () {
   it('get profile list', async function () {
     try {
       const profiles = await mobileConfigService.getProfileList();
-      expect(profiles).to.be.an('object');
-      expect(profiles).to.not.deep.equal({});
-      expect(profiles.Status).to.be.equal('Acknowledged');
+      assert.ok(typeof profiles === 'object' && profiles !== null && !Array.isArray(profiles));
+      assert.notDeepStrictEqual(profiles, {});
+      assert.strictEqual(profiles.Status, 'Acknowledged');
       log.info(profiles);
     } catch (error) {
       log.error('Error getting listed profiles:', (error as Error).message);

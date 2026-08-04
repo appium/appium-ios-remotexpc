@@ -1,7 +1,6 @@
+import assert from 'node:assert/strict';
 import {randomBytes} from 'node:crypto';
 import {describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {SRP_GENERATOR, SRP_KEY_LENGTH_BYTES, SRP_PRIME_3072} from '../../../../src/lib/apple-tv/constants.js';
 import {calculateK, calculateM1, calculateU, calculateX, hash} from '../../../../src/lib/apple-tv/srp/crypto-utils.js';
@@ -15,8 +14,8 @@ describe('Apple TV SRP - Crypto Utils', function () {
 
       const result = hash(input1, input2, input3);
 
-      expect(result).to.be.instanceOf(Buffer);
-      expect(result.length).to.equal(64);
+      assert.ok(result instanceof Buffer);
+      assert.strictEqual(result.length, 64);
     });
 
     it('should produce different hashes for different inputs', function () {
@@ -26,19 +25,25 @@ describe('Apple TV SRP - Crypto Utils', function () {
       const hash1 = hash(input1);
       const hash2 = hash(input2);
 
-      expect(hash1.equals(hash2)).to.be.false;
+      assert.strictEqual(hash1.equals(hash2), false);
     });
 
     it('should throw error when no inputs provided', function () {
-      expect(function () {
-        hash();
-      }).to.throw('At least one input buffer is required for hashing');
+      assert.throws(
+        function () {
+          hash();
+        },
+        (err: any) => err.message.includes('At least one input buffer is required for hashing'),
+      );
     });
 
     it('should throw error when non-buffer input provided', function () {
-      expect(function () {
-        hash('not a buffer' as any);
-      }).to.throw('All inputs must be Buffer objects');
+      assert.throws(
+        function () {
+          hash('not a buffer' as any);
+        },
+        (err: any) => err.message.includes('All inputs must be Buffer objects'),
+      );
     });
   });
 
@@ -46,8 +51,8 @@ describe('Apple TV SRP - Crypto Utils', function () {
     it('should calculate k value for valid inputs', function () {
       const k = calculateK(SRP_PRIME_3072, SRP_GENERATOR, SRP_KEY_LENGTH_BYTES);
 
-      expect(k).to.be.a('bigint');
-      expect(k > BigInt(0)).to.be.true;
+      assert.ok(typeof k === 'bigint');
+      assert.strictEqual(k > BigInt(0), true);
     });
 
     it('should produce different k values for different N', function () {
@@ -57,25 +62,34 @@ describe('Apple TV SRP - Crypto Utils', function () {
       const k1 = calculateK(N1, SRP_GENERATOR, 128);
       const k2 = calculateK(N2, SRP_GENERATOR, 128);
 
-      expect(k1).to.not.equal(k2);
+      assert.notStrictEqual(k1, k2);
     });
 
     it('should throw error for zero N', function () {
-      expect(function () {
-        calculateK(BigInt(0), SRP_GENERATOR, SRP_KEY_LENGTH_BYTES);
-      }).to.throw('N and g must be positive');
+      assert.throws(
+        function () {
+          calculateK(BigInt(0), SRP_GENERATOR, SRP_KEY_LENGTH_BYTES);
+        },
+        (err: any) => err.message.includes('N and g must be positive'),
+      );
     });
 
     it('should throw error for negative g', function () {
-      expect(function () {
-        calculateK(SRP_PRIME_3072, BigInt(-1), SRP_KEY_LENGTH_BYTES);
-      }).to.throw('N and g must be positive');
+      assert.throws(
+        function () {
+          calculateK(SRP_PRIME_3072, BigInt(-1), SRP_KEY_LENGTH_BYTES);
+        },
+        (err: any) => err.message.includes('N and g must be positive'),
+      );
     });
 
     it('should throw error for zero key length', function () {
-      expect(function () {
-        calculateK(SRP_PRIME_3072, SRP_GENERATOR, 0);
-      }).to.throw('Key length must be positive');
+      assert.throws(
+        function () {
+          calculateK(SRP_PRIME_3072, SRP_GENERATOR, 0);
+        },
+        (err: any) => err.message.includes('Key length must be positive'),
+      );
     });
   });
 
@@ -87,8 +101,8 @@ describe('Apple TV SRP - Crypto Utils', function () {
     it('should calculate x value for valid inputs', function () {
       const x = calculateX(salt, username, password);
 
-      expect(x).to.be.a('bigint');
-      expect(x > BigInt(0)).to.be.true;
+      assert.ok(typeof x === 'bigint');
+      assert.strictEqual(x > BigInt(0), true);
     });
 
     it('should produce different x values for different salts', function () {
@@ -98,38 +112,50 @@ describe('Apple TV SRP - Crypto Utils', function () {
       const x1 = calculateX(salt1, username, password);
       const x2 = calculateX(salt2, username, password);
 
-      expect(x1).to.not.equal(x2);
+      assert.notStrictEqual(x1, x2);
     });
 
     it('should produce different x values for different passwords', function () {
       const x1 = calculateX(salt, username, 'password1');
       const x2 = calculateX(salt, username, 'password2');
 
-      expect(x1).to.not.equal(x2);
+      assert.notStrictEqual(x1, x2);
     });
 
     it('should throw error for empty salt', function () {
-      expect(function () {
-        calculateX(Buffer.alloc(0), username, password);
-      }).to.throw('Salt must be a non-empty Buffer');
+      assert.throws(
+        function () {
+          calculateX(Buffer.alloc(0), username, password);
+        },
+        (err: any) => err.message.includes('Salt must be a non-empty Buffer'),
+      );
     });
 
     it('should throw error for non-buffer salt', function () {
-      expect(function () {
-        calculateX('not a buffer' as any, username, password);
-      }).to.throw('Salt must be a non-empty Buffer');
+      assert.throws(
+        function () {
+          calculateX('not a buffer' as any, username, password);
+        },
+        (err: any) => err.message.includes('Salt must be a non-empty Buffer'),
+      );
     });
 
     it('should throw error for empty username', function () {
-      expect(function () {
-        calculateX(salt, '', password);
-      }).to.throw('Username and password must be non-empty strings');
+      assert.throws(
+        function () {
+          calculateX(salt, '', password);
+        },
+        (err: any) => err.message.includes('Username and password must be non-empty strings'),
+      );
     });
 
     it('should throw error for empty password', function () {
-      expect(function () {
-        calculateX(salt, username, '');
-      }).to.throw('Username and password must be non-empty strings');
+      assert.throws(
+        function () {
+          calculateX(salt, username, '');
+        },
+        (err: any) => err.message.includes('Username and password must be non-empty strings'),
+      );
     });
   });
 
@@ -140,8 +166,8 @@ describe('Apple TV SRP - Crypto Utils', function () {
     it('should calculate u value for valid inputs', function () {
       const u = calculateU(A, B, SRP_KEY_LENGTH_BYTES);
 
-      expect(u).to.be.a('bigint');
-      expect(u > BigInt(0)).to.be.true;
+      assert.ok(typeof u === 'bigint');
+      assert.strictEqual(u > BigInt(0), true);
     });
 
     it('should produce different u values for different A', function () {
@@ -151,25 +177,34 @@ describe('Apple TV SRP - Crypto Utils', function () {
       const u1 = calculateU(A1, B, SRP_KEY_LENGTH_BYTES);
       const u2 = calculateU(A2, B, SRP_KEY_LENGTH_BYTES);
 
-      expect(u1).to.not.equal(u2);
+      assert.notStrictEqual(u1, u2);
     });
 
     it('should throw error for zero A', function () {
-      expect(function () {
-        calculateU(BigInt(0), B, SRP_KEY_LENGTH_BYTES);
-      }).to.throw('Public keys A and B must be positive');
+      assert.throws(
+        function () {
+          calculateU(BigInt(0), B, SRP_KEY_LENGTH_BYTES);
+        },
+        (err: any) => err.message.includes('Public keys A and B must be positive'),
+      );
     });
 
     it('should throw error for negative B', function () {
-      expect(function () {
-        calculateU(A, BigInt(-1), SRP_KEY_LENGTH_BYTES);
-      }).to.throw('Public keys A and B must be positive');
+      assert.throws(
+        function () {
+          calculateU(A, BigInt(-1), SRP_KEY_LENGTH_BYTES);
+        },
+        (err: any) => err.message.includes('Public keys A and B must be positive'),
+      );
     });
 
     it('should throw error for zero key length', function () {
-      expect(function () {
-        calculateU(A, B, 0);
-      }).to.throw('Key length must be positive');
+      assert.throws(
+        function () {
+          calculateU(A, B, 0);
+        },
+        (err: any) => err.message.includes('Key length must be positive'),
+      );
     });
 
     it('should throw error if u value is zero (hash collision)', function () {
@@ -177,7 +212,7 @@ describe('Apple TV SRP - Crypto Utils', function () {
       const mockB = BigInt(1);
 
       const u = calculateU(mockA, mockB, 32);
-      expect(u > BigInt(0)).to.be.true;
+      assert.strictEqual(u > BigInt(0), true);
     });
   });
 
@@ -193,8 +228,8 @@ describe('Apple TV SRP - Crypto Utils', function () {
     it('should calculate M1 value for valid inputs', function () {
       const M1 = calculateM1(N, g, username, salt, A, B, K);
 
-      expect(M1).to.be.instanceOf(Buffer);
-      expect(M1.length).to.equal(64);
+      assert.ok(M1 instanceof Buffer);
+      assert.strictEqual(M1.length, 64);
     });
 
     it('should produce different M1 values for different session keys', function () {
@@ -204,49 +239,70 @@ describe('Apple TV SRP - Crypto Utils', function () {
       const M1_1 = calculateM1(N, g, username, salt, A, B, K1);
       const M1_2 = calculateM1(N, g, username, salt, A, B, K2);
 
-      expect(M1_1.equals(M1_2)).to.be.false;
+      assert.strictEqual(M1_1.equals(M1_2), false);
     });
 
     it('should throw error for zero N', function () {
-      expect(function () {
-        calculateM1(BigInt(0), g, username, salt, A, B, K);
-      }).to.throw('All bigint parameters must be positive');
+      assert.throws(
+        function () {
+          calculateM1(BigInt(0), g, username, salt, A, B, K);
+        },
+        (err: any) => err.message.includes('All bigint parameters must be positive'),
+      );
     });
 
     it('should throw error for negative g', function () {
-      expect(function () {
-        calculateM1(N, BigInt(-1), username, salt, A, B, K);
-      }).to.throw('All bigint parameters must be positive');
+      assert.throws(
+        function () {
+          calculateM1(N, BigInt(-1), username, salt, A, B, K);
+        },
+        (err: any) => err.message.includes('All bigint parameters must be positive'),
+      );
     });
 
     it('should throw error for empty username', function () {
-      expect(function () {
-        calculateM1(N, g, '', salt, A, B, K);
-      }).to.throw('Username must be non-empty');
+      assert.throws(
+        function () {
+          calculateM1(N, g, '', salt, A, B, K);
+        },
+        (err: any) => err.message.includes('Username must be non-empty'),
+      );
     });
 
     it('should throw error for empty salt', function () {
-      expect(function () {
-        calculateM1(N, g, username, Buffer.alloc(0), A, B, K);
-      }).to.throw('Salt must be a non-empty Buffer');
+      assert.throws(
+        function () {
+          calculateM1(N, g, username, Buffer.alloc(0), A, B, K);
+        },
+        (err: any) => err.message.includes('Salt must be a non-empty Buffer'),
+      );
     });
 
     it('should throw error for non-buffer salt', function () {
-      expect(function () {
-        calculateM1(N, g, username, 'not a buffer' as any, A, B, K);
-      }).to.throw('Salt must be a non-empty Buffer');
+      assert.throws(
+        function () {
+          calculateM1(N, g, username, 'not a buffer' as any, A, B, K);
+        },
+        (err: any) => err.message.includes('Salt must be a non-empty Buffer'),
+      );
     });
 
     it('should throw error for empty session key', function () {
-      expect(function () {
-        calculateM1(N, g, username, salt, A, B, Buffer.alloc(0));
-      }).to.throw('Session key K must be a non-empty Buffer');
+      assert.throws(
+        function () {
+          calculateM1(N, g, username, salt, A, B, Buffer.alloc(0));
+        },
+        (err: any) => err.message.includes('Session key K must be a non-empty Buffer'),
+      );
     });
 
     it('should throw error for non-buffer session key', function () {
-      expect(function () {
-        calculateM1(N, g, username, salt, A, B, 'not a buffer' as any);
-      }).to.throw('Session key K must be a non-empty Buffer');
+      assert.throws(
+        function () {
+          calculateM1(N, g, username, salt, A, B, 'not a buffer' as any);
+        },
+        (err: any) => err.message.includes('Session key K must be a non-empty Buffer'),
+      );
     });
   });
 });

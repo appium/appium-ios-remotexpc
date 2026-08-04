@@ -1,16 +1,18 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
 
-import {expect} from 'chai';
-import esmock from 'esmock';
 import * as sinon from 'sinon';
 
+import {mockImport} from '../../helpers/mock-module.js';
+
 describe('tunnel-rsd-discovery', function () {
-  it('discovers services and always closes the RSD connection', async function () {
+  it('discovers services and always closes the RSD connection', async function (t) {
     const closeSpy = sinon.spy(async () => {});
     const getServices = sinon.stub().returns([{serviceName: 'com.apple.test', port: '1234'}]);
     const connect = sinon.spy(async () => {});
 
-    const {discoverServices, servicesToCatalog} = await esmock(
+    const {discoverServices, servicesToCatalog} = await mockImport(
+      t,
       '../../../src/lib/tunnel/tunnel-rsd-discovery.js',
       import.meta.url,
       {
@@ -25,19 +27,19 @@ describe('tunnel-rsd-discovery', function () {
     );
 
     const services = await discoverServices('udid-1', 'fd00::1', 99_999);
-    expect(services).to.have.length(1);
-    expect(connect.calledOnce).to.equal(true);
-    expect(closeSpy.calledOnce).to.equal(true);
+    assert.strictEqual(services.length, 1);
+    assert.strictEqual(connect.calledOnce, true);
+    assert.strictEqual(closeSpy.calledOnce, true);
 
     const catalog = servicesToCatalog(services);
-    expect(catalog['com.apple.test']?.port).to.equal('1234');
+    assert.strictEqual(catalog['com.apple.test']?.port, '1234');
   });
 
-  it('singleflight coalesces parallel discover for the same UDID', async function () {
+  it('singleflight coalesces parallel discover for the same UDID', async function (t) {
     let connectCount = 0;
     const closeSpy = sinon.spy(async () => {});
 
-    const {discoverServices} = await esmock('../../../src/lib/tunnel/tunnel-rsd-discovery.js', import.meta.url, {
+    const {discoverServices} = await mockImport(t, '../../../src/lib/tunnel/tunnel-rsd-discovery.js', import.meta.url, {
       '../../../src/lib/remote-xpc/rsd-service-catalog-client.js': {
         RsdServiceCatalogClient: class {
           async connect() {
@@ -57,8 +59,8 @@ describe('tunnel-rsd-discovery', function () {
       discoverServices('udid-2', 'fd00::2', 88_888),
     ]);
 
-    expect(connectCount).to.equal(1);
-    expect(a).to.deep.equal(b);
-    expect(closeSpy.calledOnce).to.equal(true);
+    assert.strictEqual(connectCount, 1);
+    assert.deepStrictEqual(a, b);
+    assert.strictEqual(closeSpy.calledOnce, true);
   });
 });

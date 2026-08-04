@@ -1,7 +1,7 @@
+import assert from 'node:assert/strict';
 import {after, before, describe, it} from 'node:test';
 
 import {logger} from '@appium/support';
-import {expect} from 'chai';
 
 import type {DVTInstruments} from '../../../src/index.js';
 import * as Services from '../../../src/services.js';
@@ -34,12 +34,12 @@ describe('Screenshot Instrument', {timeout: 30000}, function () {
     it('should capture a screenshot and return PNG data', async () => {
       const screenshot = await dvtServiceConnection!.screenshot.getScreenshot();
 
-      expect(screenshot).to.be.instanceOf(Buffer);
-      expect(screenshot.length).to.be.greaterThan(0);
+      assert.ok(screenshot instanceof Buffer);
+      assert.ok(screenshot.length > 0);
 
       // Verify the buffer starts with PNG header
       const hasPngHeader = screenshot.subarray(0, 8).equals(PNG_MAGIC);
-      expect(hasPngHeader).to.be.true;
+      assert.strictEqual(hasPngHeader, true);
     });
   });
 });

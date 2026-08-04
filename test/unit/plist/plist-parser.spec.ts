@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {parsePlist as parseXmlPlist} from '../../../src/lib/plist/plist-parser.js';
 import {
@@ -20,8 +19,8 @@ describe('Plist Parser', function () {
       const invalidXml =
         '<?xml version="1.0" encoding="UTF-8"?><plist><dict><key>test</key><string>val�ue</string></dict></plist>';
 
-      expect(hasUnicodeReplacementCharacter(validXml)).to.be.false;
-      expect(hasUnicodeReplacementCharacter(invalidXml)).to.be.true;
+      assert.strictEqual(hasUnicodeReplacementCharacter(validXml), false);
+      assert.strictEqual(hasUnicodeReplacementCharacter(invalidXml), true);
     });
 
     it('should find the position of the first replacement character', function () {
@@ -29,8 +28,8 @@ describe('Plist Parser', function () {
         '<?xml version="1.0" encoding="UTF-8"?><plist><dict><key>test</key><string>val�ue</string></dict></plist>';
       const position = findFirstReplacementCharacter(xml);
 
-      expect(position).to.equal(xml.indexOf('�'));
-      expect(position).to.be.greaterThan(0);
+      assert.strictEqual(position, xml.indexOf('�'));
+      assert.ok(position > 0);
     });
 
     it('should handle the case where there is no tag before the replacement character', function () {
@@ -39,7 +38,7 @@ describe('Plist Parser', function () {
 
       const result = parseXmlPlist(xml);
 
-      expect(result).to.have.property('test', 'value');
+      assert.strictEqual(result.test, 'value');
     });
 
     it('should handle the case where there is no tag after the replacement character', function () {
@@ -48,7 +47,7 @@ describe('Plist Parser', function () {
 
       const result = parseXmlPlist(xml);
 
-      expect(result).to.have.property('test', 'value');
+      assert.strictEqual(result.test, 'value');
     });
   });
 
@@ -57,24 +56,24 @@ describe('Plist Parser', function () {
       const xml = 'garbage data<?xml version="1.0" encoding="UTF-8"?><plist></plist>';
       const trimmed = trimBeforeXmlDeclaration(xml);
 
-      expect(trimmed).to.equal('<?xml version="1.0" encoding="UTF-8"?><plist></plist>');
+      assert.strictEqual(trimmed, '<?xml version="1.0" encoding="UTF-8"?><plist></plist>');
     });
 
     it('should fix multiple XML declarations', function () {
       const xml = '<?xml version="1.0" encoding="UTF-8"?><some-tag><?xml version="1.1"?><plist></plist>';
       const fixed = fixMultipleXmlDeclarations(xml);
 
-      expect(fixed).to.include('<?xml version="1.0" encoding="UTF-8"?>');
-      expect(fixed).to.include('<some-tag>');
-      expect(fixed).to.include('<plist></plist>');
-      expect(fixed).not.to.include('<?xml version="1.1"?>');
+      assert.ok(fixed.includes('<?xml version="1.0" encoding="UTF-8"?>'));
+      assert.ok(fixed.includes('<some-tag>'));
+      assert.ok(fixed.includes('<plist></plist>'));
+      assert.ok(!fixed.includes('<?xml version="1.1"?>'));
     });
 
     it('should validate XML content', function () {
-      expect(isValidXml('<?xml version="1.0"?><plist></plist>')).to.be.true;
-      expect(isValidXml('')).to.be.false;
-      expect(isValidXml('  ')).to.be.false;
-      expect(isValidXml('not xml')).to.be.false;
+      assert.strictEqual(isValidXml('<?xml version="1.0"?><plist></plist>'), true);
+      assert.strictEqual(isValidXml(''), false);
+      assert.strictEqual(isValidXml('  '), false);
+      assert.strictEqual(isValidXml('not xml'), false);
     });
   });
 
@@ -82,27 +81,27 @@ describe('Plist Parser', function () {
     it('should handle completely invalid XML', function () {
       try {
         parseXmlPlist('not xml at all');
-        expect.fail('Should have thrown an error for invalid XML');
+        assert.fail('Should have thrown an error for invalid XML');
       } catch (error) {
-        expect(error).to.exist;
+        assert.ok(error !== null && error !== undefined);
       }
     });
 
     it('should handle XML without a plist element', function () {
       try {
         parseXmlPlist('<?xml version="1.0"?><not-a-plist></not-a-plist>');
-        expect.fail('Should have thrown an error for missing plist element');
+        assert.fail('Should have thrown an error for missing plist element');
       } catch (error) {
-        expect(error).to.exist;
+        assert.ok(error !== null && error !== undefined);
       }
     });
 
     it('should handle XML with malformed tags', function () {
       try {
         parseXmlPlist('<?xml version="1.0"?><plist><dict><key>test</key><string>value</string></dict>');
-        expect.fail('Should have thrown an error for malformed tags');
+        assert.fail('Should have thrown an error for malformed tags');
       } catch (error) {
-        expect(error).to.exist;
+        assert.ok(error !== null && error !== undefined);
       }
     });
   });
@@ -126,14 +125,14 @@ describe('Plist Parser', function () {
       `;
 
       const result = parseXmlPlist(xml);
-      expect(result).to.have.property('level1');
+      assert.ok('level1' in result);
 
       // Type assertions for nested properties
       const level1 = result.level1 as PlistDictionary;
-      expect(level1).to.have.property('level2');
+      assert.ok('level2' in level1);
 
       const level2 = level1.level2 as PlistDictionary;
-      expect(level2).to.have.property('level3', 'deep value');
+      assert.strictEqual(level2.level3, 'deep value');
     });
 
     it('should parse mixed arrays and dictionaries', function () {
@@ -155,17 +154,17 @@ describe('Plist Parser', function () {
       `;
 
       const result = parseXmlPlist(xml);
-      expect(result).to.have.property('mixedArray').that.is.an('array');
+      assert.ok(Array.isArray(result.mixedArray));
 
       // Type assertion for array
       const mixedArray = result.mixedArray as PlistArray;
-      expect(mixedArray).to.have.lengthOf(3);
-      expect(mixedArray[0]).to.equal('text');
-      expect(mixedArray[1]).to.equal(123);
+      assert.strictEqual(mixedArray.length, 3);
+      assert.strictEqual(mixedArray[0], 'text');
+      assert.strictEqual(mixedArray[1], 123);
 
       // Type assertion for nested object in array
       const nestedObj = mixedArray[2] as PlistDictionary;
-      expect(nestedObj).to.have.property('nestedKey', 'nestedValue');
+      assert.strictEqual(nestedObj.nestedKey, 'nestedValue');
     });
 
     it('should handle XML with comments', function () {
@@ -181,7 +180,7 @@ describe('Plist Parser', function () {
       `;
 
       const result = parseXmlPlist(xml);
-      expect(result).to.have.property('commentedKey', 'value');
+      assert.strictEqual(result.commentedKey, 'value');
     });
 
     it('should handle XML with CDATA sections', function () {
@@ -196,7 +195,7 @@ describe('Plist Parser', function () {
       `;
 
       const result = parseXmlPlist(xml);
-      expect(result).to.have.property('cdataKey', '<html>This is HTML content</html>');
+      assert.strictEqual(result.cdataKey, '<html>This is HTML content</html>');
     });
   });
 
@@ -213,12 +212,12 @@ describe('Plist Parser', function () {
       `;
 
       const result = parseXmlPlist(xml);
-      expect(result).to.have.property('dateKey');
+      assert.ok('dateKey' in result);
 
       // Type assertion for date
       const dateValue = result.dateKey as Date;
-      expect(dateValue).to.be.instanceOf(Date);
-      expect(dateValue.toISOString()).to.equal('2023-05-21T12:34:56.000Z');
+      assert.ok(dateValue instanceof Date);
+      assert.strictEqual(dateValue.toISOString(), '2023-05-21T12:34:56.000Z');
     });
 
     it('should parse data values correctly', function () {
@@ -233,12 +232,12 @@ describe('Plist Parser', function () {
       `;
 
       const result = parseXmlPlist(xml);
-      expect(result).to.have.property('dataKey');
+      assert.ok('dataKey' in result);
 
       // Type assertion for buffer
       const dataValue = result.dataKey as Buffer;
-      expect(Buffer.isBuffer(dataValue)).to.be.true;
-      expect(dataValue.toString()).to.equal('Hello World');
+      assert.strictEqual(Buffer.isBuffer(dataValue), true);
+      assert.strictEqual(dataValue.toString(), 'Hello World');
     });
 
     it('should handle empty elements correctly', function () {
@@ -257,13 +256,14 @@ describe('Plist Parser', function () {
       `;
 
       const result = parseXmlPlist(xml);
-      expect(result).to.have.property('emptyString', '');
-      expect(result).to.have.property('emptyArray').that.is.an('array').with.lengthOf(0);
-      expect(result).to.have.property('emptyDict').that.is.an('object');
+      assert.strictEqual(result.emptyString, '');
+      assert.ok(Array.isArray(result.emptyArray));
+      assert.strictEqual(result.emptyArray.length, 0);
+      assert.ok(typeof result.emptyDict === 'object' && result.emptyDict !== null && !Array.isArray(result.emptyDict));
 
       // Type assertion for empty dictionary
       const emptyDict = result.emptyDict as PlistDictionary;
-      expect(Object.keys(emptyDict)).to.have.lengthOf(0);
+      assert.strictEqual(Object.keys(emptyDict).length, 0);
     });
   });
 });

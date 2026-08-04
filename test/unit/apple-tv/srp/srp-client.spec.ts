@@ -1,7 +1,6 @@
+import assert from 'node:assert/strict';
 import {randomBytes} from 'node:crypto';
 import {afterEach, beforeEach, describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {SRP_KEY_LENGTH_BYTES, SRP_USERNAME} from '../../../../src/lib/apple-tv/constants.js';
 import {SRPError} from '../../../../src/lib/apple-tv/errors.js';
@@ -22,31 +21,37 @@ describe('Apple TV SRP - SRP Client', function () {
 
   describe('constructor', function () {
     it('should initialize with default values', function () {
-      expect(client).to.be.instanceOf(SRPClient);
-      expect(client.isReady()).to.be.false;
-      expect(client.hasSessionKey()).to.be.false;
+      assert.ok(client instanceof SRPClient);
+      assert.strictEqual(client.isReady(), false);
+      assert.strictEqual(client.hasSessionKey(), false);
     });
   });
 
   describe('setIdentity', function () {
     it('should set identity with valid username and password', function () {
-      expect(function () {
+      assert.doesNotThrow(function () {
         client.setIdentity('testuser', 'testpass');
-      }).to.not.throw();
+      });
     });
 
     it('should throw error for empty password', function () {
-      expect(function () {
-        client.setIdentity('testuser', '');
-      }).to.throw(SRPError, 'Password cannot be empty');
+      assert.throws(
+        function () {
+          client.setIdentity('testuser', '');
+        },
+        (err: any) => err instanceof SRPError && err.message.includes('Password cannot be empty'),
+      );
     });
 
     it('should throw error when client is disposed', function () {
       client.dispose();
 
-      expect(function () {
-        client.setIdentity('testuser', 'testpass');
-      }).to.throw(SRPError, 'SRP client has been disposed');
+      assert.throws(
+        function () {
+          client.setIdentity('testuser', 'testpass');
+        },
+        (err: any) => err instanceof SRPError && err.message.includes('SRP client has been disposed'),
+      );
     });
   });
 
@@ -56,9 +61,12 @@ describe('Apple TV SRP - SRP Client', function () {
     });
 
     it('should throw error for empty salt', function () {
-      expect(function () {
-        client.salt = Buffer.alloc(0);
-      }).to.throw(SRPError, 'Salt cannot be empty');
+      assert.throws(
+        function () {
+          client.salt = Buffer.alloc(0);
+        },
+        (err: any) => err instanceof SRPError && err.message.includes('Salt cannot be empty'),
+      );
     });
 
     it('should generate keys when both salt and server public key are set', function () {
@@ -68,15 +76,18 @@ describe('Apple TV SRP - SRP Client', function () {
       client.salt = salt;
       client.serverPublicKey = serverPublicKey;
 
-      expect(client.isReady()).to.be.true;
+      assert.strictEqual(client.isReady(), true);
     });
 
     it('should throw error when client is disposed', function () {
       client.dispose();
 
-      expect(function () {
-        client.salt = randomBytes(16);
-      }).to.throw(SRPError, 'SRP client has been disposed');
+      assert.throws(
+        function () {
+          client.salt = randomBytes(16);
+        },
+        (err: any) => err instanceof SRPError && err.message.includes('SRP client has been disposed'),
+      );
     });
   });
 
@@ -88,17 +99,26 @@ describe('Apple TV SRP - SRP Client', function () {
     it('should throw error for wrong size key', function () {
       const wrongSizeKey = randomBytes(100);
 
-      expect(function () {
-        client.serverPublicKey = wrongSizeKey;
-      }).to.throw(SRPError, `Server public key must be ${SRP_KEY_LENGTH_BYTES} bytes, got 100`);
+      assert.throws(
+        function () {
+          client.serverPublicKey = wrongSizeKey;
+        },
+        (err: any) =>
+          err instanceof SRPError &&
+          err.message.includes(`Server public key must be ${SRP_KEY_LENGTH_BYTES} bytes, got 100`),
+      );
     });
 
     it('should throw error for B = 0', function () {
       const zeroB = Buffer.alloc(SRP_KEY_LENGTH_BYTES, 0);
 
-      expect(function () {
-        client.serverPublicKey = zeroB;
-      }).to.throw(SRPError, 'Invalid server public key B: must be in range (1, N-1)');
+      assert.throws(
+        function () {
+          client.serverPublicKey = zeroB;
+        },
+        (err: any) =>
+          err instanceof SRPError && err.message.includes('Invalid server public key B: must be in range (1, N-1)'),
+      );
     });
 
     it('should throw error when client is disposed', function () {
@@ -108,17 +128,25 @@ describe('Apple TV SRP - SRP Client', function () {
       validB.fill(0xff);
       validB[0] = 0x02;
 
-      expect(function () {
-        client.serverPublicKey = validB;
-      }).to.throw(SRPError, 'SRP client has been disposed');
+      assert.throws(
+        function () {
+          client.serverPublicKey = validB;
+        },
+        (err: any) => err instanceof SRPError && err.message.includes('SRP client has been disposed'),
+      );
     });
   });
 
   describe('getPublicKey', function () {
     it('should throw error when keys not generated', function () {
-      expect(function () {
-        client.publicKey;
-      }).to.throw(SRPError, 'Client keys not generated yet. Set salt and serverPublicKey properties first.');
+      assert.throws(
+        function () {
+          client.publicKey;
+        },
+        (err: any) =>
+          err instanceof SRPError &&
+          err.message.includes('Client keys not generated yet. Set salt and serverPublicKey properties first.'),
+      );
     });
 
     it('should return public key after keys are generated', function () {
@@ -134,8 +162,8 @@ describe('Apple TV SRP - SRP Client', function () {
 
       const publicKey = client.publicKey;
 
-      expect(publicKey).to.be.instanceOf(Buffer);
-      expect(publicKey.length).to.equal(SRP_KEY_LENGTH_BYTES);
+      assert.ok(publicKey instanceof Buffer);
+      assert.strictEqual(publicKey.length, SRP_KEY_LENGTH_BYTES);
     });
 
     it('should throw error when client is disposed', function () {
@@ -150,9 +178,12 @@ describe('Apple TV SRP - SRP Client', function () {
       client.serverPublicKey = validB;
       client.dispose();
 
-      expect(function () {
-        client.publicKey;
-      }).to.throw(SRPError, 'SRP client has been disposed');
+      assert.throws(
+        function () {
+          client.publicKey;
+        },
+        (err: any) => err instanceof SRPError && err.message.includes('SRP client has been disposed'),
+      );
     });
   });
 
@@ -164,15 +195,23 @@ describe('Apple TV SRP - SRP Client', function () {
     it('should throw error when password not set', function () {
       const newClient = new SRPClient();
 
-      expect(function () {
-        newClient.computeProof();
-      }).to.throw(SRPError, 'Password must be set before performing operations. Call setIdentity() first.');
+      assert.throws(
+        function () {
+          newClient.computeProof();
+        },
+        (err: any) =>
+          err instanceof SRPError &&
+          err.message.includes('Password must be set before performing operations. Call setIdentity() first.'),
+      );
     });
 
     it('should throw error when salt not set', function () {
-      expect(function () {
-        client.computeProof();
-      }).to.throw(SRPError, 'Salt and server public key must be set first');
+      assert.throws(
+        function () {
+          client.computeProof();
+        },
+        (err: any) => err instanceof SRPError && err.message.includes('Salt and server public key must be set first'),
+      );
     });
 
     it('should compute proof when all parameters are set', function () {
@@ -186,8 +225,8 @@ describe('Apple TV SRP - SRP Client', function () {
 
       const proof = client.computeProof();
 
-      expect(proof).to.be.instanceOf(Buffer);
-      expect(proof.length).to.equal(64);
+      assert.ok(proof instanceof Buffer);
+      assert.strictEqual(proof.length, 64);
     });
 
     it('should produce different proofs for different passwords', function () {
@@ -206,7 +245,7 @@ describe('Apple TV SRP - SRP Client', function () {
       client2.serverPublicKey = validB;
       const proof2 = client2.computeProof();
 
-      expect(proof1.equals(proof2)).to.be.false;
+      assert.strictEqual(proof1.equals(proof2), false);
 
       client2.dispose();
     });
@@ -221,9 +260,12 @@ describe('Apple TV SRP - SRP Client', function () {
       client.serverPublicKey = validB;
       client.dispose();
 
-      expect(function () {
-        client.computeProof();
-      }).to.throw(SRPError, 'SRP client has been disposed');
+      assert.throws(
+        function () {
+          client.computeProof();
+        },
+        (err: any) => err instanceof SRPError && err.message.includes('SRP client has been disposed'),
+      );
     });
   });
 
@@ -235,15 +277,23 @@ describe('Apple TV SRP - SRP Client', function () {
     it('should throw error when password not set', function () {
       const newClient = new SRPClient();
 
-      expect(function () {
-        newClient.sessionKey;
-      }).to.throw(SRPError, 'Password must be set before performing operations. Call setIdentity() first.');
+      assert.throws(
+        function () {
+          newClient.sessionKey;
+        },
+        (err: any) =>
+          err instanceof SRPError &&
+          err.message.includes('Password must be set before performing operations. Call setIdentity() first.'),
+      );
     });
 
     it('should throw error when session key not computed', function () {
-      expect(function () {
-        client.sessionKey;
-      }).to.throw(SRPError, 'Salt and server public key must be set first');
+      assert.throws(
+        function () {
+          client.sessionKey;
+        },
+        (err: any) => err instanceof SRPError && err.message.includes('Salt and server public key must be set first'),
+      );
     });
 
     it('should return session key after computation', function () {
@@ -257,8 +307,8 @@ describe('Apple TV SRP - SRP Client', function () {
 
       const sessionKey = client.sessionKey;
 
-      expect(sessionKey).to.be.instanceOf(Buffer);
-      expect(sessionKey.length).to.equal(64);
+      assert.ok(sessionKey instanceof Buffer);
+      assert.strictEqual(sessionKey.length, 64);
     });
 
     it('should throw error when client is disposed', function () {
@@ -272,9 +322,12 @@ describe('Apple TV SRP - SRP Client', function () {
       client.sessionKey;
       client.dispose();
 
-      expect(function () {
-        client.sessionKey;
-      }).to.throw(SRPError, 'SRP client has been disposed');
+      assert.throws(
+        function () {
+          client.sessionKey;
+        },
+        (err: any) => err instanceof SRPError && err.message.includes('SRP client has been disposed'),
+      );
     });
   });
 
@@ -291,29 +344,38 @@ describe('Apple TV SRP - SRP Client', function () {
       client.serverPublicKey = validB;
       client.sessionKey;
 
-      expect(client.isReady()).to.be.true;
-      expect(client.hasSessionKey()).to.be.true;
+      assert.strictEqual(client.isReady(), true);
+      assert.strictEqual(client.hasSessionKey(), true);
 
       client.dispose();
 
-      expect(client.isReady()).to.be.false;
-      expect(client.hasSessionKey()).to.be.false;
+      assert.strictEqual(client.isReady(), false);
+      assert.strictEqual(client.hasSessionKey(), false);
     });
 
     it('should prevent further operations', function () {
       client.dispose();
 
-      expect(function () {
-        client.setIdentity(SRP_USERNAME, 'testpass');
-      }).to.throw(SRPError, 'SRP client has been disposed');
+      assert.throws(
+        function () {
+          client.setIdentity(SRP_USERNAME, 'testpass');
+        },
+        (err: any) => err instanceof SRPError && err.message.includes('SRP client has been disposed'),
+      );
 
-      expect(function () {
-        client.salt = randomBytes(16);
-      }).to.throw(SRPError, 'SRP client has been disposed');
+      assert.throws(
+        function () {
+          client.salt = randomBytes(16);
+        },
+        (err: any) => err instanceof SRPError && err.message.includes('SRP client has been disposed'),
+      );
 
-      expect(function () {
-        client.publicKey;
-      }).to.throw(SRPError, 'SRP client has been disposed');
+      assert.throws(
+        function () {
+          client.publicKey;
+        },
+        (err: any) => err instanceof SRPError && err.message.includes('SRP client has been disposed'),
+      );
     });
   });
 
@@ -331,8 +393,8 @@ describe('Apple TV SRP - SRP Client', function () {
       client.serverPublicKey = validB;
 
       const sessionKey = client.sessionKey;
-      expect(sessionKey).to.be.instanceOf(Buffer);
-      expect(sessionKey.length).to.equal(64);
+      assert.ok(sessionKey instanceof Buffer);
+      assert.strictEqual(sessionKey.length, 64);
     });
   });
 });

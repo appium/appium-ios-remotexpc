@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {TunnelReadinessCoordinator} from '../../../src/lib/tunnel/tunnel-readiness.js';
 import type {TunnelRegistryEntry} from '../../../src/lib/types.js';
@@ -29,7 +28,7 @@ describe('TunnelReadinessCoordinator', function () {
     coordinator.resolveReady('dev-1', entry);
 
     const result = await ready;
-    expect(result.udid).to.equal('dev-1');
+    assert.strictEqual(result.udid, 'dev-1');
   });
 
   it('rejects waiters after markPending', async function () {
@@ -45,7 +44,7 @@ describe('TunnelReadinessCoordinator', function () {
       caught = err as Error;
     }
 
-    expect(caught?.message).to.include('not ready');
+    assert.ok(caught?.message.includes('not ready'));
   });
 
   it('times out when resolveReady is never called', async function () {
@@ -58,6 +57,6 @@ describe('TunnelReadinessCoordinator', function () {
       caught = err as Error;
     }
 
-    expect(caught?.message).to.equal('NOT_READY');
+    assert.strictEqual(caught?.message, 'NOT_READY');
   });
 });

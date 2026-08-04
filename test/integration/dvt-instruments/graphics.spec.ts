@@ -1,7 +1,7 @@
+import assert from 'node:assert/strict';
 import {after, before, describe, it} from 'node:test';
 
 import {logger} from '@appium/support';
-import {expect} from 'chai';
 
 import type {DVTInstruments} from '../../../src/lib/types.js';
 import * as Services from '../../../src/services.js';
@@ -49,12 +49,12 @@ describe('Graphics', {timeout: 30000}, function () {
         }
       }
 
-      expect(messages).to.have.lengthOf(maxMessages);
+      assert.strictEqual(messages.length, maxMessages);
 
       // Verify we received valid messages
       for (const msg of messages) {
-        expect(msg).to.exist;
-        expect(msg).to.be.an('object');
+        assert.ok(msg !== null && msg !== undefined);
+        assert.ok(typeof msg === 'object' && msg !== null && !Array.isArray(msg));
       }
     });
 
@@ -71,7 +71,7 @@ describe('Graphics', {timeout: 30000}, function () {
         }
       }
 
-      expect(iterationCount).to.equal(2);
+      assert.strictEqual(iterationCount, 2);
     });
   });
 });

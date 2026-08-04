@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {beforeEach, describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {PlistUID} from '../../src/lib/plist/plist-uid.js';
 import {NSKeyedArchiverEncoder} from '../../src/services/ios/dvt/nskeyedarchiver-encoder.js';
@@ -16,33 +15,33 @@ describe('NSKeyedArchiver Encoder', function () {
     it('should produce a valid NSKeyedArchiver envelope', function () {
       const result = encoder.encode('hello');
 
-      expect(result).to.have.property('$version', 100000);
-      expect(result).to.have.property('$archiver', 'NSKeyedArchiver');
-      expect(result.$top).to.have.property('root').that.is.instanceOf(PlistUID);
-      expect(result.$objects[0]).to.equal('$null');
+      assert.strictEqual(result.$version, 100000);
+      assert.strictEqual(result.$archiver, 'NSKeyedArchiver');
+      assert.ok(result.$top.root instanceof PlistUID);
+      assert.strictEqual(result.$objects[0], '$null');
     });
 
     it('should encode null/undefined as $null reference (index 0)', function () {
-      expect(encoder.encode(null).$top.root.value).to.equal(0);
-      expect(new NSKeyedArchiverEncoder().encode(undefined).$top.root.value).to.equal(0);
+      assert.strictEqual(encoder.encode(null).$top.root.value, 0);
+      assert.strictEqual(new NSKeyedArchiverEncoder().encode(undefined).$top.root.value, 0);
     });
 
     it('should encode a string value', function () {
       const result = encoder.encode('test string');
 
-      expect(result.$objects[result.$top.root.value]).to.equal('test string');
+      assert.strictEqual(result.$objects[result.$top.root.value], 'test string');
     });
 
     it('should encode a numeric value', function () {
       const result = encoder.encode(42);
 
-      expect(result.$objects[result.$top.root.value]).to.equal(42);
+      assert.strictEqual(result.$objects[result.$top.root.value], 42);
     });
 
     it('should encode a boolean value', function () {
       const result = encoder.encode(true);
 
-      expect(result.$objects[result.$top.root.value]).to.equal(true);
+      assert.strictEqual(result.$objects[result.$top.root.value], true);
     });
 
     it('should encode an array as NSArray with element UIDs', function () {
@@ -51,11 +50,11 @@ describe('NSKeyedArchiver Encoder', function () {
       const arrayObj = result.$objects[rootIdx];
 
       const items = arrayObj['NS.objects'].map((uid: PlistUID) => result.$objects[uid.value]);
-      expect(items).to.deep.equal(['a', 'b', 'c']);
+      assert.deepStrictEqual(items, ['a', 'b', 'c']);
 
       const classDef = result.$objects[arrayObj.$class.value];
-      expect(classDef).to.have.property('$classname', 'NSArray');
-      expect(classDef.$classes).to.deep.equal(['NSArray', 'NSObject']);
+      assert.strictEqual(classDef.$classname, 'NSArray');
+      assert.deepStrictEqual(classDef.$classes, ['NSArray', 'NSObject']);
     });
 
     it('should map null elements in an array to the $null sentinel', function () {
@@ -64,7 +63,7 @@ describe('NSKeyedArchiver Encoder', function () {
       const arrayObj = result.$objects[rootIdx];
 
       const items = arrayObj['NS.objects'].map((uid: PlistUID) => result.$objects[uid.value]);
-      expect(items).to.deep.equal([1, '$null', 'x']);
+      assert.deepStrictEqual(items, [1, '$null', 'x']);
     });
 
     it('should encode a plain object as NSDictionary with key and value UIDs', function () {
@@ -75,12 +74,12 @@ describe('NSKeyedArchiver Encoder', function () {
       const keys = dictObj['NS.keys'].map((uid: PlistUID) => result.$objects[uid.value]);
       const values = dictObj['NS.objects'].map((uid: PlistUID) => result.$objects[uid.value]);
 
-      expect(keys).to.deep.equal(['key1', 'key2']);
-      expect(values).to.deep.equal(['value1', 'value2']);
+      assert.deepStrictEqual(keys, ['key1', 'key2']);
+      assert.deepStrictEqual(values, ['value1', 'value2']);
 
       const classDef = result.$objects[dictObj.$class.value];
-      expect(classDef).to.have.property('$classname', 'NSDictionary');
-      expect(classDef.$classes).to.deep.equal(['NSDictionary', 'NSObject']);
+      assert.strictEqual(classDef.$classname, 'NSDictionary');
+      assert.deepStrictEqual(classDef.$classes, ['NSDictionary', 'NSObject']);
     });
 
     it('should encode a Buffer as NSMutableData', function () {
@@ -89,11 +88,11 @@ describe('NSKeyedArchiver Encoder', function () {
       const rootIdx = result.$top.root.value;
       const dataObj = result.$objects[rootIdx];
 
-      expect(dataObj['NS.data']).to.deep.equal(buf);
+      assert.deepStrictEqual(dataObj['NS.data'], buf);
 
       const classDef = result.$objects[dataObj.$class.value];
-      expect(classDef).to.have.property('$classname', 'NSMutableData');
-      expect(classDef.$classes).to.deep.equal(['NSMutableData', 'NSData', 'NSObject']);
+      assert.strictEqual(classDef.$classname, 'NSMutableData');
+      assert.deepStrictEqual(classDef.$classes, ['NSMutableData', 'NSData', 'NSObject']);
     });
 
     it('should encode nested dictionaries inside an array', function () {
@@ -103,8 +102,8 @@ describe('NSKeyedArchiver Encoder', function () {
 
       for (const uid of arrayObj['NS.objects']) {
         const dictObj = result.$objects[uid.value];
-        expect(dictObj).to.have.property('NS.keys');
-        expect(dictObj).to.have.property('NS.objects');
+        assert.ok('NS.keys' in dictObj);
+        assert.ok('NS.objects' in dictObj);
       }
     });
 
@@ -115,7 +114,7 @@ describe('NSKeyedArchiver Encoder', function () {
 
       const nestedArray = result.$objects[dictObj['NS.objects'][0].value];
       const items = nestedArray['NS.objects'].map((uid: PlistUID) => result.$objects[uid.value]);
-      expect(items).to.deep.equal(['x', 'y']);
+      assert.deepStrictEqual(items, ['x', 'y']);
     });
 
     it('should deduplicate identical object references via the cache', function () {
@@ -125,7 +124,7 @@ describe('NSKeyedArchiver Encoder', function () {
       const rootIdx = result.$top.root.value;
       const [uid1, uid2] = result.$objects[rootIdx]['NS.objects'];
 
-      expect(uid1.value).to.equal(uid2.value);
+      assert.strictEqual(uid1.value, uid2.value);
     });
 
     it('should handle circular references without infinite recursion', function () {
@@ -139,9 +138,9 @@ describe('NSKeyedArchiver Encoder', function () {
       const keys = dictObj['NS.keys'].map((uid: PlistUID) => result.$objects[uid.value]);
       const valUids = dictObj['NS.objects'];
 
-      expect(keys).to.deep.equal(['name', 'self']);
+      assert.deepStrictEqual(keys, ['name', 'self']);
       // The 'self' value UID should point back to the root dictionary itself
-      expect(valUids[1].value).to.equal(rootIdx);
+      assert.strictEqual(valUids[1].value, rootIdx);
     });
 
     it('should reuse class definitions across objects of the same type', function () {
@@ -152,13 +151,13 @@ describe('NSKeyedArchiver Encoder', function () {
       const dict1 = result.$objects[arrayObj['NS.objects'][0].value];
       const dict2 = result.$objects[arrayObj['NS.objects'][1].value];
 
-      expect(dict1.$class.value).to.equal(dict2.$class.value);
+      assert.strictEqual(dict1.$class.value, dict2.$class.value);
     });
 
     it('should encode unsupported types as $null', function () {
       const result = encoder.encode(Symbol('test'));
 
-      expect(result.$top.root.value).to.equal(0);
+      assert.strictEqual(result.$top.root.value, 0);
     });
   });
 });

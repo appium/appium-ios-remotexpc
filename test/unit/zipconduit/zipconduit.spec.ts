@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {ZIP_LOCAL_FILE_HEADER_SIGNATURE} from '../../../src/services/ios/zipconduit/constants.js';
 import {
@@ -14,15 +13,15 @@ import {createMetaInfBytes, transferDirectory} from '../../../src/services/ios/z
 describe('zipconduit/plists', function () {
   it('creates InitTransfer matching Xcode-style options', function () {
     const init = createInitTransfer('/tmp/MyApp.ipa');
-    expect(init.MediaSubdir).to.equal('PublicStaging/MyApp.ipa');
-    expect(init.InstallTransferredDirectory).to.equal(1);
-    expect(init.InstallOptionsDictionary.InstallDeltaTypeKey).to.equal('InstallDeltaTypeSparseIPAFiles');
+    assert.strictEqual(init.MediaSubdir, 'PublicStaging/MyApp.ipa');
+    assert.strictEqual(init.InstallTransferredDirectory, 1);
+    assert.strictEqual(init.InstallOptionsDictionary.InstallDeltaTypeKey, 'InstallDeltaTypeSparseIPAFiles');
   });
 
   it('evaluates DataComplete status', function () {
     const result = evaluateProgress({Status: 'DataComplete'});
-    expect(result.done).to.be.true;
-    expect(result.percent).to.equal(100);
+    assert.strictEqual(result.done, true);
+    assert.strictEqual(result.percent, 100);
   });
 
   it('evaluates InstallProgressDict updates', function () {
@@ -32,32 +31,34 @@ describe('zipconduit/plists', function () {
         Status: 'Installing',
       },
     });
-    expect(result.done).to.be.false;
-    expect(result.percent).to.equal(42);
-    expect(result.status).to.equal('Installing');
+    assert.strictEqual(result.done, false);
+    assert.strictEqual(result.percent, 42);
+    assert.strictEqual(result.status, 'Installing');
   });
 
   it('throws on signing errors', function () {
-    expect(() =>
-      evaluateProgress({
-        InstallProgressDict: {
-          Error: SIGNING_ERROR,
-          ErrorDescription: 'invalid signature',
-        },
-      }),
-    ).to.throw(/not properly signed/);
+    assert.throws(
+      () =>
+        evaluateProgress({
+          InstallProgressDict: {
+            Error: SIGNING_ERROR,
+            ErrorDescription: 'invalid signature',
+          },
+        }),
+      /not properly signed/,
+    );
   });
 });
 
 describe('zipconduit/zip-utils', function () {
   it('builds metadata plist bytes', function () {
     const metadata = createMetaInfPlist(10, 12345);
-    expect(metadata.RecordCount).to.equal(12);
-    expect(metadata.TotalUncompressedBytes).to.equal(12345);
+    assert.strictEqual(metadata.RecordCount, 12);
+    assert.strictEqual(metadata.TotalUncompressedBytes, 12345);
 
     const bytes = createMetaInfBytes(10, 12345);
-    expect(bytes.length).to.be.greaterThan(0);
-    expect(bytes.toString('utf8')).to.include('RecordCount');
+    assert.ok(bytes.length > 0);
+    assert.ok(bytes.toString('utf8').includes('RecordCount'));
   });
 
   it('writes a directory local header', async function () {
@@ -83,7 +84,7 @@ describe('zipconduit/zip-utils', function () {
 
     await transferDirectory(socket, 'Payload/');
     const payload = Buffer.concat(chunks);
-    expect(payload.readUInt32LE(0)).to.equal(ZIP_LOCAL_FILE_HEADER_SIGNATURE);
-    expect(payload.toString('utf8')).to.include('Payload/');
+    assert.strictEqual(payload.readUInt32LE(0), ZIP_LOCAL_FILE_HEADER_SIGNATURE);
+    assert.ok(payload.toString('utf8').includes('Payload/'));
   });
 });

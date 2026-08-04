@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {PowerAssertionService, PowerAssertionType} from '../../../src/services/ios/power-assertion/index.js';
 
@@ -8,7 +7,7 @@ describe('PowerAssertionService', function () {
   describe('PowerAssertionService instantiation', function () {
     it('should create a service with valid udid', function () {
       const service = new PowerAssertionService('test-udid');
-      expect(service).to.be.instanceOf(PowerAssertionService);
+      assert.ok(service instanceof PowerAssertionService);
     });
   });
 
@@ -21,7 +20,7 @@ describe('PowerAssertionService', function () {
         timeout: 30,
       });
 
-      expect(request).to.deep.equal({
+      assert.deepStrictEqual(request, {
         CommandKey: 'CommandCreateAssertion',
         AssertionTypeKey: 'PreventUserIdleSystemSleep',
         AssertionNameKey: 'TestAssertion',
@@ -38,7 +37,7 @@ describe('PowerAssertionService', function () {
         details: 'Running important task',
       });
 
-      expect(request).to.deep.equal({
+      assert.deepStrictEqual(request, {
         CommandKey: 'CommandCreateAssertion',
         AssertionTypeKey: 'PreventSystemSleep',
         AssertionNameKey: 'TestAssertion',

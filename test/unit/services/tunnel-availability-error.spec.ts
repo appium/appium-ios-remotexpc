@@ -1,7 +1,8 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
+import type {TestContext} from 'node:test';
 
-import {expect} from 'chai';
-import esmock from 'esmock';
+import {mockImport} from '../../helpers/mock-module.js';
 
 class MockTunnelAvailabilityError extends Error {
   readonly code = 'ERR_TUNNEL_AVAILABILITY';
@@ -12,8 +13,8 @@ class MockTunnelAvailabilityError extends Error {
   }
 }
 
-async function loadServices(tunnelAvailabilityOverrides: Record<string, unknown> = {}) {
-  return await esmock('../../../src/services.js', import.meta.url, {
+async function loadServices(t: TestContext, tunnelAvailabilityOverrides: Record<string, unknown> = {}) {
+  return await mockImport(t, '../../../src/services.js', import.meta.url, {
     '../../../src/lib/tunnel/tunnel-availability.js': {
       TunnelAvailabilityError: MockTunnelAvailabilityError,
       getAvailableDevices: async () => {
@@ -34,25 +35,25 @@ async function loadServices(tunnelAvailabilityOverrides: Record<string, unknown>
 async function expectTunnelAvailabilityError(action: () => Promise<unknown>, expectedMessage: string) {
   try {
     await action();
-    expect.fail('Expected action to throw');
+    assert.fail('Expected action to throw');
   } catch (err) {
-    expect(err).to.be.instanceOf(MockTunnelAvailabilityError);
-    expect((err as Error).message).to.equal(expectedMessage);
-    expect((err as {code?: string}).code).to.equal('ERR_TUNNEL_AVAILABILITY');
+    assert.ok(err instanceof MockTunnelAvailabilityError);
+    assert.strictEqual((err as Error).message, expectedMessage);
+    assert.strictEqual((err as {code?: string}).code, 'ERR_TUNNEL_AVAILABILITY');
   }
 }
 
 describe('TunnelAvailabilityError', function () {
-  it('throws a dedicated error when tunnel registry port is missing', async function () {
-    const services = await loadServices();
+  it('throws a dedicated error when tunnel registry port is missing', async function (t) {
+    const services = await loadServices(t);
     await expectTunnelAvailabilityError(
       async () => await services.getAvailableDevices(),
       'Tunnel registry port not found. Please run the tunnel creation script first',
     );
   });
 
-  it('throws a dedicated error when no tunnel exists for a device', async function () {
-    const services = await loadServices({
+  it('throws a dedicated error when no tunnel exists for a device', async function (t) {
+    const services = await loadServices(t, {
       getTunnelForDevice: async () => {
         throw new MockTunnelAvailabilityError(
           'No tunnel found for device test-udid. Please run the tunnel creation script first',

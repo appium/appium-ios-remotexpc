@@ -1,7 +1,6 @@
+import assert from 'node:assert/strict';
 import {type Server, type Socket} from 'node:net';
 import {afterEach, beforeEach, describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {type Device, Usbmux} from '../../../src/lib/usbmux/index.js';
 import {prioritizeUsbOverNetworkForDuplicateUdids} from '../../../src/lib/usbmux/utils.js';
@@ -64,7 +63,7 @@ describe('usbmux', function () {
     ({server, socket} = await getServerWithFixtures(fixtures.DEVICE_LIST));
     usbmux = new Usbmux(socket);
     const devices = await usbmux.listDevices();
-    expect(devices.length).to.equal(1);
+    assert.strictEqual(devices.length, 1);
   });
 
   it('should fail due to timeout', async function () {
@@ -72,7 +71,7 @@ describe('usbmux', function () {
     usbmux = new Usbmux(socket);
 
     await usbmux.listDevices(-1).catch((err) => {
-      expect(err).to.be.instanceOf(Error);
+      assert.ok(err instanceof Error);
     });
   });
 
@@ -81,9 +80,9 @@ describe('usbmux', function () {
     usbmux = new Usbmux(socket);
 
     const device = await usbmux.findDevice(UDID);
-    expect(device).to.not.be.undefined;
+    assert.notStrictEqual(device, undefined);
     if (device) {
-      expect(device.Properties.SerialNumber).to.equal(UDID);
+      assert.strictEqual(device.Properties.SerialNumber, UDID);
     }
   });
 
@@ -91,7 +90,10 @@ describe('usbmux', function () {
     const net = mockUsbmuxDevice(2, DUP_UDID, 'Network');
     const usb = mockUsbmuxDevice(1, DUP_UDID, 'USB');
     const sorted = prioritizeUsbOverNetworkForDuplicateUdids([net, usb]);
-    expect(sorted.map((d) => d.DeviceID)).to.deep.equal([1, 2]);
+    assert.deepStrictEqual(
+      sorted.map((d) => d.DeviceID),
+      [1, 2],
+    );
   });
 
   it('should not pull duplicate UDIDs into a block when another device is between', function () {
@@ -102,7 +104,10 @@ describe('usbmux', function () {
       productId: 0,
     });
     const sorted = prioritizeUsbOverNetworkForDuplicateUdids([net, other, usb]);
-    expect(sorted.map((d) => d.DeviceID)).to.deep.equal([1, 99, 2]);
+    assert.deepStrictEqual(
+      sorted.map((d) => d.DeviceID),
+      [1, 99, 2],
+    );
   });
 
   it('should reorder mixed duplicate and unique UDIDs without breaking interleaving', function () {
@@ -117,7 +122,13 @@ describe('usbmux', function () {
       productId: 0,
     });
     const sorted = prioritizeUsbOverNetworkForDuplicateUdids([aNet, bUsb, aUsb, cNet]);
-    expect(sorted.map((d) => d.DeviceID)).to.deep.equal([1, 10, 2, 20]);
-    expect(sorted.map((d) => d.Properties.SerialNumber)).to.deep.equal(['dup-a', 'only-b', 'dup-a', 'only-c']);
+    assert.deepStrictEqual(
+      sorted.map((d) => d.DeviceID),
+      [1, 10, 2, 20],
+    );
+    assert.deepStrictEqual(
+      sorted.map((d) => d.Properties.SerialNumber),
+      ['dup-a', 'only-b', 'dup-a', 'only-c'],
+    );
   });
 });

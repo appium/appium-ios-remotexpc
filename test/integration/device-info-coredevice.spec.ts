@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {after, before, describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {CoreDeviceError, type CoreDeviceInfoService} from '../../src/index.js';
 import * as Services from '../../src/services.js';
@@ -36,29 +35,31 @@ describe('CoreDeviceInfoService', {timeout: 60000}, function () {
 
   it('getDeviceInfo returns device attributes', async function () {
     const info = await service!.getDeviceInfo();
-    expect(info).to.be.an('object');
-    expect(Object.keys(info).length).to.be.greaterThan(0);
+    assert.ok(typeof info === 'object' && info !== null && !Array.isArray(info));
+    assert.ok(Object.keys(info).length > 0);
   });
 
   it('getDisplayInfo returns the primary display geometry', async function () {
     const display = await service!.getDisplayInfo();
     const displays = display.displays as Array<Record<string, unknown>>;
-    expect(displays, 'displays array').to.be.an('array').that.is.not.empty;
+    assert.ok(Array.isArray(displays), 'displays array');
+    assert.ok(displays.length > 0, 'displays array');
 
     const primary = displays.find((d) => d.primary === true) ?? displays[0];
     const nativeSize = primary.nativeSize as number[];
-    expect(nativeSize, 'primary nativeSize').to.be.an('array').with.length(2);
-    expect(nativeSize[0]).to.be.greaterThan(0);
-    expect(nativeSize[1]).to.be.greaterThan(0);
+    assert.ok(Array.isArray(nativeSize), 'primary nativeSize');
+    assert.strictEqual(nativeSize.length, 2, 'primary nativeSize');
+    assert.ok(nativeSize[0] > 0);
+    assert.ok(nativeSize[1] > 0);
   });
 
   it('getLockState resolves or reports a clear CoreDevice error', async function () {
     // Not implemented on some iOS versions (CoreDevice.ActionError 2).
     try {
       const lock = await service!.getLockState({timeoutMs: 10000});
-      expect(lock).to.be.an('object');
+      assert.ok(typeof lock === 'object' && lock !== null && !Array.isArray(lock));
     } catch (error) {
-      expect(error).to.be.instanceOf(CoreDeviceError);
+      assert.ok(error instanceof CoreDeviceError);
     }
   });
 
@@ -68,9 +69,9 @@ describe('CoreDeviceInfoService', {timeout: 60000}, function () {
       const result = await service!.queryMobileGestalt(['ProductType'], {
         timeoutMs: 10000,
       });
-      expect(result).to.be.an('object');
+      assert.ok(typeof result === 'object' && result !== null && !Array.isArray(result));
     } catch (error) {
-      expect(error).to.be.instanceOf(CoreDeviceError);
+      assert.ok(error instanceof CoreDeviceError);
     }
   });
 });

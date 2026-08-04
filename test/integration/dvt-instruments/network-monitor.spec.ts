@@ -1,7 +1,7 @@
+import assert from 'node:assert/strict';
 import {after, before, describe, it} from 'node:test';
 
 import {logger} from '@appium/support';
-import {expect} from 'chai';
 
 import type {DVTInstruments, NetworkEvent} from '../../../src/index.js';
 import {NetworkMessageType} from '../../../src/index.js';
@@ -81,9 +81,9 @@ describe('NetworkMonitor', {timeout: 60000}, function () {
             ),
           ),
         ]);
-        expect(terminalResult.done).to.equal(true);
+        assert.strictEqual(terminalResult.done, true);
       } else {
-        expect(result.done).to.equal(true);
+        assert.strictEqual(result.done, true);
       }
     });
 
@@ -100,16 +100,18 @@ describe('NetworkMonitor', {timeout: 60000}, function () {
         }
       }
 
-      expect(events).to.have.length.at.least(1);
+      assert.ok(events.length >= 1);
 
       for (const event of events) {
-        expect(event).to.exist;
-        expect(event).to.have.property('type');
-        expect([
-          NetworkMessageType.INTERFACE_DETECTION,
-          NetworkMessageType.CONNECTION_DETECTION,
-          NetworkMessageType.CONNECTION_UPDATE,
-        ]).to.include(event.type);
+        assert.ok(event !== null && event !== undefined);
+        assert.ok('type' in event);
+        assert.ok(
+          [
+            NetworkMessageType.INTERFACE_DETECTION,
+            NetworkMessageType.CONNECTION_DETECTION,
+            NetworkMessageType.CONNECTION_UPDATE,
+          ].includes(event.type),
+        );
       }
     });
 
@@ -118,9 +120,9 @@ describe('NetworkMonitor', {timeout: 60000}, function () {
 
       const interfaceEvent = await findEventOfType(networkMonitor, NetworkMessageType.INTERFACE_DETECTION, 250);
 
-      expect(interfaceEvent.type).to.equal(NetworkMessageType.INTERFACE_DETECTION);
-      expect(interfaceEvent).to.have.property('interfaceIndex');
-      expect(interfaceEvent).to.have.property('name');
+      assert.strictEqual(interfaceEvent.type, NetworkMessageType.INTERFACE_DETECTION);
+      assert.ok('interfaceIndex' in interfaceEvent);
+      assert.ok('name' in interfaceEvent);
     });
 
     it('should receive connection detection events', async function () {
@@ -128,12 +130,12 @@ describe('NetworkMonitor', {timeout: 60000}, function () {
 
       const connectionEvent = await findEventOfType(networkMonitor, NetworkMessageType.CONNECTION_DETECTION, 30);
 
-      expect(connectionEvent.localAddress).to.have.property('address');
-      expect(connectionEvent.localAddress).to.have.property('port');
-      expect(connectionEvent.remoteAddress).to.have.property('address');
-      expect(connectionEvent.remoteAddress).to.have.property('port');
-      expect(connectionEvent).to.have.property('pid');
-      expect(connectionEvent).to.have.property('interfaceIndex');
+      assert.ok('address' in connectionEvent.localAddress);
+      assert.ok('port' in connectionEvent.localAddress);
+      assert.ok('address' in connectionEvent.remoteAddress);
+      assert.ok('port' in connectionEvent.remoteAddress);
+      assert.ok('pid' in connectionEvent);
+      assert.ok('interfaceIndex' in connectionEvent);
     });
 
     it('should receive connection update events', async function () {
@@ -141,12 +143,12 @@ describe('NetworkMonitor', {timeout: 60000}, function () {
 
       const updateEvent = await findEventOfType(networkMonitor, NetworkMessageType.CONNECTION_UPDATE, 200);
 
-      expect(updateEvent).to.have.property('rxPackets');
-      expect(updateEvent).to.have.property('rxBytes');
-      expect(updateEvent).to.have.property('txPackets');
-      expect(updateEvent).to.have.property('txBytes');
-      expect(updateEvent).to.have.property('connectionSerial');
-      expect(updateEvent).to.have.property('time');
+      assert.ok('rxPackets' in updateEvent);
+      assert.ok('rxBytes' in updateEvent);
+      assert.ok('txPackets' in updateEvent);
+      assert.ok('txBytes' in updateEvent);
+      assert.ok('connectionSerial' in updateEvent);
+      assert.ok('time' in updateEvent);
     });
   });
 });

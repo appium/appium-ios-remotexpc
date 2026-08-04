@@ -1,7 +1,8 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
+import type {TestContext} from 'node:test';
 
-import {expect} from 'chai';
-import esmock from 'esmock';
+import {mockImport} from '../../helpers/mock-module.js';
 
 const TEST_UDID = 'test-udid';
 const REGISTRY_PORT = 12_345;
@@ -40,13 +41,14 @@ function createNetSocketMock(mode: 'connect' | 'refuse') {
 }
 
 async function loadTunnelAvailability(
+  t: TestContext,
   options: {
     tunnelRegistryPort?: string | undefined;
     netMode?: 'connect' | 'refuse';
     tunnelApiClientMock?: TunnelApiClientMock;
   } = {},
 ) {
-  const dependencyMocks: Record<string, unknown> = {
+  const dependencyMocks: Record<string, Record<string, unknown>> = {
     '@appium/strongbox': {
       strongbox: () => ({}),
       BaseItem: class {
@@ -68,7 +70,7 @@ async function loadTunnelAvailability(
     };
   }
 
-  return await esmock('../../../src/lib/tunnel/tunnel-availability.js', import.meta.url, dependencyMocks);
+  return await mockImport(t, '../../../src/lib/tunnel/tunnel-availability.js', import.meta.url, dependencyMocks);
 }
 
 async function expectTunnelAvailabilityError(
@@ -78,17 +80,17 @@ async function expectTunnelAvailabilityError(
 ) {
   try {
     await action();
-    expect.fail('Expected action to throw');
+    assert.fail('Expected action to throw');
   } catch (err) {
-    expect(err).to.be.instanceOf(TunnelAvailabilityError);
-    expect((err as Error).message).to.equal(expectedMessage);
-    expect((err as {code?: string}).code).to.equal('ERR_TUNNEL_AVAILABILITY');
+    assert.ok(err instanceof TunnelAvailabilityError);
+    assert.strictEqual((err as Error).message, expectedMessage);
+    assert.strictEqual((err as {code?: string}).code, 'ERR_TUNNEL_AVAILABILITY');
   }
 }
 
 describe('tunnel-availability', function () {
-  it('throws when tunnel registry port is missing in strongbox', async function () {
-    const mod = await loadTunnelAvailability({tunnelRegistryPort: undefined});
+  it('throws when tunnel registry port is missing in strongbox', async function (t) {
+    const mod = await loadTunnelAvailability(t, {tunnelRegistryPort: undefined});
     await expectTunnelAvailabilityError(
       async () => await mod.getTunnelForDevice(TEST_UDID),
       'Tunnel registry port not found. Please run the tunnel creation script first',
@@ -96,8 +98,8 @@ describe('tunnel-availability', function () {
     );
   });
 
-  it('throws when tunnel registry port is not a valid TCP port', async function () {
-    const mod = await loadTunnelAvailability({tunnelRegistryPort: '70000'});
+  it('throws when tunnel registry port is not a valid TCP port', async function (t) {
+    const mod = await loadTunnelAvailability(t, {tunnelRegistryPort: '70000'});
     await expectTunnelAvailabilityError(
       async () => await mod.getTunnelForDevice(TEST_UDID),
       'Tunnel registry port "70000" is invalid; expected an integer between 1 and 65535',
@@ -105,8 +107,8 @@ describe('tunnel-availability', function () {
     );
   });
 
-  it('throws quickly when registry TCP port refuses connections', async function () {
-    const mod = await loadTunnelAvailability({
+  it('throws quickly when registry TCP port refuses connections', async function (t) {
+    const mod = await loadTunnelAvailability(t, {
       tunnelRegistryPort: String(REGISTRY_PORT),
       netMode: 'refuse',
     });
@@ -117,8 +119,8 @@ describe('tunnel-availability', function () {
     );
   });
 
-  it('throws when GET by UDID returns no entry', async function () {
-    const mod = await loadTunnelAvailability({
+  it('throws when GET by UDID returns no entry', async function (t) {
+    const mod = await loadTunnelAvailability(t, {
       tunnelRegistryPort: String(REGISTRY_PORT),
       tunnelApiClientMock: {
         getTunnelByUdid: async () => null,
@@ -131,8 +133,8 @@ describe('tunnel-availability', function () {
     );
   });
 
-  it('returns endpoint when GET by UDID returns an entry', async function () {
-    const mod = await loadTunnelAvailability({
+  it('returns endpoint when GET by UDID returns an entry', async function (t) {
+    const mod = await loadTunnelAvailability(t, {
       tunnelRegistryPort: String(REGISTRY_PORT),
       tunnelApiClientMock: {
         getTunnelByUdid: async () => ({
@@ -144,7 +146,7 @@ describe('tunnel-availability', function () {
     });
 
     const endpoint = await mod.getTunnelForDevice(TEST_UDID);
-    expect(endpoint).to.deep.equal({
+    assert.deepStrictEqual(endpoint, {
       host: 'fe80::1',
       port: 62078,
       udid: TEST_UDID,

@@ -1,7 +1,6 @@
+import assert from 'node:assert/strict';
 import {EventEmitter} from 'node:events';
 import {describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {decodeMessage} from '../../../src/lib/remote-xpc/xpc-protocol.js';
 import type {XPCDictionary} from '../../../src/lib/types.js';
@@ -61,14 +60,14 @@ describe('DeviceControlService', function () {
 
     const result = await service.rotate('left');
 
-    expect(fake.sentBodies[0]).to.deep.equal({
+    assert.deepStrictEqual(fake.sentBodies[0], {
       featureIdentifier: ORIENTATION_FEATURE,
       messageType: 'OrientationRequest',
       payload: {rotate: {_0: 'left'}},
     });
     // Raw message — not wrapped in the CoreDevice invocation envelope.
-    expect(fake.sentBodies[0]).to.not.have.property('CoreDevice.featureIdentifier');
-    expect(result).to.deep.equal(orientation);
+    assert.ok(!('CoreDevice.featureIdentifier' in fake.sentBodies[0]));
+    assert.deepStrictEqual(result, orientation);
   });
 
   it('rotate("right") sends the clockwise direction', async function () {
@@ -79,7 +78,7 @@ describe('DeviceControlService', function () {
 
     await service.rotate('right');
 
-    expect((fake.sentBodies[0].payload as XPCDictionary).rotate).to.deep.equal({
+    assert.deepStrictEqual((fake.sentBodies[0].payload as XPCDictionary).rotate, {
       _0: 'right',
     });
   });
@@ -95,8 +94,8 @@ describe('DeviceControlService', function () {
     } catch (error) {
       caught = error;
     }
-    expect(caught).to.be.instanceOf(TypeError);
-    expect(fake.sentBodies).to.have.length(0);
+    assert.ok(caught instanceof TypeError);
+    assert.strictEqual(fake.sentBodies.length, 0);
   });
 
   it('closes the active transport', async function () {
@@ -111,6 +110,6 @@ describe('DeviceControlService', function () {
       await service.close();
     }
 
-    expect(fake.closeCalls).to.equal(1);
+    assert.strictEqual(fake.closeCalls, 1);
   });
 });

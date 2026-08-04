@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {beforeEach, describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {createEd25519Signature, generateEd25519KeyPair} from '../../../../src/lib/apple-tv/encryption/ed25519.js';
 import {CryptographyError} from '../../../../src/lib/apple-tv/errors.js';
@@ -10,20 +9,20 @@ describe('Apple TV Encryption - Ed25519', function () {
     it('should generate a valid key pair', function () {
       const keyPair = generateEd25519KeyPair();
 
-      expect(keyPair).to.have.property('publicKey');
-      expect(keyPair).to.have.property('privateKey');
-      expect(keyPair.publicKey).to.be.instanceOf(Buffer);
-      expect(keyPair.privateKey).to.be.instanceOf(Buffer);
-      expect(keyPair.publicKey.length).to.equal(32);
-      expect(keyPair.privateKey.length).to.equal(32);
+      assert.ok('publicKey' in keyPair);
+      assert.ok('privateKey' in keyPair);
+      assert.ok(keyPair.publicKey instanceof Buffer);
+      assert.ok(keyPair.privateKey instanceof Buffer);
+      assert.strictEqual(keyPair.publicKey.length, 32);
+      assert.strictEqual(keyPair.privateKey.length, 32);
     });
 
     it('should generate different key pairs each time', function () {
       const keyPair1 = generateEd25519KeyPair();
       const keyPair2 = generateEd25519KeyPair();
 
-      expect(keyPair1.publicKey.equals(keyPair2.publicKey)).to.be.false;
-      expect(keyPair1.privateKey.equals(keyPair2.privateKey)).to.be.false;
+      assert.strictEqual(keyPair1.publicKey.equals(keyPair2.publicKey), false);
+      assert.strictEqual(keyPair1.privateKey.equals(keyPair2.privateKey), false);
     });
   });
 
@@ -39,8 +38,8 @@ describe('Apple TV Encryption - Ed25519', function () {
       const data = Buffer.from('Hello, World!', 'utf8');
       const signature = createEd25519Signature(data, validPrivateKey);
 
-      expect(signature).to.be.instanceOf(Buffer);
-      expect(signature.length).to.equal(64);
+      assert.ok(signature instanceof Buffer);
+      assert.strictEqual(signature.length, 64);
     });
 
     it('should create consistent signatures for same data and key', function () {
@@ -49,7 +48,7 @@ describe('Apple TV Encryption - Ed25519', function () {
       const signature1 = createEd25519Signature(data, validPrivateKey);
       const signature2 = createEd25519Signature(data, validPrivateKey);
 
-      expect(signature1.equals(signature2)).to.be.true;
+      assert.strictEqual(signature1.equals(signature2), true);
     });
 
     it('should create different signatures for different data', function () {
@@ -59,15 +58,15 @@ describe('Apple TV Encryption - Ed25519', function () {
       const signature1 = createEd25519Signature(data1, validPrivateKey);
       const signature2 = createEd25519Signature(data2, validPrivateKey);
 
-      expect(signature1.equals(signature2)).to.be.false;
+      assert.strictEqual(signature1.equals(signature2), false);
     });
 
     it('should throw when data is empty', function () {
       const emptyData = Buffer.alloc(0);
 
-      expect(() => createEd25519Signature(emptyData, validPrivateKey)).to.throw(
-        CryptographyError,
-        'Data to sign cannot be empty',
+      assert.throws(
+        () => createEd25519Signature(emptyData, validPrivateKey),
+        (err: any) => err instanceof CryptographyError && err.message.includes('Data to sign cannot be empty'),
       );
     });
 
@@ -75,7 +74,10 @@ describe('Apple TV Encryption - Ed25519', function () {
       const data = Buffer.from('test', 'utf8');
       const shortKey = Buffer.alloc(16);
 
-      expect(() => createEd25519Signature(data, shortKey)).to.throw(CryptographyError, 'Private key must be 32 bytes');
+      assert.throws(
+        () => createEd25519Signature(data, shortKey),
+        (err: any) => err instanceof CryptographyError && err.message.includes('Private key must be 32 bytes'),
+      );
     });
   });
 });

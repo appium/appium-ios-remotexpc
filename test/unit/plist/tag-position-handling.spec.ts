@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {parsePlist as parseXmlPlist} from '../../../src/lib/plist/plist-parser.js';
 import {cleanXmlWithReplacementChar, findTagsAroundPosition} from '../../../src/lib/plist/utils.js';
@@ -14,13 +13,13 @@ describe('Tag Position Handling', function () {
       const position = xml.indexOf('text') + 2;
       const {beforeTag, afterTag} = findTagsAroundPosition(xml, position);
 
-      expect(beforeTag).to.not.be.null;
-      expect(beforeTag?.tagName).to.equal('child');
-      expect(beforeTag?.isOpening).to.be.true;
+      assert.notStrictEqual(beforeTag, null);
+      assert.strictEqual(beforeTag?.tagName, 'child');
+      assert.strictEqual(beforeTag?.isOpening, true);
 
-      expect(afterTag).to.not.be.null;
-      expect(afterTag?.tagName).to.equal('child');
-      expect(afterTag?.isOpening).to.be.false;
+      assert.notStrictEqual(afterTag, null);
+      assert.strictEqual(afterTag?.tagName, 'child');
+      assert.strictEqual(afterTag?.isOpening, false);
     });
 
     it('should handle the case where prevTagPos >= 0 && nextTagPos > prevTagPos', function () {
@@ -29,17 +28,17 @@ describe('Tag Position Handling', function () {
       const position = xml.indexOf('</child>') + '</child>'.length;
       const {beforeTag, afterTag} = findTagsAroundPosition(xml, position);
 
-      expect(beforeTag).to.not.be.null;
-      expect(beforeTag?.tagName).to.equal('child');
-      expect(beforeTag?.isOpening).to.be.false;
+      assert.notStrictEqual(beforeTag, null);
+      assert.strictEqual(beforeTag?.tagName, 'child');
+      assert.strictEqual(beforeTag?.isOpening, false);
 
-      expect(afterTag).to.not.be.null;
-      expect(afterTag?.tagName).to.equal('next');
-      expect(afterTag?.isOpening).to.be.true;
+      assert.notStrictEqual(afterTag, null);
+      assert.strictEqual(afterTag?.tagName, 'next');
+      assert.strictEqual(afterTag?.isOpening, true);
 
-      expect(beforeTag?.end).to.be.lessThanOrEqual(position);
-      expect(afterTag?.start).to.be.greaterThan(position);
-      expect(afterTag?.start).to.be.greaterThan(beforeTag?.end || 0);
+      assert.ok(beforeTag?.end <= position);
+      assert.ok(afterTag?.start > position);
+      assert.ok(afterTag?.start > (beforeTag?.end || 0));
     });
 
     it('should handle the case where there is a replacement character between tags', function () {
@@ -48,18 +47,18 @@ describe('Tag Position Handling', function () {
       const position = xml.indexOf('�');
       const {beforeTag, afterTag} = findTagsAroundPosition(xml, position);
 
-      expect(beforeTag).to.not.be.null;
-      expect(beforeTag?.tagName).to.equal('child');
-      expect(beforeTag?.isOpening).to.be.false;
+      assert.notStrictEqual(beforeTag, null);
+      assert.strictEqual(beforeTag?.tagName, 'child');
+      assert.strictEqual(beforeTag?.isOpening, false);
 
-      expect(afterTag).to.not.be.null;
-      expect(afterTag?.tagName).to.equal('next');
-      expect(afterTag?.isOpening).to.be.true;
+      assert.notStrictEqual(afterTag, null);
+      assert.strictEqual(afterTag?.tagName, 'next');
+      assert.strictEqual(afterTag?.isOpening, true);
 
       const cleanedXml = cleanXmlWithReplacementChar(xml, position);
 
-      expect(cleanedXml).to.not.include('�');
-      expect(cleanedXml).to.equal('<root><child>text</child><next>more</next></root>');
+      assert.ok(!cleanedXml.includes('�'));
+      assert.strictEqual(cleanedXml, '<root><child>text</child><next>more</next></root>');
     });
   });
 
@@ -69,9 +68,9 @@ describe('Tag Position Handling', function () {
 
       try {
         parseXmlPlist(xml);
-        expect.fail('Should have thrown an error for unclosed tag');
+        assert.fail('Should have thrown an error for unclosed tag');
       } catch (error) {
-        expect(error).to.exist;
+        assert.ok(error !== null && error !== undefined);
       }
     });
 
@@ -80,7 +79,7 @@ describe('Tag Position Handling', function () {
         '<?xml version="1.0" encoding="UTF-8"?><plist><dict><key>test</key><string>value</string></dict></plist>extra content';
 
       const result = parseXmlPlist(xml) as PlistDictionary;
-      expect(result).to.have.property('test', 'value');
+      assert.strictEqual(result.test, 'value');
     });
   });
 });

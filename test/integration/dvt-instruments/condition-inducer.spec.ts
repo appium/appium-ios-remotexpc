@@ -1,7 +1,7 @@
+import assert from 'node:assert/strict';
 import {after, before, describe, it} from 'node:test';
 
 import {logger} from '@appium/support';
-import {expect} from 'chai';
 
 import type {ConditionGroup, DVTInstruments} from '../../../src/index.js';
 import * as Services from '../../../src/services.js';
@@ -36,19 +36,19 @@ describe('Condition Inducer Instrument', {timeout: 30000}, function () {
     it('should list all available condition inducers', async () => {
       const groups: ConditionGroup[] = await dvtServiceConnection!.conditionInducer.list();
 
-      expect(groups).to.be.an('array');
-      expect(groups.length).to.be.greaterThan(0);
+      assert.ok(Array.isArray(groups));
+      assert.ok(groups.length > 0);
 
       // Verify structure
       for (const group of groups) {
-        expect(group).to.have.property('identifier');
-        expect(group.identifier).to.be.a('string');
+        assert.ok('identifier' in group);
+        assert.ok(typeof group.identifier === 'string');
 
         if (group.profiles) {
-          expect(group.profiles).to.be.an('array');
+          assert.ok(Array.isArray(group.profiles));
           for (const profile of group.profiles) {
-            expect(profile).to.have.property('identifier');
-            expect(profile.identifier).to.be.a('string');
+            assert.ok('identifier' in profile);
+            assert.ok(typeof profile.identifier === 'string');
           }
         }
       }
@@ -63,7 +63,7 @@ describe('Condition Inducer Instrument', {timeout: 30000}, function () {
           group.identifier.toLowerCase().includes('network') ||
           (group.profiles && group.profiles.some((p) => p.identifier.toLowerCase().includes('network'))),
       );
-      expect(hasNetworkConditions).to.be.true;
+      assert.strictEqual(hasNetworkConditions, true);
     });
   });
 
@@ -83,7 +83,7 @@ describe('Condition Inducer Instrument', {timeout: 30000}, function () {
       const networkGroup = groups.find((g) => g.identifier === 'SlowNetworkCondition');
       const networkProfileIdentifierStatus = networkGroup ? networkGroup.isActive : false;
 
-      expect(networkProfileIdentifierStatus).to.be.true;
+      assert.strictEqual(networkProfileIdentifierStatus, true);
 
       await dvtServiceConnection!.conditionInducer.disable();
 
@@ -93,16 +93,16 @@ describe('Condition Inducer Instrument', {timeout: 30000}, function () {
       const networkProfileIdentifierStatusAfterDisable = networkGroupAfterDisable
         ? networkGroupAfterDisable.isActive
         : false;
-      expect(networkProfileIdentifierStatusAfterDisable).to.be.false;
+      assert.strictEqual(networkProfileIdentifierStatusAfterDisable, false);
     });
 
     it('should handle invalid profile identifier gracefully', async () => {
       try {
         await dvtServiceConnection!.conditionInducer.set('invalid.profile.identifier.12345');
-        expect.fail('Should have thrown an error for invalid profile');
+        assert.fail('Should have thrown an error for invalid profile');
       } catch (error: any) {
-        expect(error).to.exist;
-        expect(error.message).to.include('Invalid profile identifier');
+        assert.ok(error !== null && error !== undefined);
+        assert.ok(error.message.includes('Invalid profile identifier'));
       }
     });
   });

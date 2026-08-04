@@ -1,6 +1,5 @@
+import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
-
-import {expect} from 'chai';
 
 import {
   type ChaCha20Poly1305Params,
@@ -27,8 +26,8 @@ describe('Apple TV Encryption - ChaCha20-Poly1305', function () {
 
       const result = encryptChaCha20Poly1305(params);
 
-      expect(result).to.be.instanceOf(Buffer);
-      expect(result.length).to.equal(plaintext.length + 16);
+      assert.ok(result instanceof Buffer);
+      assert.strictEqual(result.length, plaintext.length + 16);
     });
 
     it('should encrypt plaintext with AAD', function () {
@@ -41,8 +40,8 @@ describe('Apple TV Encryption - ChaCha20-Poly1305', function () {
 
       const result = encryptChaCha20Poly1305(params);
 
-      expect(result).to.be.instanceOf(Buffer);
-      expect(result.length).to.equal(plaintext.length + 16);
+      assert.ok(result instanceof Buffer);
+      assert.strictEqual(result.length, plaintext.length + 16);
     });
 
     it('should throw when plaintext is missing', function () {
@@ -51,7 +50,10 @@ describe('Apple TV Encryption - ChaCha20-Poly1305', function () {
         nonce: validNonce,
       };
 
-      expect(() => encryptChaCha20Poly1305(params)).to.throw(CryptographyError, 'Plaintext is required for encryption');
+      assert.throws(
+        () => encryptChaCha20Poly1305(params),
+        (err: any) => err instanceof CryptographyError && err.message.includes('Plaintext is required for encryption'),
+      );
     });
 
     it('should throw when key is wrong size', function () {
@@ -61,7 +63,10 @@ describe('Apple TV Encryption - ChaCha20-Poly1305', function () {
         nonce: validNonce,
       };
 
-      expect(() => encryptChaCha20Poly1305(params)).to.throw(CryptographyError, 'Key must be 32 bytes');
+      assert.throws(
+        () => encryptChaCha20Poly1305(params),
+        (err: any) => err instanceof CryptographyError && err.message.includes('Key must be 32 bytes'),
+      );
     });
 
     it('should throw when nonce is wrong size', function () {
@@ -71,7 +76,10 @@ describe('Apple TV Encryption - ChaCha20-Poly1305', function () {
         nonce: Buffer.alloc(8),
       };
 
-      expect(() => encryptChaCha20Poly1305(params)).to.throw(CryptographyError, 'Nonce must be 12 bytes');
+      assert.throws(
+        () => encryptChaCha20Poly1305(params),
+        (err: any) => err instanceof CryptographyError && err.message.includes('Nonce must be 12 bytes'),
+      );
     });
   });
 
@@ -89,8 +97,8 @@ describe('Apple TV Encryption - ChaCha20-Poly1305', function () {
         nonce: validNonce,
       });
 
-      expect(decrypted).to.be.instanceOf(Buffer);
-      expect(decrypted.equals(plaintext)).to.be.true;
+      assert.ok(decrypted instanceof Buffer);
+      assert.strictEqual(decrypted.equals(plaintext), true);
     });
 
     it('should decrypt ciphertext with AAD', function () {
@@ -108,7 +116,7 @@ describe('Apple TV Encryption - ChaCha20-Poly1305', function () {
         aad,
       });
 
-      expect(decrypted.equals(plaintext)).to.be.true;
+      assert.strictEqual(decrypted.equals(plaintext), true);
     });
 
     it('should fail to decrypt with wrong key', function () {
@@ -120,13 +128,15 @@ describe('Apple TV Encryption - ChaCha20-Poly1305', function () {
 
       const wrongKey = Buffer.alloc(32, 0x99);
 
-      expect(() =>
-        decryptChaCha20Poly1305({
-          ciphertext: encrypted,
-          key: wrongKey,
-          nonce: validNonce,
-        }),
-      ).to.throw(CryptographyError, 'ChaCha20-Poly1305 decryption failed');
+      assert.throws(
+        () =>
+          decryptChaCha20Poly1305({
+            ciphertext: encrypted,
+            key: wrongKey,
+            nonce: validNonce,
+          }),
+        (err: any) => err instanceof CryptographyError && err.message.includes('ChaCha20-Poly1305 decryption failed'),
+      );
     });
 
     it('should throw when ciphertext is too short', function () {
@@ -136,9 +146,11 @@ describe('Apple TV Encryption - ChaCha20-Poly1305', function () {
         nonce: validNonce,
       };
 
-      expect(() => decryptChaCha20Poly1305(params)).to.throw(
-        CryptographyError,
-        'Ciphertext too short to contain authentication tag',
+      assert.throws(
+        () => decryptChaCha20Poly1305(params),
+        (err: any) =>
+          err instanceof CryptographyError &&
+          err.message.includes('Ciphertext too short to contain authentication tag'),
       );
     });
 
@@ -155,7 +167,7 @@ describe('Apple TV Encryption - ChaCha20-Poly1305', function () {
         nonce: appleTVNonce,
       });
 
-      expect(decrypted.equals(plaintext)).to.be.true;
+      assert.strictEqual(decrypted.equals(plaintext), true);
     });
 
     it('should decrypt large ciphertext like Apple TV M6 message', function () {
@@ -167,7 +179,7 @@ describe('Apple TV Encryption - ChaCha20-Poly1305', function () {
         nonce: appleTVNonce,
       });
 
-      expect(encrypted.length).to.equal(428);
+      assert.strictEqual(encrypted.length, 428);
 
       const decrypted = decryptChaCha20Poly1305({
         ciphertext: encrypted,
@@ -175,7 +187,7 @@ describe('Apple TV Encryption - ChaCha20-Poly1305', function () {
         nonce: appleTVNonce,
       });
 
-      expect(decrypted.equals(largePlaintext)).to.be.true;
+      assert.strictEqual(decrypted.equals(largePlaintext), true);
     });
 
     it('should handle decryption with empty AAD when encrypted without AAD', function () {
@@ -192,7 +204,7 @@ describe('Apple TV Encryption - ChaCha20-Poly1305', function () {
         aad: Buffer.alloc(0),
       });
 
-      expect(decrypted.equals(plaintext)).to.be.true;
+      assert.strictEqual(decrypted.equals(plaintext), true);
     });
 
     it('should fail to decrypt when AAD is missing but was used in encryption', function () {
@@ -203,13 +215,15 @@ describe('Apple TV Encryption - ChaCha20-Poly1305', function () {
         aad,
       });
 
-      expect(() =>
-        decryptChaCha20Poly1305({
-          ciphertext: encrypted,
-          key: validKey,
-          nonce: validNonce,
-        }),
-      ).to.throw(CryptographyError, 'ChaCha20-Poly1305 decryption failed');
+      assert.throws(
+        () =>
+          decryptChaCha20Poly1305({
+            ciphertext: encrypted,
+            key: validKey,
+            nonce: validNonce,
+          }),
+        (err: any) => err instanceof CryptographyError && err.message.includes('ChaCha20-Poly1305 decryption failed'),
+      );
     });
 
     it('should handle shared key scenario for encryption and decryption', function () {
@@ -227,7 +241,7 @@ describe('Apple TV Encryption - ChaCha20-Poly1305', function () {
         nonce: appleTVNonce,
       });
 
-      expect(decrypted.equals(plaintext)).to.be.true;
+      assert.strictEqual(decrypted.equals(plaintext), true);
     });
   });
 });
