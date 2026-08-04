@@ -1,4 +1,4 @@
-import {rm, stat} from 'node:fs/promises';
+import {readFile, rm, stat} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {after, before, describe, it} from 'node:test';
@@ -36,6 +36,68 @@ import {requireDeviceUdid} from './helpers/device.js';
  * surfaced cleanly instead of failing, so the suite is meaningful on both
  * sides of the version gate.
  */
+/**
+ * Pulls the AudioSpecificConfig out of an MP4's `esds` box by walking the
+ * MPEG-4 descriptor chain: ES_Descriptor (0x03) -> DecoderConfigDescriptor
+ * (0x04) -> DecoderSpecificInfo (0x05), whose payload is the config.
+ */
+function extractAudioSpecificConfig(file: Buffer): Buffer | undefined {
+  const esdsIndex = file.indexOf('esds', 0, 'ascii');
+  if (esdsIndex < 0) {
+    return undefined;
+  }
+  // Skip the box type and its 4-byte version/flags to reach the descriptors.
+  let offset = esdsIndex + 4 + 4;
+
+  const readLength = (): number => {
+    let value = 0;
+    for (let i = 0; i < 4; i++) {
+      const byte = file[offset++];
+      value = (value << 7) | (byte & 0x7f);
+      if ((byte & 0x80) === 0) {
+        break;
+      }
+    }
+    return value;
+  };
+
+  while (offset < file.length) {
+    const tag = file[offset++];
+    const length = readLength();
+    if (tag === 0x05) {
+      return file.subarray(offset, offset + length);
+    }
+    if (tag === 0x03) {
+      offset += 3; // ES_ID (2) + flags (1), then nested descriptors follow
+      continue;
+    }
+    if (tag === 0x04) {
+      offset += 13; // objectTypeIndication, streamType, buffer/bitrate fields
+      continue;
+    }
+    offset += length; // an descriptor we do not need to descend into
+  }
+  return undefined;
+}
+
+/** Reads the leading fields of an AudioSpecificConfig. */
+function parseAudioSpecificConfig(asc: Buffer): {audioObjectType: number; frameLengthFlag: number} {
+  const bits = [...asc].map((b) => b.toString(2).padStart(8, '0')).join('');
+  let pos = 0;
+  const take = (n: number): number => {
+    const value = parseInt(bits.slice(pos, pos + n), 2);
+    pos += n;
+    return value;
+  };
+  let audioObjectType = take(5);
+  if (audioObjectType === 31) {
+    audioObjectType = 32 + take(6);
+  }
+  take(4); // samplingFrequencyIndex
+  take(4); // channelConfiguration
+  return {audioObjectType, frameLengthFlag: take(1)};
+}
+
 describe('DisplayService', {timeout: 120000}, function () {
   let service: DisplayService | null = null;
   let streamingSupported = false;
@@ -266,17 +328,21 @@ describe('DisplayService', {timeout: 120000}, function () {
 
         const written = await stat(outputPath);
         expect(written.size).to.equal(result.bytesWritten);
+
+        const file = await readFile(outputPath);
         // Must be a real MP4: 'ftyp' sits at offset 4 of every MP4 file.
-        const {open} = await import('node:fs/promises');
-        const handle = await open(outputPath, 'r');
-        try {
-          const header = Buffer.alloc(12);
-          await handle.read(header, 0, 12, 0);
-          expect(header.toString('ascii', 4, 8)).to.equal('ftyp');
-          expect(header.toString('ascii', 8, 12)).to.equal('M4A ');
-        } finally {
-          await handle.close();
-        }
+        expect(file.toString('ascii', 4, 8)).to.equal('ftyp');
+        expect(file.toString('ascii', 8, 12)).to.equal('M4A ');
+
+        // The esds must declare 480-sample frames. The device's own handshake
+        // cookie says 512, and a file carrying that claim is rejected by every
+        // standard decoder (ffmpeg errors, AudioToolbox refuses) — so this is
+        // what makes the recording usable at all, and it must not regress.
+        const asc = extractAudioSpecificConfig(file);
+        expect(asc, 'esds should carry an AudioSpecificConfig').to.not.equal(undefined);
+        const {audioObjectType, frameLengthFlag} = parseAudioSpecificConfig(asc!);
+        expect(audioObjectType, 'AOT 39 = ER AAC ELD').to.equal(39);
+        expect(frameLengthFlag, '1 = 480-sample frames').to.equal(1);
       } finally {
         await rm(outputPath, {force: true});
       }
@@ -312,6 +378,47 @@ describe('DisplayService', {timeout: 120000}, function () {
         expect(result.ffmpegCommand).to.contain(audioPath);
         expect(result.ffmpegCommand).to.contain(`-r ${result.video.frameRate}`);
         expect(result.ffmpegCommand).to.contain('-fflags +genpts');
+      } finally {
+        await rm(videoPath, {force: true});
+        await rm(audioPath, {force: true});
+      }
+    });
+  });
+
+  describe('long recordings', function () {
+    // NOTE: this test deliberately records for 25s and so dominates the suite's
+    // runtime (the rest finishes in a few seconds). That length is the point:
+    // the device reaps a media session at its RTCPTimeoutInterval of 20s unless
+    // receiver reports keep arriving, so nothing shorter can detect a broken
+    // keepalive. Every other test here would still pass with RTCP entirely
+    // removed. Do not shorten it below ~22s.
+    it('either keeps audio alive past the 20s RTCP timeout or reports the iOS 27 requirement', async function () {
+      const videoPath = join(tmpdir(), `remotexpc-long-${process.pid}.h265`);
+      const audioPath = join(tmpdir(), `remotexpc-long-${process.pid}.m4a`);
+      try {
+        let result;
+        try {
+          result = await recordScreenAndAudioToFiles(service!, {videoPath, audioPath, durationMs: 25_000});
+        } catch (error) {
+          expect(streamingSupported).to.equal(false);
+          expect((error as Error).message).to.contain('iOS 27');
+          return;
+        }
+
+        // Without RTCP receiver reports both streams stop dead at 20s: audio
+        // would land at ~20.0s against a 25s window.
+        expect(result.audio.durationMs, 'audio should outlive the 20s timeout').to.be.greaterThan(22_000);
+        expect(result.video.durationMs, 'video window should be the full duration').to.be.greaterThan(24_000);
+
+        // The two tracks should stay in step; a large shortfall means a session
+        // was reaped.
+        const skewMs = Math.abs(result.video.durationMs - result.audio.durationMs);
+        expect(skewMs, `video/audio duration skew was ${skewMs.toFixed(0)}ms`).to.be.lessThan(2000);
+
+        // Video must keep flowing too — the reap affects both streams.
+        expect(result.video.framesWritten).to.be.greaterThan(0);
+        expect(result.video.stats.packetsLost).to.equal(0);
+        expect(result.audio.stats.packetsLost).to.equal(0);
       } finally {
         await rm(videoPath, {force: true});
         await rm(audioPath, {force: true});
