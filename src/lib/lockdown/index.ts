@@ -18,7 +18,8 @@ const deviceManagerLog = getLogger('DeviceManager');
 const LABEL = 'appium-internal';
 const DEFAULT_TIMEOUT = 5000;
 const DEFAULT_LOCKDOWN_PORT = 62078;
-const DEFAULT_RELAY_PORT = 2222;
+/** 0 lets the OS assign a free ephemeral port, so concurrent relays cannot collide. */
+const DEFAULT_RELAY_PORT = 0;
 /** RSD service name for lockdownd over a RemoteXPC tunnel (e.g. Apple TV Wi‑Fi). */
 const LOCKDOWN_REMOTE_UNTRUSTED = 'com.apple.mobile.lockdown.remote.untrusted';
 

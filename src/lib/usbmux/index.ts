@@ -358,7 +358,7 @@ export class Usbmux extends BaseSocketService {
 export class RelayService {
   private readonly deviceID: string | number;
   private readonly devicePort: number;
-  private readonly relayPort: number;
+  private relayPort: number;
   private usbmuxClient: Socket | null;
   private server: Server | null;
 
@@ -366,9 +366,10 @@ export class RelayService {
    * Creates a new RelayService instance
    * @param deviceID - The device ID to connect to
    * @param devicePort - The port on the device to connect to
-   * @param relayPort - The local port to use for the relay server
+   * @param relayPort - The local port to use for the relay server. Defaults to 0, which lets the
+   * operating system assign a free ephemeral port so that concurrent relays cannot collide.
    */
-  constructor(deviceID: string | number, devicePort: number, relayPort: number = 2222) {
+  constructor(deviceID: string | number, devicePort: number, relayPort: number = 0) {
     this.deviceID = deviceID;
     this.devicePort = devicePort;
     this.relayPort = relayPort;
@@ -413,6 +414,12 @@ export class RelayService {
       }
 
       this.server.listen(this.relayPort, () => {
+        // Read back the port the OS actually assigned, so connect() dials the right one when
+        // relayPort is 0.
+        const address = this.server?.address();
+        if (address && typeof address === 'object') {
+          this.relayPort = address.port;
+        }
         log.info(`Relay server running on localhost:${this.relayPort}`);
         resolve();
       });
@@ -549,14 +556,10 @@ export async function createUsbmux(opts: Partial<SocketOptions> = {}): Promise<U
  * Connects to a device and sets up a relay service in one operation
  * @param deviceID - The device ID to connect to
  * @param port - The port on the device to connect to
- * @param relayPort - The local port to use for the relay server
+ * @param relayPort - The local port to use for the relay server. Defaults to 0 (ephemeral).
  * @returns Promise that resolves with a connected socket
  */
-export async function connectAndRelay(
-  deviceID: string | number,
-  port: number,
-  relayPort: number = 2222,
-): Promise<Socket> {
+export async function connectAndRelay(deviceID: string | number, port: number, relayPort: number = 0): Promise<Socket> {
   // Create and start the relay service
   const relay = new RelayService(deviceID, port, relayPort);
   let socket: Socket | undefined;
