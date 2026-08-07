@@ -31,7 +31,7 @@
   },
   "scripts": {
     "build:es": "tsc",
-    "build": "run-s clean:* build:es",
+    "build": "npm run clean:build && npm run build:es",
     "clean:build": "rimraf ./build",
     "format:check": "oxfmt -c oxfmt.config.mjs --check .",
     "format": "oxfmt -c oxfmt.config.mjs .",
@@ -96,8 +96,7 @@
     "axios": "^1.15.1",
     "commander": "^14.0.1",
     "minimatch": "^10.1.1",
-    "node-devicectl": "^1.2.0",
-    "npm-run-all2": "^8.0.4",
+    "node-devicectl": "^2.0.0",
     "path-to-regexp": "^8.3.0"
   },
   "devDependencies": {
