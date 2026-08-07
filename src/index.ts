@@ -22,6 +22,7 @@ export type {
   UpstreamSocketConnector,
 } from './lib/port-forwarding/index.js';
 export type {RsdServiceCatalogClient} from './lib/remote-xpc/rsd-service-catalog-client.js';
+export {XPCUUID} from './lib/remote-xpc/xpc-uuid.js';
 /**
  * @deprecated Use RsdServiceCatalogClient instead.
  */
@@ -74,6 +75,83 @@ export type {
   SetColorFilterOptions,
   UserInterfaceStyle,
 } from './services/ios/configuration/index.js';
+export {DisplayService, REMOTE_CONTROL_UNSUPPORTED_ERROR_CODE} from './services/ios/display/index.js';
+export type {
+  MediaStreamAnswer,
+  MediaStreamEndpoint,
+  MediaStreamServerStatus,
+  MediaSupportInfo,
+  StartAudioStreamOptions,
+  StartVideoStreamOptions,
+} from './services/ios/display/index.js';
+export {ScreenStreamCapture, recordScreenToFile} from './services/ios/display/video/screen-stream-capture.js';
+export type {
+  RecordScreenOptions,
+  RecordScreenResult,
+  ScreenStreamCaptureOptions,
+} from './services/ios/display/video/screen-stream-capture.js';
+export {AccessUnitAssembler} from './services/ios/display/video/access-unit-assembler.js';
+export type {
+  HevcParameterSets,
+  ScreenStreamStats,
+  VideoAccessUnit,
+} from './services/ios/display/video/access-unit-assembler.js';
+export {AudioStreamCapture, recordAudioToFile} from './services/ios/display/audio/audio-stream-capture.js';
+export type {
+  AudioAccessUnit,
+  AudioStreamCaptureOptions,
+  AudioStreamStats,
+  RecordAudioOptions,
+  RecordAudioResult,
+} from './services/ios/display/audio/audio-stream-capture.js';
+export {recordScreenAndAudioToFiles} from './services/ios/display/recording/av-capture.js';
+export type {
+  RecordScreenAndAudioOptions,
+  RecordScreenAndAudioResult,
+} from './services/ios/display/recording/av-capture.js';
+export {ffmpegMuxCommandBuilder, formatMuxCommand} from './services/ios/display/recording/mux-command.js';
+export type {MuxCommand, MuxCommandBuilder, MuxInput} from './services/ios/display/recording/mux-command.js';
+export {
+  AAC_ELD_ASC_48K_STEREO_480,
+  AAC_ELD_ASC_DEVICE_ADVERTISED,
+  AAC_ELD_CHANNELS,
+  AAC_ELD_FORMAT,
+  AAC_ELD_FRAMES_PER_PACKET,
+  AAC_ELD_RTP_PAYLOAD_TYPE,
+  AAC_ELD_SAMPLE_RATE,
+  aacEldDurationMs,
+} from './services/ios/display/audio/aac-eld.js';
+export type {AacEldFormat} from './services/ios/display/audio/aac-eld.js';
+export {M4aFileWriter, buildM4a} from './services/ios/display/audio/m4a-writer.js';
+export type {BuildM4aOptions, M4aFileWriterResult} from './services/ios/display/audio/m4a-writer.js';
+export {
+  HevcDepacketizer,
+  HevcNalType,
+  buildHevcDecoderConfigurationRecord,
+  hevcCodecStringFromSps,
+  isKeyNalType,
+  nalTypeOf,
+  toAnnexB,
+  toLengthPrefixed,
+} from './services/ios/display/video/hevc.js';
+export {UdpMediaReceiver, isNextSequence, parseRtpPacket} from './services/ios/display/transport/rtp.js';
+export type {RtpPacket, UdpMediaReceiverOptions} from './services/ios/display/transport/rtp.js';
+export {PacketLossReporter} from './services/ios/display/transport/packet-loss-reporter.js';
+export type {PacketLossReporterOptions} from './services/ios/display/transport/packet-loss-reporter.js';
+export {
+  buildMediaBlobAudio,
+  buildMediaBlobVideo,
+  buildNegotiatorOfferAudio,
+  buildNegotiatorOfferVideo,
+  buildRemoteEndpointInfo,
+} from './services/ios/display/negotiation/media-stream-offer.js';
+export type {
+  AudioMediaBlobOptions,
+  HostEndpointIdentity,
+  NegotiatorOfferOptions,
+  VideoMediaBlobOptions,
+} from './services/ios/display/negotiation/media-stream-offer.js';
+
 export type {SyslogEntry, SyslogLabel, SyslogLogLevel} from './services/ios/syslog-service/syslog-entry-parser.js';
 
 export type {

@@ -199,6 +199,18 @@ export type PlistMessage = PlistDictionary;
 export type EmptyObject = Record<string, never>;
 
 /**
+ * A 16-byte UUID value in the XPC protocol (`XPC_TYPE_UUID`).
+ *
+ * XPC distinguishes a UUID from arbitrary `data`, and some services reject a
+ * `data` value where a UUID is expected, so UUIDs must be marked explicitly on
+ * encode. Implemented by {@link XPCUUID}.
+ */
+export interface IXPCUUID {
+  /** The raw 16 bytes, in big-endian (RFC 4122 textual) order. */
+  readonly uuidBytes: Buffer;
+}
+
+/**
  * Represents a value that can be encoded in XPC protocol
  */
 export type XPCValue =
@@ -209,6 +221,7 @@ export type XPCValue =
   | Date
   | Buffer
   | Uint8Array
+  | IXPCUUID
   | XPCArray
   | XPCDictionary
   | null;
