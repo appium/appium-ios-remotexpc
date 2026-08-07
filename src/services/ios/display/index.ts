@@ -341,6 +341,12 @@ export class DisplayService extends CoreDeviceService {
     return host;
   }
 
+  /**
+   * Assembles the fields both stream types share.
+   *
+   * `receiverPort` and `timeout` must be `BigInt`, and it is about wire typing
+   * rather than magnitude — the device does treat the port as a `UInt16`.
+   */
   private buildCommonStreamInput(
     endpoint: MediaStreamEndpoint,
     negotiatorOffer: Buffer,
