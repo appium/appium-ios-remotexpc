@@ -1,3 +1,9 @@
+## [5.13.4](https://github.com/appium/appium-ios-remotexpc/compare/v5.13.3...v5.13.4) (2026-08-07)
+
+### Bug Fixes
+
+* use an ephemeral relay port instead of a hardcoded 2222 ([#286](https://github.com/appium/appium-ios-remotexpc/issues/286)) ([7f47254](https://github.com/appium/appium-ios-remotexpc/commit/7f472541617219140cbea5c84e5f20f37e33736f))
+
 ## [5.13.3](https://github.com/appium/appium-ios-remotexpc/compare/v5.13.2...v5.13.3) (2026-08-04)
 
 ### Miscellaneous Chores
