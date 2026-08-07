@@ -11,8 +11,8 @@
  * The packet is an RTCP compound of a Receiver Report (RFC 3550 §6.4.2) and a
  * minimal SDES chunk (§6.5), matching what Xcode's mirror sends.
  */
-import {getLogger} from '../../../lib/logger.js';
-import type {XPCDictionary} from '../../../lib/types.js';
+import {getLogger} from '../../../../lib/logger.js';
+import type {XPCDictionary} from '../../../../lib/types.js';
 import type {UdpMediaReceiver} from './rtp.js';
 
 const log = getLogger('Rtcp');

@@ -5,7 +5,7 @@
  */
 import {type Socket, createSocket} from 'node:dgram';
 
-import {getLogger} from '../../../lib/logger.js';
+import {getLogger} from '../../../../lib/logger.js';
 
 const log = getLogger('MediaReceiver');
 

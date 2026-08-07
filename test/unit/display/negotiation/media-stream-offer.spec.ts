@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
 import {inflateSync} from 'node:zlib';
 
-import {parseBinaryPlist} from '../../../src/lib/plist/binary-plist-parser.js';
+import {parseBinaryPlist} from '../../../../src/lib/plist/binary-plist-parser.js';
 import {
   buildMediaBlobAudio,
   buildMediaBlobVideo,
@@ -11,7 +11,7 @@ import {
   buildRemoteEndpointInfo,
   newCallId,
   newSessionId,
-} from '../../../src/services/ios/display/media-stream-offer.js';
+} from '../../../../src/services/ios/display/negotiation/media-stream-offer.js';
 
 /**
  * Templates captured from a real Xcode screen-mirroring offer. These are the

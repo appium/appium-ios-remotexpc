@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
 
-import type {XPCDictionary} from '../../../src/lib/types.js';
+import type {XPCDictionary} from '../../../../src/lib/types.js';
 import {
   RtcpKeepalive,
   type RtcpStreamIdentity,
   buildReceiverReport,
   rtcpIdentityFromStreamConfig,
-} from '../../../src/services/ios/display/rtcp.js';
-import type {UdpMediaReceiver} from '../../../src/services/ios/display/rtp.js';
+} from '../../../../src/services/ios/display/transport/rtcp.js';
+import type {UdpMediaReceiver} from '../../../../src/services/ios/display/transport/rtp.js';
 
 const IDENTITY: RtcpStreamIdentity = {
   localSsrc: 0x11223344,

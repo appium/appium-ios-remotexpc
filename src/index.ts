@@ -84,28 +84,33 @@ export type {
   StartAudioStreamOptions,
   StartVideoStreamOptions,
 } from './services/ios/display/index.js';
-export {ScreenStreamCapture, recordScreenToFile} from './services/ios/display/screen-stream-capture.js';
+export {ScreenStreamCapture, recordScreenToFile} from './services/ios/display/video/screen-stream-capture.js';
 export type {
   RecordScreenOptions,
   RecordScreenResult,
   ScreenStreamCaptureOptions,
-} from './services/ios/display/screen-stream-capture.js';
-export {AccessUnitAssembler} from './services/ios/display/access-unit-assembler.js';
+} from './services/ios/display/video/screen-stream-capture.js';
+export {AccessUnitAssembler} from './services/ios/display/video/access-unit-assembler.js';
 export type {
   HevcParameterSets,
   ScreenStreamStats,
   VideoAccessUnit,
-} from './services/ios/display/access-unit-assembler.js';
-export {AudioStreamCapture, recordAudioToFile} from './services/ios/display/audio-stream-capture.js';
+} from './services/ios/display/video/access-unit-assembler.js';
+export {AudioStreamCapture, recordAudioToFile} from './services/ios/display/audio/audio-stream-capture.js';
 export type {
   AudioAccessUnit,
   AudioStreamCaptureOptions,
   AudioStreamStats,
   RecordAudioOptions,
   RecordAudioResult,
-} from './services/ios/display/audio-stream-capture.js';
-export {recordScreenAndAudioToFiles} from './services/ios/display/av-capture.js';
-export type {RecordScreenAndAudioOptions, RecordScreenAndAudioResult} from './services/ios/display/av-capture.js';
+} from './services/ios/display/audio/audio-stream-capture.js';
+export {recordScreenAndAudioToFiles} from './services/ios/display/recording/av-capture.js';
+export type {
+  RecordScreenAndAudioOptions,
+  RecordScreenAndAudioResult,
+} from './services/ios/display/recording/av-capture.js';
+export {ffmpegMuxCommandBuilder, formatMuxCommand} from './services/ios/display/recording/mux-command.js';
+export type {MuxCommand, MuxCommandBuilder, MuxInput} from './services/ios/display/recording/mux-command.js';
 export {
   AAC_ELD_ASC_48K_STEREO_480,
   AAC_ELD_ASC_DEVICE_ADVERTISED,
@@ -115,10 +120,10 @@ export {
   AAC_ELD_RTP_PAYLOAD_TYPE,
   AAC_ELD_SAMPLE_RATE,
   aacEldDurationMs,
-} from './services/ios/display/aac-eld.js';
-export type {AacEldFormat} from './services/ios/display/aac-eld.js';
-export {buildM4a} from './services/ios/display/m4a-writer.js';
-export type {BuildM4aOptions} from './services/ios/display/m4a-writer.js';
+} from './services/ios/display/audio/aac-eld.js';
+export type {AacEldFormat} from './services/ios/display/audio/aac-eld.js';
+export {M4aFileWriter, buildM4a} from './services/ios/display/audio/m4a-writer.js';
+export type {BuildM4aOptions, M4aFileWriterResult} from './services/ios/display/audio/m4a-writer.js';
 export {
   HevcDepacketizer,
   HevcNalType,
@@ -128,22 +133,24 @@ export {
   nalTypeOf,
   toAnnexB,
   toLengthPrefixed,
-} from './services/ios/display/hevc.js';
-export {UdpMediaReceiver, isNextSequence, parseRtpPacket} from './services/ios/display/rtp.js';
-export type {RtpPacket, UdpMediaReceiverOptions} from './services/ios/display/rtp.js';
+} from './services/ios/display/video/hevc.js';
+export {UdpMediaReceiver, isNextSequence, parseRtpPacket} from './services/ios/display/transport/rtp.js';
+export type {RtpPacket, UdpMediaReceiverOptions} from './services/ios/display/transport/rtp.js';
+export {PacketLossReporter} from './services/ios/display/transport/packet-loss-reporter.js';
+export type {PacketLossReporterOptions} from './services/ios/display/transport/packet-loss-reporter.js';
 export {
   buildMediaBlobAudio,
   buildMediaBlobVideo,
   buildNegotiatorOfferAudio,
   buildNegotiatorOfferVideo,
   buildRemoteEndpointInfo,
-} from './services/ios/display/media-stream-offer.js';
+} from './services/ios/display/negotiation/media-stream-offer.js';
 export type {
   AudioMediaBlobOptions,
   HostEndpointIdentity,
   NegotiatorOfferOptions,
   VideoMediaBlobOptions,
-} from './services/ios/display/media-stream-offer.js';
+} from './services/ios/display/negotiation/media-stream-offer.js';
 
 export type {SyslogEntry, SyslogLabel, SyslogLogLevel} from './services/ios/syslog-service/syslog-entry-parser.js';
 

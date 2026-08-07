@@ -1,4 +1,6 @@
-import {getLogger} from '../../../lib/logger.js';
+import {getLogger} from '../../../../lib/logger.js';
+import {PacketLossReporter} from '../transport/packet-loss-reporter.js';
+import {type RtpPacket, isNextSequence} from '../transport/rtp.js';
 import {
   HevcDepacketizer,
   HevcNalType,
@@ -7,7 +9,6 @@ import {
   isKeyNalType,
   nalTypeOf,
 } from './hevc.js';
-import {type RtpPacket, isNextSequence} from './rtp.js';
 
 const log = getLogger('AccessUnitAssembler');
 
@@ -61,6 +62,7 @@ export interface ScreenStreamStats {
  */
 export class AccessUnitAssembler {
   private readonly depacketizer = new HevcDepacketizer();
+  private readonly lossReporter = new PacketLossReporter(log, 'video');
 
   private parameterSetsInternal: Partial<HevcParameterSets> = {};
   private codecStringInternal: string | undefined;
@@ -91,7 +93,7 @@ export class AccessUnitAssembler {
       this.statsInternal.packetsLost += missing;
       this.depacketizer.reset();
       this.currentCorrupt = true;
-      log.debug(`RTP gap: ${missing} packet(s) lost before sequence ${packet.sequence}`);
+      this.lossReporter.record(missing, packet.sequence);
     }
     this.lastSequence = packet.sequence;
     this.currentTimestamp = packet.timestamp;
@@ -129,6 +131,16 @@ export class AccessUnitAssembler {
   /** A snapshot of the counters. */
   get stats(): ScreenStreamStats {
     return {...this.statsInternal};
+  }
+
+  /**
+   * Emits any packet loss still held back by the reporter's rate limit.
+   *
+   * Call once the stream has ended; {@link stats} is unaffected, since it is
+   * always exact.
+   */
+  flushDiagnostics(): void {
+    this.lossReporter.flush();
   }
 
   private absorbNal(nal: Buffer): void {

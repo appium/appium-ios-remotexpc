@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
 
-import {UdpMediaReceiver, isNextSequence, parseRtpPacket} from '../../../src/services/ios/display/rtp.js';
+import {UdpMediaReceiver, isNextSequence, parseRtpPacket} from '../../../../src/services/ios/display/transport/rtp.js';
 
 /** Options for {@link makeRtpPacket}. */
 interface RtpFixtureOptions {

@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
 
-import type {DisplayService, MediaStreamAnswer} from '../../../src/services/ios/display/index.js';
-import {ScreenStreamCapture} from '../../../src/services/ios/display/screen-stream-capture.js';
+import type {DisplayService, MediaStreamAnswer} from '../../../../src/services/ios/display/index.js';
+import {ScreenStreamCapture} from '../../../../src/services/ios/display/video/screen-stream-capture.js';
 
 /**
  * Builds a capture wired to a stub service and a stub receiver, bypassing

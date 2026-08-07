@@ -1,11 +1,10 @@
-import {writeFile} from 'node:fs/promises';
-
-import {getLogger} from '../../../lib/logger.js';
+import {getLogger} from '../../../../lib/logger.js';
+import type {DisplayService, MediaStreamAnswer, StartAudioStreamOptions} from '../index.js';
+import {PacketLossReporter} from '../transport/packet-loss-reporter.js';
+import {RtcpKeepalive, rtcpIdentityFromStreamConfig} from '../transport/rtcp.js';
+import {UdpMediaReceiver, isNextSequence, parseRtpPacket} from '../transport/rtp.js';
 import {AAC_ELD_FORMAT, type AacEldFormat, aacEldDurationMs} from './aac-eld.js';
-import type {DisplayService, MediaStreamAnswer, StartAudioStreamOptions} from './index.js';
-import {buildM4a} from './m4a-writer.js';
-import {RtcpKeepalive, rtcpIdentityFromStreamConfig} from './rtcp.js';
-import {UdpMediaReceiver, isNextSequence, parseRtpPacket} from './rtp.js';
+import {M4aFileWriter} from './m4a-writer.js';
 
 const log = getLogger('AudioStreamCapture');
 
@@ -71,6 +70,8 @@ export class AudioStreamCapture {
   private readonly service: DisplayService;
   private readonly receiver: UdpMediaReceiver;
   private readonly abortController = new AbortController();
+
+  private readonly lossReporter = new PacketLossReporter(log, 'audio');
 
   private statsInternal: AudioStreamStats = {packetsReceived: 0, packetsLost: 0, accessUnitsEmitted: 0};
   private lastSequence: number | undefined;
@@ -149,7 +150,7 @@ export class AudioStreamCapture {
         if (this.lastSequence !== undefined && !isNextSequence(this.lastSequence, packet.sequence)) {
           const missing = (packet.sequence - this.lastSequence - 1) & 0xffff;
           this.statsInternal.packetsLost += missing;
-          log.debug(`Audio RTP gap: ${missing} packet(s) lost before sequence ${packet.sequence}`);
+          this.lossReporter.record(missing, packet.sequence);
         }
         this.lastSequence = packet.sequence;
         this.keepalive?.observeSequence(packet.sequence);
@@ -184,6 +185,7 @@ export class AudioStreamCapture {
     this.keepalive?.stop();
     this.abortController.abort();
     this.receiver.close();
+    this.lossReporter.flush();
     await this.service.stopAllMediaStreams();
   }
 }
@@ -218,6 +220,10 @@ export interface RecordAudioResult {
  * plays it as-is, and `ffmpeg -c copy` can mux it against a screen recording
  * without needing to decode AAC-ELD.
  *
+ * Access units are streamed to the file as they arrive rather than collected
+ * first, so memory does not grow with the recording's length — see
+ * {@link M4aFileWriter}.
+ *
  * Requires iOS 27.0+.
  *
  * @param service A connected {@link DisplayService} for the target device.
@@ -232,30 +238,29 @@ export async function recordAudioToFile(
   const {durationMs = 5000, ...captureOptions} = options;
 
   const capture = await AudioStreamCapture.start(service, captureOptions);
-  const accessUnits: Buffer[] = [];
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), durationMs);
   timer.unref?.();
 
+  const writer = await M4aFileWriter.create(outputPath);
+  let written;
   try {
     for await (const unit of capture.accessUnits(controller.signal)) {
-      accessUnits.push(unit.data);
+      await writer.write(unit.data);
     }
   } finally {
     clearTimeout(timer);
     await capture.stop().catch((error: unknown) => {
       log.debug(`Failed to stop the audio stream cleanly: ${error instanceof Error ? error.message : String(error)}`);
     });
+    written = await writer.close();
   }
-
-  const m4a = buildM4a(accessUnits);
-  await writeFile(outputPath, m4a);
 
   return {
     outputPath,
-    accessUnitsWritten: accessUnits.length,
-    bytesWritten: m4a.length,
-    durationMs: aacEldDurationMs(accessUnits.length),
+    accessUnitsWritten: written.sampleCount,
+    bytesWritten: written.bytesWritten,
+    durationMs: aacEldDurationMs(written.sampleCount),
     format: capture.format,
     stats: capture.stats,
   };

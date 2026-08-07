@@ -1,7 +1,10 @@
 import {once} from 'node:events';
 import {createWriteStream} from 'node:fs';
 
-import {getLogger} from '../../../lib/logger.js';
+import {getLogger} from '../../../../lib/logger.js';
+import type {DisplayService, MediaStreamAnswer, StartVideoStreamOptions} from '../index.js';
+import {RtcpKeepalive, rtcpIdentityFromStreamConfig} from '../transport/rtcp.js';
+import {UdpMediaReceiver, parseRtpPacket} from '../transport/rtp.js';
 import {
   AccessUnitAssembler,
   type HevcParameterSets,
@@ -9,9 +12,6 @@ import {
   type VideoAccessUnit,
 } from './access-unit-assembler.js';
 import {toAnnexB} from './hevc.js';
-import type {DisplayService, MediaStreamAnswer, StartVideoStreamOptions} from './index.js';
-import {RtcpKeepalive, rtcpIdentityFromStreamConfig} from './rtcp.js';
-import {UdpMediaReceiver, parseRtpPacket} from './rtp.js';
 
 export type {HevcParameterSets, ScreenStreamStats, VideoAccessUnit};
 
@@ -173,6 +173,7 @@ export class ScreenStreamCapture {
     this.keepalive?.stop();
     this.abortController.abort();
     this.receiver.close();
+    this.assembler.flushDiagnostics();
     await this.service.stopAllMediaStreams();
   }
 

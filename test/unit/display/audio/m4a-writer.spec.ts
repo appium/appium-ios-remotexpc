@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
-import {describe, it} from 'node:test';
+import {mkdtemp, readFile, rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {after, before, describe, it} from 'node:test';
 
-import {AAC_ELD_ASC_48K_STEREO_480, AAC_ELD_FORMAT} from '../../../src/services/ios/display/aac-eld.js';
-import {buildM4a} from '../../../src/services/ios/display/m4a-writer.js';
+import {AAC_ELD_ASC_48K_STEREO_480, AAC_ELD_FORMAT} from '../../../../src/services/ios/display/audio/aac-eld.js';
+import {M4aFileWriter, buildM4a} from '../../../../src/services/ios/display/audio/m4a-writer.js';
 
 /** Walks top-level MP4 boxes, returning [type, size] pairs in order. */
 function topLevelBoxes(file: Buffer): Array<[string, number]> {
@@ -36,12 +39,14 @@ describe('buildM4a', function () {
   const samples = [AU(0x11, 40), AU(0x22, 55), AU(0x33, 48)];
 
   describe('container structure', function () {
-    it('emits ftyp, moov and mdat in order', function () {
+    it('emits ftyp, mdat and moov in order', function () {
       const file = buildM4a(samples);
 
+      // moov last, so the sample data sits at a fixed offset and the same
+      // layout can be produced incrementally by M4aFileWriter.
       assert.deepStrictEqual(
         topLevelBoxes(file).map(([type]) => type),
-        ['ftyp', 'moov', 'mdat'],
+        ['ftyp', 'mdat', 'moov'],
       );
     });
 
@@ -164,7 +169,7 @@ describe('buildM4a', function () {
 
       assert.deepStrictEqual(
         topLevelBoxes(file).map(([type]) => type),
-        ['ftyp', 'moov', 'mdat'],
+        ['ftyp', 'mdat', 'moov'],
       );
       assert.strictEqual(findBox(file, 'stsz')!.readUInt32BE(8), 0);
       assert.strictEqual(findBox(file, 'mdhd')!.readUInt32BE(16), 0);
@@ -176,6 +181,20 @@ describe('buildM4a', function () {
       assert.strictEqual(findBox(file, 'stsz')!.readUInt32BE(8), 1);
       const chunkOffset = findBox(file, 'stco')!.readUInt32BE(8);
       assert.deepStrictEqual(file.subarray(chunkOffset, chunkOffset + 12), AU(0x99, 12));
+    });
+
+    it('indexes a sample count no spread could pass as arguments', function () {
+      // Building stsz by spreading one Buffer per sample overflowed the call
+      // stack above ~52,000 samples — under nine minutes of audio at 100 access
+      // units a second, i.e. well inside what a recording actually reaches.
+      const count = 400_000; // a bit over an hour
+      const file = buildM4a(Array.from({length: count}, () => AU(0x7f, 6)));
+
+      const stsz = findBox(file, 'stsz')!;
+      assert.strictEqual(stsz.readUInt32BE(8), count);
+      // Spot-check the ends of the table, not just its declared length.
+      assert.strictEqual(stsz.readUInt32BE(12), 6);
+      assert.strictEqual(stsz.readUInt32BE(12 + (count - 1) * 4), 6);
     });
 
     it('encodes descriptor lengths above 127 as multi-byte', function () {
@@ -190,5 +209,122 @@ describe('buildM4a', function () {
         file.length,
       );
     });
+  });
+});
+
+describe('M4aFileWriter', function () {
+  let directory: string;
+  let counter = 0;
+
+  before(async function () {
+    directory = await mkdtemp(join(tmpdir(), 'm4a-writer-'));
+  });
+
+  after(async function () {
+    await rm(directory, {force: true, recursive: true});
+  });
+
+  /** Streams `units` through a writer and reads the finished file back. */
+  async function writeFile(
+    units: readonly Buffer[],
+  ): Promise<{file: Buffer; sampleCount: number; bytesWritten: number}> {
+    const path = join(directory, `stream-${counter++}.m4a`);
+    const writer = await M4aFileWriter.create(path);
+    for (const unit of units) {
+      await writer.write(unit);
+    }
+    const result = await writer.close();
+    return {file: await readFile(path), ...result};
+  }
+
+  const samples = [AU(0x11, 40), AU(0x22, 55), AU(0x33, 48)];
+
+  it('produces byte-identical output to the in-memory builder', async function () {
+    // The streaming path must not be a second, subtly different encoder — this
+    // is what lets the exhaustive buildM4a tests above cover both.
+    const {file} = await writeFile(samples);
+
+    assert.deepStrictEqual(file, buildM4a(samples));
+  });
+
+  it('reports the real file size and sample count', async function () {
+    const {file, sampleCount, bytesWritten} = await writeFile(samples);
+
+    assert.strictEqual(sampleCount, samples.length);
+    assert.strictEqual(bytesWritten, file.length);
+  });
+
+  it('patches the mdat length once the stream ends', async function () {
+    const {file} = await writeFile(samples);
+
+    const [, [mdatType, mdatSize]] = topLevelBoxes(file);
+    assert.strictEqual(mdatType, 'mdat');
+    // The placeholder written up front is zero; it must have been rewritten to
+    // cover the header plus every sample.
+    assert.strictEqual(mdatSize, 8 + samples.reduce((sum, s) => sum + s.length, 0));
+  });
+
+  it('handles a file with no samples at all', async function () {
+    const {file, sampleCount} = await writeFile([]);
+
+    assert.strictEqual(sampleCount, 0);
+    assert.deepStrictEqual(file, buildM4a([]));
+  });
+
+  it('ignores empty access units rather than indexing zero-length samples', async function () {
+    const {file, sampleCount} = await writeFile([AU(0x11, 40), Buffer.alloc(0), AU(0x22, 55)]);
+
+    assert.strictEqual(sampleCount, 2);
+    assert.deepStrictEqual(file, buildM4a([AU(0x11, 40), AU(0x22, 55)]));
+  });
+
+  it('is safe to close more than once', async function () {
+    const path = join(directory, `double-close.m4a`);
+    const writer = await M4aFileWriter.create(path);
+    await writer.write(AU(0x11, 40));
+
+    const first = await writer.close();
+    const second = await writer.close();
+
+    assert.deepStrictEqual(second, first);
+    // A second close must not append a second moov.
+    assert.strictEqual((await readFile(path)).length, first.bytesWritten);
+  });
+
+  it('rejects rather than crashing the process when the file cannot be opened', async function () {
+    // A stream 'error' with no listener is an uncaught exception, which during
+    // an unattended recording would take the whole process down.
+    await assert.rejects(() => M4aFileWriter.create(join(directory, 'no', 'such', 'dir', 'x.m4a')));
+  });
+
+  it('surfaces a write failure through the next call', async function () {
+    const writer = await M4aFileWriter.create(join(directory, 'broken.m4a'));
+    await writer.write(AU(0x11, 40));
+
+    // Stand in for a disk filling up mid-recording.
+    (writer as unknown as {streamError: Error}).streamError = new Error('ENOSPC');
+
+    await assert.rejects(() => writer.write(AU(0x22, 40)), /ENOSPC/);
+    await assert.rejects(() => writer.close(), /ENOSPC/);
+  });
+
+  it('rejects writes after close', async function () {
+    const writer = await M4aFileWriter.create(join(directory, 'closed.m4a'));
+    await writer.close();
+
+    await assert.rejects(() => writer.write(AU(0x11, 40)), /closing or closed/);
+  });
+
+  it('tracks the sample count as it goes', async function () {
+    const writer = await M4aFileWriter.create(join(directory, 'progress.m4a'));
+    try {
+      assert.strictEqual(writer.sampleCount, 0);
+      await writer.write(AU(0x11, 40));
+      assert.strictEqual(writer.sampleCount, 1);
+      await writer.write(AU(0x22, 55));
+      assert.strictEqual(writer.sampleCount, 2);
+    } finally {
+      await writer.close();
+    }
   });
 });

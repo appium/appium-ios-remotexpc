@@ -62,19 +62,21 @@ export const AAC_ELD_FRAMES_PER_PACKET = 480;
 /** RTP payload type the device advertises for the audio stream. */
 export const AAC_ELD_RTP_PAYLOAD_TYPE = 101;
 
-/** Describes the audio format carried by a capture. */
+/**
+ * Describes the audio format carried by a capture.
+ */
 export interface AacEldFormat {
   /** Sample rate in Hz. */
-  sampleRate: number;
+  readonly sampleRate: number;
   /** Channel count. */
-  channels: number;
+  readonly channels: number;
   /** Frames per access unit. */
-  framesPerPacket: number;
+  readonly framesPerPacket: number;
   /**
    * The `AudioSpecificConfig` a decoder needs as its magic cookie. Defaults to
    * {@link AAC_ELD_ASC_48K_STEREO_480}, not the device's own (broken) cookie.
    */
-  audioSpecificConfig: Buffer;
+  readonly audioSpecificConfig: Buffer;
 }
 
 /** The format the device streams. */

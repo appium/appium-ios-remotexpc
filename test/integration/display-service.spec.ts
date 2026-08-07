@@ -375,11 +375,14 @@ describe('DisplayService', {timeout: 120000}, function () {
         assert.strictEqual((await stat(audioPath)).size, result.audio.bytesWritten);
 
         // The command must reference both inputs and carry the measured rate,
-        // since Annex-B has no timestamps of its own.
-        assert.ok(result.ffmpegCommand.includes(videoPath));
-        assert.ok(result.ffmpegCommand.includes(audioPath));
-        assert.ok(result.ffmpegCommand.includes(`-r ${result.video.frameRate}`));
-        assert.ok(result.ffmpegCommand.includes('-fflags +genpts'));
+        // since Annex-B has no timestamps of its own. Argument-vector form, so
+        // the paths appear as whole elements rather than inside a quoted string.
+        const {binary, args} = result.muxCommand;
+        assert.strictEqual(binary, 'ffmpeg');
+        assert.ok(args.includes(videoPath));
+        assert.ok(args.includes(audioPath));
+        assert.strictEqual(args[args.indexOf('-r') + 1], String(result.video.frameRate));
+        assert.strictEqual(args[args.indexOf('-fflags') + 1], '+genpts');
       } finally {
         await rm(videoPath, {force: true});
         await rm(audioPath, {force: true});

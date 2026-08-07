@@ -10,7 +10,7 @@ import {
   buildNegotiatorOfferVideo,
   newCallId,
   newSessionId,
-} from './media-stream-offer.js';
+} from './negotiation/media-stream-offer.js';
 
 const log = getLogger('DisplayService');
 
@@ -73,7 +73,20 @@ export interface MediaStreamEndpoint {
 
 /** Options accepted by {@link DisplayService.startVideoStream}. */
 export interface StartVideoStreamOptions extends VideoMediaBlobOptions, CoreDeviceInvokeOptions {
-  /** Target display for `CoreDeviceVideoDisplayMode=DisplayByID`. Defaults to 1. */
+  /**
+   * Target display for `CoreDeviceVideoDisplayMode=DisplayByID`. Defaults to 1,
+   * the device's built-in screen.
+   *
+   * DisplayService itself exposes no display enumeration — its feature set is
+   * limited to media-stream support, status, start and stop. The ids come from
+   * the separate CoreDevice DeviceInfo service:
+   * `CoreDeviceInfoService.getDisplayInfo()`
+   * (`com.apple.coredevice.feature.getdisplayinfo`), whose `displays` array
+   * gives each display's `displayId`, `name`, `nativeSize` and `currentMode`.
+   * On an iPhone running iOS 27.0 that is `displayId: 1` for the built-in LCD
+   * plus ids 2-6 for wireless (AirPlay) displays, which report a zero size
+   * until something is actually connected to them.
+   */
   displayId?: number;
   /** Negotiation timeout reported to the device, in seconds. Defaults to 20. */
   negotiationTimeoutSeconds?: number;
@@ -132,6 +145,20 @@ export interface MediaStreamAnswer {
  * > {@link REMOTE_CONTROL_UNSUPPORTED_ERROR_CODE} ("Remote control requires
  * > iOS 27.0 or later on this device"). The query methods work on older
  * > versions, so {@link isStreamingSupported} is the cheap pre-flight check.
+ *
+ * Which calls can throw, verified on iOS 26 and 27:
+ *
+ * | Method | Streaming unsupported (< iOS 27) | Supported, nothing streaming |
+ * | --- | --- | --- |
+ * | {@link getMediaSupportInfo} | returns `supportedFeatures: 0` | fine |
+ * | {@link getMediaStreamServerStatus} | returns `running: false` | fine |
+ * | {@link isStreamingSupported} | returns `false` | fine |
+ * | {@link startVideoStream} / {@link startAudioStream} | throws `CoreDeviceError` {@link REMOTE_CONTROL_UNSUPPORTED_ERROR_CODE} | fine |
+ * | {@link stopAllMediaStreams} | not exercised — treat as able to throw | returns `[]`, no error |
+ *
+ * So the two query methods and `stopAllMediaStreams` are all safe to call
+ * unconditionally on a supported device, including with no stream running;
+ * only the `start*` pair is gated on the OS version.
  *
  * @example
  * ```ts
@@ -267,6 +294,11 @@ export class DisplayService extends CoreDeviceService {
    * stream under different session ids and watching a single stop tear down
    * both. So if two captures are running concurrently, stopping one stops the
    * other as well.
+   *
+   * Safe to call when nothing is streaming: the device answers with an empty
+   * `stoppedStreams` list rather than an error, so callers do not have to track
+   * whether a stream is live. Verified on iOS 27.0, where the capture classes
+   * call it on every teardown including repeat and no-op stops.
    *
    * A closed connection is treated as success: on some versions the device
    * tears the RemoteXPC channel down while handling the stop, before the reply

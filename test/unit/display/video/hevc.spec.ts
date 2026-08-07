@@ -10,7 +10,7 @@ import {
   nalTypeOf,
   toAnnexB,
   toLengthPrefixed,
-} from '../../../src/services/ios/display/hevc.js';
+} from '../../../../src/services/ios/display/video/hevc.js';
 
 /** Builds the 2-byte HEVC NAL header for `nalType` (layer 0, tid 1). */
 function nalHeader(nalType: number): Buffer {

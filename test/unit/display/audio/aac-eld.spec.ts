@@ -9,7 +9,7 @@ import {
   AAC_ELD_FRAMES_PER_PACKET,
   AAC_ELD_SAMPLE_RATE,
   aacEldDurationMs,
-} from '../../../src/services/ios/display/aac-eld.js';
+} from '../../../../src/services/ios/display/audio/aac-eld.js';
 
 /** Reads an AudioSpecificConfig's leading fields. */
 function parseAsc(asc: Buffer): {

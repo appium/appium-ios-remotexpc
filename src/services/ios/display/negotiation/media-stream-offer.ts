@@ -68,7 +68,7 @@
 import {randomUUID} from 'node:crypto';
 import {deflateSync} from 'node:zlib';
 
-import {createBinaryPlist} from '../../../lib/plist/binary-plist-creator.js';
+import {createBinaryPlist} from '../../../../lib/plist/binary-plist-creator.js';
 
 /** Decoder identity embedded in the mediaBlob; the daemon matches on it. */
 export const DEFAULT_DECODER_NAME = 'Viceroy 1.7.0';

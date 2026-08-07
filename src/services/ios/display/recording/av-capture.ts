@@ -1,15 +1,15 @@
 import {once} from 'node:events';
 import {createWriteStream} from 'node:fs';
-import {writeFile} from 'node:fs/promises';
 
-import {getLogger} from '../../../lib/logger.js';
-import {XPCUUID} from '../../../lib/remote-xpc/xpc-uuid.js';
-import {type AacEldFormat, aacEldDurationMs} from './aac-eld.js';
-import {AudioStreamCapture, type AudioStreamStats} from './audio-stream-capture.js';
-import {toAnnexB} from './hevc.js';
-import {type DisplayService, type StartVideoStreamOptions} from './index.js';
-import {buildM4a} from './m4a-writer.js';
-import {ScreenStreamCapture, type ScreenStreamStats} from './screen-stream-capture.js';
+import {getLogger} from '../../../../lib/logger.js';
+import {XPCUUID} from '../../../../lib/remote-xpc/xpc-uuid.js';
+import {type AacEldFormat, aacEldDurationMs} from '../audio/aac-eld.js';
+import {AudioStreamCapture, type AudioStreamStats} from '../audio/audio-stream-capture.js';
+import {M4aFileWriter} from '../audio/m4a-writer.js';
+import {type DisplayService, type StartVideoStreamOptions} from '../index.js';
+import {toAnnexB} from '../video/hevc.js';
+import {ScreenStreamCapture, type ScreenStreamStats} from '../video/screen-stream-capture.js';
+import {type MuxCommand, ffmpegMuxCommandBuilder} from './mux-command.js';
 
 const log = getLogger('AvCapture');
 
@@ -69,16 +69,14 @@ export interface RecordScreenAndAudioResult {
     stats: AudioStreamStats;
   };
   /**
-   * A ready-to-run `ffmpeg` invocation that combines the two files, with the
-   * measured frame rate already filled in.
+   * A ready-to-run `ffmpeg` invocation that combines the two files, as a binary
+   * plus an argument vector, with the measured frame rate already filled in.
    *
-   * Muxing is deliberately left outside this library — it needs no device
-   * access and callers differ on container, timing and post-processing. This
-   * is provided because getting it right is non-obvious: the video stream has
-   * no timestamps, so `-fflags +genpts` and an explicit `-r` are both required,
-   * and `-c copy` avoids having to decode AAC-ELD at all.
+   * Pass it straight to `spawn`. To show it to a human, render it with
+   * `formatMuxCommand`. For a different backend, build the command from the
+   * returned tracks and `video.frameRate` with another `MuxCommandBuilder`.
    */
-  ffmpegCommand: string;
+  muxCommand: MuxCommand;
 }
 
 /**
@@ -87,8 +85,11 @@ export interface RecordScreenAndAudioResult {
  *
  * They are kept separate on purpose: combining them is a pure post-processing
  * step needing no device access, so it belongs outside this library.
- * {@link RecordScreenAndAudioResult.ffmpegCommand} gives the exact command,
+ * {@link RecordScreenAndAudioResult.muxCommand} gives the exact command to run,
  * since it depends on the measured frame rate this function returns.
+ *
+ * Both tracks are streamed to disk as they arrive, so memory does not grow with
+ * the recording's length.
  *
  * Both streams are negotiated under one shared session id, the way Xcode's
  * mirror pairs them, and are torn down in a single stop — the device has no
@@ -127,7 +128,7 @@ export async function recordScreenAndAudioToFiles(
   }
 
   const videoOut = createWriteStream(videoPath);
-  const audioUnits: Buffer[] = [];
+  const audioOut = await M4aFileWriter.create(audioPath);
   let framesWritten = 0;
   let videoBytes = 0;
   let sawKeyFrame = false;
@@ -156,21 +157,29 @@ export async function recordScreenAndAudioToFiles(
 
   const audioTask = (async (): Promise<void> => {
     for await (const unit of audioCapture.accessUnits(controller.signal)) {
-      audioUnits.push(unit.data);
+      await audioOut.write(unit.data);
     }
   })();
 
   let elapsedMs = durationMs;
+  let audioWritten;
   try {
     await Promise.all([videoTask, audioTask]);
     elapsedMs = performance.now() - startedAt;
   } finally {
     clearTimeout(timer);
+    // Both loops must be finished before the writers close. `Promise.all`
+    // rejects as soon as either task does, leaving the other still consuming
+    // its stream — and a write landing after close() would reject on a promise
+    // nobody is waiting on. Aborting and settling both first rules that out.
+    controller.abort();
+    await Promise.allSettled([videoTask, audioTask]);
     // One stop tears down both streams; the second call is a no-op.
     await videoCapture.stop().catch((error: unknown) => {
       log.debug(`Failed to stop cleanly: ${error instanceof Error ? error.message : String(error)}`);
     });
     await audioCapture.stop().catch((): void => undefined);
+    audioWritten = await audioOut.close();
     await new Promise<void>((resolve, reject) => {
       videoOut.end((error?: Error | null): void => {
         if (error) {
@@ -182,10 +191,7 @@ export async function recordScreenAndAudioToFiles(
     });
   }
 
-  const m4a = buildM4a(audioUnits);
-  await writeFile(audioPath, m4a);
-
-  const audioDurationMs = aacEldDurationMs(audioUnits.length);
+  const audioDurationMs = aacEldDurationMs(audioWritten.sampleCount);
 
   // Measure against the video's own capture window, never the audio clock: if
   // the device ever ends the audio session early the audio duration would be
@@ -212,27 +218,12 @@ export async function recordScreenAndAudioToFiles(
     },
     audio: {
       path: audioPath,
-      accessUnitsWritten: audioUnits.length,
-      bytesWritten: m4a.length,
+      accessUnitsWritten: audioWritten.sampleCount,
+      bytesWritten: audioWritten.bytesWritten,
       durationMs: audioDurationMs,
       format: audioCapture.format,
       stats: audioCapture.stats,
     },
-    ffmpegCommand: buildFfmpegCommand({videoPath, audioPath, frameRate}),
+    muxCommand: ffmpegMuxCommandBuilder.build({videoPath, audioPath, frameRate}),
   };
-}
-
-/**
- * Builds the `ffmpeg` command that combines the two tracks.
- *
- * `-fflags +genpts` with an explicit `-r` is required because the Annex-B video
- * carries no timestamps — without them a muxer produces an empty audio track.
- */
-function buildFfmpegCommand(options: {videoPath: string; audioPath: string; frameRate: number}): string {
-  const {videoPath, audioPath, frameRate} = options;
-  const output = videoPath.replace(/\.[^.]+$/, '') + '.mp4';
-  return (
-    `ffmpeg -y -fflags +genpts -r ${frameRate} -i '${videoPath}' -i '${audioPath}' ` +
-    `-map 0:v:0 -map 1:a:0 -c copy -tag:v hvc1 '${output}'`
-  );
 }

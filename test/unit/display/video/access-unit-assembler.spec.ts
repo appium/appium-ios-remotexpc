@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import {describe, it} from 'node:test';
 
-import {AccessUnitAssembler} from '../../../src/services/ios/display/access-unit-assembler.js';
-import {HevcNalType} from '../../../src/services/ios/display/hevc.js';
-import type {RtpPacket} from '../../../src/services/ios/display/rtp.js';
+import type {RtpPacket} from '../../../../src/services/ios/display/transport/rtp.js';
+import {AccessUnitAssembler} from '../../../../src/services/ios/display/video/access-unit-assembler.js';
+import {HevcNalType} from '../../../../src/services/ios/display/video/hevc.js';
 
 function nalHeader(nalType: number): Buffer {
   return Buffer.from([(nalType << 1) & 0x7e, 0x01]);
