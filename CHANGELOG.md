@@ -1,3 +1,21 @@
+## [5.13.6](https://github.com/appium/appium-ios-remotexpc/compare/v5.13.5...v5.13.6) (2026-08-07)
+
+### Miscellaneous Chores
+
+* replace npm-run-all2 with a plain npm script chain ([#288](https://github.com/appium/appium-ios-remotexpc/issues/288)) ([de448d4](https://github.com/appium/appium-ios-remotexpc/commit/de448d4434e168f303dcdea52a9d999735d92254))
+
+## [5.13.5](https://github.com/appium/appium-ios-remotexpc/compare/v5.13.4...v5.13.5) (2026-08-07)
+
+### Bug Fixes
+
+* stop leaked relay server when LockdownServiceFactory.createByUDID fails ([#287](https://github.com/appium/appium-ios-remotexpc/issues/287)) ([07afd4d](https://github.com/appium/appium-ios-remotexpc/commit/07afd4d98ab24b280098e0c37c2ac623d6a1eee3))
+
+## [5.13.4](https://github.com/appium/appium-ios-remotexpc/compare/v5.13.3...v5.13.4) (2026-08-07)
+
+### Bug Fixes
+
+* use an ephemeral relay port instead of a hardcoded 2222 ([#286](https://github.com/appium/appium-ios-remotexpc/issues/286)) ([7f47254](https://github.com/appium/appium-ios-remotexpc/commit/7f472541617219140cbea5c84e5f20f37e33736f))
+
 ## [5.13.3](https://github.com/appium/appium-ios-remotexpc/compare/v5.13.2...v5.13.3) (2026-08-04)
 
 ### Miscellaneous Chores

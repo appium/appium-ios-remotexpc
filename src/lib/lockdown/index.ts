@@ -18,7 +18,8 @@ const deviceManagerLog = getLogger('DeviceManager');
 const LABEL = 'appium-internal';
 const DEFAULT_TIMEOUT = 5000;
 const DEFAULT_LOCKDOWN_PORT = 62078;
-const DEFAULT_RELAY_PORT = 2222;
+/** 0 lets the OS assign a free ephemeral port, so concurrent relays cannot collide. */
+const DEFAULT_RELAY_PORT = 0;
 /** RSD service name for lockdownd over a RemoteXPC tunnel (e.g. Apple TV Wi‑Fi). */
 const LOCKDOWN_REMOTE_UNTRUSTED = 'com.apple.mobile.lockdown.remote.untrusted';
 
@@ -525,8 +526,11 @@ export class LockdownServiceFactory {
 
       return {lockdownService: service, device};
     } catch (err) {
-      // Clean up relay on error
-      service?.stopRelayService('Stopping relay after failure');
+      // Clean up relay on error. Route directly through `relay` (not `service`), since
+      // `service` is still undefined if relay.connect() itself is what failed.
+      await relay.stop().catch((stopErr) => {
+        log.error(`Error stopping relay after failure: ${stopErr}`);
+      });
       throw err;
     }
   }
