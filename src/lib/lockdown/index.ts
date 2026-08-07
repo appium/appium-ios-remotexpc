@@ -526,8 +526,11 @@ export class LockdownServiceFactory {
 
       return {lockdownService: service, device};
     } catch (err) {
-      // Clean up relay on error
-      service?.stopRelayService('Stopping relay after failure');
+      // Clean up relay on error. Route directly through `relay` (not `service`), since
+      // `service` is still undefined if relay.connect() itself is what failed.
+      await relay.stop().catch((stopErr) => {
+        log.error(`Error stopping relay after failure: ${stopErr}`);
+      });
       throw err;
     }
   }

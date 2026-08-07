@@ -1,3 +1,9 @@
+## [5.13.5](https://github.com/appium/appium-ios-remotexpc/compare/v5.13.4...v5.13.5) (2026-08-07)
+
+### Bug Fixes
+
+* stop leaked relay server when LockdownServiceFactory.createByUDID fails ([#287](https://github.com/appium/appium-ios-remotexpc/issues/287)) ([07afd4d](https://github.com/appium/appium-ios-remotexpc/commit/07afd4d98ab24b280098e0c37c2ac623d6a1eee3))
+
 ## [5.13.4](https://github.com/appium/appium-ios-remotexpc/compare/v5.13.3...v5.13.4) (2026-08-07)
 
 ### Bug Fixes
