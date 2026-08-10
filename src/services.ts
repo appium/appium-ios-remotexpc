@@ -4,6 +4,7 @@ import {
   resolveTunnelServicePorts,
 } from './lib/tunnel/tunnel-service-resolver.js';
 import type {DVTInstruments, SyslogService as SyslogServiceType, XCTestServices} from './lib/types.js';
+import {AccessibilityAuditService} from './services/ios/accessibility-audit/index.js';
 import AfcService from './services/ios/afc/index.js';
 import {AppService} from './services/ios/app-service/index.js';
 import {type Service} from './services/ios/base-service.js';
@@ -137,6 +138,16 @@ export async function startPasteboardService(udid: string): Promise<PasteboardSe
 export async function startCoreDeviceInfoService(udid: string): Promise<CoreDeviceInfoService> {
   await requireCatalogService(udid, CoreDeviceInfoService.RSD_SERVICE_NAME);
   return new CoreDeviceInfoService(udid);
+}
+
+/**
+ * Start the accessibility audit service for the given device UDID — the DTX
+ * backend behind Xcode's Accessibility Inspector. Exposes the device's
+ * accessibility settings and audit catalogue.
+ */
+export async function startAccessibilityAuditService(udid: string): Promise<AccessibilityAuditService> {
+  await requireCatalogService(udid, AccessibilityAuditService.RSD_SERVICE_NAME);
+  return AccessibilityAuditService.start(udid);
 }
 
 /**

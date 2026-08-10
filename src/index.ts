@@ -59,6 +59,11 @@ export type {
   ListAppsOptions,
 } from './services/ios/app-service/index.js';
 export {PasteboardService} from './services/ios/pasteboard/index.js';
+export {AccessibilityAuditService} from './services/ios/accessibility-audit/index.js';
+export type {AxDeviceSetting} from './services/ios/accessibility-audit/index.js';
+export {AxAuditDtxTransport} from './services/ios/accessibility-audit/dtx-transport.js';
+export type {InvokeOptions as AxInvokeOptions} from './services/ios/accessibility-audit/dtx-transport.js';
+export {AX_OBJECT_TYPE, deserializeAxObject} from './services/ios/accessibility-audit/ax-deserialize.js';
 export {CoreDeviceInfoService} from './services/ios/device-info/index.js';
 export type {
   CoreDeviceAttributes,
