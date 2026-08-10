@@ -93,6 +93,53 @@ describe('AccessibilityAuditService', {timeout: 90000}, function () {
     assert.ok(Array.isArray(issues));
   });
 
+  it('fetches a special element with a usable handle', async function (t) {
+    const element = await service!.getSpecialElement(0);
+
+    assert.ok(element, 'index 0 should resolve on iOS 27');
+    // The handle is opaque but must round-trip, so it has to be real bytes.
+    assert.ok(Buffer.isBuffer(element.platformElement));
+    assert.ok(element.platformElement.length > 0);
+    t.diagnostic(`element identifier: ${element.accessibilityIdentifier ?? '(none)'}`);
+  });
+
+  it('returns the focused element inspector panel', async function () {
+    const panel = await service!.getFocusedElement({timeoutMs: 30000});
+
+    // The device pushes the whole panel; Basic is always present.
+    assert.ok(Array.isArray(panel.sections));
+    assert.ok(panel.sections.length > 0);
+    const basic = panel.sections.find((section) => section.title === 'Basic');
+    assert.ok(basic, 'a Basic section should be present');
+    assert.ok(basic.attributes.length > 0);
+    // Attribute descriptors carry no values — only names and flags.
+    for (const attribute of basic.attributes) {
+      assert.strictEqual(typeof attribute.name, 'string');
+      assert.strictEqual(typeof attribute.humanReadableName, 'string');
+      assert.strictEqual(typeof attribute.settable, 'boolean');
+    }
+    assert.ok(basic.attributes.some((attribute) => attribute.name === 'Label'));
+  });
+
+  it('reads attribute values for an element', async function (t) {
+    const element = await service!.getSpecialElement(0);
+    assert.ok(element);
+    const panel = await service!.getFocusedElement({timeoutMs: 30000});
+    const basic = panel.sections.find((section) => section.title === 'Basic');
+    assert.ok(basic);
+
+    const values: Record<string, unknown> = {};
+    for (const attribute of basic.attributes) {
+      values[attribute.name] = await service!.getElementAttributeValue(element, attribute);
+    }
+
+    // Which values are populated depends on the element in focus, so this
+    // asserts the call succeeds and returns the attributes asked for rather
+    // than pinning values that legitimately vary.
+    assert.deepStrictEqual(Object.keys(values).sort(), basic.attributes.map((attribute) => attribute.name).sort());
+    t.diagnostic(`values: ${JSON.stringify(values).slice(0, 200)}`);
+  });
+
   it('reports issues against a targeted app when one has them', async function (t) {
     // Only meaningful with the deliberately-broken test app installed and in the
     // foreground; without it there is nothing to find, so this records what it

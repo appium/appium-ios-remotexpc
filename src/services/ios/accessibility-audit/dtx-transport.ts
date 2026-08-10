@@ -9,6 +9,7 @@ import {ChannelFragmenter} from '../dvt/channel-fragmenter.js';
 import {DTXMessage, DTX_CONSTANTS, MessageAux} from '../dvt/dtx-message.js';
 import {decodeNSKeyedArchiver} from '../dvt/nskeyedarchiver-decoder.js';
 import {NSKeyedArchiverEncoder} from '../dvt/nskeyedarchiver-encoder.js';
+import {AxPoint, archiveAxPoint} from './ax-values.js';
 
 const log = getLogger('AxAuditDtx');
 
@@ -503,7 +504,10 @@ function buildAuxiliaryData(aux: MessageAux): Buffer {
     marker.writeUInt32LE(type, 4);
     parts.push(marker);
     if (type === DTX_CONSTANTS.AUX_TYPE_OBJECT) {
-      const encoded = createBinaryPlist(new NSKeyedArchiverEncoder().encode(value));
+      // An AxPoint has to be archived as an NSValue, which the generic encoder
+      // cannot express — see `ax-values.ts`.
+      const archive = value instanceof AxPoint ? archiveAxPoint(value) : new NSKeyedArchiverEncoder().encode(value);
+      const encoded = createBinaryPlist(archive);
       const length = Buffer.alloc(4);
       length.writeUInt32LE(encoded.length, 0);
       parts.push(length, encoded);

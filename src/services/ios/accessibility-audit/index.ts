@@ -1,9 +1,23 @@
 import {getLogger} from '../../../lib/logger.js';
 import {MessageAux} from '../dvt/dtx-message.js';
 import {AX_OBJECT_TYPE, deserializeAxObject} from './ax-deserialize.js';
+import {
+  type AxElement,
+  type AxElementAttribute,
+  type AxInspectedElement,
+  serializeAxAttribute,
+  serializeAxElement,
+  toAxElement,
+  toInspectedElement,
+} from './ax-element.js';
 import {AxAuditDtxTransport, type InvokeOptions} from './dtx-transport.js';
 
 const log = getLogger('AccessibilityAudit');
+
+/** `deviceInspectorSetMonitoredEventType:` value that reports focus changes. */
+const MONITORED_EVENT_FOCUS = 2;
+/** Value that disarms monitoring. */
+const MONITORED_EVENT_OFF = 0;
 
 /**
  * One accessibility setting reported by
@@ -149,10 +163,135 @@ export class AccessibilityAuditService {
     }
   }
 
+  /**
+   * Returns the element the device's accessibility focus is currently on.
+   *
+   * The daemon does not answer a query for this. Xcode's Inspector arms a
+   * monitoring session and the device *pushes* the element back as an inbound
+   * `hostInspectorCurrentElementChanged:` call, so that is what this reproduces:
+   * arm, ask focus to report, wait for the push, disarm. Captured from a live
+   * Inspector session — `deviceFetchElementAtNormalizedDeviceCoordinate:`
+   * returns `null` on iOS 27 no matter how it is called.
+   *
+   * @param options Timeout, and whether to draw the on-device highlight.
+   */
+  async getFocusedElement(options: InspectOptions = {}): Promise<AxInspectedElement> {
+    const {timeoutMs = 15000, showVisuals = false} = options;
+    const pushed = this.transport.waitForInbound('hostInspectorCurrentElementChanged:', timeoutMs);
+    this.setMonitoredEventType(MONITORED_EVENT_FOCUS);
+    if (showVisuals) {
+      this.setShowVisuals(true);
+    }
+    try {
+      const empty = new MessageAux();
+      // An empty dictionary means "whatever is focused now" — this is exactly
+      // what the Inspector sends.
+      empty.appendObj({});
+      this.transport.invokeOneway('deviceInspectorFocusOnElement:', empty);
+      // `waitForInbound` resolves with the call's whole argument list; the panel
+      // is the first argument.
+      const [payload] = await pushed;
+      return toInspectedElement(deserializeAxObject(payload));
+    } finally {
+      if (showVisuals) {
+        this.setShowVisuals(false);
+      }
+      this.setMonitoredEventType(MONITORED_EVENT_OFF);
+    }
+  }
+
+  /**
+   * Subscribes to focus changes, delivering an inspector panel each time the
+   * device's accessibility focus moves.
+   *
+   * Monitoring stays armed until the returned function is called.
+   *
+   * @param listener Receives each pushed element.
+   * @param options Whether to draw the on-device highlight.
+   */
+  observeFocusedElement(
+    listener: (element: AxInspectedElement) => void,
+    options: {showVisuals?: boolean} = {},
+  ): () => void {
+    const stop = this.transport.onInbound('hostInspectorCurrentElementChanged:', (args) => {
+      listener(toInspectedElement(deserializeAxObject(args[0])));
+    });
+    this.setMonitoredEventType(MONITORED_EVENT_FOCUS);
+    if (options.showVisuals) {
+      this.setShowVisuals(true);
+    }
+    return () => {
+      stop();
+      if (options.showVisuals) {
+        this.setShowVisuals(false);
+      }
+      this.setMonitoredEventType(MONITORED_EVENT_OFF);
+    };
+  }
+
+  /**
+   * Reads one attribute's value for an element.
+   *
+   * Attribute descriptors carry no values, so each row of the inspector panel
+   * costs one call — the element handle and the descriptor both go back as they
+   * arrived.
+   *
+   * @param element The element handle.
+   * @param attribute A descriptor from {@link AxInspectedElement}'s sections.
+   * @param options Reply timeout.
+   */
+  async getElementAttributeValue(
+    element: AxElement,
+    attribute: AxElementAttribute,
+    options?: InvokeOptions,
+  ): Promise<unknown> {
+    const aux = new MessageAux();
+    aux.appendObj(serializeAxElement(element));
+    aux.appendObj(serializeAxAttribute(attribute));
+    return deserializeAxObject(await this.transport.invoke('deviceElement:valueForAttribute:', aux, options));
+  }
+
+  /**
+   * Returns one of the daemon's well-known elements.
+   *
+   * Index `0` and `1` resolve on iOS 27; higher indices return `undefined`.
+   *
+   * @param index Which special element to fetch.
+   * @param options Reply timeout.
+   */
+  async getSpecialElement(index: number, options?: InvokeOptions): Promise<AxElement | undefined> {
+    const aux = new MessageAux();
+    aux.appendObj(index);
+    const value = deserializeAxObject(await this.transport.invoke('deviceFetchSpecialElement:', aux, options));
+    return toAxElement(value);
+  }
+
+  /** Arms or disarms the daemon's focus monitoring. */
+  private setMonitoredEventType(type: number): void {
+    const aux = new MessageAux();
+    aux.appendObj(type);
+    this.transport.invokeOneway('deviceInspectorSetMonitoredEventType:', aux);
+  }
+
+  /** Toggles the on-device highlight the Inspector draws around the element. */
+  private setShowVisuals(enabled: boolean): void {
+    const aux = new MessageAux();
+    aux.appendObj(enabled);
+    this.transport.invokeOneway('deviceInspectorShowVisuals:', aux);
+  }
+
   /** Closes the underlying connection. */
   close(): void {
     this.transport.close();
   }
+}
+
+/** Options for {@link AccessibilityAuditService.getFocusedElement}. */
+export interface InspectOptions {
+  /** How long to wait for the device to push the element. Defaults to 15000. */
+  timeoutMs?: number;
+  /** Draw the Inspector's highlight around the element on the device. */
+  showVisuals?: boolean;
 }
 
 /**
