@@ -191,6 +191,69 @@ export class ScreenStreamCapture {
   }
 }
 
+/**
+ * The Annex-B output file, with the write stream's `'error'` event held instead
+ * of left to reach the process.
+ *
+ * A recording runs unattended for minutes and the stream never escapes the
+ * function that owns it, so a caller cannot attach a listener of its own.
+ * Without one here, a mistyped path or a write that fails after the fact (a full
+ * disk, an unplugged volume) arrives as an uncaught `'error'` event and takes
+ * the process down — `end(callback)` does not help, since the callback receives
+ * the error *and* the event is still emitted. Holding the first error and
+ * re-throwing it from the next `write` or `close` turns that into a rejection
+ * the caller can see, the guarantee {@link M4aFileWriter} already gives the
+ * audio track.
+ *
+ * Opening is deliberately not awaited, unlike `M4aFileWriter.create`: the
+ * capture is already streaming by the time the file is created, so a rejection
+ * before the caller holds the writer would strand it. An open failure surfaces
+ * from the first {@link write} instead.
+ */
+export class AnnexBFileWriter {
+  private readonly stream: ReturnType<typeof createWriteStream>;
+  /** First stream error seen, re-thrown from the next `write` or `close`. */
+  private streamError: Error | undefined;
+
+  /** @param path Destination file path; truncated if it exists. */
+  constructor(path: string) {
+    this.stream = createWriteStream(path);
+    this.stream.on('error', (error: Error) => {
+      this.streamError ??= error;
+    });
+  }
+
+  /**
+   * Appends one chunk, resolving once the stream has room for more so an
+   * `await` per chunk applies backpressure.
+   */
+  async write(chunk: Buffer): Promise<void> {
+    if (this.streamError) {
+      throw this.streamError;
+    }
+    if (!this.stream.write(chunk)) {
+      await once(this.stream, 'drain');
+    }
+    if (this.streamError) {
+      throw this.streamError;
+    }
+  }
+
+  /** Flushes and closes the file, re-throwing any error the stream saw. */
+  async close(): Promise<void> {
+    // The held error is reported in preference to ending an already-failed
+    // stream, which answers with a generic `ERR_STREAM_DESTROYED` and buries the
+    // cause. That is the common path for a bad output path: the open fails
+    // before the first keyframe arrives, so no `write` ever ran to surface it.
+    if (this.streamError) {
+      throw this.streamError;
+    }
+    await new Promise<void>((resolve, reject) => {
+      this.stream.end((error?: Error | null): void => (error ? reject(error) : resolve()));
+    });
+  }
+}
+
 /** Options for {@link recordScreenToFile}. */
 export interface RecordScreenOptions extends ScreenStreamCaptureOptions {
   /** How long to record, in milliseconds. Defaults to 5000. */
@@ -239,7 +302,7 @@ export async function recordScreenToFile(
   const {durationMs = 5000, maxFrames = Number.POSITIVE_INFINITY, ...captureOptions} = options;
 
   const capture = await ScreenStreamCapture.start(service, captureOptions);
-  const output = createWriteStream(outputPath);
+  const output = new AnnexBFileWriter(outputPath);
   let framesWritten = 0;
   let bytesWritten = 0;
   let sawKeyFrame = false;
@@ -262,9 +325,7 @@ export async function recordScreenToFile(
       }
 
       const chunk = toAnnexB(unit.nals);
-      if (!output.write(chunk)) {
-        await once(output, 'drain');
-      }
+      await output.write(chunk);
       framesWritten += 1;
       bytesWritten += chunk.length;
 
@@ -277,15 +338,7 @@ export async function recordScreenToFile(
     await capture.stop().catch((error: unknown) => {
       log.debug(`Failed to stop the media stream cleanly: ${error instanceof Error ? error.message : String(error)}`);
     });
-    await new Promise<void>((resolve, reject) => {
-      output.end((error?: Error | null): void => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        resolve();
-      });
-    });
+    await output.close();
   }
 
   return {

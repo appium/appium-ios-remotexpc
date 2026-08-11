@@ -1,6 +1,3 @@
-import {once} from 'node:events';
-import {createWriteStream} from 'node:fs';
-
 import {getLogger} from '../../../../lib/logger.js';
 import {XPCUUID} from '../../../../lib/remote-xpc/xpc-uuid.js';
 import {type AacEldFormat, aacEldDurationMs} from '../audio/aac-eld.js';
@@ -8,7 +5,7 @@ import {AudioStreamCapture, type AudioStreamStats} from '../audio/audio-stream-c
 import {M4aFileWriter} from '../audio/m4a-writer.js';
 import {type DisplayService, type StartVideoStreamOptions} from '../index.js';
 import {toAnnexB} from '../video/hevc.js';
-import {ScreenStreamCapture, type ScreenStreamStats} from '../video/screen-stream-capture.js';
+import {AnnexBFileWriter, ScreenStreamCapture, type ScreenStreamStats} from '../video/screen-stream-capture.js';
 import {type MuxCommand, ffmpegMuxCommandBuilder} from './mux-command.js';
 
 const log = getLogger('AvCapture');
@@ -127,7 +124,7 @@ export async function recordScreenAndAudioToFiles(
     throw error;
   }
 
-  const videoOut = createWriteStream(videoPath);
+  const videoOut = new AnnexBFileWriter(videoPath);
   const audioOut = await M4aFileWriter.create(audioPath);
   let framesWritten = 0;
   let videoBytes = 0;
@@ -147,9 +144,7 @@ export async function recordScreenAndAudioToFiles(
         sawKeyFrame = true;
       }
       const chunk = toAnnexB(unit.nals);
-      if (!videoOut.write(chunk)) {
-        await once(videoOut, 'drain');
-      }
+      await videoOut.write(chunk);
       framesWritten += 1;
       videoBytes += chunk.length;
     }
@@ -180,15 +175,7 @@ export async function recordScreenAndAudioToFiles(
     });
     await audioCapture.stop().catch((): void => undefined);
     audioWritten = await audioOut.close();
-    await new Promise<void>((resolve, reject) => {
-      videoOut.end((error?: Error | null): void => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        resolve();
-      });
-    });
+    await videoOut.close();
   }
 
   const audioDurationMs = aacEldDurationMs(audioWritten.sampleCount);
