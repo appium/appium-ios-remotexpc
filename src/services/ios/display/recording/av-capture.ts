@@ -196,8 +196,16 @@ export async function recordScreenAndAudioToFiles(
       log.debug(`Failed to stop cleanly: ${error instanceof Error ? error.message : String(error)}`);
     });
     await audioCapture.stop().catch((): void => undefined);
-    audioWritten = await audioOut.close();
-    await videoOut.close();
+    // The video writer closes even when the audio writer throws. M4aFileWriter
+    // finalizes by reopening the finished file to patch mdat's length, so it can
+    // fail on a full disk long after every frame is safely on disk. Sequencing
+    // the two closes would leak the video file descriptor for the life of the
+    // process, and the error its stream is holding would never be read.
+    try {
+      audioWritten = await audioOut.close();
+    } finally {
+      await videoOut.close();
+    }
   }
 
   const audioDurationMs = aacEldDurationMs(audioWritten.sampleCount);
