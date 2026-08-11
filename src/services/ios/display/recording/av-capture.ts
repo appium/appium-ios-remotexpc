@@ -125,7 +125,29 @@ export async function recordScreenAndAudioToFiles(
   }
 
   const videoOut = new AnnexBFileWriter(videoPath);
-  const audioOut = await M4aFileWriter.create(audioPath);
+  let audioOut: M4aFileWriter;
+  try {
+    audioOut = await M4aFileWriter.create(audioPath);
+  } catch (error) {
+    // Both captures are already streaming by now, and neither they nor the
+    // video writer escape this function, so a caller cannot release them. Left
+    // running, the device keeps encoding into a receiver whose queue nobody
+    // drains, and its RTCP keepalive keeps the session alive indefinitely.
+    // Each failure is swallowed so it cannot mask the error being thrown. The
+    // stop is still logged: if it fails the device is left streaming, which is
+    // the leak itself. One stop tears down both streams, so the second call and
+    // the file close are quiet.
+    await videoCapture.stop().catch((stopError: unknown) => {
+      log.debug(
+        `Failed to stop cleanly after the audio file could not be created: ${
+          stopError instanceof Error ? stopError.message : String(stopError)
+        }`,
+      );
+    });
+    await audioCapture.stop().catch((): void => undefined);
+    await videoOut.close().catch((): void => undefined);
+    throw error;
+  }
   let framesWritten = 0;
   let videoBytes = 0;
   let sawKeyFrame = false;

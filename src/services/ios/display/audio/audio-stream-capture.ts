@@ -242,7 +242,25 @@ export async function recordAudioToFile(
   const timer = setTimeout(() => controller.abort(), durationMs);
   timer.unref?.();
 
-  const writer = await M4aFileWriter.create(outputPath);
+  let writer: M4aFileWriter;
+  try {
+    writer = await M4aFileWriter.create(outputPath);
+  } catch (error) {
+    // The capture is already streaming and never escapes this function, so a
+    // caller cannot stop it. Left running, the device keeps sending into a
+    // receiver whose queue nobody drains.
+    clearTimeout(timer);
+    // Swallowed so it cannot mask the error being thrown, but logged: a failed
+    // stop means the device is still streaming, which is the leak itself.
+    await capture.stop().catch((stopError: unknown) => {
+      log.debug(
+        `Failed to stop the audio stream after the output file could not be created: ${
+          stopError instanceof Error ? stopError.message : String(stopError)
+        }`,
+      );
+    });
+    throw error;
+  }
   let written;
   try {
     for await (const unit of capture.accessUnits(controller.signal)) {
