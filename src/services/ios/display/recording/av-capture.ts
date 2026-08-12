@@ -1,6 +1,3 @@
-import {once} from 'node:events';
-import {createWriteStream} from 'node:fs';
-
 import {getLogger} from '../../../../lib/logger.js';
 import {XPCUUID} from '../../../../lib/remote-xpc/xpc-uuid.js';
 import {type AacEldFormat, aacEldDurationMs} from '../audio/aac-eld.js';
@@ -8,7 +5,7 @@ import {AudioStreamCapture, type AudioStreamStats} from '../audio/audio-stream-c
 import {M4aFileWriter} from '../audio/m4a-writer.js';
 import {type DisplayService, type StartVideoStreamOptions} from '../index.js';
 import {toAnnexB} from '../video/hevc.js';
-import {ScreenStreamCapture, type ScreenStreamStats} from '../video/screen-stream-capture.js';
+import {AnnexBFileWriter, ScreenStreamCapture, type ScreenStreamStats} from '../video/screen-stream-capture.js';
 import {type MuxCommand, ffmpegMuxCommandBuilder} from './mux-command.js';
 
 const log = getLogger('AvCapture');
@@ -127,8 +124,30 @@ export async function recordScreenAndAudioToFiles(
     throw error;
   }
 
-  const videoOut = createWriteStream(videoPath);
-  const audioOut = await M4aFileWriter.create(audioPath);
+  const videoOut = new AnnexBFileWriter(videoPath);
+  let audioOut: M4aFileWriter;
+  try {
+    audioOut = await M4aFileWriter.create(audioPath);
+  } catch (error) {
+    // Both captures are already streaming by now, and neither they nor the
+    // video writer escape this function, so a caller cannot release them. Left
+    // running, the device keeps encoding into a receiver whose queue nobody
+    // drains, and its RTCP keepalive keeps the session alive indefinitely.
+    // Each failure is swallowed so it cannot mask the error being thrown. The
+    // stop is still logged: if it fails the device is left streaming, which is
+    // the leak itself. One stop tears down both streams, so the second call and
+    // the file close are quiet.
+    await videoCapture.stop().catch((stopError: unknown) => {
+      log.debug(
+        `Failed to stop cleanly after the audio file could not be created: ${
+          stopError instanceof Error ? stopError.message : String(stopError)
+        }`,
+      );
+    });
+    await audioCapture.stop().catch((): void => undefined);
+    await videoOut.close().catch((): void => undefined);
+    throw error;
+  }
   let framesWritten = 0;
   let videoBytes = 0;
   let sawKeyFrame = false;
@@ -147,9 +166,7 @@ export async function recordScreenAndAudioToFiles(
         sawKeyFrame = true;
       }
       const chunk = toAnnexB(unit.nals);
-      if (!videoOut.write(chunk)) {
-        await once(videoOut, 'drain');
-      }
+      await videoOut.write(chunk);
       framesWritten += 1;
       videoBytes += chunk.length;
     }
@@ -179,16 +196,16 @@ export async function recordScreenAndAudioToFiles(
       log.debug(`Failed to stop cleanly: ${error instanceof Error ? error.message : String(error)}`);
     });
     await audioCapture.stop().catch((): void => undefined);
-    audioWritten = await audioOut.close();
-    await new Promise<void>((resolve, reject) => {
-      videoOut.end((error?: Error | null): void => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        resolve();
-      });
-    });
+    // The video writer closes even when the audio writer throws. M4aFileWriter
+    // finalizes by reopening the finished file to patch mdat's length, so it can
+    // fail on a full disk long after every frame is safely on disk. Sequencing
+    // the two closes would leak the video file descriptor for the life of the
+    // process, and the error its stream is holding would never be read.
+    try {
+      audioWritten = await audioOut.close();
+    } finally {
+      await videoOut.close();
+    }
   }
 
   const audioDurationMs = aacEldDurationMs(audioWritten.sampleCount);

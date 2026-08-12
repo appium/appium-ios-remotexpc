@@ -1,3 +1,21 @@
+## [5.14.3](https://github.com/appium/appium-ios-remotexpc/compare/v5.14.2...v5.14.3) (2026-08-11)
+
+### Bug Fixes
+
+* **display:** close the video writer when the audio writer's close throws ([#291](https://github.com/appium/appium-ios-remotexpc/issues/291)) ([ee8f381](https://github.com/appium/appium-ios-remotexpc/commit/ee8f381d867dfe703e407462ad7da0184b59a67d))
+
+## [5.14.2](https://github.com/appium/appium-ios-remotexpc/compare/v5.14.1...v5.14.2) (2026-08-11)
+
+### Bug Fixes
+
+* **display:** stop captures when the recording's output file cannot be created ([#290](https://github.com/appium/appium-ios-remotexpc/issues/290)) ([18ad748](https://github.com/appium/appium-ios-remotexpc/commit/18ad7480bf5a82888a7ea9a574e937ce11b5eaba))
+
+## [5.14.1](https://github.com/appium/appium-ios-remotexpc/compare/v5.14.0...v5.14.1) (2026-08-11)
+
+### Bug Fixes
+
+* **display:** surface screen-recording write errors instead of crashing ([#289](https://github.com/appium/appium-ios-remotexpc/issues/289)) ([2ef7852](https://github.com/appium/appium-ios-remotexpc/commit/2ef7852814d01bcc08202e82434ebea74424d8de))
+
 ## [5.14.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.13.6...v5.14.0) (2026-08-09)
 
 ### Features
