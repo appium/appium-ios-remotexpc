@@ -120,9 +120,10 @@ export class AccessibilityAuditService {
    * @param options Timeout for the completion callback.
    */
   async runAudit(auditTypes: string[], options: RunAuditOptions = {}): Promise<AxAuditIssue[]> {
-    // Issues are streamed one per `hostFoundAuditIssue:` call, not returned in
-    // the completion callback (whose argument list is empty). Collect them as
-    // they arrive and stop when the completion call lands.
+    // Issues are streamed one per `hostFoundAuditIssue:` call and the
+    // completion callback carries no arguments. Older releases are reported to
+    // return them in the completion instead, so both are collected and the
+    // streamed set wins when present.
     const issues: AxAuditIssue[] = [];
     const stopIssues = this.transport.onInbound('hostFoundAuditIssue:', (args) => {
       const issue = deserializeAxObject(args[0]);
@@ -140,7 +141,8 @@ export class AccessibilityAuditService {
 
     try {
       if (options.targetPid !== undefined) {
-        // Without a target the daemon audits nothing and reports no issues.
+        // Narrows the audit to one process; omitted, the daemon uses the
+        // foreground app.
         const pidAux = new MessageAux();
         pidAux.appendObj(options.targetPid);
         this.transport.invokeOneway('deviceSetAuditTargetPid:', pidAux);
@@ -152,11 +154,11 @@ export class AccessibilityAuditService {
       const aux = new MessageAux();
       aux.appendObj(auditTypes);
       this.transport.invokeOneway('deviceBeginAuditTypes:', aux);
-      await completion;
+      const completionArgs = await completion;
       // The completion call can land marginally before the last issue is read
       // off the socket, so let the queue drain.
       await new Promise((resolve) => setTimeout(resolve, 250));
-      return issues;
+      return issues.length > 0 ? issues : issuesFromCompletion(completionArgs);
     } finally {
       stopIssues();
       stopLog?.();
@@ -306,16 +308,34 @@ export type AxAuditIssue = Record<string, unknown>;
 /** Options for {@link AccessibilityAuditService.runAudit}. */
 export interface RunAuditOptions {
   /**
-   * PID of the app to audit.
+   * PID of the app to audit. Optional — the daemon audits the foreground app
+   * when this is omitted.
    *
-   * Strongly recommended: with no target the daemon audits nothing and reports
-   * zero issues, which is indistinguishable from a clean pass.
+   * Set it to audit a specific process regardless of what is frontmost.
    */
   targetPid?: number;
   /** How long to wait for the audit to complete, in milliseconds. */
   timeoutMs?: number;
   /** Receives the device's own audit log lines as they stream in. */
   onLog?: (line: string) => void;
+}
+
+/**
+ * Recovers audit issues carried in the completion callback's arguments.
+ *
+ * The device sends no arguments there and streams each issue separately, so this is
+ * the fallback path for releases that report them in the completion instead.
+ */
+function issuesFromCompletion(args: unknown[]): AxAuditIssue[] {
+  if (args.length === 0) {
+    return [];
+  }
+  const payload = deserializeAxObject(args[0]);
+  if (payload === null || payload === undefined) {
+    return [];
+  }
+  const list = Array.isArray(payload) ? payload : [payload];
+  return list.filter((issue): issue is AxAuditIssue => typeof issue === 'object' && issue !== null);
 }
 
 /** Narrows an unknown reply to `string[]`. */
