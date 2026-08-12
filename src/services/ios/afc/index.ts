@@ -479,14 +479,33 @@ export class AfcService {
     log.debug(`Successfully pushed file to '${remoteDst}'`);
   }
 
+  /**
+   * Recursively list `root` and everything below it. Untraversable directories are skipped
+   * rather than aborting the walk: the media sandbox exposes directories it refuses to read
+   * (e.g. `/PhotoData/UBF` answers GET_FILE_INFO but fails READ_DIR with PERM_DENIED).
+   */
   async walk(root: string): Promise<Array<{dir: string; dirs: string[]; files: string[]}>> {
     const out: Array<{dir: string; dirs: string[]; files: string[]}> = [];
-    const entries = await this.listdir(root);
+    let entries: string[];
+    try {
+      entries = await this.listdir(root);
+    } catch (error) {
+      log.debug(`Skipping '${root}' during walk, cannot list it:`, error);
+      return out;
+    }
     const dirs: string[] = [];
     const files: string[] = [];
     for (const e of entries) {
       const p = path.posix.join(root, e);
-      if (await this.isdir(p)) {
+      let isDir: boolean;
+      try {
+        isDir = await this.isdir(p);
+      } catch (error) {
+        // Unstattable entry: report it, but do not try to descend into it.
+        log.debug(`Cannot stat '${p}' during walk, treating it as a file:`, error);
+        isDir = false;
+      }
+      if (isDir) {
         dirs.push(e);
       } else {
         files.push(e);
