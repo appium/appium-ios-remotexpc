@@ -64,6 +64,9 @@ export interface AxDeviceSetting {
 export class AccessibilityAuditService {
   static readonly RSD_SERVICE_NAME = AxAuditDtxTransport.RSD_SERVICE_NAME;
 
+  /** Live {@link observeFocusedElement} subscriptions; monitoring stays armed while > 0. */
+  private observerCount = 0;
+
   private constructor(private readonly transport: AxAuditDtxTransport) {}
 
   /**
@@ -116,6 +119,9 @@ export class AccessibilityAuditService {
    * the device calls back with
    * `hostDeviceDidCompleteAuditCategoriesWithAuditIssues:`.
    *
+   * Run one audit at a time per service instance: issues are collected from a
+   * shared inbound stream, so overlapping calls would each see the other's.
+   *
    * @param auditTypes Audit types to run, from {@link getSupportedAuditTypes}.
    * @param options Timeout for the completion callback.
    */
@@ -155,9 +161,6 @@ export class AccessibilityAuditService {
       aux.appendObj(auditTypes);
       this.transport.invokeOneway('deviceBeginAuditTypes:', aux);
       const completionArgs = await completion;
-      // The completion call can land marginally before the last issue is read
-      // off the socket, so let the queue drain.
-      await new Promise((resolve) => setTimeout(resolve, 250));
       return issues.length > 0 ? issues : issuesFromCompletion(completionArgs);
     } finally {
       stopIssues();
@@ -198,7 +201,10 @@ export class AccessibilityAuditService {
       if (showVisuals) {
         this.setShowVisuals(false);
       }
-      this.setMonitoredEventType(MONITORED_EVENT_OFF);
+      // Leave monitoring armed if an observer is relying on it.
+      if (this.observerCount === 0) {
+        this.setMonitoredEventType(MONITORED_EVENT_OFF);
+      }
     }
   }
 
@@ -206,7 +212,9 @@ export class AccessibilityAuditService {
    * Subscribes to focus changes, delivering an inspector panel each time the
    * device's accessibility focus moves.
    *
-   * Monitoring stays armed until the returned function is called.
+   * Monitoring stays armed until every observer has unsubscribed. The listener
+   * is called synchronously; a rejected promise returned from an async one is
+   * not awaited, so handle errors inside it.
    *
    * @param listener Receives each pushed element.
    * @param options Whether to draw the on-device highlight.
@@ -218,16 +226,26 @@ export class AccessibilityAuditService {
     const stop = this.transport.onInbound('hostInspectorCurrentElementChanged:', (args) => {
       listener(toInspectedElement(deserializeAxObject(args[0])));
     });
+    this.observerCount += 1;
     this.setMonitoredEventType(MONITORED_EVENT_FOCUS);
     if (options.showVisuals) {
       this.setShowVisuals(true);
     }
+    let stopped = false;
     return () => {
+      if (stopped) {
+        return;
+      }
+      stopped = true;
       stop();
       if (options.showVisuals) {
         this.setShowVisuals(false);
       }
-      this.setMonitoredEventType(MONITORED_EVENT_OFF);
+      // Only the last observer may disarm; otherwise it would stop the others.
+      this.observerCount -= 1;
+      if (this.observerCount === 0) {
+        this.setMonitoredEventType(MONITORED_EVENT_OFF);
+      }
     };
   }
 

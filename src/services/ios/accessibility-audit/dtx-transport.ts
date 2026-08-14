@@ -19,6 +19,18 @@ const DTX_MAGIC = Buffer.from([0x79, 0x5b, 0x3d, 0x1f]);
 /** The accessibility audit daemon speaks entirely on the DTX control channel. */
 const CONTROL_CHANNEL = 0;
 
+/** How long to wait for the TCP connection to the shim. */
+const CONNECT_TIMEOUT_MS = 30000;
+
+/** How long the checkin handshake may take before the socket is torn down. */
+const HANDSHAKE_TIMEOUT_MS = 30000;
+
+/** Safety valve for the checkin loop; iOS 27 sends two plists. */
+const MAX_CHECKIN_PLISTS = 8;
+
+/** Safety valve for fragment reassembly, far above any real message. */
+const MAX_FRAGMENTS_PER_MESSAGE = 65536;
+
 /** Options for {@link AxAuditDtxTransport.invoke}. */
 export interface InvokeOptions {
   /** How long to wait for the reply, in milliseconds. Defaults to 15000. */
@@ -64,7 +76,10 @@ export class AxAuditDtxTransport extends BaseService {
     number,
     {resolve: (value: unknown) => void; reject: (error: Error) => void}
   >();
-  private readonly inboundWaiters = new Map<string, Array<(args: unknown[]) => void>>();
+  private readonly inboundWaiters = new Map<
+    string,
+    Array<{resolve: (args: unknown[]) => void; reject: (error: Error) => void}>
+  >();
   private readonly inboundListeners = new Map<string, Array<(args: unknown[]) => void>>();
 
   private constructor(udid: string) {
@@ -91,9 +106,18 @@ export class AxAuditDtxTransport extends BaseService {
     // it). Only the address resolution is reused.
     const [host, port] = await this.resolveServiceAddress(AxAuditDtxTransport.RSD_SERVICE_NAME);
     const socket = await new Promise<net.Socket>((resolve, reject) => {
-      const created = net.createConnection({host, port, family: 6}, () => {
+      // The address family is left to Node: the tunnel hands out an IPv6 literal
+      // today, but nothing in this protocol is v6-specific.
+      const created = net.createConnection({host, port}, () => {
+        created.setTimeout(0);
         created.setKeepAlive(true);
+        // Request/reply frames are small; Nagle would delay every one of them.
+        created.setNoDelay(true);
         resolve(created);
+      });
+      created.setTimeout(CONNECT_TIMEOUT_MS, () => {
+        created.destroy();
+        reject(new Error(`Timed out after ${CONNECT_TIMEOUT_MS}ms connecting to [${host}]:${port}`));
       });
       created.once('error', reject);
     });
@@ -103,7 +127,12 @@ export class AxAuditDtxTransport extends BaseService {
     socket.on('error', (error: Error) => this.onClose(error));
     this.socket = socket;
 
-    await this.performCheckin();
+    try {
+      await withDeadline(this.performCheckin(), HANDSHAKE_TIMEOUT_MS, 'RSDCheckin handshake');
+    } catch (error) {
+      this.close();
+      throw error;
+    }
     await this.publishCapabilities();
   }
 
@@ -131,6 +160,15 @@ export class AxAuditDtxTransport extends BaseService {
       pending.reject(error);
     }
     this.pendingReplies.clear();
+    // Inbound waiters have to be failed too, or they hang until their own
+    // timeout even though nothing can arrive any more.
+    for (const waiters of this.inboundWaiters.values()) {
+      for (const waiter of waiters.splice(0)) {
+        waiter.reject(error);
+      }
+    }
+    this.inboundWaiters.clear();
+    this.inboundListeners.clear();
   }
 
   /** Waits until at least `length` bytes are buffered, then returns them without consuming. */
@@ -179,17 +217,22 @@ export class AxAuditDtxTransport extends BaseService {
 
     // Plists are length-prefixed (4-byte big-endian); the DTX stream is not, so
     // the magic marks the boundary.
+    const consumed: string[] = [];
     for (;;) {
       const head = await this.peek(4);
       if (head.equals(DTX_MAGIC)) {
-        return;
+        break;
+      }
+      if (consumed.length >= MAX_CHECKIN_PLISTS) {
+        throw new Error(`No DTX stream after ${MAX_CHECKIN_PLISTS} checkin plists: ${consumed.join(', ')}`);
       }
       const length = head.readUInt32BE(0);
       await this.readExact(4);
       const plist = await this.readExact(length);
       const request = plist.toString('utf8').match(/<key>Request<\/key>\s*<string>([^<]*)</);
-      log.debug(`Checkin plist consumed: ${request ? request[1] : '(unrecognized)'}`);
+      consumed.push(request ? request[1] : '(unrecognized)');
     }
+    log.debug(`Checkin consumed ${consumed.length} plist(s): ${consumed.join(', ')}`);
   }
 
   /**
@@ -202,7 +245,10 @@ export class AxAuditDtxTransport extends BaseService {
     conversationIndex: number;
     payload: Buffer;
   }> {
-    for (;;) {
+    for (let fragments = 0; ; fragments += 1) {
+      if (fragments >= MAX_FRAGMENTS_PER_MESSAGE) {
+        throw new Error(`DTX message exceeded ${MAX_FRAGMENTS_PER_MESSAGE} fragments`);
+      }
       const header = DTXMessage.parseMessageHeader(await this.readExact(DTX_CONSTANTS.MESSAGE_HEADER_SIZE));
       const channel = Math.abs(header.channelCode);
       let fragmenter = this.fragmenters.get(channel);
@@ -249,42 +295,62 @@ export class AxAuditDtxTransport extends BaseService {
     return {object, args};
   }
 
-  /** The single read loop; dispatches replies to callers and inbound calls to waiters. */
+  /**
+   * The single read loop; dispatches replies to callers and inbound calls to
+   * waiters. It runs until {@link recvMessage} throws, which happens when the
+   * socket closes — that is the only exit.
+   */
   private async readLoop(): Promise<void> {
     try {
       for (;;) {
         const message = await this.recvMessage();
-        const {object, args} = this.decodePayload(message.payload);
-        if (message.conversationIndex === 1) {
-          const pending = this.pendingReplies.get(message.identifier);
-          if (pending) {
-            this.pendingReplies.delete(message.identifier);
-            pending.resolve(object);
-          } else {
-            log.debug(`Reply for unknown id ${message.identifier} ignored`);
-          }
-          continue;
-        }
-        // Inbound call from the device. The object is the selector; the args
-        // carry the payload (e.g. audit issues). Deliver it to a waiter if one
-        // is registered, otherwise drop it — the device does not require a reply
-        // for the read flows this transport supports.
-        const selector = typeof object === 'string' ? object : '';
-        const listeners = selector ? this.inboundListeners.get(selector) : undefined;
-        for (const listener of listeners ?? []) {
-          listener(args);
-        }
-        const waiters = selector ? this.inboundWaiters.get(selector) : undefined;
-        if (waiters && waiters.length > 0) {
-          for (const waiter of waiters.splice(0)) {
-            waiter(args);
-          }
-        } else if (!listeners || listeners.length === 0) {
-          log.debug(`Inbound ${selector || 'message'} dropped (${args.length} arg(s))`);
+        try {
+          this.dispatch(message);
+        } catch (error) {
+          // A frame this transport cannot decode (e.g. a compressed payload)
+          // must not take the whole session down with it.
+          log.debug(`Dropped undecodable DTX frame: ${error instanceof Error ? error.message : String(error)}`);
         }
       }
     } catch (error) {
       this.onClose(error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  /** Routes one decoded message to its reply promise, listeners, or waiters. */
+  private dispatch(message: {identifier: number; conversationIndex: number; payload: Buffer}): void {
+    const {object, args} = this.decodePayload(message.payload);
+    if (message.conversationIndex === 1) {
+      const pending = this.pendingReplies.get(message.identifier);
+      if (pending) {
+        this.pendingReplies.delete(message.identifier);
+        pending.resolve(object);
+      } else {
+        log.debug(`Reply for unknown id ${message.identifier} ignored`);
+      }
+      return;
+    }
+    // Inbound call from the device. The object is the selector; the args carry
+    // the payload (e.g. audit issues). Deliver it to a waiter if one is
+    // registered, otherwise drop it — the device does not require a reply for
+    // the read flows this transport supports.
+    const selector = typeof object === 'string' ? object : '';
+    const listeners = selector ? this.inboundListeners.get(selector) : undefined;
+    for (const listener of [...(listeners ?? [])]) {
+      // A throwing listener is the caller's bug, not a transport failure.
+      try {
+        listener(args);
+      } catch (error) {
+        log.warn(`Listener for ${selector} threw: ${error instanceof Error ? error.message : String(error)}`);
+      }
+    }
+    const waiters = selector ? this.inboundWaiters.get(selector) : undefined;
+    if (waiters && waiters.length > 0) {
+      for (const waiter of waiters.splice(0)) {
+        waiter.resolve(args);
+      }
+    } else if (!listeners || listeners.length === 0) {
+      log.debug(`Inbound ${selector || 'message'} dropped (${args.length} arg(s))`);
     }
   }
 
@@ -328,17 +394,23 @@ export class AxAuditDtxTransport extends BaseService {
     return new Promise<unknown[]>((resolve, reject) => {
       const waiters = this.inboundWaiters.get(selector) ?? [];
       const timer = setTimeout(() => {
-        const index = waiters.indexOf(onArgs);
+        const index = waiters.indexOf(waiter);
         if (index >= 0) {
           waiters.splice(index, 1);
         }
         reject(new Error(`Timed out after ${timeoutMs}ms waiting for inbound ${selector}`));
       }, timeoutMs);
-      const onArgs = (args: unknown[]): void => {
-        clearTimeout(timer);
-        resolve(args);
+      const waiter = {
+        resolve: (args: unknown[]): void => {
+          clearTimeout(timer);
+          resolve(args);
+        },
+        reject: (error: Error): void => {
+          clearTimeout(timer);
+          reject(error);
+        },
       };
-      waiters.push(onArgs);
+      waiters.push(waiter);
       this.inboundWaiters.set(selector, waiters);
     });
   }
@@ -474,18 +546,39 @@ function parseAuxiliary(buffer: Buffer): unknown[] {
       const objectData = buffer.subarray(offset, offset + length);
       offset += length;
       values.push(decodeNSKeyedArchiver(parseBinaryPlist(objectData)));
-    } else if (type === DTX_CONSTANTS.AUX_TYPE_INT32) {
+      continue;
+    }
+    if (type === DTX_CONSTANTS.AUX_TYPE_INT32) {
       values.push(buffer.readInt32LE(offset));
       offset += 4;
-    } else if (type === DTX_CONSTANTS.AUX_TYPE_INT64) {
+      continue;
+    }
+    if (type === DTX_CONSTANTS.AUX_TYPE_INT64) {
       values.push(Number(buffer.readBigInt64LE(offset)));
       offset += 8;
-    } else {
-      // Unknown type — stop rather than misread the rest of the array.
-      break;
+      continue;
     }
+    // Unknown type — stop rather than misread the rest of the array.
+    break;
   }
   return values;
+}
+
+/** Rejects if `promise` has not settled within `timeoutMs`. */
+async function withDeadline<T>(promise: Promise<T>, timeoutMs: number, what: string): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`Timed out after ${timeoutMs}ms during ${what}`)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+    // The loser keeps running until the socket is destroyed; swallow its result.
+    promise.catch(() => {});
+  }
 }
 
 /**
@@ -503,22 +596,28 @@ function buildAuxiliaryData(aux: MessageAux): Buffer {
     marker.writeUInt32LE(DTX_CONSTANTS.EMPTY_DICTIONARY, 0);
     marker.writeUInt32LE(type, 4);
     parts.push(marker);
-    if (type === DTX_CONSTANTS.AUX_TYPE_OBJECT) {
-      // An AxPoint has to be archived as an NSValue, which the generic encoder
-      // cannot express — see `ax-values.ts`.
-      const archive = value instanceof AxPoint ? archiveAxPoint(value) : new NSKeyedArchiverEncoder().encode(value);
-      const encoded = createBinaryPlist(archive);
-      const length = Buffer.alloc(4);
-      length.writeUInt32LE(encoded.length, 0);
-      parts.push(length, encoded);
-    } else if (type === DTX_CONSTANTS.AUX_TYPE_INT32) {
-      const encoded = Buffer.alloc(4);
-      encoded.writeUInt32LE(value as number, 0);
-      parts.push(encoded);
-    } else {
-      const encoded = Buffer.alloc(8);
-      encoded.writeBigUInt64LE(BigInt(value as number | bigint), 0);
-      parts.push(encoded);
+    switch (type) {
+      case DTX_CONSTANTS.AUX_TYPE_OBJECT: {
+        // An AxPoint has to be archived as an NSValue, which the generic encoder
+        // cannot express — see `ax-values.ts`.
+        const archive = value instanceof AxPoint ? archiveAxPoint(value) : new NSKeyedArchiverEncoder().encode(value);
+        const encoded = createBinaryPlist(archive);
+        const length = Buffer.alloc(4);
+        length.writeUInt32LE(encoded.length, 0);
+        parts.push(length, encoded);
+        break;
+      }
+      case DTX_CONSTANTS.AUX_TYPE_INT32: {
+        const encoded = Buffer.alloc(4);
+        encoded.writeUInt32LE(value as number, 0);
+        parts.push(encoded);
+        break;
+      }
+      default: {
+        const encoded = Buffer.alloc(8);
+        encoded.writeBigUInt64LE(BigInt(value as number | bigint), 0);
+        parts.push(encoded);
+      }
     }
   }
   const itemsData = Buffer.concat(parts);

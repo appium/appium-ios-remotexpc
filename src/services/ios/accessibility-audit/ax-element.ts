@@ -1,3 +1,5 @@
+import {util} from '@appium/support';
+
 import {AX_OBJECT_TYPE} from './ax-deserialize.js';
 
 /**
@@ -73,17 +75,22 @@ function toBuffer(value: unknown): Buffer | undefined {
   return undefined;
 }
 
-/** Parses a deserialized `AXAuditElement_v1`. */
+/**
+ * Parses a deserialized `AXAuditElement_v1`.
+ *
+ * The `_v1` suffixes are the daemon's own wire keys, not our assumption. A
+ * future shape would carry different keys, so this returns `undefined` rather
+ * than misreading one.
+ */
 export function toAxElement(value: unknown): AxElement | undefined {
-  if (typeof value !== 'object' || value === null) {
+  if (!util.isPlainObject(value)) {
     return undefined;
   }
   const fields = value as Record<string, unknown>;
   const platformValue = fields.PlatformElementValue_v1;
-  const container =
-    typeof platformValue === 'object' && platformValue !== null
-      ? ((platformValue as Record<string, unknown>)['NS.data'] ?? platformValue)
-      : undefined;
+  const container = util.isPlainObject(platformValue)
+    ? ((platformValue as Record<string, unknown>)['NS.data'] ?? platformValue)
+    : undefined;
   const platformElement = toBuffer(container);
   if (!platformElement) {
     return undefined;
@@ -113,7 +120,7 @@ export function serializeAxElement(element: AxElement): Record<string, unknown> 
 }
 
 function toAttribute(value: unknown): AxElementAttribute | undefined {
-  if (typeof value !== 'object' || value === null) {
+  if (!util.isPlainObject(value)) {
     return undefined;
   }
   const fields = value as Record<string, unknown>;
@@ -134,21 +141,14 @@ function toAttribute(value: unknown): AxElementAttribute | undefined {
 
 /** Drops the decoder's type tag so the object round-trips as the daemon sent it. */
 function stripTag(fields: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(fields)) {
-    if (key !== AX_OBJECT_TYPE) {
-      out[key] = value;
-    }
-  }
-  return out;
+  return Object.fromEntries(Object.entries(fields).filter(([key]) => key !== AX_OBJECT_TYPE));
 }
 
 /** Rebuilds an attribute descriptor for the wire. */
 export function serializeAxAttribute(attribute: AxElementAttribute): Record<string, unknown> {
-  const value: Record<string, unknown> = {};
-  for (const [key, inner] of Object.entries(attribute.raw)) {
-    value[key] = {ObjectType: 'passthrough', Value: inner};
-  }
+  const value = Object.fromEntries(
+    Object.entries(attribute.raw).map(([key, inner]) => [key, {ObjectType: 'passthrough', Value: inner}]),
+  );
   return {
     ObjectType: 'AXAuditElementAttribute_v1',
     Value: {ObjectType: 'passthrough', Value: value},
@@ -157,11 +157,11 @@ export function serializeAxAttribute(attribute: AxElementAttribute): Record<stri
 
 /** Parses the payload of an inbound `hostInspectorCurrentElementChanged:`. */
 export function toInspectedElement(value: unknown): AxInspectedElement {
-  const fields = (typeof value === 'object' && value !== null ? value : {}) as Record<string, unknown>;
+  const fields = (util.isPlainObject(value) ? value : {}) as Record<string, unknown>;
   const rawSections = Array.isArray(fields.InspectorSectionsValue_v1) ? fields.InspectorSectionsValue_v1 : [];
   const sections: AxInspectorSection[] = [];
   for (const rawSection of rawSections) {
-    if (typeof rawSection !== 'object' || rawSection === null) {
+    if (!util.isPlainObject(rawSection)) {
       continue;
     }
     const section = rawSection as Record<string, unknown>;
