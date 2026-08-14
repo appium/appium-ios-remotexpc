@@ -1,3 +1,9 @@
+## [5.14.4](https://github.com/appium/appium-ios-remotexpc/compare/v5.14.3...v5.14.4) (2026-08-12)
+
+### Bug Fixes
+
+* **afc:** make walk tolerant to untraversable directories ([#292](https://github.com/appium/appium-ios-remotexpc/issues/292)) ([ac6959b](https://github.com/appium/appium-ios-remotexpc/commit/ac6959bd413ce4b7685895d3c024c0861be17b7f))
+
 ## [5.14.3](https://github.com/appium/appium-ios-remotexpc/compare/v5.14.2...v5.14.3) (2026-08-11)
 
 ### Bug Fixes
