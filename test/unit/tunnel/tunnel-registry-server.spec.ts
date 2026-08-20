@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import * as net from 'node:net';
+import * as os from 'node:os';
 import {afterEach, beforeEach, describe, it} from 'node:test';
 
 import {type TunnelRegistryServer, startTunnelRegistryServer} from '../../../src/lib/tunnel/tunnel-registry-server.js';
@@ -45,7 +47,7 @@ describe('TunnelRegistryServer', function () {
 
   describe('GET /remotexpc/tunnels', function () {
     it('should return all tunnels', async function () {
-      const response = await fetch(`http://localhost:${testPort}/remotexpc/tunnels`);
+      const response = await fetch(`http://127.0.0.1:${testPort}/remotexpc/tunnels`);
       const data = (await response.json()) as TunnelRegistry;
 
       assert.strictEqual(response.status, 200);
@@ -57,7 +59,7 @@ describe('TunnelRegistryServer', function () {
 
   describe('GET /remotexpc/tunnels/metadata', function () {
     it('should return registry metadata', async function () {
-      const response = await fetch(`http://localhost:${testPort}/remotexpc/tunnels/metadata`);
+      const response = await fetch(`http://127.0.0.1:${testPort}/remotexpc/tunnels/metadata`);
       const data = (await response.json()) as TunnelRegistry['metadata'] & {
         status: string;
       };
@@ -73,7 +75,7 @@ describe('TunnelRegistryServer', function () {
 
   describe('GET /remotexpc/tunnels/:udid', function () {
     it('should return tunnel by UDID', async function () {
-      const response = await fetch(`http://localhost:${testPort}/remotexpc/tunnels/test-udid-123`);
+      const response = await fetch(`http://127.0.0.1:${testPort}/remotexpc/tunnels/test-udid-123`);
       const data = (await response.json()) as TunnelRegistryEntry;
 
       assert.strictEqual(response.status, 200);
@@ -82,7 +84,7 @@ describe('TunnelRegistryServer', function () {
     });
 
     it('should return 404 for non-existent UDID', async function () {
-      const response = await fetch(`http://localhost:${testPort}/remotexpc/tunnels/non-existent`);
+      const response = await fetch(`http://127.0.0.1:${testPort}/remotexpc/tunnels/non-existent`);
       const data = (await response.json()) as {error: string};
 
       assert.strictEqual(response.status, 404);
@@ -111,7 +113,7 @@ describe('TunnelRegistryServer', function () {
       const pendingServer = await startTunnelRegistryServer(pendingRegistry, pendingPort);
 
       try {
-        const response = await fetch(`http://localhost:${pendingPort}/remotexpc/tunnels/pending-udid?waitMs=0`);
+        const response = await fetch(`http://127.0.0.1:${pendingPort}/remotexpc/tunnels/pending-udid?waitMs=0`);
         const data = (await response.json()) as {error: string};
 
         assert.strictEqual(response.status, 404);
@@ -147,7 +149,7 @@ describe('TunnelRegistryServer', function () {
 
       try {
         const response = await fetch(
-          `http://localhost:${refreshPort}/remotexpc/tunnels/refresh-udid/refresh-services`,
+          `http://127.0.0.1:${refreshPort}/remotexpc/tunnels/refresh-udid/refresh-services`,
           {method: 'POST'},
         );
         const data = (await response.json()) as TunnelRegistryEntry;
@@ -162,7 +164,7 @@ describe('TunnelRegistryServer', function () {
 
   describe('GET /remotexpc/tunnels/device/:deviceId', function () {
     it('should return tunnel by device ID', async function () {
-      const response = await fetch(`http://localhost:${testPort}/remotexpc/tunnels/device/1`);
+      const response = await fetch(`http://127.0.0.1:${testPort}/remotexpc/tunnels/device/1`);
       const data = (await response.json()) as TunnelRegistryEntry;
 
       assert.strictEqual(response.status, 200);
@@ -171,7 +173,7 @@ describe('TunnelRegistryServer', function () {
     });
 
     it('should return 404 for non-existent device ID', async function () {
-      const response = await fetch(`http://localhost:${testPort}/remotexpc/tunnels/device/999`);
+      const response = await fetch(`http://127.0.0.1:${testPort}/remotexpc/tunnels/device/999`);
       const data = (await response.json()) as {error: string};
 
       assert.strictEqual(response.status, 404);
@@ -180,7 +182,7 @@ describe('TunnelRegistryServer', function () {
     });
 
     it('should return 400 for invalid device ID', async function () {
-      const response = await fetch(`http://localhost:${testPort}/remotexpc/tunnels/device/invalid`);
+      const response = await fetch(`http://127.0.0.1:${testPort}/remotexpc/tunnels/device/invalid`);
       const data = (await response.json()) as {error: string};
 
       assert.strictEqual(response.status, 400);
@@ -196,7 +198,7 @@ describe('TunnelRegistryServer', function () {
         rsdPort: 58784,
       };
 
-      const response = await fetch(`http://localhost:${testPort}/remotexpc/tunnels/test-udid-123`, {
+      const response = await fetch(`http://127.0.0.1:${testPort}/remotexpc/tunnels/test-udid-123`, {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(updateData),
@@ -217,7 +219,7 @@ describe('TunnelRegistryServer', function () {
         udid: 'different-udid',
       };
 
-      const response = await fetch(`http://localhost:${testPort}/remotexpc/tunnels/test-udid-123`, {
+      const response = await fetch(`http://127.0.0.1:${testPort}/remotexpc/tunnels/test-udid-123`, {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(updateData),
@@ -230,7 +232,7 @@ describe('TunnelRegistryServer', function () {
     });
 
     it('should return 400 for invalid JSON', async function () {
-      const response = await fetch(`http://localhost:${testPort}/remotexpc/tunnels/test-udid-123`, {
+      const response = await fetch(`http://127.0.0.1:${testPort}/remotexpc/tunnels/test-udid-123`, {
         method: 'PUT',
         headers: {'Content-Type': 'application/json'},
         body: 'invalid json',
@@ -244,11 +246,47 @@ describe('TunnelRegistryServer', function () {
 
   describe('Unknown routes', function () {
     it('should return 404 for unknown routes', async function () {
-      const response = await fetch(`http://localhost:${testPort}/unknown/route`);
+      const response = await fetch(`http://127.0.0.1:${testPort}/unknown/route`);
       const data = (await response.json()) as {error: string};
 
       assert.strictEqual(response.status, 404);
       assert.strictEqual(data.error, 'Not found');
+    });
+  });
+
+  describe('bind address', function () {
+    it('should only listen on localhost, not on all interfaces', async function () {
+      // The API exposes unauthenticated writes (PUT /:udid); the server must not
+      // accept connections arriving on non-loopback interfaces.
+      // Node reports family as 'IPv4' on some versions and 4 on others
+      const lanAddress = Object.values(os.networkInterfaces())
+        .flat()
+        .find((info) => {
+          const family = info?.family as string | number | undefined;
+          return family === 'IPv4' || family === 4 ? !info?.internal : false;
+        })?.address;
+      if (!lanAddress) {
+        // No non-loopback interface on this machine; nothing to probe
+        return;
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        const socket = net.connect({host: lanAddress, port: testPort, timeout: 500});
+        const cleanup = (): void => {
+          socket.removeAllListeners();
+          socket.destroy();
+        };
+        socket.once('connect', () => {
+          cleanup();
+          reject(new Error(`Server unexpectedly accepted a connection on non-loopback address ${lanAddress}`));
+        });
+        const onRefusal = (): void => {
+          cleanup();
+          resolve();
+        };
+        socket.once('error', onRefusal);
+        socket.once('timeout', onRefusal);
+      });
     });
   });
 });
