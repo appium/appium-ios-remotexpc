@@ -133,6 +133,71 @@ describe('Plist Parser', function () {
 
       const level2 = level1.level2 as PlistDictionary;
       assert.strictEqual(level2.level3, 'deep value');
+
+      // Nested keys must not leak into ancestor dicts
+      assert.deepStrictEqual(Object.keys(result), ['level1']);
+      assert.deepStrictEqual(Object.keys(level1), ['level2']);
+      assert.deepStrictEqual(Object.keys(level2), ['level3']);
+    });
+
+    it('should not let a nested key overwrite an outer key with the same name', function () {
+      const xml = `
+        <?xml version="1.0" encoding="UTF-8"?>
+        <plist version="1.0">
+        <dict>
+          <key>Result</key>
+          <string>ok</string>
+          <key>Nested</key>
+          <dict>
+            <key>Result</key>
+            <integer>1</integer>
+            <key>Inner</key>
+            <string>x</string>
+          </dict>
+          <key>Name</key>
+          <string>dev</string>
+        </dict>
+        </plist>
+      `;
+
+      const result = parseXmlPlist(xml);
+      assert.strictEqual(result.Result, 'ok');
+      assert.strictEqual(result.Name, 'dev');
+      assert.ok(!('Inner' in result));
+
+      const nested = result.Nested as PlistDictionary;
+      assert.strictEqual(nested.Result, 1);
+      assert.strictEqual(nested.Inner, 'x');
+    });
+
+    it('should not leak keys from dicts nested inside arrays', function () {
+      const xml = `
+        <?xml version="1.0" encoding="UTF-8"?>
+        <plist version="1.0">
+        <dict>
+          <key>Status</key>
+          <string>Complete</string>
+          <key>Items</key>
+          <array>
+            <dict>
+              <key>Status</key>
+              <string>Pending</string>
+              <key>Id</key>
+              <integer>7</integer>
+            </dict>
+          </array>
+        </dict>
+        </plist>
+      `;
+
+      const result = parseXmlPlist(xml);
+      assert.strictEqual(result.Status, 'Complete');
+      assert.deepStrictEqual(Object.keys(result), ['Status', 'Items']);
+
+      const items = result.Items as PlistArray;
+      const item = items[0] as PlistDictionary;
+      assert.strictEqual(item.Status, 'Pending');
+      assert.strictEqual(item.Id, 7);
     });
 
     it('should parse mixed arrays and dictionaries', function () {

@@ -111,14 +111,23 @@ export function parsePlist(xmlData: string | Buffer): PlistDictionary {
 
   /**
    * Parse a plist `<dict>` element into a JavaScript object.
+   * Only direct-child `<key>` elements are considered: getElementsByTagName
+   * is recursive and would flatten keys of nested dicts into the parent.
    */
   function parseDict(dictNode: Element): PlistDictionary {
     const obj: PlistDictionary = {};
-    const keys = dictNode.getElementsByTagName('key');
+    let childNode = dictNode.firstChild;
 
-    for (let i = 0; i < keys.length; i++) {
-      const keyName = keys[i].textContent || '';
-      let valueNode = keys[i].nextSibling;
+    while (childNode) {
+      const keyNode = childNode;
+      childNode = childNode.nextSibling;
+
+      if (keyNode.nodeType !== Node.ELEMENT_NODE || keyNode.nodeName !== 'key') {
+        continue;
+      }
+
+      const keyName = keyNode.textContent || '';
+      let valueNode = keyNode.nextSibling;
 
       while (valueNode && valueNode.nodeType !== Node.ELEMENT_NODE) {
         valueNode = valueNode.nextSibling;
@@ -126,6 +135,8 @@ export function parsePlist(xmlData: string | Buffer): PlistDictionary {
 
       if (valueNode) {
         obj[keyName] = parseNode(valueNode as Element);
+        // Skip ahead of the parsed value so the loop doesn't re-visit it
+        childNode = valueNode.nextSibling;
       }
     }
 
