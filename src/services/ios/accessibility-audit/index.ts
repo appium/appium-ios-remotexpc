@@ -1,3 +1,5 @@
+import {util} from '@appium/support';
+
 import {getLogger} from '../../../lib/logger.js';
 import {MessageAux} from '../dvt/dtx-message.js';
 import {AX_OBJECT_TYPE, deserializeAxObject} from './ax-deserialize.js';
@@ -67,6 +69,9 @@ export class AccessibilityAuditService {
   /** Live {@link observeFocusedElement} subscriptions; monitoring stays armed while > 0. */
   private observerCount = 0;
 
+  /** Guards {@link runAudit} against overlapping calls on one instance. */
+  private auditInFlight = false;
+
   private constructor(private readonly transport: AxAuditDtxTransport) {}
 
   /**
@@ -119,13 +124,19 @@ export class AccessibilityAuditService {
    * the device calls back with
    * `hostDeviceDidCompleteAuditCategoriesWithAuditIssues:`.
    *
-   * Run one audit at a time per service instance: issues are collected from a
-   * shared inbound stream, so overlapping calls would each see the other's.
+   * Only one audit may run per service instance — issues arrive on a shared
+   * inbound stream, so overlapping calls would each collect the other's. A
+   * concurrent call is rejected rather than allowed to mix results; use a second
+   * service instance to audit in parallel.
    *
    * @param auditTypes Audit types to run, from {@link getSupportedAuditTypes}.
    * @param options Timeout for the completion callback.
    */
   async runAudit(auditTypes: string[], options: RunAuditOptions = {}): Promise<AxAuditIssue[]> {
+    if (this.auditInFlight) {
+      throw new Error('An audit is already running on this service instance; await it or use a second instance');
+    }
+    this.auditInFlight = true;
     // Issues are streamed one per `hostFoundAuditIssue:` call and the
     // completion callback carries no arguments. Older releases are reported to
     // return them in the completion instead, so both are collected and the
@@ -133,7 +144,7 @@ export class AccessibilityAuditService {
     const issues: AxAuditIssue[] = [];
     const stopIssues = this.transport.onInbound('hostFoundAuditIssue:', (args) => {
       const issue = deserializeAxObject(args[0]);
-      if (issue && typeof issue === 'object') {
+      if (util.isPlainObject(issue)) {
         issues.push(issue as AxAuditIssue);
       }
     });
@@ -163,6 +174,7 @@ export class AccessibilityAuditService {
       const completionArgs = await completion;
       return issues.length > 0 ? issues : issuesFromCompletion(completionArgs);
     } finally {
+      this.auditInFlight = false;
       stopIssues();
       stopLog?.();
     }
@@ -353,7 +365,7 @@ function issuesFromCompletion(args: unknown[]): AxAuditIssue[] {
     return [];
   }
   const list = Array.isArray(payload) ? payload : [payload];
-  return list.filter((issue): issue is AxAuditIssue => typeof issue === 'object' && issue !== null);
+  return list.filter((issue): issue is AxAuditIssue => util.isPlainObject(issue));
 }
 
 /** Narrows an unknown reply to `string[]`. */

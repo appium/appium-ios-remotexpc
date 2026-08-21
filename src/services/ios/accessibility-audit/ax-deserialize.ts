@@ -4,6 +4,7 @@
  * value; any other `ObjectType` names a typed object (e.g.
  * `AXAuditDeviceSetting_v1`) whose `Value` is a dictionary of fields.
  */
+import {util} from '@appium/support';
 
 /** Key under which a typed (non-passthrough) object records its `ObjectType`. */
 export const AX_OBJECT_TYPE = '__axObjectType';
@@ -13,9 +14,7 @@ export type AxTypedObject = Record<string, unknown> & {[AX_OBJECT_TYPE]: string}
 
 function isEnvelope(value: unknown): value is {Value: unknown; ObjectType: string} {
   return (
-    typeof value === 'object' &&
-    value !== null &&
-    !Array.isArray(value) &&
+    util.isPlainObject(value) &&
     'ObjectType' in value &&
     typeof (value as {ObjectType: unknown}).ObjectType === 'string'
   );
@@ -31,7 +30,7 @@ export function deserializeAxObject(value: unknown): unknown {
     return value.map(deserializeAxObject);
   }
   if (!isEnvelope(value)) {
-    if (typeof value === 'object' && value !== null) {
+    if (util.isPlainObject(value)) {
       // A plain dictionary with no ObjectType: deserialize each field.
       const out: Record<string, unknown> = {};
       for (const [key, inner] of Object.entries(value)) {
@@ -47,7 +46,7 @@ export function deserializeAxObject(value: unknown): unknown {
     return inner;
   }
   // A typed object. Spread its fields (when it has them) and tag the type.
-  if (typeof inner === 'object' && inner !== null && !Array.isArray(inner)) {
+  if (util.isPlainObject(inner)) {
     return {...(inner as Record<string, unknown>), [AX_OBJECT_TYPE]: value.ObjectType};
   }
   return {value: inner, [AX_OBJECT_TYPE]: value.ObjectType};

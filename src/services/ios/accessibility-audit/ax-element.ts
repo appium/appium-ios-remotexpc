@@ -65,7 +65,7 @@ function toBuffer(value: unknown): Buffer | undefined {
   if (Buffer.isBuffer(value)) {
     return value;
   }
-  if (typeof value === 'object' && value !== null) {
+  if (util.isPlainObject(value)) {
     // The archiver decodes NSData into an index-keyed object.
     const bytes = Object.values(value as Record<string, unknown>).filter((b): b is number => typeof b === 'number');
     if (bytes.length > 0) {

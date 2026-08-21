@@ -31,6 +31,15 @@ const MAX_CHECKIN_PLISTS = 8;
 /** Safety valve for fragment reassembly, far above any real message. */
 const MAX_FRAGMENTS_PER_MESSAGE = 65536;
 
+/** `DTXPrimitiveArray` header: a capacity word then the item-block length. */
+const AUX_HEADER_SIZE = 16;
+/** Offset of the item-block length within that header. */
+const AUX_ITEMS_LENGTH_OFFSET = 8;
+/** Width of the marker, type and 32-bit value words. */
+const AUX_WORD_SIZE = 4;
+/** Width of a 64-bit auxiliary value. */
+const AUX_INT64_SIZE = 8;
+
 /** Options for {@link AxAuditDtxTransport.invoke}. */
 export interface InvokeOptions {
   /** How long to wait for the reply, in milliseconds. Defaults to 15000. */
@@ -517,7 +526,7 @@ export class AxAuditDtxTransport extends BaseService {
  * archived objects, 32-bit and 64-bit integers.
  */
 function parseAuxiliary(buffer: Buffer): unknown[] {
-  if (buffer.length < 16) {
+  if (buffer.length < AUX_HEADER_SIZE) {
     return [];
   }
   // The leading word is NOT a fixed constant. `DTX_CONSTANTS.MESSAGE_AUX_MAGIC`
@@ -526,23 +535,23 @@ function parseAuxiliary(buffer: Buffer): unknown[] {
   // capacity rather than identifying the format. Requiring an exact match
   // silently discarded every audit issue. The declared item length is validated
   // instead, and the item loop bails on anything it does not recognise.
-  const itemsLength = Number(buffer.readBigUInt64LE(8));
+  const itemsLength = Number(buffer.readBigUInt64LE(AUX_ITEMS_LENGTH_OFFSET));
   if (itemsLength <= 0 || itemsLength > buffer.length) {
     return [];
   }
-  const end = Math.min(16 + itemsLength, buffer.length);
+  const end = Math.min(AUX_HEADER_SIZE + itemsLength, buffer.length);
   const values: unknown[] = [];
-  let offset = 16;
-  while (offset + 8 <= end) {
+  let offset = AUX_HEADER_SIZE;
+  while (offset + AUX_INT64_SIZE <= end) {
     // Each item is prefixed by an empty-dictionary marker then a type word.
     if (buffer.readUInt32LE(offset) === DTX_CONSTANTS.EMPTY_DICTIONARY) {
-      offset += 4;
+      offset += AUX_WORD_SIZE;
     }
     const type = buffer.readUInt32LE(offset);
-    offset += 4;
+    offset += AUX_WORD_SIZE;
     if (type === DTX_CONSTANTS.AUX_TYPE_OBJECT) {
       const length = buffer.readUInt32LE(offset);
-      offset += 4;
+      offset += AUX_WORD_SIZE;
       const objectData = buffer.subarray(offset, offset + length);
       offset += length;
       values.push(decodeNSKeyedArchiver(parseBinaryPlist(objectData)));
@@ -550,12 +559,12 @@ function parseAuxiliary(buffer: Buffer): unknown[] {
     }
     if (type === DTX_CONSTANTS.AUX_TYPE_INT32) {
       values.push(buffer.readInt32LE(offset));
-      offset += 4;
+      offset += AUX_WORD_SIZE;
       continue;
     }
     if (type === DTX_CONSTANTS.AUX_TYPE_INT64) {
       values.push(Number(buffer.readBigInt64LE(offset)));
-      offset += 8;
+      offset += AUX_INT64_SIZE;
       continue;
     }
     // Unknown type — stop rather than misread the rest of the array.
@@ -564,20 +573,29 @@ function parseAuxiliary(buffer: Buffer): unknown[] {
   return values;
 }
 
-/** Rejects if `promise` has not settled within `timeoutMs`. */
+/**
+ * Rejects if `promise` has not settled within `timeoutMs`.
+ */
 async function withDeadline<T>(promise: Promise<T>, timeoutMs: number, what: string): Promise<T> {
   let timer: NodeJS.Timeout | undefined;
+  let deadlineExpired = false;
+  promise.catch((error) => {
+    if (deadlineExpired) {
+      log.debug(`${what} failed after its deadline: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  });
   try {
     return await Promise.race([
       promise,
       new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error(`Timed out after ${timeoutMs}ms during ${what}`)), timeoutMs);
+        timer = setTimeout(() => {
+          deadlineExpired = true;
+          reject(new Error(`Timed out after ${timeoutMs}ms during ${what}`));
+        }, timeoutMs);
       }),
     ]);
   } finally {
     clearTimeout(timer);
-    // The loser keeps running until the socket is destroyed; swallow its result.
-    promise.catch(() => {});
   }
 }
 
@@ -602,27 +620,27 @@ function buildAuxiliaryData(aux: MessageAux): Buffer {
         // cannot express — see `ax-values.ts`.
         const archive = value instanceof AxPoint ? archiveAxPoint(value) : new NSKeyedArchiverEncoder().encode(value);
         const encoded = createBinaryPlist(archive);
-        const length = Buffer.alloc(4);
+        const length = Buffer.alloc(AUX_WORD_SIZE);
         length.writeUInt32LE(encoded.length, 0);
         parts.push(length, encoded);
         break;
       }
       case DTX_CONSTANTS.AUX_TYPE_INT32: {
-        const encoded = Buffer.alloc(4);
+        const encoded = Buffer.alloc(AUX_WORD_SIZE);
         encoded.writeUInt32LE(value as number, 0);
         parts.push(encoded);
         break;
       }
       default: {
-        const encoded = Buffer.alloc(8);
+        const encoded = Buffer.alloc(AUX_INT64_SIZE);
         encoded.writeBigUInt64LE(BigInt(value as number | bigint), 0);
         parts.push(encoded);
       }
     }
   }
   const itemsData = Buffer.concat(parts);
-  const header = Buffer.alloc(16);
+  const header = Buffer.alloc(AUX_HEADER_SIZE);
   header.writeBigUInt64LE(BigInt(DTX_CONSTANTS.MESSAGE_AUX_MAGIC), 0);
-  header.writeBigUInt64LE(BigInt(itemsData.length), 8);
+  header.writeBigUInt64LE(BigInt(itemsData.length), AUX_ITEMS_LENGTH_OFFSET);
   return Buffer.concat([header, itemsData]);
 }
