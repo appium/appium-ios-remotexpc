@@ -5,7 +5,7 @@ import {BaseItem, strongbox} from '@appium/strongbox';
 import {TUNNEL_CONTAINER_NAME} from '../../constants.js';
 import {getLogger} from '../logger.js';
 import type {TunnelRegistry, TunnelRegistryEntry} from '../types.js';
-import {MAX_TUNNEL_REGISTRY_WAIT_MS, TUNNEL_REGISTRY_API_BASE_PATH} from './constants.js';
+import {MAX_TUNNEL_REGISTRY_WAIT_MS, TUNNEL_REGISTRY_API_BASE_PATH, TUNNEL_REGISTRY_HOST} from './constants.js';
 import {isTunnelEntryReady} from './tunnel-availability.js';
 import {TunnelReadinessCoordinator} from './tunnel-readiness.js';
 import {type RouteRecord, createRouteDispatcher, getRequestPathname} from './tunnel-registry-routes.js';
@@ -127,10 +127,12 @@ export class TunnelRegistryServer {
         await this.handleRequest(req, res);
       });
 
-      // Start listening
+      // Start listening on localhost only: the API exposes unauthenticated
+      // writes (PUT /:udid), so binding all interfaces would let any LAN host
+      // overwrite tunnel address/port entries.
       await new Promise<void>((resolve, reject) => {
-        this.server?.listen(this.port, () => {
-          log.info(`Tunnel Registry Server started on port ${this.port}`);
+        this.server?.listen(this.port, TUNNEL_REGISTRY_HOST, () => {
+          log.info(`Tunnel Registry Server started on ${TUNNEL_REGISTRY_HOST}:${this.port}`);
           log.info(`API available at http://localhost:${this.port}${TUNNEL_REGISTRY_API_BASE_PATH}`);
           resolve();
         });
