@@ -1,3 +1,9 @@
+## [5.14.7](https://github.com/appium/appium-ios-remotexpc/compare/v5.14.6...v5.14.7) (2026-08-21)
+
+### Bug Fixes
+
+* do not emit unlistened transport error before connect completes ([#297](https://github.com/appium/appium-ios-remotexpc/issues/297)) ([0d0e3c4](https://github.com/appium/appium-ios-remotexpc/commit/0d0e3c449c64f7f99d4bb5ffae5e2bad3fdfe4d3))
+
 ## [5.14.6](https://github.com/appium/appium-ios-remotexpc/compare/v5.14.5...v5.14.6) (2026-08-20)
 
 ### Bug Fixes
