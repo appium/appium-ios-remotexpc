@@ -66,6 +66,15 @@ describe('usbmux', function () {
     assert.strictEqual(devices.length, 1);
   });
 
+  it('should not throw when the socket errors without an error listener', async function () {
+    ({server, socket} = await getServerWithFixtures(fixtures.DEVICE_LIST));
+    usbmux = new Usbmux(socket);
+
+    // Emitting on the service mirrors BaseSocketService re-emitting a socket
+    // error; without a listener Node would throw.
+    usbmux.emit('error', new Error('simulated usbmuxd failure'));
+  });
+
   it('should fail due to timeout', async function () {
     ({server, socket} = await getServerWithFixtures());
     usbmux = new Usbmux(socket);

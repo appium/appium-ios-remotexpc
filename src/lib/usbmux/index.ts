@@ -99,6 +99,10 @@ export class Usbmux extends BaseSocketService {
     this._tag = 0;
     this._responseCallbacks = {};
     this._decoder.on('data', this._handleData.bind(this));
+
+    this.on('error', (err: Error) => {
+      log.error(`Usbmux socket error: ${err.message}`);
+    });
   }
 
   /**
