@@ -105,8 +105,15 @@ export class WebInspectorService extends BaseService {
       }
     };
 
+    let receiveError: unknown = null;
+    const errorHandler = (error: unknown) => {
+      receiveError = error;
+      stopHandler();
+    };
+
     this.messageEmitter.on('message', messageHandler);
     this.messageEmitter.once('stop', stopHandler);
+    this.messageEmitter.once('errorMessage', errorHandler);
 
     try {
       while (!stopped) {
@@ -133,9 +140,14 @@ export class WebInspectorService extends BaseService {
           yield message;
         }
       }
+
+      if (receiveError) {
+        throw receiveError;
+      }
     } finally {
       this.messageEmitter.off('message', messageHandler);
       this.messageEmitter.off('stop', stopHandler);
+      this.messageEmitter.off('errorMessage', errorHandler);
     }
   }
 
@@ -160,6 +172,7 @@ export class WebInspectorService extends BaseService {
     // Remove all listeners to prevent memory leaks and ensure clean restart
     this.messageEmitter.removeAllListeners('message');
     this.messageEmitter.removeAllListeners('stop');
+    this.messageEmitter.removeAllListeners('errorMessage');
   }
 
   /**
@@ -382,9 +395,9 @@ export class WebInspectorService extends BaseService {
               continue;
             }
 
-            // For other errors, log and exit
+            // For other errors, log and end the iterator
             log.error('Error receiving message:', error);
-            this.messageEmitter.emit('error', error);
+            this.messageEmitter.emit('errorMessage', error);
             break;
           }
         }
