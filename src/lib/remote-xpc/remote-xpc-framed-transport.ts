@@ -135,11 +135,13 @@ export class RemoteXpcFramedTransport extends EventEmitter {
       this.handleData(chunk);
     });
     socket.on('error', (error: Error) => {
-      if (this.closing) {
+      const wasConnected = this.connected;
+      this.connected = false;
+      if (this.closing || !wasConnected) {
+        log.debug(`RemoteXPC transport error outside connected phase: ${error.message}`);
         return;
       }
       log.error(`RemoteXPC transport error: ${error.message}`);
-      this.connected = false;
       this.emit('error', error);
     });
     socket.on('close', () => {
