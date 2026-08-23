@@ -360,12 +360,7 @@ export class DVTSecureSocketProxyService extends BaseService {
   }
 
   private hasPendingWaiters(): boolean {
-    for (const waiters of this.channelWaiters.values()) {
-      if (waiters.length > 0) {
-        return true;
-      }
-    }
-    return false;
+    return Array.from(this.channelWaiters.values()).some((waiters) => waiters.length > 0);
   }
 
   /**
@@ -484,7 +479,7 @@ export class DVTSecureSocketProxyService extends BaseService {
           const waiters = this.channelWaiters.get(channel);
           if (waiters) {
             const idx = waiters.indexOf(waiter);
-            if (idx !== -1) {
+            if (idx >= 0) {
               waiters.splice(idx, 1);
             }
           }
@@ -494,11 +489,8 @@ export class DVTSecureSocketProxyService extends BaseService {
         signal.addEventListener('abort', onAbort, {once: true});
       }
 
-      let waiters = this.channelWaiters.get(channel);
-      if (!waiters) {
-        waiters = [];
-        this.channelWaiters.set(channel, waiters);
-      }
+      const waiters = this.channelWaiters.get(channel) ?? [];
+      this.channelWaiters.set(channel, waiters);
       waiters.push(waiter);
     });
 
