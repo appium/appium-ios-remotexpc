@@ -22,6 +22,13 @@ const log = getLogger('DVTSecureSocketProxyService');
 
 const MIN_ERROR_DESCRIPTION_LENGTH = 20;
 
+interface ChannelWaiter {
+  resolve: (message: Buffer) => void;
+  reject: (err: Error) => void;
+  signal?: AbortSignal;
+  onAbort?: () => void;
+}
+
 /**
  * DVTSecureSocketProxyService provides access to Apple's DTServiceHub functionality
  * This service enables various instruments and debugging capabilities through the DTX protocol
@@ -37,8 +44,18 @@ export class DVTSecureSocketProxyService extends BaseService {
   private curMessageId: number = 0;
   private readonly channelCache: Map<string, Channel> = new Map();
   private readonly channelMessages: Map<number, ChannelFragmenter> = new Map();
+  private readonly channelWaiters: Map<number, ChannelWaiter[]> = new Map();
   private isHandshakeComplete: boolean = false;
   private readBuffer: Buffer = Buffer.alloc(0);
+  private readonly pendingChunks: Buffer[] = [];
+  private bufferedLength: number = 0;
+  private readonly dataWaiters: Array<() => void> = [];
+  private socketError: Error | null = null;
+  private isPumpRunning: boolean = false;
+  private listeningSocket: net.Socket | null = null;
+  private readonly boundOnData = (chunk: Buffer): void => this.onSocketData(chunk);
+  private readonly boundOnError = (err: Error): void => this.onSocketError(err);
+  private readonly boundOnClose = (): void => this.onSocketClose();
 
   constructor(udid: string) {
     super(udid);
@@ -57,6 +74,7 @@ export class DVTSecureSocketProxyService extends BaseService {
     this.connection = await this.startLockdownWithoutCheckin(DVTSecureSocketProxyService.RSD_SERVICE_NAME);
     this.socket = this.connection.getSocket();
     stripSSL(this.socket);
+    this.attachSocketListeners(this.socket);
 
     await this.performHandshake();
   }
@@ -252,17 +270,102 @@ export class DVTSecureSocketProxyService extends BaseService {
     }
 
     const socketToDestroy = this.socket;
+    this.detachSocketListeners();
     this.connection.close();
     this.connection = null;
     this.socket = null;
     this.isHandshakeComplete = false;
+    this.socketError = null;
     this.channelCache.clear();
     this.channelMessages.clear();
     this.channelMessages.set(DVTSecureSocketProxyService.BROADCAST_CHANNEL, new ChannelFragmenter());
+    this.readBuffer = Buffer.alloc(0);
+    this.pendingChunks.length = 0;
+    this.bufferedLength = 0;
+    this.rejectAllWaiters(new Error('Service closed'));
+    this.flushDataWaiters();
 
-    // Forcibly destroy the socket so any pending readExact calls unblock
-    // immediately rather than waiting for the remote FIN.
     socketToDestroy?.destroy();
+  }
+
+  private attachSocketListeners(socket: net.Socket): void {
+    if (this.listeningSocket === socket) {
+      return;
+    }
+    this.detachSocketListeners();
+    this.listeningSocket = socket;
+    socket.on('data', this.boundOnData);
+    socket.on('error', this.boundOnError);
+    socket.on('close', this.boundOnClose);
+  }
+
+  private detachSocketListeners(): void {
+    if (!this.listeningSocket) {
+      return;
+    }
+    this.listeningSocket.off('data', this.boundOnData);
+    this.listeningSocket.off('error', this.boundOnError);
+    this.listeningSocket.off('close', this.boundOnClose);
+    this.listeningSocket = null;
+  }
+
+  private flushDataWaiters(): void {
+    for (const waiter of this.dataWaiters.splice(0)) {
+      waiter();
+    }
+  }
+
+  private onSocketData(chunk: Buffer): void {
+    this.pendingChunks.push(chunk);
+    this.bufferedLength += chunk.length;
+    if (this.dataWaiters.length > 0) {
+      this.flushDataWaiters();
+    } else {
+      this.listeningSocket?.pause();
+    }
+  }
+
+  private consolidateReadBuffer(): void {
+    if (this.pendingChunks.length === 0) {
+      return;
+    }
+    this.readBuffer = Buffer.concat([this.readBuffer, ...this.pendingChunks]);
+    this.pendingChunks.length = 0;
+  }
+
+  private onSocketError(err: Error): void {
+    if (!this.socketError) {
+      this.socketError = err;
+    }
+    this.flushDataWaiters();
+  }
+
+  private onSocketClose(): void {
+    if (!this.socketError) {
+      this.socketError = new Error('Socket closed');
+    }
+    this.flushDataWaiters();
+  }
+
+  private rejectAllWaiters(error: Error): void {
+    for (const waiters of this.channelWaiters.values()) {
+      for (const waiter of waiters.splice(0)) {
+        if (waiter.signal && waiter.onAbort) {
+          waiter.signal.removeEventListener('abort', waiter.onAbort);
+        }
+        waiter.reject(error);
+      }
+    }
+    this.channelWaiters.clear();
+  }
+
+  private hasPendingWaiters(): boolean {
+    for (const waiters of this.channelWaiters.values()) {
+      if (waiters.length > 0) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -333,6 +436,7 @@ export class DVTSecureSocketProxyService extends BaseService {
    * Drain any buffered messages that arrived during handshake
    */
   private async drainBufferedMessages(): Promise<void> {
+    this.consolidateReadBuffer();
     if (this.readBuffer.length === 0) {
       return;
     }
@@ -354,27 +458,83 @@ export class DVTSecureSocketProxyService extends BaseService {
     } catch (error) {
       log.debug('Error while draining buffer:', error);
     }
+    this.bufferedLength = this.readBuffer.length;
   }
 
   /**
    * Receive packet fragments until a complete message is available for the specified channel
    */
   private async recvPacketFragments(channel: number, signal?: AbortSignal): Promise<Buffer> {
-    while (true) {
-      const fragmenter = this.channelMessages.get(channel);
-      if (!fragmenter) {
-        throw new Error(`No fragmenter for channel ${channel}`);
+    const fragmenter = this.channelMessages.get(channel);
+    if (!fragmenter) {
+      throw new Error(`No fragmenter for channel ${channel}`);
+    }
+
+    const queued = fragmenter.get();
+    if (queued) {
+      return queued;
+    }
+
+    signal?.throwIfAborted();
+
+    const promise = new Promise<Buffer>((resolve, reject) => {
+      const waiter: ChannelWaiter = {resolve, reject, signal};
+      if (signal) {
+        const onAbort = () => {
+          const waiters = this.channelWaiters.get(channel);
+          if (waiters) {
+            const idx = waiters.indexOf(waiter);
+            if (idx !== -1) {
+              waiters.splice(idx, 1);
+            }
+          }
+          reject(signal.reason ?? new DOMException('Receive aborted', 'AbortError'));
+        };
+        waiter.onAbort = onAbort;
+        signal.addEventListener('abort', onAbort, {once: true});
       }
 
-      // Check if we have a complete message
-      const message = fragmenter.get();
-      if (message) {
-        return message;
+      let waiters = this.channelWaiters.get(channel);
+      if (!waiters) {
+        waiters = [];
+        this.channelWaiters.set(channel, waiters);
       }
+      waiters.push(waiter);
+    });
 
-      // Read next message header
-      const headerData = await this.readExact(DTX_CONSTANTS.MESSAGE_HEADER_SIZE, signal);
+    this.ensurePumpRunning();
+    return promise;
+  }
+
+  private ensurePumpRunning(): void {
+    if (this.isPumpRunning) {
+      return;
+    }
+    this.isPumpRunning = true;
+    void this.runPump()
+      .catch((err: unknown) => {
+        this.rejectAllWaiters(err instanceof Error ? err : new Error(String(err)));
+      })
+      .finally(() => {
+        this.isPumpRunning = false;
+        if (this.hasPendingWaiters()) {
+          this.ensurePumpRunning();
+        }
+      });
+  }
+
+  private async runPump(): Promise<void> {
+    while (this.hasPendingWaiters()) {
+      const headerData = await this.readExact(DTX_CONSTANTS.MESSAGE_HEADER_SIZE);
       const header = DTXMessage.parseMessageHeader(headerData);
+
+      if (header.magic !== DTX_CONSTANTS.MESSAGE_HEADER_MAGIC) {
+        const err = new Error(
+          `Invalid DTX message header magic: 0x${header.magic.toString(16)} (stream desynchronized)`,
+        );
+        this.socketError = err;
+        throw err;
+      }
 
       const receivedChannel = Math.abs(header.channelCode);
 
@@ -392,80 +552,61 @@ export class DVTSecureSocketProxyService extends BaseService {
         continue;
       }
 
-      // Read message payload
       const messageData = await this.readExact(header.length);
 
-      // Add fragment to appropriate channel
       const targetFragmenter = this.channelMessages.get(receivedChannel);
       if (!targetFragmenter) {
         continue;
       }
       targetFragmenter.addFragment(header, messageData);
+
+      const waiters = this.channelWaiters.get(receivedChannel);
+      if (waiters && waiters.length > 0) {
+        const completedMessage = targetFragmenter.get();
+        if (completedMessage) {
+          const waiter = waiters.shift();
+          if (waiter) {
+            if (waiter.signal && waiter.onAbort) {
+              waiter.signal.removeEventListener('abort', waiter.onAbort);
+            }
+            waiter.resolve(completedMessage);
+          }
+        }
+      }
     }
   }
 
   /**
    * Read exact number of bytes from socket with buffering
    */
-  private async readExact(length: number, signal?: AbortSignal): Promise<Buffer> {
-    if (!this.socket) {
+  private async readExact(length: number): Promise<Buffer> {
+    const socket = this.socket;
+    if (!socket) {
       throw new Error(`${this.constructor.name} is not initialized. Call connect() before sending messages.`);
     }
 
-    // Keep reading until we have enough data
-    while (this.readBuffer.length < length) {
-      // Fast-fail on closed/aborted reads so callers can terminate blocked
-      // iterators instead of hanging until another socket event arrives.
-      if (this.socket.destroyed) {
-        throw new Error('Socket is destroyed');
-      }
-      signal?.throwIfAborted();
-
-      const chunk = await new Promise<Buffer>((resolve, reject) => {
-        const socket = this.socket;
-        if (!socket) {
-          reject(new Error('Socket is not available'));
-          return;
-        }
-        const cleanup = () => {
-          socket.off('data', onData);
-          socket.off('error', onError);
-          socket.off('close', onClose);
-          signal?.removeEventListener('abort', onAbort);
-        };
-
-        const onData = (data: Buffer) => {
-          cleanup();
-          resolve(data);
-        };
-
-        const onError = (err: Error) => {
-          cleanup();
-          reject(err);
-        };
-
-        const onClose = () => {
-          cleanup();
-          reject(new Error('Socket closed during read'));
-        };
-
-        const onAbort = () => {
-          cleanup();
-          reject(signal?.reason ?? new DOMException('Read aborted', 'AbortError'));
-        };
-
-        socket.once('data', onData);
-        socket.once('error', onError);
-        socket.once('close', onClose);
-        signal?.addEventListener('abort', onAbort, {once: true});
-      });
-
-      this.readBuffer = Buffer.concat([this.readBuffer, chunk]);
+    if (this.listeningSocket !== socket) {
+      this.attachSocketListeners(socket);
     }
 
-    // Extract exact amount requested
+    while (this.bufferedLength < length) {
+      if (this.socketError) {
+        throw this.socketError;
+      }
+      if (this.socket !== socket || socket.destroyed) {
+        throw new Error('Socket is destroyed');
+      }
+
+      socket.resume();
+      await new Promise<void>((resolve) => {
+        this.dataWaiters.push(resolve);
+      });
+    }
+
+    this.consolidateReadBuffer();
     const result = this.readBuffer.subarray(0, length);
     this.readBuffer = this.readBuffer.subarray(length);
+    this.bufferedLength = this.readBuffer.length;
 
     return result;
   }
