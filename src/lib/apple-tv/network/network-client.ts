@@ -106,6 +106,7 @@ export class NetworkClient implements NetworkClientInterface {
         if (this.socket) {
           this.socket.removeListener('data', onData);
           this.socket.removeListener('error', onError);
+          this.socket.removeListener('close', onClose);
         }
       };
 
@@ -151,13 +152,13 @@ export class NetworkClient implements NetworkClientInterface {
       };
 
       const onClose = () => {
-        if (timeoutId) {
-          clearTimeout(timeoutId);
-        }
+        log.error('Connection closed during receive');
+        cleanup();
+        reject(new NetworkError('Connection closed before response was received'));
       };
 
       if (this.socket) {
-        this.socket.once('data', onData);
+        this.socket.on('data', onData);
         this.socket.once('error', onError);
         this.socket.once('close', onClose);
 
