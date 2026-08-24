@@ -1,3 +1,15 @@
+## [5.15.3](https://github.com/appium/appium-ios-remotexpc/compare/v5.15.2...v5.15.3) (2026-08-24)
+
+### Bug Fixes
+
+* serialize DVT socket reads through a single receive pump ([#300](https://github.com/appium/appium-ios-remotexpc/issues/300)) ([d87b820](https://github.com/appium/appium-ios-remotexpc/commit/d87b820dd6e374153d3e9f8e46e91e5eea8f0bd8))
+
+## [5.15.2](https://github.com/appium/appium-ios-remotexpc/compare/v5.15.1...v5.15.2) (2026-08-21)
+
+### Bug Fixes
+
+* surface webinspector receive errors to the message iterator ([#299](https://github.com/appium/appium-ios-remotexpc/issues/299)) ([d5df32b](https://github.com/appium/appium-ios-remotexpc/commit/d5df32b489675031f446bbd2123dddbec9b21a8d))
+
 ## [5.15.1](https://github.com/appium/appium-ios-remotexpc/compare/v5.15.0...v5.15.1) (2026-08-21)
 
 ### Bug Fixes
