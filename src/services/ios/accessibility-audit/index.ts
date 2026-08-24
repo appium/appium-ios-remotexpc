@@ -16,6 +16,9 @@ import {AxAuditDtxTransport, type InvokeOptions} from './dtx-transport.js';
 
 const log = getLogger('AccessibilityAudit');
 
+/** `SettingTypeValue_v1` for a slider setting; every other setting is a toggle (3). */
+const SETTING_TYPE_SLIDER = 2;
+
 /** `deviceInspectorSetMonitoredEventType:` value that reports focus changes. */
 const MONITORED_EVENT_FOCUS = 2;
 /** Value that disarms monitoring. */
@@ -114,6 +117,63 @@ export class AccessibilityAuditService {
       throw new Error(`Expected an array of settings, got ${JSON.stringify(raw)?.slice(0, 120)}`);
     }
     return raw.map(toDeviceSetting);
+  }
+
+  /**
+   * Writes one accessibility setting. Applies system-wide, but only while this
+   * service is open — closing it reverts the setting.
+   *
+   * Sliders snap to the device's tick marks (`DYNAMIC_TYPE` has 12, so `0.5`
+   * reads back as `0.545`). Successive writes to the same setting need a moment
+   * apart; one issued immediately after another is dropped.
+   *
+   * @param identifier A setting identifier, e.g. `INVERT_COLORS`, `DYNAMIC_TYPE`.
+   * @param value `boolean` for a toggle, or a number in 0..1 for a slider.
+   * @param options Reply timeout.
+   * @throws If the identifier is unknown, or the value is wrong for its type.
+   */
+  async setAccessibilitySetting(identifier: string, value: boolean | number, options?: InvokeOptions): Promise<void> {
+    const settings = await this.getAccessibilitySettings(options);
+    const setting = settings.find((entry) => entry.identifier === identifier);
+    if (!setting) {
+      throw new Error(
+        `Unknown accessibility setting "${identifier}"; the device supports: ${settings.map((entry) => entry.identifier).join(', ')}`,
+      );
+    }
+    if (setting.settingType === SETTING_TYPE_SLIDER) {
+      // The device clamps out-of-range input to 1 — including negatives — so a
+      // typo would silently max the setting out rather than fail.
+      if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1) {
+        throw new Error(
+          `Setting "${identifier}" is a slider and expects a number between 0 and 1, got ${JSON.stringify(value)}`,
+        );
+      }
+    } else if (typeof value !== 'boolean') {
+      // A toggle takes any truthy value on the wire (0.5 reads back as true),
+      // which is too loose to be useful in a typed API.
+      throw new Error(`Setting "${identifier}" is a toggle and expects a boolean, got ${JSON.stringify(value)}`);
+    }
+
+    const aux = new MessageAux();
+    aux.appendObj(serializeAxSetting(identifier));
+    aux.appendObj({ObjectType: 'passthrough', Value: value});
+    // The daemon answers (with null), so awaiting it confirms the write landed
+    // before a caller screenshots or re-audits.
+    await this.transport.invoke('deviceUpdateAccessibilitySetting:withValue:', aux, options);
+  }
+
+  /**
+   * Resets the device's stored accessibility settings to their defaults.
+   *
+   * **Persistent and destructive** — unlike {@link setAccessibilitySetting} this
+   * survives disconnect and discards the user's own choices. Session overrides
+   * revert on close by themselves, so this is rarely the right cleanup. It also
+   * drops overrides held by other connections.
+   *
+   * @param options Reply timeout.
+   */
+  async resetAccessibilitySettings(options?: InvokeOptions): Promise<void> {
+    await this.transport.invoke('deviceResetToDefaultAccessibilitySettings', null, options);
   }
 
   /**
@@ -376,9 +436,26 @@ function asStringArray(value: unknown, selector: string): string[] {
   return value as string[];
 }
 
+/**
+ * Builds the setting descriptor the daemon expects.
+ *
+ * Only the identifier is read — the device ignores the type, tick-mark and
+ * enabled fields, verified by sending deliberately wrong ones — so this sends
+ * the identifier alone rather than echoing a descriptor back.
+ */
+export function serializeAxSetting(identifier: string): Record<string, unknown> {
+  return {
+    ObjectType: 'AXAuditDeviceSetting_v1',
+    Value: {
+      ObjectType: 'passthrough',
+      Value: {IdentiifierValue_v1: {ObjectType: 'passthrough', Value: identifier}},
+    },
+  };
+}
+
 /** Maps one deserialized `AXAuditDeviceSetting_v1` to the cleaned shape. */
 function toDeviceSetting(raw: unknown): AxDeviceSetting {
-  if (typeof raw !== 'object' || raw === null) {
+  if (!util.isPlainObject(raw)) {
     throw new Error(`Malformed accessibility setting: ${JSON.stringify(raw)?.slice(0, 120)}`);
   }
   const fields = raw as Record<string, unknown>;
