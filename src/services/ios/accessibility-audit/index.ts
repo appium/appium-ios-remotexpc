@@ -77,6 +77,14 @@ export class AccessibilityAuditService {
   /** Guards {@link runAudit} against overlapping calls on one instance. */
   private auditInFlight = false;
 
+  /**
+   * Identifier to `SettingTypeValue_v1`, read once per connection.
+   *
+   * Only a setting's *value* changes; its identity, type and tick marks are
+   * fixed for the device, so repeated writes need not re-read the catalogue.
+   */
+  private settingTypes: Map<string, number | undefined> | undefined;
+
   private constructor(private readonly transport: AxAuditDtxTransport) {}
 
   /**
@@ -137,14 +145,14 @@ export class AccessibilityAuditService {
    * @throws If the identifier is unknown, or the value is wrong for its type.
    */
   async setAccessibilitySetting(identifier: string, value: boolean | number, options?: InvokeOptions): Promise<void> {
-    const settings = await this.getAccessibilitySettings(options);
-    const setting = settings.find((entry) => entry.identifier === identifier);
-    if (!setting) {
+    const schema = await this.loadSettingTypes(options);
+    if (!schema.has(identifier)) {
       throw new Error(
-        `Unknown accessibility setting "${identifier}"; the device supports: ${settings.map((entry) => entry.identifier).join(', ')}`,
+        `Unknown accessibility setting "${identifier}"; the device supports: ${[...schema.keys()].join(', ')}`,
       );
     }
-    if (setting.settingType === SETTING_TYPE_SLIDER) {
+    const settingType = schema.get(identifier);
+    if (settingType === SETTING_TYPE_SLIDER) {
       // The device clamps out-of-range input to 1 — including negatives — so a
       // typo would silently max the setting out rather than fail.
       if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1) {
@@ -152,7 +160,7 @@ export class AccessibilityAuditService {
           `Setting "${identifier}" is a slider and expects a number between 0 and 1, got ${JSON.stringify(value)}`,
         );
       }
-    } else if (setting.settingType === SETTING_TYPE_TOGGLE) {
+    } else if (settingType === SETTING_TYPE_TOGGLE) {
       // A toggle takes any truthy value on the wire (0.5 reads back as true),
       // which is too loose to be useful in a typed API.
       if (typeof value !== 'boolean') {
@@ -161,7 +169,7 @@ export class AccessibilityAuditService {
     } else {
       // Only these two types have been observed (iOS 26.6 and 27.0); refuse
       // rather than guess at the value another type expects.
-      throw new Error(`Setting "${identifier}" has unsupported type ${JSON.stringify(setting.settingType)}`);
+      throw new Error(`Setting "${identifier}" has unsupported type ${JSON.stringify(settingType)}`);
     }
 
     const aux = new MessageAux();
@@ -170,6 +178,15 @@ export class AccessibilityAuditService {
     // The daemon answers (with null), so awaiting it confirms the write landed
     // before a caller screenshots or re-audits.
     await this.transport.invoke('deviceUpdateAccessibilitySetting:withValue:', aux, options);
+  }
+
+  /** Reads the setting catalogue once and remembers each identifier's type. */
+  private async loadSettingTypes(options?: InvokeOptions): Promise<Map<string, number | undefined>> {
+    if (!this.settingTypes) {
+      const settings = await this.getAccessibilitySettings(options);
+      this.settingTypes = new Map(settings.map((entry) => [entry.identifier, entry.settingType]));
+    }
+    return this.settingTypes;
   }
 
   /**
