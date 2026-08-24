@@ -16,8 +16,10 @@ import {AxAuditDtxTransport, type InvokeOptions} from './dtx-transport.js';
 
 const log = getLogger('AccessibilityAudit');
 
-/** `SettingTypeValue_v1` for a slider setting; every other setting is a toggle (3). */
+/** `SettingTypeValue_v1` for a slider setting, e.g. `DYNAMIC_TYPE`. */
 const SETTING_TYPE_SLIDER = 2;
+/** `SettingTypeValue_v1` for an on/off toggle — every setting bar the slider. */
+const SETTING_TYPE_TOGGLE = 3;
 
 /** `deviceInspectorSetMonitoredEventType:` value that reports focus changes. */
 const MONITORED_EVENT_FOCUS = 2;
@@ -86,7 +88,7 @@ export class AccessibilityAuditService {
     return new AccessibilityAuditService(await AxAuditDtxTransport.connect(udid));
   }
 
-  /** The daemon's API version (26 on iOS 27.0). */
+  /** The daemon's API version (26 on iOS 26.6 and 27.0). */
   async getApiVersion(options?: InvokeOptions): Promise<number> {
     const value = await this.transport.invoke('deviceApiVersion', null, options);
     if (typeof value !== 'number') {
@@ -124,8 +126,10 @@ export class AccessibilityAuditService {
    * service is open — closing it reverts the setting.
    *
    * Sliders snap to the device's tick marks (`DYNAMIC_TYPE` has 12, so `0.5`
-   * reads back as `0.545`). Successive writes to the same setting need a moment
-   * apart; one issued immediately after another is dropped.
+   * reads back as `0.545`). The device acknowledges a write in a few
+   * milliseconds but commits it asynchronously, so back-to-back writes to the
+   * same setting are dropped — ~1.5s apart was reliable in testing, and the
+   * exact minimum is not published.
    *
    * @param identifier A setting identifier, e.g. `INVERT_COLORS`, `DYNAMIC_TYPE`.
    * @param value `boolean` for a toggle, or a number in 0..1 for a slider.
@@ -148,10 +152,16 @@ export class AccessibilityAuditService {
           `Setting "${identifier}" is a slider and expects a number between 0 and 1, got ${JSON.stringify(value)}`,
         );
       }
-    } else if (typeof value !== 'boolean') {
+    } else if (setting.settingType === SETTING_TYPE_TOGGLE) {
       // A toggle takes any truthy value on the wire (0.5 reads back as true),
       // which is too loose to be useful in a typed API.
-      throw new Error(`Setting "${identifier}" is a toggle and expects a boolean, got ${JSON.stringify(value)}`);
+      if (typeof value !== 'boolean') {
+        throw new Error(`Setting "${identifier}" is a toggle and expects a boolean, got ${JSON.stringify(value)}`);
+      }
+    } else {
+      // Only these two types have been observed (iOS 26.6 and 27.0); refuse
+      // rather than guess at the value another type expects.
+      throw new Error(`Setting "${identifier}" has unsupported type ${JSON.stringify(setting.settingType)}`);
     }
 
     const aux = new MessageAux();
@@ -248,7 +258,7 @@ export class AccessibilityAuditService {
    * `hostInspectorCurrentElementChanged:` call, so that is what this reproduces:
    * arm, ask focus to report, wait for the push, disarm. Captured from a live
    * Inspector session — `deviceFetchElementAtNormalizedDeviceCoordinate:`
-   * returns `null` on iOS 27 no matter how it is called.
+   * returns `null` on iOS 26.6 and 27.0 no matter how it is called.
    *
    * @param options Timeout, and whether to draw the on-device highlight.
    */
@@ -346,7 +356,7 @@ export class AccessibilityAuditService {
   /**
    * Returns one of the daemon's well-known elements.
    *
-   * Index `0` and `1` resolve on iOS 27; higher indices return `undefined`.
+   * Index `0` and `1` resolve on iOS 26.6 and 27.0; higher return `undefined`.
    *
    * @param index Which special element to fetch.
    * @param options Reply timeout.
