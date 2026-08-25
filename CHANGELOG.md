@@ -1,3 +1,9 @@
+## [5.15.4](https://github.com/appium/appium-ios-remotexpc/compare/v5.15.3...v5.15.4) (2026-08-25)
+
+### Bug Fixes
+
+* handle fragmented responses and mid-wait disconnects in Apple TV NetworkClient ([#302](https://github.com/appium/appium-ios-remotexpc/issues/302)) ([48dc2be](https://github.com/appium/appium-ios-remotexpc/commit/48dc2be2c01e5be661b5f8cd9f12c3140743681e))
+
 ## [5.15.3](https://github.com/appium/appium-ios-remotexpc/compare/v5.15.2...v5.15.3) (2026-08-24)
 
 ### Bug Fixes
