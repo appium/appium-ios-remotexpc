@@ -52,7 +52,9 @@ const log = getLogger('PairVerificationProtocol');
  *
  * Security Properties:
  * - Perfect Forward Secrecy: Each session uses unique ephemeral keys
- * - Mutual Authentication: Both client and device prove their identities
+ * - One-Way Authentication: Only the client proves its identity; the accessory's
+ *   identity is not verified during Pair-Verify (the accessory's long-term public
+ *   key is exposed in Pair-Setup M6 but is not currently persisted in the pair record)
  * - Replay Protection: Ephemeral keys prevent replay attacks
  *
  * References:
@@ -122,7 +124,7 @@ export class PairVerificationProtocol {
       throw new PairingError('No pairing data in STATE=2 response', 'STATE_2_NO_DATA');
     }
 
-    const tlvData = decodeTLV8ToDict(Buffer.from(pairingData, 'base64'));
+    const tlvData = this.parseTlvOrThrow(Buffer.from(pairingData, 'base64'), 'STATE=2 response');
 
     if (tlvData[PairingDataComponentType.ERROR]) {
       const errorCode = tlvData[PairingDataComponentType.ERROR] as Buffer;
@@ -136,9 +138,17 @@ export class PairVerificationProtocol {
       throw new PairingError('No device public key in STATE=2', 'STATE_2_NO_PUBLIC_KEY');
     }
 
-    log.debug(' - STATE=2: Receive devices X25519 public key + encrypted data');
+    log.debug(' - STATE=2: Receive devices X25519 public key');
 
     return devicePublicKey;
+  }
+
+  private parseTlvOrThrow(payload: Buffer, context: string): Record<number, Buffer> {
+    try {
+      return decodeTLV8ToDict(payload);
+    } catch (error) {
+      throw new PairingError(`Failed to parse TLV8 ${context}`, 'TLV8_PARSE_ERROR', error);
+    }
   }
 
   private computeSharedSecret(privateKey: KeyObject, devicePublicKey: Buffer): Buffer {
@@ -162,7 +172,7 @@ export class PairVerificationProtocol {
       return;
     }
 
-    const state4TLV = decodeTLV8ToDict(Buffer.from(state4Data, 'base64'));
+    const state4TLV = this.parseTlvOrThrow(Buffer.from(state4Data, 'base64'), 'STATE=4 response');
 
     if (state4TLV[PairingDataComponentType.ERROR]) {
       const errorCode = state4TLV[PairingDataComponentType.ERROR] as Buffer;
