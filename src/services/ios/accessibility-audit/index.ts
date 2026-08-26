@@ -21,6 +21,38 @@ const SETTING_TYPE_SLIDER = 2;
 /** `SettingTypeValue_v1` for an on/off toggle — every setting bar the slider. */
 const SETTING_TYPE_TOGGLE = 3;
 
+/**
+ * What each setting type accepts, keyed by `SettingTypeValue_v1`.
+ *
+ * The device discovers its own catalogue at runtime, so the rules are keyed by
+ * type rather than by setting: supporting a new type is one entry here, and an
+ * unrecognised type has no entry and is refused.
+ */
+const SETTING_VALIDATORS = new Map<number, (value: boolean | number, identifier: string) => void>([
+  [
+    SETTING_TYPE_SLIDER,
+    (value, identifier) => {
+      // The device clamps out-of-range input to 1 — including negatives — so a
+      // typo would silently max the setting out rather than fail.
+      if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1) {
+        throw new Error(
+          `Setting "${identifier}" is a slider and expects a number between 0 and 1, got ${JSON.stringify(value)}`,
+        );
+      }
+    },
+  ],
+  [
+    SETTING_TYPE_TOGGLE,
+    (value, identifier) => {
+      // A toggle takes any truthy value on the wire (0.5 reads back as true),
+      // which is too loose to be useful in a typed API.
+      if (typeof value !== 'boolean') {
+        throw new Error(`Setting "${identifier}" is a toggle and expects a boolean, got ${JSON.stringify(value)}`);
+      }
+    },
+  ],
+]);
+
 /** `deviceInspectorSetMonitoredEventType:` value that reports focus changes. */
 const MONITORED_EVENT_FOCUS = 2;
 /** Value that disarms monitoring. */
@@ -152,25 +184,13 @@ export class AccessibilityAuditService {
       );
     }
     const settingType = schema.get(identifier);
-    if (settingType === SETTING_TYPE_SLIDER) {
-      // The device clamps out-of-range input to 1 — including negatives — so a
-      // typo would silently max the setting out rather than fail.
-      if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1) {
-        throw new Error(
-          `Setting "${identifier}" is a slider and expects a number between 0 and 1, got ${JSON.stringify(value)}`,
-        );
-      }
-    } else if (settingType === SETTING_TYPE_TOGGLE) {
-      // A toggle takes any truthy value on the wire (0.5 reads back as true),
-      // which is too loose to be useful in a typed API.
-      if (typeof value !== 'boolean') {
-        throw new Error(`Setting "${identifier}" is a toggle and expects a boolean, got ${JSON.stringify(value)}`);
-      }
-    } else {
-      // Only these two types have been observed (iOS 26.6 and 27.0); refuse
+    const validate = settingType === undefined ? undefined : SETTING_VALIDATORS.get(settingType);
+    if (!validate) {
+      // Only slider and toggle have been observed (iOS 26.6 and 27.0); refuse
       // rather than guess at the value another type expects.
       throw new Error(`Setting "${identifier}" has unsupported type ${JSON.stringify(settingType)}`);
     }
+    validate(value, identifier);
 
     const aux = new MessageAux();
     aux.appendObj(serializeAxSetting(identifier));
