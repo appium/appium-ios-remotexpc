@@ -6,7 +6,7 @@ import {BaseSocketService} from '../../base-socket-service.js';
 import {getLogger} from '../logger.js';
 import {type PairRecord, processPlistResponse} from '../pair-record/index.js';
 import {type RawPairRecordResponse} from '../pair-record/pair-record.js';
-import {LengthBasedSplitter, parsePlist} from '../plist/index.js';
+import {parsePlist} from '../plist/index.js';
 import type {PlistDictionary} from '../types.js';
 import {type DecodedUsbmux, UsbmuxDecoder} from '../usbmux/usbmux-decoder.js';
 import {UsbmuxEncoder} from '../usbmux/usbmux-encoder.js';
@@ -39,7 +39,6 @@ const log = getLogger('Usbmux');
 export const USBMUXD_PORT = 27015;
 export const DEFAULT_USBMUXD_SOCKET = '/var/run/usbmuxd';
 export const DEFAULT_USBMUXD_HOST = '127.0.0.1';
-export const MAX_FRAME_SIZE = 100 * 1024 * 1024; // 1MB
 
 // Result codes from usbmuxd
 export const USBMUX_RESULT = {
@@ -68,7 +67,6 @@ export interface SocketOptions {
  */
 export class Usbmux extends BaseSocketService {
   private readonly _decoder: UsbmuxDecoder;
-  private readonly _splitter: LengthBasedSplitter;
   private readonly _encoder: UsbmuxEncoder;
   private _tag: number;
   private readonly _responseCallbacks: Record<number, (data: DecodedUsbmux) => void>;
@@ -81,16 +79,10 @@ export class Usbmux extends BaseSocketService {
     super(socketClient);
 
     this._decoder = new UsbmuxDecoder();
-    this._splitter = new LengthBasedSplitter({
-      readableStream: socketClient,
-      littleEndian: true,
-      maxFrameLength: MAX_FRAME_SIZE,
-      lengthFieldOffset: 0,
-      lengthFieldLength: 4,
-      lengthAdjustment: 0,
-    });
-
     this._socketClient.pipe(this._decoder);
+    this._decoder.on('error', (err: Error) => {
+      log.error(`Usbmux decoder error: ${err.message}`);
+    });
 
     this._encoder = new UsbmuxEncoder();
     this._encoder.pipe(this._socketClient);
@@ -219,20 +211,17 @@ export class Usbmux extends BaseSocketService {
 
       if (data.payload.Number === USBMUX_RESULT.OK) {
         // Detach constructor-owned consumers from the raw socket so the caller
-        // gets full byte-stream ownership. Leaving the splitter/decoder attached
-        // lets their unread buffers grow, eventually applying backpressure that
-        // stalls long-lived forwards.
-        //
-        // Order matters: unpipe() must happen before removeAllListeners() /
-        // shutdown(). Removing listeners first breaks Node's pipe cleanup, leaving
-        // orphaned source listeners that continue pushing bytes into detached
-        // streams and eventually stall the socket.
-        this._socketClient.unpipe(this._splitter);
-        this._splitter.unpipe(this._decoder);
+        // gets full byte-stream ownership.
         this._socketClient.unpipe(this._decoder);
         this._encoder.unpipe(this._socketClient);
-        this._splitter.shutdown();
         this._decoder.removeAllListeners('data');
+
+        // Hand any unconsumed bytes back to the raw socket stream so the caller
+        // receives them immediately when attaching listeners.
+        const pending = this._decoder.buffer;
+        if (pending.length > 0) {
+          this._socketClient.unshift(pending);
+        }
         return this._socketClient;
       } else if (data.payload.Number === USBMUX_RESULT.CONNREFUSED) {
         throw new Error(`Connection was refused to port ${port}`);

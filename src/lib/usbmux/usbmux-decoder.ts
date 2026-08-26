@@ -24,6 +24,10 @@ export class UsbmuxDecoder extends Transform {
     super({objectMode: true});
   }
 
+  get buffer(): Buffer {
+    return this._buffer;
+  }
+
   _transform(chunk: Buffer, encoding: BufferEncoding, callback: TransformCallback): void {
     // Append the new chunk to the internal buffer
     this._buffer = Buffer.concat([this._buffer, chunk]);
@@ -38,12 +42,16 @@ export class UsbmuxDecoder extends Transform {
         break; // Wait for more data
       }
 
-      // Extract the full message
-      const message = this._buffer.slice(0, totalLength);
-      this._decode(message);
+      // Extract the full message and remove it from the buffer before decoding,
+      // so any synchronous data listeners see only the unconsumed remainder.
+      const message = this._buffer.subarray(0, totalLength);
+      this._buffer = this._buffer.subarray(totalLength);
 
-      // Remove the processed message from the buffer
-      this._buffer = this._buffer.slice(totalLength);
+      try {
+        this._decode(message);
+      } catch (err) {
+        return callback(err instanceof Error ? err : new Error(String(err)));
+      }
     }
     callback();
   }
@@ -56,7 +64,7 @@ export class UsbmuxDecoder extends Transform {
       tag: data.readUInt32LE(12),
     };
 
-    const payload = data.slice(HEADER_LENGTH);
+    const payload = data.subarray(HEADER_LENGTH);
     this.push({header, payload: parsePlist(payload)} as DecodedUsbmux);
   }
 }

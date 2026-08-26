@@ -1,10 +1,17 @@
 import assert from 'node:assert/strict';
-import {type Server, type Socket} from 'node:net';
+import {type AddressInfo, type Server, type Socket, createConnection, createServer} from 'node:net';
+import {resolve} from 'node:path';
 import {afterEach, beforeEach, describe, it} from 'node:test';
+import {fileURLToPath} from 'node:url';
+
+import {fs, node} from '@appium/support';
 
 import {type Device, Usbmux} from '../../../src/lib/usbmux/index.js';
+import {UsbmuxDecoder} from '../../../src/lib/usbmux/usbmux-decoder.js';
 import {prioritizeUsbOverNetworkForDuplicateUdids} from '../../../src/lib/usbmux/utils.js';
 import {UDID, fixtures, getServerWithFixtures} from '../fixtures/index.js';
+
+const PKG_ROOT = node.getModuleRootSync('appium-ios-remotexpc', fileURLToPath(import.meta.url));
 
 const DUP_UDID = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 
@@ -93,6 +100,60 @@ describe('usbmux', function () {
     if (device) {
       assert.strictEqual(device.Properties.SerialNumber, UDID);
     }
+  });
+
+  it('should preserve remainder bytes in decoder buffer when partial chunk arrives', function () {
+    const decoder = new UsbmuxDecoder();
+    const chunk = Buffer.from([0x05, 0x00, 0x00, 0x00]);
+    decoder.write(chunk);
+    assert.deepStrictEqual(decoder.buffer, chunk);
+  });
+
+  it('should emit error on malformed payload instead of throwing synchronously in decoder', async function () {
+    const decoder = new UsbmuxDecoder();
+    const errorPromise = new Promise<Error>((resolve) => {
+      decoder.once('error', resolve);
+    });
+
+    const header = Buffer.alloc(16);
+    header.writeUInt32LE(20, 0); // length: 20 bytes total (16 header + 4 payload)
+    header.writeUInt32LE(1, 4); // version
+    header.writeUInt32LE(8, 8); // type
+    header.writeUInt32LE(1, 12); // tag
+    const invalidPayload = Buffer.from('bad!');
+
+    decoder.write(Buffer.concat([header, invalidPayload]));
+    const err = await errorPromise;
+    assert.ok(err instanceof Error);
+  });
+
+  it('should unshift unconsumed trailing bytes received alongside connect result', async function () {
+    const connectFixture = Buffer.from(
+      await fs.readFile(resolve(PKG_ROOT, 'test', 'unit', 'fixtures', 'usbmuxconnectmessage.bin')),
+    );
+    const trailingGreeting = Buffer.from('REMOTE_SERVICE_GREETING');
+
+    server = createServer((s: Socket) => {
+      s.once('data', (data: Buffer) => {
+        const clientTag = data.readUInt32LE(12);
+        connectFixture.writeUInt32LE(clientTag, 12);
+        s.write(Buffer.concat([connectFixture, trailingGreeting]));
+      });
+    });
+    server.listen();
+    const addr = server.address() as AddressInfo;
+    socket = createConnection(addr.port);
+
+    usbmux = new Usbmux(socket);
+    const connectedSocket = await usbmux.connect(1, 62078);
+
+    const received = await new Promise<Buffer>((resolve) => {
+      connectedSocket.once('data', resolve);
+      connectedSocket.resume();
+    });
+
+    assert.deepStrictEqual(received, trailingGreeting);
+    connectedSocket.destroy();
   });
 
   it('should order duplicate UDIDs with USB before Network', function () {
