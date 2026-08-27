@@ -16,6 +16,43 @@ import {AxAuditDtxTransport, type InvokeOptions} from './dtx-transport.js';
 
 const log = getLogger('AccessibilityAudit');
 
+/** `SettingTypeValue_v1` for a slider setting, e.g. `DYNAMIC_TYPE`. */
+const SETTING_TYPE_SLIDER = 2;
+/** `SettingTypeValue_v1` for an on/off toggle — every setting bar the slider. */
+const SETTING_TYPE_TOGGLE = 3;
+
+/**
+ * What each setting type accepts, keyed by `SettingTypeValue_v1`.
+ *
+ * The device discovers its own catalogue at runtime, so the rules are keyed by
+ * type rather than by setting: supporting a new type is one entry here, and an
+ * unrecognised type has no entry and is refused.
+ */
+const SETTING_VALIDATORS = new Map<number, (value: boolean | number, identifier: string) => void>([
+  [
+    SETTING_TYPE_SLIDER,
+    (value, identifier) => {
+      // The device clamps out-of-range input to 1 — including negatives — so a
+      // typo would silently max the setting out rather than fail.
+      if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1) {
+        throw new Error(
+          `Setting "${identifier}" is a slider and expects a number between 0 and 1, got ${JSON.stringify(value)}`,
+        );
+      }
+    },
+  ],
+  [
+    SETTING_TYPE_TOGGLE,
+    (value, identifier) => {
+      // A toggle takes any truthy value on the wire (0.5 reads back as true),
+      // which is too loose to be useful in a typed API.
+      if (typeof value !== 'boolean') {
+        throw new Error(`Setting "${identifier}" is a toggle and expects a boolean, got ${JSON.stringify(value)}`);
+      }
+    },
+  ],
+]);
+
 /** `deviceInspectorSetMonitoredEventType:` value that reports focus changes. */
 const MONITORED_EVENT_FOCUS = 2;
 /** Value that disarms monitoring. */
@@ -72,6 +109,14 @@ export class AccessibilityAuditService {
   /** Guards {@link runAudit} against overlapping calls on one instance. */
   private auditInFlight = false;
 
+  /**
+   * Identifier to `SettingTypeValue_v1`, read once per connection.
+   *
+   * Only a setting's *value* changes; its identity, type and tick marks are
+   * fixed for the device, so repeated writes need not re-read the catalogue.
+   */
+  private settingTypes: Map<string, number | undefined> | undefined;
+
   private constructor(private readonly transport: AxAuditDtxTransport) {}
 
   /**
@@ -83,7 +128,7 @@ export class AccessibilityAuditService {
     return new AccessibilityAuditService(await AxAuditDtxTransport.connect(udid));
   }
 
-  /** The daemon's API version (26 on iOS 27.0). */
+  /** The daemon's API version (26 on iOS 26.6 and 27.0). */
   async getApiVersion(options?: InvokeOptions): Promise<number> {
     const value = await this.transport.invoke('deviceApiVersion', null, options);
     if (typeof value !== 'number') {
@@ -114,6 +159,68 @@ export class AccessibilityAuditService {
       throw new Error(`Expected an array of settings, got ${JSON.stringify(raw)?.slice(0, 120)}`);
     }
     return raw.map(toDeviceSetting);
+  }
+
+  /**
+   * Writes one accessibility setting. Applies system-wide, but only while this
+   * service is open — closing it reverts the setting.
+   *
+   * Sliders snap to the device's tick marks (`DYNAMIC_TYPE` has 12, so `0.5`
+   * reads back as `0.545`). The device acknowledges a write in a few
+   * milliseconds but commits it asynchronously, so back-to-back writes to the
+   * same setting are dropped — ~1.5s apart was reliable in testing, and the
+   * exact minimum is not published.
+   *
+   * @param identifier A setting identifier, e.g. `INVERT_COLORS`, `DYNAMIC_TYPE`.
+   * @param value `boolean` for a toggle, or a number in 0..1 for a slider.
+   * @param options Reply timeout.
+   * @throws If the identifier is unknown, or the value is wrong for its type.
+   */
+  async setAccessibilitySetting(identifier: string, value: boolean | number, options?: InvokeOptions): Promise<void> {
+    const schema = await this.loadSettingTypes(options);
+    if (!schema.has(identifier)) {
+      throw new Error(
+        `Unknown accessibility setting "${identifier}"; the device supports: ${[...schema.keys()].join(', ')}`,
+      );
+    }
+    const settingType = schema.get(identifier);
+    const validate = settingType === undefined ? undefined : SETTING_VALIDATORS.get(settingType);
+    if (!validate) {
+      // Only slider and toggle have been observed (iOS 26.6 and 27.0); refuse
+      // rather than guess at the value another type expects.
+      throw new Error(`Setting "${identifier}" has unsupported type ${JSON.stringify(settingType)}`);
+    }
+    validate(value, identifier);
+
+    const aux = new MessageAux();
+    aux.appendObj(serializeAxSetting(identifier));
+    aux.appendObj({ObjectType: 'passthrough', Value: value});
+    // The daemon answers (with null), so awaiting it confirms the write landed
+    // before a caller screenshots or re-audits.
+    await this.transport.invoke('deviceUpdateAccessibilitySetting:withValue:', aux, options);
+  }
+
+  /** Reads the setting catalogue once and remembers each identifier's type. */
+  private async loadSettingTypes(options?: InvokeOptions): Promise<Map<string, number | undefined>> {
+    if (!this.settingTypes) {
+      const settings = await this.getAccessibilitySettings(options);
+      this.settingTypes = new Map(settings.map((entry) => [entry.identifier, entry.settingType]));
+    }
+    return this.settingTypes;
+  }
+
+  /**
+   * Resets the device's stored accessibility settings to their defaults.
+   *
+   * **Persistent and destructive** — unlike {@link setAccessibilitySetting} this
+   * survives disconnect and discards the user's own choices. Session overrides
+   * revert on close by themselves, so this is rarely the right cleanup. It also
+   * drops overrides held by other connections.
+   *
+   * @param options Reply timeout.
+   */
+  async resetAccessibilitySettings(options?: InvokeOptions): Promise<void> {
+    await this.transport.invoke('deviceResetToDefaultAccessibilitySettings', null, options);
   }
 
   /**
@@ -188,7 +295,7 @@ export class AccessibilityAuditService {
    * `hostInspectorCurrentElementChanged:` call, so that is what this reproduces:
    * arm, ask focus to report, wait for the push, disarm. Captured from a live
    * Inspector session — `deviceFetchElementAtNormalizedDeviceCoordinate:`
-   * returns `null` on iOS 27 no matter how it is called.
+   * returns `null` on iOS 26.6 and 27.0 no matter how it is called.
    *
    * @param options Timeout, and whether to draw the on-device highlight.
    */
@@ -286,7 +393,7 @@ export class AccessibilityAuditService {
   /**
    * Returns one of the daemon's well-known elements.
    *
-   * Index `0` and `1` resolve on iOS 27; higher indices return `undefined`.
+   * Index `0` and `1` resolve on iOS 26.6 and 27.0; higher return `undefined`.
    *
    * @param index Which special element to fetch.
    * @param options Reply timeout.
@@ -376,9 +483,26 @@ function asStringArray(value: unknown, selector: string): string[] {
   return value as string[];
 }
 
+/**
+ * Builds the setting descriptor the daemon expects.
+ *
+ * Only the identifier is read — the device ignores the type, tick-mark and
+ * enabled fields, verified by sending deliberately wrong ones — so this sends
+ * the identifier alone rather than echoing a descriptor back.
+ */
+export function serializeAxSetting(identifier: string): Record<string, unknown> {
+  return {
+    ObjectType: 'AXAuditDeviceSetting_v1',
+    Value: {
+      ObjectType: 'passthrough',
+      Value: {IdentiifierValue_v1: {ObjectType: 'passthrough', Value: identifier}},
+    },
+  };
+}
+
 /** Maps one deserialized `AXAuditDeviceSetting_v1` to the cleaned shape. */
 function toDeviceSetting(raw: unknown): AxDeviceSetting {
-  if (typeof raw !== 'object' || raw === null) {
+  if (!util.isPlainObject(raw)) {
     throw new Error(`Malformed accessibility setting: ${JSON.stringify(raw)?.slice(0, 120)}`);
   }
   const fields = raw as Record<string, unknown>;
