@@ -1,3 +1,9 @@
+## [5.16.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.15.5...v5.16.0) (2026-08-27)
+
+### Features
+
+* **accessibility:** support writing and resetting device accessibility settings ([#301](https://github.com/appium/appium-ios-remotexpc/issues/301)) ([8d6a87b](https://github.com/appium/appium-ios-remotexpc/commit/8d6a87b3ce67f0cdbcf134b43a3f2dbf8d5073ba))
+
 ## [5.15.5](https://github.com/appium/appium-ios-remotexpc/compare/v5.15.4...v5.15.5) (2026-08-26)
 
 ### Bug Fixes
