@@ -117,6 +117,14 @@ export class AccessibilityAuditService {
    */
   private settingTypes: Map<string, number | undefined> | undefined;
 
+  /**
+   * Supported audit types, read once per connection.
+   *
+   * Like the setting catalogue this is fixed for the device, so validating a
+   * name costs one round trip per connection rather than one per audit.
+   */
+  private auditTypeNames: Set<string> | undefined;
+
   private constructor(private readonly transport: AxAuditDtxTransport) {}
 
   /**
@@ -264,6 +272,7 @@ export class AccessibilityAuditService {
       : undefined;
 
     try {
+      await this.assertKnownAuditTypes(auditTypes, options);
       if (options.targetPid !== undefined) {
         // Narrows the audit to one process; omitted, the daemon uses the
         // foreground app.
@@ -284,6 +293,27 @@ export class AccessibilityAuditService {
       this.auditInFlight = false;
       stopIssues();
       stopLog?.();
+    }
+  }
+
+  /**
+   * Rejects audit types the device does not implement.
+   *
+   * An unrecognised name makes the daemon return neither issues nor a
+   * completion, and that connection can never run another audit — so the name
+   * must never reach the device.
+   */
+  private async assertKnownAuditTypes(auditTypes: string[], options?: InvokeOptions): Promise<void> {
+    if (auditTypes.length === 0) {
+      return;
+    }
+    this.auditTypeNames ??= new Set(await this.getSupportedAuditTypes(options));
+    const unknown = auditTypes.filter((auditType) => !this.auditTypeNames?.has(auditType));
+    if (unknown.length > 0) {
+      throw new Error(
+        `Unknown audit type(s) ${unknown.map((auditType) => JSON.stringify(auditType)).join(', ')}; ` +
+          `the device supports: ${[...(this.auditTypeNames ?? [])].join(', ')}`,
+      );
     }
   }
 
