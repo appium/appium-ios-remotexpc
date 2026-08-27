@@ -1,3 +1,9 @@
+## [5.15.5](https://github.com/appium/appium-ios-remotexpc/compare/v5.15.4...v5.15.5) (2026-08-26)
+
+### Bug Fixes
+
+* **apple-tv:** wrap malformed pair-verify TLV8 responses in PairingError ([#303](https://github.com/appium/appium-ios-remotexpc/issues/303)) ([dfa37d4](https://github.com/appium/appium-ios-remotexpc/commit/dfa37d450231cddbaee30cb7e88a28b06073a62b))
+
 ## [5.15.4](https://github.com/appium/appium-ios-remotexpc/compare/v5.15.3...v5.15.4) (2026-08-25)
 
 ### Bug Fixes
