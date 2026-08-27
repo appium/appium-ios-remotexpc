@@ -83,6 +83,21 @@ export class DevicePortForwarder extends EventEmitter {
     this.activeSockets.add(localSocket);
     this.emit('clientConnected', localSocket);
 
+    const upstreamSocket = await this.openUpstreamForClient(localSocket);
+    if (!upstreamSocket) {
+      return;
+    }
+
+    this.activeSockets.add(upstreamSocket);
+    this.emit('upstreamConnected', upstreamSocket);
+    this.bridgeSockets(localSocket, upstreamSocket);
+  }
+
+  /**
+   * Opens the upstream socket while watching for the client going away.
+   * Returns undefined after cleanup if the connect fails or the client disconnected meanwhile.
+   */
+  private async openUpstreamForClient(localSocket: Socket): Promise<Socket | undefined> {
     let clientError: Error | undefined;
     let clientClosed = false;
     const onEarlyError = (err: Error): void => {
@@ -94,7 +109,7 @@ export class DevicePortForwarder extends EventEmitter {
     localSocket.once('error', onEarlyError);
     localSocket.once('close', onEarlyClose);
 
-    let upstreamSocket: Socket | undefined;
+    let upstreamSocket: Socket;
     try {
       upstreamSocket = await this.openUpstreamSocket();
     } catch (err) {
@@ -102,7 +117,7 @@ export class DevicePortForwarder extends EventEmitter {
       this.emit('upstreamConnectError', err);
       this.emit('clientDisconnected', localSocket, err);
       localSocket.destroy();
-      return;
+      return undefined;
     } finally {
       localSocket.off('error', onEarlyError);
       localSocket.off('close', onEarlyClose);
@@ -113,12 +128,16 @@ export class DevicePortForwarder extends EventEmitter {
       this.emit('clientDisconnected', localSocket, clientError);
       localSocket.destroy();
       upstreamSocket.destroy();
-      return;
+      return undefined;
     }
 
-    this.activeSockets.add(upstreamSocket);
-    this.emit('upstreamConnected', upstreamSocket);
+    return upstreamSocket;
+  }
 
+  /**
+   * Pipes the two sockets together and tears both down when either side closes or errors.
+   */
+  private bridgeSockets(localSocket: Socket, upstreamSocket: Socket): void {
     let cleanedUp = false;
     const teardown = (): void => {
       this.activeSockets.delete(localSocket);
@@ -135,6 +154,7 @@ export class DevicePortForwarder extends EventEmitter {
       upstreamSocket.destroy();
     };
 
+    let clientError: Error | undefined;
     localSocket.once('error', (err) => {
       clientError = err;
       teardown();
