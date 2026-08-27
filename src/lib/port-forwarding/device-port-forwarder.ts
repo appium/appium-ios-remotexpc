@@ -83,6 +83,17 @@ export class DevicePortForwarder extends EventEmitter {
     this.activeSockets.add(localSocket);
     this.emit('clientConnected', localSocket);
 
+    let clientError: Error | undefined;
+    let clientClosed = false;
+    const onEarlyError = (err: Error): void => {
+      clientError = err;
+    };
+    const onEarlyClose = (): void => {
+      clientClosed = true;
+    };
+    localSocket.once('error', onEarlyError);
+    localSocket.once('close', onEarlyClose);
+
     let upstreamSocket: Socket | undefined;
     try {
       upstreamSocket = await this.openUpstreamSocket();
@@ -91,6 +102,17 @@ export class DevicePortForwarder extends EventEmitter {
       this.emit('upstreamConnectError', err);
       this.emit('clientDisconnected', localSocket, err);
       localSocket.destroy();
+      return;
+    } finally {
+      localSocket.off('error', onEarlyError);
+      localSocket.off('close', onEarlyClose);
+    }
+
+    if (clientClosed || localSocket.destroyed || clientError !== undefined) {
+      this.activeSockets.delete(localSocket);
+      this.emit('clientDisconnected', localSocket, clientError);
+      localSocket.destroy();
+      upstreamSocket.destroy();
       return;
     }
 
@@ -113,7 +135,6 @@ export class DevicePortForwarder extends EventEmitter {
       upstreamSocket.destroy();
     };
 
-    let clientError: Error | undefined;
     localSocket.once('error', (err) => {
       clientError = err;
       teardown();
