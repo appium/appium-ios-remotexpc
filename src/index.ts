@@ -64,7 +64,8 @@ export type {AxDeviceSetting} from './services/ios/accessibility-audit/index.js'
 export {AxAuditDtxTransport} from './services/ios/accessibility-audit/dtx-transport.js';
 export type {InvokeOptions as AxInvokeOptions} from './services/ios/accessibility-audit/dtx-transport.js';
 export {AX_OBJECT_TYPE, deserializeAxObject} from './services/ios/accessibility-audit/ax-deserialize.js';
-export {AxPoint} from './services/ios/accessibility-audit/ax-values.js';
+export {AxPoint, toAxRect} from './services/ios/accessibility-audit/ax-values.js';
+export type {AxRect} from './services/ios/accessibility-audit/ax-values.js';
 export {
   serializeAxAttribute,
   serializeAxElement,

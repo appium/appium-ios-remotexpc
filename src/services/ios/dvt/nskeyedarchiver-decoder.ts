@@ -13,6 +13,13 @@ const MAX_DECODE_DEPTH = 1000;
  * - $top: Root object references
  * - $objects: Array of all objects with cross-references
  */
+/**
+ * `NSValue` keys whose value is a UID pointing at the struct's string form.
+ *
+ * `NS.special` discriminates which one is present: 1 point, 2 size, 3 rect.
+ */
+const NSVALUE_STRUCT_KEYS = new Set(['NS.rectval', 'NS.pointval', 'NS.sizeval']);
+
 export class NSKeyedArchiverDecoder {
   private readonly objects: any[];
   private readonly decoded: Map<number, any>;
@@ -149,7 +156,14 @@ export class NSKeyedArchiverDecoder {
         continue; // Skip class metadata
       }
 
-      if (typeof value === 'number') {
+      if (typeof value === 'number' && NSVALUE_STRUCT_KEYS.has(key)) {
+        // An NSValue stores its struct as a string ("{{0, 0}, {18, 18}}") and
+        // points at it by UID. The parser cannot tell a UID from an integer, and
+        // the heuristic below only follows references to objects, so these keys
+        // would keep the raw index. They always reference a string.
+        const referenced = value >= 0 && value < this.objects.length ? this.objects[value] : undefined;
+        result[key] = typeof referenced === 'string' ? referenced : value;
+      } else if (typeof value === 'number') {
         // Could be a reference or primitive
         if (value < this.objects.length && value >= 0) {
           const referenced = this.objects[value];
