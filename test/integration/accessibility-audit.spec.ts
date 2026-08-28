@@ -23,10 +23,14 @@ import {requireDeviceUdid} from './helpers/device.js';
 describe('AccessibilityAuditService', {timeout: 300000}, function () {
   /** The selector the setting-write tests depend on. */
   const SETTING_WRITE_SELECTOR = 'deviceUpdateAccessibilitySetting:withValue:';
+  /** The selector the reset tests depend on. */
+  const SETTING_RESET_SELECTOR = 'deviceResetToDefaultAccessibilitySettings';
 
   let service: AccessibilityAuditService | null = null;
   /** Whether this device's daemon implements setting writes at all. */
   let supportsSettingWrites = false;
+  /** Whether it implements the reset selector, which the write tests do not use. */
+  let supportsSettingReset = false;
 
   before(async function () {
     const udid = requireDeviceUdid();
@@ -34,7 +38,9 @@ describe('AccessibilityAuditService', {timeout: 300000}, function () {
     // Gate on what the daemon advertises rather than on an OS version: it
     // publishes the selectors it implements, which is both more precise and
     // stable across releases.
-    supportsSettingWrites = (await service.getCapabilities()).includes(SETTING_WRITE_SELECTOR);
+    const capabilities = await service.getCapabilities();
+    supportsSettingWrites = capabilities.includes(SETTING_WRITE_SELECTOR);
+    supportsSettingReset = capabilities.includes(SETTING_RESET_SELECTOR);
   });
 
   after(function () {
@@ -199,7 +205,7 @@ describe('AccessibilityAuditService', {timeout: 300000}, function () {
     ];
 
     for (const [label, auditTypes] of POISON) {
-      it(`rejects ${label} without contacting the device`, async function () {
+      it(`rejects ${label} without starting an audit`, async function () {
         await assert.rejects(() => service!.runAudit(auditTypes, {timeoutMs: 20000}), /Unknown audit type/);
       });
     }
@@ -210,19 +216,32 @@ describe('AccessibilityAuditService', {timeout: 300000}, function () {
       await assert.rejects(() => service!.runAudit([types[0], 'bogusType'], {timeoutMs: 20000}), /Unknown audit type/);
     });
 
-    it('still accepts an empty list, which the device reads as every type', async function () {
-      // Rejecting this would be a regression: the daemon audits everything.
-      assert.ok(Array.isArray(await service!.runAudit([], {timeoutMs: 60000})));
+    it('does not validate against an empty catalogue', async function () {
+      // A device reporting no types must not make every type unknown — and the
+      // empty list must not be cached, or the service stays broken afterwards.
+      const types = await service!.getSupportedAuditTypes();
+      const real = service!.getSupportedAuditTypes.bind(service!);
+      const instance = service! as unknown as {auditTypeNames?: Set<string>; getSupportedAuditTypes: unknown};
+      instance.getSupportedAuditTypes = async () => [];
+      instance.auditTypeNames = undefined;
+      try {
+        assert.ok(Array.isArray(await service!.runAudit([types[0]], {timeoutMs: 60000})));
+        assert.strictEqual(instance.auditTypeNames, undefined, 'an empty catalogue must not be cached');
+      } finally {
+        instance.getSupportedAuditTypes = real;
+        instance.auditTypeNames = undefined;
+      }
+
+      // Still works once the device reports its types again.
+      assert.ok(Array.isArray(await service!.runAudit([types[0]], {timeoutMs: 60000})));
     });
 
-    it('leaves the connection usable after a rejected audit', async function (t) {
-      const types = await service!.getSupportedAuditTypes();
+    it('leaves the connection usable after a rejected audit', async function () {
       await assert.rejects(() => service!.runAudit(['nopeNotAType'], {timeoutMs: 20000}), /Unknown audit type/);
 
-      // Before the guard this call timed out permanently on this connection.
-      const issues = await service!.runAudit(types, {timeoutMs: 60000});
-      assert.ok(Array.isArray(issues));
-      t.diagnostic(`audit after a rejected one returned ${issues.length} issue(s)`);
+      // One cheap type is enough here: before the guard this timed out
+      // permanently on this connection.
+      assert.ok(Array.isArray(await service!.runAudit(['testTypeContrast'], {timeoutMs: 60000})));
     });
   });
 
@@ -281,29 +300,20 @@ describe('AccessibilityAuditService', {timeout: 300000}, function () {
       }
     });
 
-    it('rejects an unknown setting identifier instead of silently doing nothing', async function (t) {
-      if (skipWithoutSettingWrites(t)) {
-        return;
-      }
+    it('rejects an unknown setting identifier instead of silently doing nothing', async function () {
       await assert.rejects(
         () => service!.setAccessibilitySetting('NOT_A_REAL_SETTING', true),
         /Unknown accessibility setting/,
       );
     });
 
-    it('rejects a value of the wrong kind for the setting', async function (t) {
-      if (skipWithoutSettingWrites(t)) {
-        return;
-      }
+    it('rejects a value of the wrong kind for the setting', async function () {
       // DYNAMIC_TYPE is a slider, GRAYSCALE a toggle.
       await assert.rejects(() => service!.setAccessibilitySetting('DYNAMIC_TYPE', true), /slider/);
       await assert.rejects(() => service!.setAccessibilitySetting('GRAYSCALE', 0.5 as unknown as boolean), /toggle/);
     });
 
-    it('rejects an out-of-range slider value without touching the device', async function (t) {
-      if (skipWithoutSettingWrites(t)) {
-        return;
-      }
+    it('rejects an out-of-range slider value without touching the device', async function () {
       const before = await currentValue('DYNAMIC_TYPE');
 
       await assert.rejects(() => service!.setAccessibilitySetting('DYNAMIC_TYPE', -1), /between 0 and 1/);
@@ -342,8 +352,8 @@ describe('AccessibilityAuditService', {timeout: 300000}, function () {
 
       /** Reports why a test is being skipped, or null when it may run. */
       async function skipReason(): Promise<string | null> {
-        if (!supportsSettingWrites) {
-          return `daemon does not implement ${SETTING_WRITE_SELECTOR}`;
+        if (!supportsSettingReset) {
+          return `daemon does not implement ${SETTING_RESET_SELECTOR}`;
         }
         if (!RESET_ALLOWED) {
           return 'set ALLOW_ACCESSIBILITY_SETTINGS_RESET=1 to run — this permanently resets the accessibility settings on the device';
@@ -370,6 +380,11 @@ describe('AccessibilityAuditService', {timeout: 300000}, function () {
       });
 
       it('clears a session override held by this service', async function (t) {
+        // The only reset test that also writes a setting.
+        if (!supportsSettingWrites) {
+          t.skip(`daemon does not implement ${SETTING_WRITE_SELECTOR}`);
+          return;
+        }
         const skip = await skipReason();
         if (skip) {
           t.skip(skip);

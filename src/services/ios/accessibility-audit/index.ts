@@ -272,7 +272,7 @@ export class AccessibilityAuditService {
       : undefined;
 
     try {
-      await this.assertKnownAuditTypes(auditTypes, options);
+      await this.assertKnownAuditTypes(auditTypes);
       if (options.targetPid !== undefined) {
         // Narrows the audit to one process; omitted, the daemon uses the
         // foreground app.
@@ -303,16 +303,28 @@ export class AccessibilityAuditService {
    * completion, and that connection can never run another audit — so the name
    * must never reach the device.
    */
-  private async assertKnownAuditTypes(auditTypes: string[], options?: InvokeOptions): Promise<void> {
+  private async assertKnownAuditTypes(auditTypes: string[]): Promise<void> {
     if (auditTypes.length === 0) {
       return;
     }
-    this.auditTypeNames ??= new Set(await this.getSupportedAuditTypes(options));
-    const unknown = auditTypes.filter((auditType) => !this.auditTypeNames?.has(auditType));
+    // Deliberately not the caller's `timeoutMs`: that budget is for the audit
+    // itself, and reusing it here would let a long audit spend it twice.
+    const known = this.auditTypeNames ?? new Set(await this.getSupportedAuditTypes());
+    if (known.size === 0) {
+      // Nothing to validate against. Caching an empty catalogue would reject
+      // every type from here on — including after the daemon recovered — which
+      // is worse than the wedge this guards against, so let the call through.
+      log.debug('Device reported no supported audit types; skipping validation');
+      return;
+    }
+    this.auditTypeNames = known;
+
+    const unknown = auditTypes.filter((auditType) => !known.has(auditType));
     if (unknown.length > 0) {
       throw new Error(
-        `Unknown audit type(s) ${unknown.map((auditType) => JSON.stringify(auditType)).join(', ')}; ` +
-          `the device supports: ${[...(this.auditTypeNames ?? [])].join(', ')}`,
+        `Unknown ${util.pluralize('audit type', unknown.length)} ` +
+          `${unknown.map((auditType) => JSON.stringify(auditType)).join(', ')}; ` +
+          `the device supports: ${[...known].join(', ')}`,
       );
     }
   }
