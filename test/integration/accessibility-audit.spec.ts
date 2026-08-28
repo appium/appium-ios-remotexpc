@@ -221,8 +221,11 @@ describe('AccessibilityAuditService', {timeout: 300000}, function () {
       // empty list must not be cached, or the service stays broken afterwards.
       const types = await service!.getSupportedAuditTypes();
       const real = service!.getSupportedAuditTypes.bind(service!);
-      const instance = service! as unknown as {auditTypeNames?: Set<string>; getSupportedAuditTypes: unknown};
-      instance.getSupportedAuditTypes = async () => [];
+      const instance = service! as unknown as {
+        auditTypeNames?: Set<string>;
+        getSupportedAuditTypes: () => Promise<string[]>;
+      };
+      instance.getSupportedAuditTypes = async (): Promise<string[]> => [];
       instance.auditTypeNames = undefined;
       try {
         assert.ok(Array.isArray(await service!.runAudit([types[0]], {timeoutMs: 60000})));
