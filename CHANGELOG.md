@@ -1,3 +1,9 @@
+## [5.16.2](https://github.com/appium/appium-ios-remotexpc/compare/v5.16.1...v5.16.2) (2026-08-27)
+
+### Bug Fixes
+
+* **port-forwarding:** destroy upstream socket when client disconnects during connect ([#305](https://github.com/appium/appium-ios-remotexpc/issues/305)) ([957181d](https://github.com/appium/appium-ios-remotexpc/commit/957181d05a8ae4fdcfed7c0ddf73446408c5f444))
+
 ## [5.16.1](https://github.com/appium/appium-ios-remotexpc/compare/v5.16.0...v5.16.1) (2026-08-27)
 
 ### Bug Fixes
