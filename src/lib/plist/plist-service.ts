@@ -26,6 +26,12 @@ export interface PlistServiceOptions {
  */
 type PlistMessage = PlistDictionary;
 
+interface PlistWaiter {
+  resolve: (message: PlistMessage) => void;
+  reject: (error: Error) => void;
+  timeoutId: NodeJS.Timeout;
+}
+
 /**
  * Service for communication using plist protocol
  */
@@ -65,6 +71,7 @@ export class PlistService {
   private readonly _decoder: PlistServiceDecoder;
   private _encoder: PlistServiceEncoder;
   private _messageQueue: PlistMessage[];
+  private _waiters: PlistWaiter[];
 
   /**
    * Creates a new PlistService instance
@@ -86,7 +93,16 @@ export class PlistService {
 
     // Message queue for async receiving
     this._messageQueue = [];
-    this._decoder.on('data', (data: PlistMessage) => this._messageQueue.push(data));
+    this._waiters = [];
+    this._decoder.on('data', (data: PlistMessage) => {
+      const waiter = this._waiters.shift();
+      if (waiter) {
+        clearTimeout(waiter.timeoutId);
+        waiter.resolve(data);
+        return;
+      }
+      this._messageQueue.push(data);
+    });
 
     // Handle errors
     this.setupErrorHandlers();
@@ -119,31 +135,28 @@ export class PlistService {
    * Receive a plist message with timeout
    * @param timeout Timeout in ms
    * @returns Promise resolving to the received message
-   * @throws Error if timeout is reached before receiving a message
+   * @throws Error if the timeout is reached, or if close() is called before a message arrives
    */
   public async receivePlist(timeout = 5000): Promise<PlistMessage> {
     return new Promise<PlistMessage>((resolve, reject) => {
-      // Check if we already have a message
       const message = this._messageQueue.shift();
       if (message) {
         return resolve(message);
       }
 
-      // Set up a check interval
-      const checkInterval = setInterval(() => {
-        const message = this._messageQueue.shift();
-        if (message) {
-          clearInterval(checkInterval);
-          clearTimeout(timeoutId);
-          resolve(message);
-        }
-      }, 50);
+      const waiter: PlistWaiter = {
+        resolve,
+        reject,
+        timeoutId: setTimeout(() => {
+          const index = this._waiters.indexOf(waiter);
+          if (index !== -1) {
+            this._waiters.splice(index, 1);
+          }
+          reject(new Error(`Timed out waiting for plist response after ${timeout}ms`));
+        }, timeout),
+      };
 
-      // Set up timeout
-      const timeoutId = setTimeout(() => {
-        clearInterval(checkInterval);
-        reject(new Error(`Timed out waiting for plist response after ${timeout}ms`));
-      }, timeout);
+      this._waiters.push(waiter);
     });
   }
 
@@ -158,6 +171,11 @@ export class PlistService {
 
       // Clear the message queue to prevent processing during close
       this._messageQueue = [];
+
+      for (const waiter of this._waiters.splice(0)) {
+        clearTimeout(waiter.timeoutId);
+        waiter.reject(new Error('Connection closed while waiting for plist response'));
+      }
 
       // Unpipe the transformers to prevent data flow during close
       try {
