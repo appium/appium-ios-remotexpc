@@ -597,7 +597,8 @@ export class DVTSecureSocketProxyService extends BaseService {
       return;
     }
 
-    for (let i = 0; i < waiters.length;) {
+    let i = 0;
+    while (i < waiters.length) {
       const waiter = waiters[i];
       const message = fragmenter.get(waiter.filter);
       if (!message) {

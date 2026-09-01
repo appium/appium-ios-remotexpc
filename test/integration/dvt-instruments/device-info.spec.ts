@@ -155,8 +155,7 @@ describe('DeviceInfo Instrument', {timeout: 30000}, function () {
         const message = (error as Error).message;
         // Apple dropped nameForGID: from DTDeviceInfoService
         if (message.includes('nameForGID') && message.includes('does not respond')) {
-          ctx.skip();
-          return;
+          return ctx.skip();
         }
         throw error;
       }

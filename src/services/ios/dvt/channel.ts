@@ -46,8 +46,9 @@ export class Channel {
    * @param signal Optional AbortSignal for cancellation
    */
   async receiveReply(signal?: AbortSignal): Promise<any> {
-    const [data] = await (this.service.recvReplyPlist?.(this.channelCode, signal) ??
-      this.service.recvPlist(this.channelCode, signal));
+    const [data] = this.service.recvReplyPlist
+      ? await this.service.recvReplyPlist(this.channelCode, signal)
+      : await this.service.recvPlist(this.channelCode, signal);
     return data;
   }
 
