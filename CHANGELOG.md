@@ -1,3 +1,9 @@
+## [5.18.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.17.2...v5.18.0) (2026-09-01)
+
+### Features
+
+* **accessibility-audit:** add focus traversal via `moveFocus` and `walkElements` ([#310](https://github.com/appium/appium-ios-remotexpc/issues/310)) ([df982a5](https://github.com/appium/appium-ios-remotexpc/commit/df982a52bbe2f136520569fab4f858942f465d6c))
+
 ## [5.17.2](https://github.com/appium/appium-ios-remotexpc/compare/v5.17.1...v5.17.2) (2026-08-31)
 
 ### Performance Improvements
