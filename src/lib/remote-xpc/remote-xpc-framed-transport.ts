@@ -237,7 +237,9 @@ export class RemoteXpcFramedTransport extends EventEmitter {
   private handleDesync(reason: string): void {
     this.desynced = true;
     this.connected = false;
-    void this.close();
+    this.close().catch((error: unknown) => {
+      log.debug(`Failed to close a desynced RemoteXPC transport: ${error}`);
+    });
     this.emit('error', new Error(reason));
   }
 

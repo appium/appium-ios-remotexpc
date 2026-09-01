@@ -177,10 +177,10 @@ class RsdServiceCatalogClient {
   }
 
   /**
-   * The `'error'` listener is permanent, not `once`: Node throws an `'error'` that
-   * has no listener, and one can still arrive after connect() has settled.
-   * `'decodeError'` is a single unreadable message, not a dead connection, so it
-   * must not fail the attempt — the catalog may be in the very next message.
+   * The `'error'` listener is permanent: Node throws an `'error'` that has no
+   * listener, and one can still arrive after connect() has settled. `'decodeError'`
+   * is a single unreadable message, not a dead connection, so it must not fail the
+   * attempt; it logs only the first to stay off the hot path.
    */
   private registerTransportHandlers(session: ConnectSession, transport: RemoteXpcFramedTransport): void {
     transport.on('error', (error: Error) => {
@@ -191,7 +191,7 @@ class RsdServiceCatalogClient {
       session.settleFailure(error);
     });
 
-    transport.on('decodeError', (error: Error) => {
+    transport.once('decodeError', (error: Error) => {
       log.debug(`Skipped an undecodable RSD message: ${error.message}`);
     });
 

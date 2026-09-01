@@ -357,7 +357,7 @@ function attachTransportLogging(transport: RemoteXpcFramedTransport): void {
   transport.on('error', (error: Error) => {
     log.debug(`CoreDevice transport error: ${error.message}`);
   });
-  transport.on('decodeError', (error: Error) => {
+  transport.once('decodeError', (error: Error) => {
     log.debug(`CoreDevice skipped an undecodable message: ${error.message}`);
   });
 }
