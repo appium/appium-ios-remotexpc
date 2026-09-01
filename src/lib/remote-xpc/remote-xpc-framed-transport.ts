@@ -2,10 +2,11 @@ import {EventEmitter} from 'node:events';
 import net from 'node:net';
 
 import {getLogger} from '../logger.js';
+import type {XPCDictionary} from '../types.js';
 import {DataFrame} from './handshake-frames.js';
 import Handshake from './handshake.js';
 import {Http2FrameParser, buildWindowUpdateFrames} from './http2-frame-parser.js';
-import {decodeMessage} from './xpc-protocol.js';
+import {decodeMessage, probeXpcFraming} from './xpc-protocol.js';
 
 const log = getLogger('RemoteXpcFramedTransport');
 
@@ -25,9 +26,10 @@ export class RemoteXpcFramedTransport extends EventEmitter {
   private readonly address: [string, number];
   private socket: net.Socket | null = null;
   private frameParser = new Http2FrameParser();
-  private pendingXpcData = Buffer.alloc(0);
+  private pendingXpcData = new Map<number, Buffer>();
   private connected = false;
   private closing = false;
+  private desynced = false;
 
   constructor(address: [string, number]) {
     super();
@@ -129,12 +131,24 @@ export class RemoteXpcFramedTransport extends EventEmitter {
     });
   }
 
+  /**
+   * Handlers ignore a socket that has since been replaced by a reconnect; a closing
+   * socket outlives `close()`, and its late events would otherwise hit the new one.
+   */
   private registerSocketHandlers(socket: net.Socket): void {
+    const superseded = (): boolean => this.socket !== null && this.socket !== socket;
+
     socket.on('data', (data: Buffer | string) => {
+      if (superseded()) {
+        return;
+      }
       const chunk = Buffer.isBuffer(data) ? data : Buffer.from(data, 'hex');
       this.handleData(chunk);
     });
     socket.on('error', (error: Error) => {
+      if (superseded()) {
+        return;
+      }
       const wasConnected = this.connected;
       this.connected = false;
       if (this.closing || !wasConnected) {
@@ -145,6 +159,9 @@ export class RemoteXpcFramedTransport extends EventEmitter {
       this.emit('error', error);
     });
     socket.on('close', () => {
+      if (superseded()) {
+        return;
+      }
       this.connected = false;
       this.emit('close');
     });
@@ -168,29 +185,79 @@ export class RemoteXpcFramedTransport extends EventEmitter {
         continue;
       }
 
+      const socket = this.socket;
+      if (this.desynced || !socket) {
+        return;
+      }
+
       const {streamId, data, bodyLen} = frame.frame;
       for (const windowUpdate of buildWindowUpdateFrames(streamId, bodyLen)) {
-        this.socket.write(windowUpdate);
+        socket.write(windowUpdate);
       }
-      this.ingestXpcData(data);
+      this.ingestXpcData(streamId, data);
     }
   }
 
-  private ingestXpcData(chunk: Buffer): void {
-    let pending = Buffer.concat([this.pendingXpcData, chunk]);
-    this.pendingXpcData = Buffer.alloc(0);
+  /**
+   * Reassembles XPC messages for one HTTP/2 stream; streams buffer separately so
+   * interleaving cannot fabricate a desync. Framed-but-undecodable messages are
+   * skipped, and a retained tail is copied so it cannot pin the parser's buffer.
+   */
+  private ingestXpcData(streamId: number, chunk: Buffer): void {
+    if (this.desynced) {
+      return;
+    }
+
+    const buffered = this.pendingXpcData.get(streamId);
+    let pending = buffered ? Buffer.concat([buffered, chunk]) : chunk;
+    this.pendingXpcData.delete(streamId);
 
     while (pending.length > 0) {
-      try {
-        const {message, bytesConsumed} = decodeMessage(pending);
-        pending = pending.subarray(bytesConsumed);
-        if (message.body) {
-          this.emit('message', message.body);
-        }
-      } catch {
-        this.pendingXpcData = pending;
+      const framing = probeXpcFraming(pending);
+      if (framing.status === 'incomplete') {
+        this.pendingXpcData.set(streamId, Buffer.from(pending));
         return;
       }
+      if (framing.status === 'desynced') {
+        this.handleDesync(framing.reason);
+        return;
+      }
+
+      const message = pending.subarray(0, framing.byteLength);
+      pending = pending.subarray(framing.byteLength);
+      this.decodeAndEmit(message);
+    }
+  }
+
+  /**
+   * Latches the whole connection closed: framing alignment is lost and the peer's
+   * remaining bytes cannot be trusted on any stream. Teardown starts before the
+   * emit so a listener that reconnects synchronously keeps its new socket.
+   */
+  private handleDesync(reason: string): void {
+    this.desynced = true;
+    this.connected = false;
+    this.close().catch((error: unknown) => {
+      log.debug(`Failed to close a desynced RemoteXPC transport: ${error}`);
+    });
+    this.emit('error', new Error(reason));
+  }
+
+  /**
+   * A message that will not decode is reported on `'decodeError'`, never `'error'`:
+   * it is not fatal, the messages behind it still arrive, and an unheard `'error'`
+   * would be thrown by Node.
+   */
+  private decodeAndEmit(message: Buffer): void {
+    let body: XPCDictionary | null | undefined;
+    try {
+      body = decodeMessage(message).message.body;
+    } catch (error) {
+      this.emit('decodeError', error instanceof Error ? error : new Error(String(error)));
+      return;
+    }
+    if (body) {
+      this.emit('message', body);
     }
   }
 
@@ -241,6 +308,7 @@ export class RemoteXpcFramedTransport extends EventEmitter {
 
   private resetParsers(): void {
     this.frameParser = new Http2FrameParser();
-    this.pendingXpcData = Buffer.alloc(0);
+    this.pendingXpcData.clear();
+    this.desynced = false;
   }
 }

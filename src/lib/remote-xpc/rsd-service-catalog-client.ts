@@ -176,13 +176,23 @@ class RsdServiceCatalogClient {
     };
   }
 
+  /**
+   * The `'error'` listener is permanent: Node throws an `'error'` that has no
+   * listener, and one can still arrive after connect() has settled. `'decodeError'`
+   * is a single unreadable message, not a dead connection, so it must not fail the
+   * attempt; it logs only the first to stay off the hot path.
+   */
   private registerTransportHandlers(session: ConnectSession, transport: RemoteXpcFramedTransport): void {
-    transport.once('error', (error: Error) => {
+    transport.on('error', (error: Error) => {
       if (!this._isClosing) {
         log.error(`Connection error: ${error}`);
       }
       this._isConnected = false;
       session.settleFailure(error);
+    });
+
+    transport.once('decodeError', (error: Error) => {
+      log.debug(`Skipped an undecodable RSD message: ${error.message}`);
     });
 
     transport.on('message', (body) => this.processIncomingMessage(session, body));
