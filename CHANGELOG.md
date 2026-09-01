@@ -1,3 +1,9 @@
+## [5.18.1](https://github.com/appium/appium-ios-remotexpc/compare/v5.18.0...v5.18.1) (2026-09-01)
+
+### Bug Fixes
+
+* **remote-xpc:** propagate XPC decode errors instead of stalling ([#312](https://github.com/appium/appium-ios-remotexpc/issues/312)) ([cc009ef](https://github.com/appium/appium-ios-remotexpc/commit/cc009efead694f57fc6aca5a321f2bac49a909f4))
+
 ## [5.18.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.17.2...v5.18.0) (2026-09-01)
 
 ### Features
