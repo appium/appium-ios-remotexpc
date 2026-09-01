@@ -5,7 +5,7 @@ import {createBinaryPlist, parseBinaryPlist} from '../../../lib/plist/index.js';
 import type {PlistDictionary, SendMessageOptions} from '../../../lib/types.js';
 import {type ServiceConnection} from '../../../service-connection.js';
 import {BaseService, stripSSL} from '../base-service.js';
-import {ChannelFragmenter} from './channel-fragmenter.js';
+import {ChannelFragmenter, type MessageFilter} from './channel-fragmenter.js';
 import {Channel} from './channel.js';
 import {DTXMessage, DTX_CONSTANTS, MessageAux} from './dtx-message.js';
 import {decodeNSKeyedArchiver} from './nskeyedarchiver-decoder.js';
@@ -27,7 +27,12 @@ interface ChannelWaiter {
   reject: (err: Error) => void;
   signal?: AbortSignal;
   onAbort?: () => void;
+  /** When set, only messages whose header matches may satisfy this waiter. */
+  filter?: MessageFilter;
 }
+
+/** Device-initiated callbacks arrive with conversation index 0; replies do not. */
+const isReply: MessageFilter = (header) => header.conversationIndex > 0;
 
 /**
  * DVTSecureSocketProxyService provides access to Apple's DTServiceHub functionality
@@ -188,7 +193,31 @@ export class DVTSecureSocketProxyService extends BaseService {
     channel: number = DVTSecureSocketProxyService.BROADCAST_CHANNEL,
     signal?: AbortSignal,
   ): Promise<[any, any[]]> {
-    const [data, aux] = await this.recvMessage(channel, signal);
+    return await this.recvPlistFiltered(channel, signal);
+  }
+
+  /**
+   * Receive the reply to a request, skipping device-initiated callbacks. One
+   * stray callback would otherwise shift every later read by one message.
+   * Skipped callbacks stay queued for stream readers like
+   * `ProcessControl.outputEvents()`.
+   *
+   * @param channel The channel to receive from
+   * @param signal Optional AbortSignal for cancellation
+   */
+  async recvReplyPlist(
+    channel: number = DVTSecureSocketProxyService.BROADCAST_CHANNEL,
+    signal?: AbortSignal,
+  ): Promise<[any, any[]]> {
+    return await this.recvPlistFiltered(channel, signal, isReply);
+  }
+
+  private async recvPlistFiltered(
+    channel: number,
+    signal?: AbortSignal,
+    filter?: MessageFilter,
+  ): Promise<[any, any[]]> {
+    const [data, aux] = await this.recvMessage(channel, signal, filter);
 
     let decodedData = null;
     if (data?.length) {
@@ -212,8 +241,9 @@ export class DVTSecureSocketProxyService extends BaseService {
   async recvMessage(
     channel: number = DVTSecureSocketProxyService.BROADCAST_CHANNEL,
     signal?: AbortSignal,
+    filter?: MessageFilter,
   ): Promise<[Buffer | null, any[]]> {
-    const packetData = await this.recvPacketFragments(channel, signal);
+    const packetData = await this.recvPacketFragments(channel, signal, filter);
 
     const payloadHeader = DTXMessage.parsePayloadHeader(packetData);
 
@@ -459,13 +489,13 @@ export class DVTSecureSocketProxyService extends BaseService {
   /**
    * Receive packet fragments until a complete message is available for the specified channel
    */
-  private async recvPacketFragments(channel: number, signal?: AbortSignal): Promise<Buffer> {
+  private async recvPacketFragments(channel: number, signal?: AbortSignal, filter?: MessageFilter): Promise<Buffer> {
     const fragmenter = this.channelMessages.get(channel);
     if (!fragmenter) {
       throw new Error(`No fragmenter for channel ${channel}`);
     }
 
-    const queued = fragmenter.get();
+    const queued = fragmenter.get(filter);
     if (queued) {
       return queued;
     }
@@ -473,7 +503,7 @@ export class DVTSecureSocketProxyService extends BaseService {
     signal?.throwIfAborted();
 
     const promise = new Promise<Buffer>((resolve, reject) => {
-      const waiter: ChannelWaiter = {resolve, reject, signal};
+      const waiter: ChannelWaiter = {resolve, reject, signal, filter};
       if (signal) {
         const onAbort = () => {
           const waiters = this.channelWaiters.get(channel);
@@ -552,19 +582,33 @@ export class DVTSecureSocketProxyService extends BaseService {
       }
       targetFragmenter.addFragment(header, messageData);
 
-      const waiters = this.channelWaiters.get(receivedChannel);
-      if (waiters && waiters.length > 0) {
-        const completedMessage = targetFragmenter.get();
-        if (completedMessage) {
-          const waiter = waiters.shift();
-          if (waiter) {
-            if (waiter.signal && waiter.onAbort) {
-              waiter.signal.removeEventListener('abort', waiter.onAbort);
-            }
-            waiter.resolve(completedMessage);
-          }
-        }
+      this.deliverQueuedMessages(receivedChannel);
+    }
+  }
+
+  /**
+   * Hand queued messages to the waiters that accept them. A waiter matching
+   * nothing stays pending so the pump keeps reading.
+   */
+  private deliverQueuedMessages(channel: number): void {
+    const waiters = this.channelWaiters.get(channel);
+    const fragmenter = this.channelMessages.get(channel);
+    if (!waiters?.length || !fragmenter) {
+      return;
+    }
+
+    for (let i = 0; i < waiters.length;) {
+      const waiter = waiters[i];
+      const message = fragmenter.get(waiter.filter);
+      if (!message) {
+        i++;
+        continue;
       }
+      waiters.splice(i, 1);
+      if (waiter.signal && waiter.onAbort) {
+        waiter.signal.removeEventListener('abort', waiter.onAbort);
+      }
+      waiter.resolve(message);
     }
   }
 

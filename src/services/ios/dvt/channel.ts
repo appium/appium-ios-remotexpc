@@ -8,6 +8,8 @@ import type {MessageAux} from './dtx-message.js';
 export interface DTXServiceProvider {
   recvPlist(channel: number, signal?: AbortSignal): Promise<[any, any[]]>;
   sendMessage(channel: number, selector: string | null, options?: SendMessageOptions): Promise<void>;
+  /** Optional; callers fall back to `recvPlist` when a provider omits it. */
+  recvReplyPlist?(channel: number, signal?: AbortSignal): Promise<[any, any[]]>;
 }
 
 export type ChannelMethodCall = (args?: MessageAux, expectsReply?: boolean) => Promise<void>;
@@ -34,6 +36,18 @@ export class Channel {
    */
   async receivePlist(signal?: AbortSignal): Promise<any> {
     const [data] = await this.service.recvPlist(this.channelCode, signal);
+    return data;
+  }
+
+  /**
+   * Receive the reply to a request sent on this channel, skipping callbacks the
+   * device sent on its own initiative. Prefer this over {@link receivePlist}
+   * for request/reply, which returns whichever message arrived first.
+   * @param signal Optional AbortSignal for cancellation
+   */
+  async receiveReply(signal?: AbortSignal): Promise<any> {
+    const [data] = await (this.service.recvReplyPlist?.(this.channelCode, signal) ??
+      this.service.recvPlist(this.channelCode, signal));
     return data;
   }
 

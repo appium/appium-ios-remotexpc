@@ -1,19 +1,33 @@
 import type {DTXMessageHeader} from './dtx-message.js';
 
+interface QueuedMessage {
+  header: DTXMessageHeader;
+  data: Buffer;
+}
+
+/** Selects a queued message by its header. */
+export type MessageFilter = (header: DTXMessageHeader) => boolean;
+
 /**
  * Handles message fragmentation for DTX channels
  * Assembles fragmented messages and queues complete messages for retrieval
  */
 export class ChannelFragmenter {
-  private readonly messages: Buffer[] = [];
+  private readonly messages: QueuedMessage[] = [];
   private packetData: Buffer = Buffer.alloc(0);
   private streamPacketData: Buffer = Buffer.alloc(0);
 
   /**
-   * Get the next complete message from the queue
+   * Get the next complete message from the queue.
+   * @param filter When set, returns the first matching message and leaves
+   *   earlier ones queued for other readers
    */
-  get(): Buffer | null {
-    return this.messages.shift() || null;
+  get(filter?: MessageFilter): Buffer | null {
+    const index = filter ? this.messages.findIndex((m) => filter(m.header)) : 0;
+    if (index < 0) {
+      return null;
+    }
+    return this.messages.splice(index, 1)[0]?.data ?? null;
   }
 
   /**
@@ -27,14 +41,14 @@ export class ChannelFragmenter {
       this.packetData = Buffer.concat([this.packetData, chunk]);
 
       if (header.fragmentId === header.fragmentCount - 1) {
-        this.messages.push(this.packetData);
+        this.messages.push({header, data: this.packetData});
         this.packetData = Buffer.alloc(0);
       }
     } else {
       this.streamPacketData = Buffer.concat([this.streamPacketData, chunk]);
 
       if (header.fragmentId === header.fragmentCount - 1) {
-        this.messages.push(this.streamPacketData);
+        this.messages.push({header, data: this.streamPacketData});
         this.streamPacketData = Buffer.alloc(0);
       }
     }

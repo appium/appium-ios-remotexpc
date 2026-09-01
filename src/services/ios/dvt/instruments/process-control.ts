@@ -28,7 +28,7 @@ export class ProcessControl extends BaseInstrument {
     const args = new MessageAux().appendObj(sig).appendObj(pid);
 
     await channel.call('sendSignal_toPid_')(args);
-    const result = await channel.receivePlist();
+    const result = await channel.receiveReply();
 
     log.debug(`Sent signal ${sig} to PID ${pid}`);
     return result;
@@ -70,7 +70,7 @@ export class ProcessControl extends BaseInstrument {
     const args = new MessageAux().appendInt(pid);
 
     await channel.call('requestDisableMemoryLimitsForPid_')(args);
-    const result = await channel.receivePlist();
+    const result = await channel.receiveReply();
 
     if (!result) {
       throw new Error(`Failed to disable memory limit for PID ${pid}`);
@@ -96,7 +96,7 @@ export class ProcessControl extends BaseInstrument {
     const args = new MessageAux().appendObj(bundleId);
 
     await channel.call('processIdentifierForBundleIdentifier_')(args);
-    const result = await channel.receivePlist();
+    const result = await channel.receiveReply();
 
     if (typeof result !== 'number') {
       throw new Error(`Unexpected response when looking up PID for bundle '${bundleId}': ${result}`);
@@ -137,7 +137,7 @@ export class ProcessControl extends BaseInstrument {
 
     await channel.call('launchSuspendedProcessWithDevicePath_bundleIdentifier_environment_arguments_options_')(args);
 
-    const result = await channel.receivePlist();
+    const result = await channel.receiveReply();
 
     if (typeof result !== 'number') {
       throw new Error(`Failed to launch process: ${JSON.stringify(result)}`);
