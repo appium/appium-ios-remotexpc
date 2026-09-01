@@ -90,16 +90,16 @@
     "tunnel-creation": "sudo node scripts/tunnel-creation.mjs"
   },
   "dependencies": {
-    "@appium/strongbox": "^1.1.2",
-    "@appium/support": "^7.2.2",
+    "@appium/strongbox": "^2.0.0",
+    "@appium/support": "^7.2.6",
     "@xmldom/xmldom": "^0.x",
-    "appium-ios-tuntap": "^2.0.0",
+    "appium-ios-tuntap": "^2.0.1",
     "async-lock": "^1.4.1",
-    "axios": "^1.15.1",
+    "axios": "^1.18.0",
     "commander": "^14.0.1",
-    "minimatch": "^10.1.1",
+    "minimatch": "^10.2.3",
     "node-devicectl": "^2.0.0",
-    "path-to-regexp": "^8.3.0"
+    "path-to-regexp": "^8.4.0"
   },
   "devDependencies": {
     "@appium/oxc-config": "^1.1.0",
