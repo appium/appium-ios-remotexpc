@@ -11,10 +11,16 @@ export type MessageId = number;
 class Handshake {
   private _socket: Socket;
   private readonly _nextMessageId: Record<ChannelId, MessageId>;
+  /** DATA payload bytes sent per stream, so the transport can debit its send windows. */
+  readonly dataBytesSent: Record<ChannelId, number>;
 
   constructor(socket: Socket) {
     this._socket = socket;
     this._nextMessageId = {
+      [Http2Constants.ROOT_CHANNEL]: 0,
+      [Http2Constants.REPLY_CHANNEL]: 0,
+    };
+    this.dataBytesSent = {
       [Http2Constants.ROOT_CHANNEL]: 0,
       [Http2Constants.REPLY_CHANNEL]: 0,
     };
@@ -45,9 +51,13 @@ class Handshake {
       body: data,
     };
 
-    const encodedMessage: Buffer = encodeMessage(requestMessage);
-    const dataFrame: DataFrame = new DataFrame(Http2Constants.ROOT_CHANNEL, encodedMessage, []);
-    await this.sendFrame(dataFrame.serialize());
+    await this.sendData(Http2Constants.ROOT_CHANNEL, requestMessage);
+  }
+
+  private async sendData(streamId: ChannelId, message: XPCMessage): Promise<void> {
+    const encoded: Buffer = encodeMessage(message);
+    this.dataBytesSent[streamId] += encoded.length;
+    await this.sendFrame(new DataFrame(streamId, encoded, []).serialize());
   }
 
   async perform(): Promise<void> {
@@ -98,9 +108,7 @@ class Handshake {
         id: 0,
         body: null,
       };
-      const encodedDataMessage: Buffer = encodeMessage(dataMessage);
-      const dataFrame: DataFrame = new DataFrame(Http2Constants.ROOT_CHANNEL, encodedDataMessage, []);
-      await this.sendFrame(dataFrame.serialize());
+      await this.sendData(Http2Constants.ROOT_CHANNEL, dataMessage);
       this._nextMessageId[Http2Constants.ROOT_CHANNEL]++;
 
       // Step 8: Open REPLY_CHANNEL with INIT_HANDSHAKE flags.
@@ -109,9 +117,7 @@ class Handshake {
         id: 0,
         body: null,
       };
-      const encodedReplyMessage: Buffer = encodeMessage(replyMessage);
-      const replyDataFrame: DataFrame = new DataFrame(Http2Constants.REPLY_CHANNEL, encodedReplyMessage, []);
-      await this.sendFrame(replyDataFrame.serialize());
+      await this.sendData(Http2Constants.REPLY_CHANNEL, replyMessage);
       this._nextMessageId[Http2Constants.REPLY_CHANNEL]++;
 
       // Step 9: Send SETTINGS ACK frame.
