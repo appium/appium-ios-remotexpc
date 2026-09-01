@@ -5,6 +5,7 @@ import {DataFrame} from '../../../src/lib/remote-xpc/handshake-frames.js';
 import {Http2FrameParser, buildWindowUpdateFrames} from '../../../src/lib/remote-xpc/http2-frame-parser.js';
 import {ServiceCatalogCollector, servicesFromXpcBody} from '../../../src/lib/remote-xpc/service-catalog.js';
 import {encodeMessage} from '../../../src/lib/remote-xpc/xpc-protocol.js';
+import {buildUndecodableMessage} from './xpc-fixtures.js';
 
 function buildCatalogXpcPayload(serviceCount: number): Buffer {
   const services: Record<string, {Port: string}> = {};
@@ -93,6 +94,33 @@ describe('RSD service catalog discovery', function () {
         collector.ingestDataPayload(Buffer.concat([prelude.subarray(prelude.length - 4), catalog])),
         null,
       );
+    });
+
+    it('skips an undecodable message and still returns the catalog behind it', function () {
+      const collector = new ServiceCatalogCollector();
+
+      const result = collector.ingestDataPayload(
+        Buffer.concat([buildUndecodableMessage(1), buildCatalogXpcPayload(2)]),
+      );
+
+      assert.notStrictEqual(result, null);
+      assert.ok(result!.services.length >= 2);
+    });
+
+    it('throws once the stream desyncs rather than reporting "not yet"', function () {
+      const collector = new ServiceCatalogCollector();
+
+      assert.throws(
+        () => collector.ingestDataPayload(Buffer.concat([Buffer.alloc(32, 0xab), buildCatalogXpcPayload(1)])),
+        /Invalid XPC wrapper magic/,
+      );
+    });
+
+    it('keeps throwing once desynced rather than resuming mid-message', function () {
+      const collector = new ServiceCatalogCollector();
+
+      assert.throws(() => collector.ingestDataPayload(Buffer.alloc(32, 0xab)), /Invalid XPC wrapper magic/);
+      assert.throws(() => collector.ingestDataPayload(buildCatalogXpcPayload(1)), /desynced/);
     });
 
     it('returns the complete catalog across many TCP-sized chunks', function () {

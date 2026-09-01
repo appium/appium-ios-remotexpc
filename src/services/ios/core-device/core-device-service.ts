@@ -9,6 +9,9 @@ import {BaseService} from '../base-service.js';
 
 const log = getLogger('CoreDeviceService');
 
+/** Transports already carrying the permanent failure loggers. */
+const loggedTransports = new WeakSet<RemoteXpcFramedTransport>();
+
 const CONNECT_TIMEOUT_MS = 10_000;
 const DEFAULT_INVOKE_TIMEOUT_MS = 30_000;
 
@@ -132,6 +135,7 @@ export abstract class CoreDeviceService extends BaseService {
 
   protected async createTransport(): Promise<RemoteXpcFramedTransport> {
     const transport = new RemoteXpcFramedTransport(await this.resolveServiceAddress(this.serviceName));
+    attachTransportLogging(transport);
     await transport.connect({timeoutMs: CONNECT_TIMEOUT_MS});
     return transport;
   }
@@ -167,17 +171,15 @@ export abstract class CoreDeviceService extends BaseService {
   }
 
   /**
-   * Creates a transport and attaches a permanent `'error'` listener. The
-   * framed transport is an EventEmitter; an `'error'` emitted with no listener
-   * is thrown by Node and crashes the process. `invoke()` registers a per-call
-   * listener, but fire-and-forget `send()` does not — so this guarantees a
-   * listener always exists for the transport's lifetime.
+   * Creates a transport that already carries a permanent `'error'` listener.
+   * Attaching it after connect() would leave the handshake window uncovered:
+   * frames arriving there can emit `'error'`, and Node throws one that has no
+   * listener. Attaching is idempotent, so an override of createTransport() that
+   * already attached is not double-wired.
    */
   private async newTransport(): Promise<RemoteXpcFramedTransport> {
     const transport = await this.createTransport();
-    transport.on('error', (error: Error) => {
-      log.debug(`CoreDevice transport error: ${error.message}`);
-    });
+    attachTransportLogging(transport);
     this.nextMessageId = 1;
     return transport;
   }
@@ -286,6 +288,7 @@ export abstract class CoreDeviceService extends BaseService {
   ): Promise<XPCDictionary> {
     return new Promise<XPCDictionary>((resolve, reject) => {
       let settled = false;
+      let lastDecodeError: Error | undefined;
 
       const cleanup = (): void => {
         if (settled) {
@@ -294,6 +297,7 @@ export abstract class CoreDeviceService extends BaseService {
         settled = true;
         clearTimeout(timer);
         transport.off('message', onMessage);
+        transport.off('decodeError', onDecodeError);
         transport.off('error', onError);
         transport.off('close', onClose);
       };
@@ -305,6 +309,10 @@ export abstract class CoreDeviceService extends BaseService {
         }
         cleanup();
         resolve(body);
+      };
+
+      const onDecodeError = (error: Error): void => {
+        lastDecodeError = error;
       };
 
       const onError = (error: Error): void => {
@@ -319,18 +327,39 @@ export abstract class CoreDeviceService extends BaseService {
 
       const timer = setTimeout(() => {
         cleanup();
+        const cause = lastDecodeError ? `; last message was undecodable: ${lastDecodeError.message}` : '';
         reject(
           new CoreDeviceError(
-            `CoreDevice invocation '${featureIdentifier ?? '<none>'}' timed out after ${timeoutMs}ms`,
+            `CoreDevice invocation '${featureIdentifier ?? '<none>'}' timed out after ${timeoutMs}ms${cause}`,
           ),
         );
       }, timeoutMs);
 
       transport.on('message', onMessage);
+      transport.on('decodeError', onDecodeError);
       transport.once('error', onError);
       transport.once('close', onClose);
     });
   }
+}
+
+/**
+ * Attaches the permanent failure listeners once per transport. An `'error'` with
+ * no listener is thrown by Node and crashes the process, and fire-and-forget
+ * `send()` registers no per-call listener of its own.
+ */
+function attachTransportLogging(transport: RemoteXpcFramedTransport): void {
+  if (loggedTransports.has(transport)) {
+    return;
+  }
+  loggedTransports.add(transport);
+
+  transport.on('error', (error: Error) => {
+    log.debug(`CoreDevice transport error: ${error.message}`);
+  });
+  transport.on('decodeError', (error: Error) => {
+    log.debug(`CoreDevice skipped an undecodable message: ${error.message}`);
+  });
 }
 
 /**

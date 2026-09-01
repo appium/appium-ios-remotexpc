@@ -1,4 +1,5 @@
 import type {XPCArray, XPCDictionary, XPCValue} from '../types.js';
+import {Http2Constants} from './constants.js';
 import {XPCUUID} from './xpc-uuid.js';
 
 // Constants for XPC protocol.
@@ -34,6 +35,12 @@ export interface DecodedXpcMessage {
   /** Bytes consumed from `buffer` (may be less than `buffer.length`). */
   bytesConsumed: number;
 }
+
+/** Framing state of the wrapper at the front of a buffer. `desynced` is unrecoverable. */
+export type XpcFramingProbe =
+  | {status: 'incomplete'}
+  | {status: 'desynced'; reason: string}
+  | {status: 'ok'; byteLength: number};
 
 // A simple binary writer that collects Buffer chunks.
 class Writer {
@@ -181,6 +188,12 @@ export function encodeMessage(message: XPCMessage): Buffer {
 }
 
 const XPC_WRAPPER_HEADER_SIZE = 24;
+/**
+ * Upper bound on a declared body length: the initial receive window, which the peer
+ * cannot exceed on a stream because WINDOW_UPDATEs go out only for even streams and
+ * RemoteXPC uses odd ones. Anything larger is corrupt framing, not a partial read.
+ */
+export const MAX_XPC_BODY_SIZE = BigInt(Http2Constants.DEFAULT_SETTINGS_INITIAL_WINDOW_SIZE);
 
 /**
  * Returns the total byte length of one length-prefixed XPC wrapper in `buffer`.
@@ -200,6 +213,30 @@ export function getXpcMessageByteLength(buffer: Buffer): number {
     throw new Error('Incomplete XPC wrapper');
   }
   return total;
+}
+
+/**
+ * Non-throwing framing check: separates "wait for more bytes" from "stream unusable".
+ * An oversized declared length is desync, not a partial read — treating it as
+ * incomplete would buffer the rest of the stream forever.
+ */
+export function probeXpcFraming(buffer: Buffer): XpcFramingProbe {
+  if (buffer.length < XPC_WRAPPER_HEADER_SIZE) {
+    return {status: 'incomplete'};
+  }
+  const magic = buffer.readUInt32LE(0);
+  if (magic !== WRAPPER_MAGIC) {
+    return {status: 'desynced', reason: `Invalid XPC wrapper magic: 0x${magic.toString(16)}`};
+  }
+  const bodyLength = buffer.readBigUInt64LE(8);
+  if (bodyLength > MAX_XPC_BODY_SIZE) {
+    return {status: 'desynced', reason: `XPC body length ${bodyLength} exceeds ${MAX_XPC_BODY_SIZE}`};
+  }
+  const byteLength = XPC_WRAPPER_HEADER_SIZE + Number(bodyLength);
+  if (buffer.length < byteLength) {
+    return {status: 'incomplete'};
+  }
+  return {status: 'ok', byteLength};
 }
 
 /**
