@@ -52,6 +52,13 @@ export interface AxInspectorSection {
 
 /** The inspector panel the device pushes when the focused element changes. */
 export interface AxInspectedElement {
+  /**
+   * A handle to the focused element, when the daemon sends one.
+   *
+   * Present on focus pushes, which lets a walk both detect revisits and read
+   * attributes for each element it reaches.
+   */
+  element?: AxElement;
   /** What VoiceOver would announce, when the daemon provides it. */
   spokenDescription?: string;
   /** The caption shown above the panel, when present. */
@@ -175,6 +182,7 @@ export function toInspectedElement(value: unknown): AxInspectedElement {
     });
   }
   return {
+    element: toAxElement(fields.ElementValue_v1),
     spokenDescription:
       typeof fields.SpokenDescriptionValue_v1 === 'string' ? fields.SpokenDescriptionValue_v1 : undefined,
     caption: typeof fields.CaptionTextValue_v1 === 'string' ? fields.CaptionTextValue_v1 : undefined,

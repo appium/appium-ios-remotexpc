@@ -79,6 +79,7 @@ export type {
   AxInspectorSection,
 } from './services/ios/accessibility-audit/ax-element.js';
 export {serializeAxSetting} from './services/ios/accessibility-audit/index.js';
+export {AxFocusDirection} from './services/ios/accessibility-audit/index.js';
 export type {InspectOptions, RunAuditOptions, AxAuditIssue} from './services/ios/accessibility-audit/index.js';
 export {CoreDeviceInfoService} from './services/ios/device-info/index.js';
 export type {

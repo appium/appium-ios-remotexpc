@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {type TestContext, after, before, describe, it} from 'node:test';
 
-import {type AccessibilityAuditService} from '../../src/index.js';
+import {AxFocusDirection, type AccessibilityAuditService, type AxInspectedElement} from '../../src/index.js';
 import * as Services from '../../src/services.js';
 import {requireDeviceUdid} from './helpers/device.js';
 
@@ -20,9 +20,16 @@ import {requireDeviceUdid} from './helpers/device.js';
  */
 // Generous: the audits alone take ~60s, and the settings tests deliberately
 // pace their writes because the device commits them asynchronously.
+/** Minimal shape of the aux payload the monitoring spy inspects. */
+interface MessageAuxLike {
+  getValues(): Array<{value: unknown}>;
+}
+
 describe('AccessibilityAuditService', {timeout: 300000}, function () {
   /** The selector the setting-write tests depend on. */
   const SETTING_WRITE_SELECTOR = 'deviceUpdateAccessibilitySetting:withValue:';
+  /** The selector focus traversal depends on. */
+  const FOCUS_MOVE_SELECTOR = 'deviceInspectorMoveWithOptions:';
   /** The selector the reset tests depend on. */
   const SETTING_RESET_SELECTOR = 'deviceResetToDefaultAccessibilitySettings';
 
@@ -31,6 +38,8 @@ describe('AccessibilityAuditService', {timeout: 300000}, function () {
   let supportsSettingWrites = false;
   /** Whether it implements the reset selector, which the write tests do not use. */
   let supportsSettingReset = false;
+  /** Whether it implements focus traversal. */
+  let supportsFocusMove = false;
 
   before(async function () {
     const udid = requireDeviceUdid();
@@ -41,6 +50,7 @@ describe('AccessibilityAuditService', {timeout: 300000}, function () {
     const capabilities = await service.getCapabilities();
     supportsSettingWrites = capabilities.includes(SETTING_WRITE_SELECTOR);
     supportsSettingReset = capabilities.includes(SETTING_RESET_SELECTOR);
+    supportsFocusMove = capabilities.includes(FOCUS_MOVE_SELECTOR);
   });
 
   after(function () {
@@ -245,6 +255,142 @@ describe('AccessibilityAuditService', {timeout: 300000}, function () {
       // One cheap type is enough here: before the guard this timed out
       // permanently on this connection.
       assert.ok(Array.isArray(await service!.runAudit(['testTypeContrast'], {timeoutMs: 60000})));
+    });
+  });
+
+  /**
+   * Focus traversal reports what is actually drawn, so these assert shape rather
+   * than a fixed element count — that depends on whatever is on screen.
+   */
+  describe('focus traversal', function () {
+    /** Skips when the daemon does not implement focus movement. */
+    function skipWithoutFocusMove(t: TestContext): boolean {
+      if (!supportsFocusMove) {
+        t.skip(`daemon does not implement ${FOCUS_MOVE_SELECTOR}`);
+        return true;
+      }
+      return false;
+    }
+
+    it('moves focus and returns the element it landed on', async function (t) {
+      if (skipWithoutFocusMove(t)) {
+        return;
+      }
+      // Next rather than First: focus wraps so Next always moves, whereas First
+      // emits nothing when focus already sits on the first element.
+      const first = await service!.moveFocus(AxFocusDirection.Next, {timeoutMs: 20000});
+
+      assert.ok(first.element, 'a focus push should carry an element handle');
+      assert.ok(Buffer.isBuffer(first.element.platformElement));
+      assert.ok(first.sections.length > 0, 'the inspector panel should come with it');
+      t.diagnostic(`First landed on ${JSON.stringify(first.caption)}`);
+    });
+
+    it('moves forward and back between elements', async function (t) {
+      if (skipWithoutFocusMove(t)) {
+        return;
+      }
+      // Only Next/Previous are used: focus wraps, so they always move. `First`
+      // would be a no-op if focus already sat on the first element, and a move
+      // that changes nothing emits no event at all.
+      const start = await service!.moveFocus(AxFocusDirection.Next, {timeoutMs: 20000});
+      const forward = await service!.moveFocus(AxFocusDirection.Next, {timeoutMs: 20000});
+      const back = await service!.moveFocus(AxFocusDirection.Previous, {timeoutMs: 20000});
+
+      assert.notDeepStrictEqual(forward.element?.platformElement, start.element?.platformElement);
+      assert.deepStrictEqual(back.element?.platformElement, start.element?.platformElement);
+    });
+
+    /** What an element announces — the walk's own notion of identity. */
+    function announcementOf(focused: AxInspectedElement): string {
+      const announcement = focused.caption ?? focused.spokenDescription;
+      assert.ok(announcement !== undefined, 'a walked element should announce something');
+      return announcement;
+    }
+
+    it('enumerates distinct elements and terminates', async function (t) {
+      if (skipWithoutFocusMove(t)) {
+        return;
+      }
+      const seen: string[] = [];
+      for await (const focused of service!.walkElements({timeoutMs: 20000})) {
+        assert.ok(focused.element, 'each walked element should carry a handle');
+        seen.push(announcementOf(focused));
+      }
+
+      // Focus wraps rather than reporting an end, so the walk stops when it
+      // returns to the element it started on. Asserting on the announcement
+      // rather than `platformElement` is deliberate: the daemon issues a fresh
+      // handle for every focus event, so a handle-based check passes even if
+      // the walk laps the screen forever.
+      assert.ok(seen.length > 0, 'the walk should reach at least one element');
+      assert.strictEqual(new Set(seen).size, seen.length, 'the walk must not yield an element twice');
+      t.diagnostic(`walked ${seen.length} element(s)`);
+    });
+
+    it('walks the same elements when focus already sits on the first one', async function (t) {
+      if (skipWithoutFocusMove(t)) {
+        return;
+      }
+      const baseline = new Set<string>();
+      for await (const focused of service!.walkElements({timeoutMs: 20000})) {
+        baseline.add(announcementOf(focused));
+      }
+
+      // `First` emits nothing when focus is already there, so this parks focus
+      // on the first element to exercise the walk's opening no-op.
+      try {
+        await service!.moveFocus(AxFocusDirection.First, {timeoutMs: 20000});
+      } catch {
+        // Already there — which is exactly the state under test.
+      }
+
+      const afterward = new Set<string>();
+      for await (const focused of service!.walkElements({timeoutMs: 20000})) {
+        afterward.add(announcementOf(focused));
+      }
+
+      assert.deepStrictEqual(afterward, baseline, 'a walk that opens on a no-op should still reach every element');
+      t.diagnostic(`reached ${afterward.size} element(s) from both starting points`);
+    });
+
+    it('reads attributes for the element currently focused', async function (t) {
+      if (skipWithoutFocusMove(t)) {
+        return;
+      }
+      const focused = await service!.moveFocus(AxFocusDirection.Next, {timeoutMs: 20000});
+      const basic = focused.sections.find((section) => section.title === 'Basic');
+      const label = basic?.attributes.find((attribute) => attribute.name === 'Label');
+      assert.ok(label && focused.element, 'expected a Label attribute on the focused element');
+
+      // The handle is only valid while the element holds focus, so this reads
+      // immediately rather than after moving on.
+      const value = await service!.getElementAttributeValue(focused.element, label, {timeoutMs: 15000});
+      t.diagnostic(`Label = ${JSON.stringify(value)}`);
+      assert.ok(value === null || typeof value === 'string');
+    });
+
+    it('leaves monitoring disarmed when no observer is active', async function (t) {
+      if (skipWithoutFocusMove(t)) {
+        return;
+      }
+      const sent: unknown[] = [];
+      const transport = (service! as unknown as {transport: {invokeOneway: (s: string, a: MessageAuxLike) => void}})
+        .transport;
+      const real = transport.invokeOneway.bind(transport);
+      transport.invokeOneway = (selector, aux) => {
+        if (selector === 'deviceInspectorSetMonitoredEventType:') {
+          sent.push(aux.getValues()[0].value);
+        }
+        return real(selector, aux);
+      };
+      try {
+        await service!.moveFocus(AxFocusDirection.Next, {timeoutMs: 20000});
+      } finally {
+        transport.invokeOneway = real;
+      }
+
+      assert.ok(sent.includes(0), `expected monitoring to be disarmed, got [${sent.join(', ')}]`);
     });
   });
 
