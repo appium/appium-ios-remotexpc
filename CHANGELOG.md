@@ -1,3 +1,9 @@
+## [5.18.2](https://github.com/appium/appium-ios-remotexpc/compare/v5.18.1...v5.18.2) (2026-09-01)
+
+### Miscellaneous Chores
+
+* **deps:** bump support & other dependencies ([#313](https://github.com/appium/appium-ios-remotexpc/issues/313)) ([51188ca](https://github.com/appium/appium-ios-remotexpc/commit/51188cafc21a6a8f615f1b7442311d9b26d114b1))
+
 ## [5.18.1](https://github.com/appium/appium-ios-remotexpc/compare/v5.18.0...v5.18.1) (2026-09-01)
 
 ### Bug Fixes
