@@ -1,8 +1,12 @@
+import {Http2Constants} from './constants.js';
 import {InvalidDataError, WindowUpdateFrame} from './handshake-frames.js';
 
 const FRAME_HEADER_SIZE = 9;
 const FRAME_TYPE_DATA = 0x00;
+const FRAME_TYPE_SETTINGS = 0x04;
+const FRAME_TYPE_WINDOW_UPDATE = 0x08;
 const FLAG_PADDED = 0x08;
+const SETTINGS_ENTRY_SIZE = 6;
 
 export interface ParsedDataFrame {
   readonly streamId: number;
@@ -10,7 +14,11 @@ export interface ParsedDataFrame {
   readonly bodyLen: number;
 }
 
-export type ParsedFrame = {readonly type: 'data'; readonly frame: ParsedDataFrame} | {readonly type: 'other'};
+export type ParsedFrame =
+  | {readonly type: 'data'; readonly frame: ParsedDataFrame}
+  | {readonly type: 'settings'; readonly settings: Record<number, number>}
+  | {readonly type: 'windowUpdate'; readonly streamId: number; readonly increment: number}
+  | {readonly type: 'other'};
 
 /**
  * Incrementally parse HTTP/2 frames from a byte stream (RFC 7540).
@@ -55,6 +63,12 @@ function parseFrame(buffer: Buffer): ParsedFrame {
   const streamId = buffer.readUInt32BE(5) & 0x7fffffff;
   const body = buffer.subarray(FRAME_HEADER_SIZE, FRAME_HEADER_SIZE + length);
 
+  if (type === FRAME_TYPE_SETTINGS && !(flags & Http2Constants.FLAG_ACK)) {
+    return {type: 'settings', settings: parseSettings(body)};
+  }
+  if (type === FRAME_TYPE_WINDOW_UPDATE) {
+    return {type: 'windowUpdate', streamId, increment: body.readUInt32BE(0) & 0x7fffffff};
+  }
   if (type !== FRAME_TYPE_DATA) {
     return {type: 'other'};
   }
@@ -65,6 +79,16 @@ function parseFrame(buffer: Buffer): ParsedFrame {
     type: 'data',
     frame: {streamId, data, bodyLen: length},
   };
+}
+
+/** SETTINGS body is a list of 16-bit identifier / 32-bit value pairs (RFC 7540 §6.5.1). */
+function parseSettings(body: Buffer): Record<number, number> {
+  return Object.fromEntries(
+    Array.from({length: Math.floor(body.length / SETTINGS_ENTRY_SIZE)}, (_, i) => {
+      const offset = i * SETTINGS_ENTRY_SIZE;
+      return [body.readUInt16BE(offset), body.readUInt32BE(offset + 2)];
+    }),
+  );
 }
 
 /**

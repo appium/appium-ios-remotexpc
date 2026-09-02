@@ -3,6 +3,8 @@ import * as net from 'node:net';
 import {describe, it} from 'node:test';
 
 import {Http2Constants} from '../../../src/lib/remote-xpc/constants.js';
+import {SettingsFrame, WindowUpdateFrame} from '../../../src/lib/remote-xpc/handshake-frames.js';
+import {Http2FrameParser, type ParsedDataFrame} from '../../../src/lib/remote-xpc/http2-frame-parser.js';
 import {RemoteXpcFramedTransport} from '../../../src/lib/remote-xpc/remote-xpc-framed-transport.js';
 import {MAX_XPC_BODY_SIZE, probeXpcFraming} from '../../../src/lib/remote-xpc/xpc-protocol.js';
 import type {XPCDictionary} from '../../../src/lib/types.js';
@@ -94,6 +96,70 @@ async function withConnectedTransport(
       socket.destroy();
     }
     await closeServer(server);
+  }
+}
+
+/** First byte of every test payload, so handshake DATA frames (XPC magic) are filtered out on the peer. */
+const OUTBOUND_MARKER = 0xaa;
+
+interface PeerHarness {
+  transport: RemoteXpcFramedTransport;
+  peer: net.Socket;
+  sentFrames: () => ParsedDataFrame[];
+}
+
+/**
+ * Like `withConnectedTransport`, but exposes the accepted peer socket and the
+ * marker-prefixed DATA frames it has parsed from the transport so far. The
+ * connection preface is not a frame, so it is skipped before parsing.
+ */
+async function withPeer(run: (harness: PeerHarness) => Promise<void>): Promise<void> {
+  const parser = new Http2FrameParser();
+  const frames: ParsedDataFrame[] = [];
+  let prefaceLeft = Http2Constants.HTTP2_MAGIC.length;
+  let onAccepted: (socket: net.Socket) => void = () => undefined;
+  const accepted = new Promise<net.Socket>((resolve) => {
+    onAccepted = resolve;
+  });
+  const server = net.createServer((socket): void => {
+    socket.on('data', (chunk: Buffer) => {
+      const skip = Math.min(prefaceLeft, chunk.length);
+      prefaceLeft -= skip;
+      for (const frame of parser.append(chunk.subarray(skip))) {
+        if (frame.type === 'data' && frame.frame.data[0] === OUTBOUND_MARKER) {
+          frames.push(frame.frame);
+        }
+      }
+    });
+    onAccepted(socket);
+  });
+  const port = await listenOnLoopback(server);
+  const transport = new RemoteXpcFramedTransport(['::1', port]);
+  let peer: net.Socket | undefined;
+
+  try {
+    await transport.connect({timeoutMs: 2000});
+    transport.on('error', (): void => undefined);
+    peer = await accepted;
+    await run({transport, peer, sentFrames: () => frames});
+  } finally {
+    await transport.close();
+    peer?.destroy();
+    await closeServer(server);
+  }
+}
+
+function sentBytes(frames: ParsedDataFrame[]): number {
+  return frames.reduce((total, frame) => total + frame.bodyLen, 0);
+}
+
+async function waitFor(predicate: () => boolean, timeoutMs = 2000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!predicate()) {
+    if (Date.now() > deadline) {
+      throw new Error(`timed out after ${timeoutMs}ms waiting for the peer to receive the payload`);
+    }
+    await settle(20);
   }
 }
 
@@ -335,6 +401,68 @@ describe('RemoteXpcFramedTransport', function () {
       assert.strictEqual(harness.errors.length, 1);
       assert.match(harness.errors[0].message, /exceeds/);
       assert.strictEqual(harness.pendingLength(), 0, 'a corrupt length must not be buffered forever');
+    });
+  });
+
+  describe('outbound flow control', function () {
+    it('splits a payload larger than the default max frame size across DATA frames', async function () {
+      await withPeer(async ({transport, sentFrames}) => {
+        const payload = Buffer.alloc(40000, OUTBOUND_MARKER);
+
+        transport.sendDataFrame(payload);
+        await waitFor(() => sentBytes(sentFrames()) >= payload.length);
+
+        assert.deepStrictEqual(
+          sentFrames().map((frame) => frame.bodyLen),
+          [
+            Http2Constants.DEFAULT_PEER_MAX_FRAME_SIZE,
+            Http2Constants.DEFAULT_PEER_MAX_FRAME_SIZE,
+            40000 - 2 * Http2Constants.DEFAULT_PEER_MAX_FRAME_SIZE,
+          ],
+        );
+        assert.deepStrictEqual(Buffer.concat(sentFrames().map((frame) => frame.data)), payload);
+      });
+    });
+
+    it('honours a larger max frame size advertised in the peer SETTINGS', async function () {
+      await withPeer(async ({transport, peer, sentFrames}) => {
+        const advertised = 2 * Http2Constants.DEFAULT_PEER_MAX_FRAME_SIZE;
+        peer.write(new SettingsFrame(0, {[Http2Constants.SETTINGS_MAX_FRAME_SIZE]: advertised}).serialize());
+        await settle();
+        const payload = Buffer.alloc(40000, OUTBOUND_MARKER);
+
+        transport.sendDataFrame(payload);
+        await waitFor(() => sentBytes(sentFrames()) >= payload.length);
+
+        assert.deepStrictEqual(
+          sentFrames().map((frame) => frame.bodyLen),
+          [advertised, 40000 - advertised],
+        );
+      });
+    });
+
+    it('withholds bytes past the peer window until a WINDOW_UPDATE arrives', async function () {
+      await withPeer(async ({transport, peer, sentFrames}) => {
+        const payload = Buffer.alloc(100000, OUTBOUND_MARKER);
+
+        transport.sendDataFrame(payload);
+        await settle();
+
+        assert.ok(
+          sentBytes(sentFrames()) <= Http2Constants.DEFAULT_PEER_WINDOW_SIZE,
+          `sent ${sentBytes(sentFrames())} bytes into a ${Http2Constants.DEFAULT_PEER_WINDOW_SIZE}-byte window without a WINDOW_UPDATE`,
+        );
+
+        peer.write(
+          Buffer.concat([
+            new WindowUpdateFrame(0, Http2Constants.DEFAULT_PEER_WINDOW_SIZE).serialize(),
+            new WindowUpdateFrame(Http2Constants.ROOT_CHANNEL, Http2Constants.DEFAULT_PEER_WINDOW_SIZE).serialize(),
+          ]),
+        );
+        await waitFor(() => sentBytes(sentFrames()) >= payload.length);
+
+        assert.deepStrictEqual(Buffer.concat(sentFrames().map((frame) => frame.data)), payload);
+      });
     });
   });
 });

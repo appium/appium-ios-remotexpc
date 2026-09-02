@@ -3,6 +3,7 @@ import net from 'node:net';
 
 import {getLogger} from '../logger.js';
 import type {XPCDictionary} from '../types.js';
+import {Http2Constants} from './constants.js';
 import {DataFrame} from './handshake-frames.js';
 import Handshake from './handshake.js';
 import {Http2FrameParser, buildWindowUpdateFrames} from './http2-frame-parser.js';
@@ -30,6 +31,11 @@ export class RemoteXpcFramedTransport extends EventEmitter {
   private connected = false;
   private closing = false;
   private desynced = false;
+  private peerMaxFrameSize: number = Http2Constants.DEFAULT_PEER_MAX_FRAME_SIZE;
+  private peerInitialWindowSize: number = Http2Constants.DEFAULT_PEER_WINDOW_SIZE;
+  private connectionSendWindow: number = Http2Constants.DEFAULT_PEER_WINDOW_SIZE;
+  private streamSendWindows = new Map<number, number>();
+  private sendQueue: {streamId: number; payload: Buffer}[] = [];
 
   constructor(address: [string, number]) {
     super();
@@ -58,7 +64,7 @@ export class RemoteXpcFramedTransport extends EventEmitter {
       return;
     }
 
-    this.resetParsers();
+    this.resetConnectionState();
     const socket = net.createConnection({
       host: this.address[0],
       port: this.address[1],
@@ -76,7 +82,11 @@ export class RemoteXpcFramedTransport extends EventEmitter {
     }
 
     try {
-      await new Handshake(socket).perform();
+      const handshake = new Handshake(socket);
+      await handshake.perform();
+      for (const [streamId, bytes] of Object.entries(handshake.dataBytesSent)) {
+        this.consumeSendWindow(Number(streamId), bytes);
+      }
       this.connected = true;
     } catch (error) {
       await this.close();
@@ -88,7 +98,71 @@ export class RemoteXpcFramedTransport extends EventEmitter {
     if (!this.socket?.writable) {
       throw new Error('RemoteXPC socket is not writable');
     }
-    this.socket.write(new DataFrame(streamId, payload, []).serialize());
+    this.sendQueue.push({streamId, payload});
+    this.flushPendingSends();
+  }
+
+  /**
+   * Writes queued payloads as DATA frames no larger than the peer's max frame size
+   * or its send windows. Stops at the first blocked payload so ordering holds.
+   */
+  private flushPendingSends(): void {
+    const socket = this.socket;
+    while (socket?.writable && this.sendQueue.length > 0) {
+      const send = this.sendQueue[0];
+      const size = Math.min(
+        send.payload.length,
+        this.peerMaxFrameSize,
+        this.sendWindow(0),
+        this.sendWindow(send.streamId),
+      );
+      if (size <= 0 && send.payload.length > 0) {
+        return;
+      }
+      socket.write(new DataFrame(send.streamId, send.payload.subarray(0, size), []).serialize());
+      this.consumeSendWindow(send.streamId, size);
+      if (size === send.payload.length) {
+        this.sendQueue.shift();
+      } else {
+        send.payload = send.payload.subarray(size);
+      }
+    }
+  }
+
+  /** Stream 0 is the connection-level window. */
+  private sendWindow(streamId: number): number {
+    return streamId === 0
+      ? this.connectionSendWindow
+      : (this.streamSendWindows.get(streamId) ?? this.peerInitialWindowSize);
+  }
+
+  private adjustSendWindow(streamId: number, delta: number): void {
+    if (streamId === 0) {
+      this.connectionSendWindow += delta;
+    } else {
+      this.streamSendWindows.set(streamId, this.sendWindow(streamId) + delta);
+    }
+  }
+
+  private consumeSendWindow(streamId: number, bytes: number): void {
+    this.adjustSendWindow(0, -bytes);
+    this.adjustSendWindow(streamId, -bytes);
+  }
+
+  /** A new INITIAL_WINDOW_SIZE shifts every open stream's window by the delta (RFC 7540 §6.9.2). */
+  private applyPeerSettings(settings: Record<number, number>): void {
+    const maxFrameSize = settings[Http2Constants.SETTINGS_MAX_FRAME_SIZE];
+    if (maxFrameSize !== undefined) {
+      this.peerMaxFrameSize = maxFrameSize;
+    }
+    const initialWindowSize = settings[Http2Constants.SETTINGS_INITIAL_WINDOW_SIZE];
+    if (initialWindowSize !== undefined) {
+      const delta = initialWindowSize - this.peerInitialWindowSize;
+      this.peerInitialWindowSize = initialWindowSize;
+      for (const [streamId, window] of this.streamSendWindows) {
+        this.streamSendWindows.set(streamId, window + delta);
+      }
+    }
   }
 
   async close(): Promise<void> {
@@ -181,6 +255,16 @@ export class RemoteXpcFramedTransport extends EventEmitter {
     }
 
     for (const frame of frames) {
+      if (frame.type === 'settings') {
+        this.applyPeerSettings(frame.settings);
+        this.flushPendingSends();
+        continue;
+      }
+      if (frame.type === 'windowUpdate') {
+        this.adjustSendWindow(frame.streamId, frame.increment);
+        this.flushPendingSends();
+        continue;
+      }
       if (frame.type !== 'data') {
         continue;
       }
@@ -306,9 +390,14 @@ export class RemoteXpcFramedTransport extends EventEmitter {
     });
   }
 
-  private resetParsers(): void {
+  private resetConnectionState(): void {
     this.frameParser = new Http2FrameParser();
     this.pendingXpcData.clear();
     this.desynced = false;
+    this.peerMaxFrameSize = Http2Constants.DEFAULT_PEER_MAX_FRAME_SIZE;
+    this.peerInitialWindowSize = Http2Constants.DEFAULT_PEER_WINDOW_SIZE;
+    this.connectionSendWindow = Http2Constants.DEFAULT_PEER_WINDOW_SIZE;
+    this.streamSendWindows.clear();
+    this.sendQueue = [];
   }
 }
