@@ -1,3 +1,9 @@
+## [5.18.3](https://github.com/appium/appium-ios-remotexpc/compare/v5.18.2...v5.18.3) (2026-09-02)
+
+### Bug Fixes
+
+* **remote-xpc:** honor HTTP/2 frame size and flow control on outbound DATA frames ([#316](https://github.com/appium/appium-ios-remotexpc/issues/316)) ([0b640ad](https://github.com/appium/appium-ios-remotexpc/commit/0b640ada41fec828e31cc7aaa43342a2871f0308))
+
 ## [5.18.2](https://github.com/appium/appium-ios-remotexpc/compare/v5.18.1...v5.18.2) (2026-09-01)
 
 ### Miscellaneous Chores
