@@ -28,6 +28,32 @@ class TestableDVTService extends DVTSecureSocketProxyService {
   public receiveMessage(channel: number, signal?: AbortSignal): Promise<[Buffer | null, unknown[]]> {
     return this.recvMessage(channel, signal);
   }
+
+  public receiveReply(channel: number, identifier: number): Promise<[unknown, unknown[]]> {
+    return this.recvReplyPlist(channel, identifier);
+  }
+}
+
+/** Tracks whether a promise has settled, without awaiting it. */
+function isSettled(promise: Promise<unknown>): () => boolean {
+  let settled = false;
+  const mark = () => {
+    settled = true;
+  };
+  promise.then(mark, mark);
+  return () => settled;
+}
+
+function buildCorrelatedMessage(
+  payloadLength: number,
+  channelCode: number,
+  identifier: number,
+  conversationIndex: number,
+): Buffer {
+  const message = buildDtxMessage(payloadLength, channelCode);
+  message.writeUInt32LE(identifier, 16);
+  message.writeUInt32LE(conversationIndex, 20);
+  return message;
 }
 
 function createSocketStub(): Duplex {
@@ -56,6 +82,53 @@ function buildDtxMessage(payloadLength: number, channelCode: number = 1): Buffer
 }
 
 describe('DVTSecureSocketProxyService receive path', function () {
+  it('should route a reply to the request that asked for it, not to a pending stream reader', async function () {
+    const service = new TestableDVTService('test-udid');
+    const socket = new PassThrough();
+    service.attachSocket(socket, [1]);
+
+    // A stream reader (e.g. ProcessControl.outputEvents()) is already waiting...
+    const streamPromise = service.receiveMessage(1);
+    await tick();
+    // ...when a request starts waiting for the reply to identifier 7.
+    const replyPromise = service.receiveReply(1, 7);
+    const replySettled = isSettled(replyPromise);
+    await tick();
+
+    socket.write(buildCorrelatedMessage(99, 1, 7, 1)); // the reply
+    socket.write(buildCorrelatedMessage(12, 1, 8, 0)); // an unsolicited callback
+    await tick();
+    await tick();
+
+    assert.ok(replySettled(), 'reply waiter must not be starved by the stream reader');
+    await replyPromise;
+
+    const [streamData] = await streamPromise;
+    assert.strictEqual(streamData?.length, 12, 'stream reader should get the callback, not the reply');
+  });
+
+  it('should not hand a reply to a mismatched identifier', async function () {
+    const service = new TestableDVTService('test-udid');
+    const socket = new PassThrough();
+    service.attachSocket(socket, [1]);
+
+    const replyPromise = service.receiveReply(1, 7);
+    const replySettled = isSettled(replyPromise);
+    await tick();
+
+    socket.write(buildCorrelatedMessage(31, 1, 99, 1)); // a reply for someone else
+    await tick();
+    await tick();
+    assert.ok(!replySettled(), 'must keep waiting for its own identifier');
+
+    socket.write(buildCorrelatedMessage(42, 1, 7, 1));
+    await tick();
+    await tick();
+    const [data] = await replyPromise;
+    assert.ok(replySettled());
+    assert.ok(data === null || typeof data === 'object');
+  });
+
   it('should fail fast on invalid message header magic', async function () {
     const service = new TestableDVTService('test-udid');
     const socket = new PassThrough();

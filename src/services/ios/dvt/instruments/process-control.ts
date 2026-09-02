@@ -27,8 +27,8 @@ export class ProcessControl extends BaseInstrument {
     // Both arguments must be archived objects; raw int32 primitives crash DTServiceHub
     const args = new MessageAux().appendObj(sig).appendObj(pid);
 
-    await channel.call('sendSignal_toPid_')(args);
-    const result = await channel.receiveReply();
+    const messageId = await channel.call('sendSignal_toPid_')(args);
+    const result = await channel.receiveReply(messageId);
 
     log.debug(`Sent signal ${sig} to PID ${pid}`);
     return result;
@@ -69,8 +69,8 @@ export class ProcessControl extends BaseInstrument {
 
     const args = new MessageAux().appendInt(pid);
 
-    await channel.call('requestDisableMemoryLimitsForPid_')(args);
-    const result = await channel.receiveReply();
+    const messageId = await channel.call('requestDisableMemoryLimitsForPid_')(args);
+    const result = await channel.receiveReply(messageId);
 
     if (!result) {
       throw new Error(`Failed to disable memory limit for PID ${pid}`);
@@ -95,8 +95,8 @@ export class ProcessControl extends BaseInstrument {
 
     const args = new MessageAux().appendObj(bundleId);
 
-    await channel.call('processIdentifierForBundleIdentifier_')(args);
-    const result = await channel.receiveReply();
+    const messageId = await channel.call('processIdentifierForBundleIdentifier_')(args);
+    const result = await channel.receiveReply(messageId);
 
     if (typeof result !== 'number') {
       throw new Error(`Unexpected response when looking up PID for bundle '${bundleId}': ${result}`);
@@ -135,9 +135,11 @@ export class ProcessControl extends BaseInstrument {
       .appendObj(options.arguments ?? [])
       .appendObj(launchOptions);
 
-    await channel.call('launchSuspendedProcessWithDevicePath_bundleIdentifier_environment_arguments_options_')(args);
+    const messageId = await channel.call(
+      'launchSuspendedProcessWithDevicePath_bundleIdentifier_environment_arguments_options_',
+    )(args);
 
-    const result = await channel.receiveReply();
+    const result = await channel.receiveReply(messageId);
 
     if (typeof result !== 'number') {
       throw new Error(`Failed to launch process: ${JSON.stringify(result)}`);

@@ -5,7 +5,7 @@ import {createBinaryPlist, parseBinaryPlist} from '../../../lib/plist/index.js';
 import type {PlistDictionary, SendMessageOptions} from '../../../lib/types.js';
 import {type ServiceConnection} from '../../../service-connection.js';
 import {BaseService, stripSSL} from '../base-service.js';
-import {ChannelFragmenter} from '../dvt/channel-fragmenter.js';
+import {ChannelFragmenter, type MessageFilter, isReplyTo} from '../dvt/channel-fragmenter.js';
 import {Channel} from '../dvt/channel.js';
 import {DTXMessage, DTX_CONSTANTS, MessageAux} from '../dvt/dtx-message.js';
 import {decodeNSKeyedArchiver} from '../dvt/nskeyedarchiver-decoder.js';
@@ -145,13 +145,18 @@ export class DvtTestmanagedProxyService extends BaseService {
    * @param selector The ObjectiveC method selector
    * @param options Optional message options
    */
-  async sendMessage(channel: number, selector: string | null = null, options: SendMessageOptions = {}): Promise<void> {
+  async sendMessage(
+    channel: number,
+    selector: string | null = null,
+    options: SendMessageOptions = {},
+  ): Promise<number> {
     const {args = null, expectsReply = true} = options;
     if (!this.socket) {
       throw new Error('Not connected to testmanagerd service');
     }
 
     this.curMessageId++;
+    const identifier = this.curMessageId;
 
     const auxBuffer = args ? this.buildAuxiliaryData(args) : Buffer.alloc(0);
     const selectorBuffer = selector ? this.archiveSelector(selector) : Buffer.alloc(0);
@@ -173,7 +178,7 @@ export class DvtTestmanagedProxyService extends BaseService {
       fragmentId: 0,
       fragmentCount: 1,
       length: DTX_CONSTANTS.PAYLOAD_HEADER_SIZE + auxBuffer.length + selectorBuffer.length,
-      identifier: this.curMessageId,
+      identifier,
       conversationIndex: 0,
       channelCode: channel,
       expectsReply: Number(expectsReply),
@@ -194,6 +199,8 @@ export class DvtTestmanagedProxyService extends BaseService {
         }
       });
     });
+
+    return identifier;
   }
 
   /** Whether the last received message on this channel expects a reply. */
@@ -268,7 +275,27 @@ export class DvtTestmanagedProxyService extends BaseService {
     channel: number = DvtTestmanagedProxyService.BROADCAST_CHANNEL,
     signal?: AbortSignal,
   ): Promise<[any, any[]]> {
-    const [data, aux] = await this.recvMessage(channel, signal);
+    return await this.recvPlistFiltered(channel, signal);
+  }
+
+  /**
+   * Receive the reply to one request, matched on the identifier `sendMessage`
+   * returned, so another read on the channel cannot take it.
+   *
+   * @param channel The channel to receive from
+   * @param identifier The value returned by the `sendMessage` being answered
+   * @param signal Optional AbortSignal for cancellation
+   */
+  async recvReplyPlist(channel: number, identifier: number, signal?: AbortSignal): Promise<[any, any[]]> {
+    return await this.recvPlistFiltered(channel, signal, isReplyTo(identifier));
+  }
+
+  private async recvPlistFiltered(
+    channel: number,
+    signal?: AbortSignal,
+    filter?: MessageFilter,
+  ): Promise<[any, any[]]> {
+    const [data, aux] = await this.recvMessage(channel, signal, filter);
 
     let decodedData = null;
     if (data?.length) {
@@ -317,8 +344,9 @@ export class DvtTestmanagedProxyService extends BaseService {
   async recvMessage(
     channel: number = DvtTestmanagedProxyService.BROADCAST_CHANNEL,
     signal?: AbortSignal,
+    filter?: MessageFilter,
   ): Promise<[Buffer | null, any[]]> {
-    const packetData = await this.recvPacketFragments(channel, signal);
+    const packetData = await this.recvPacketFragments(channel, signal, filter);
 
     const payloadHeader = DTXMessage.parsePayloadHeader(packetData);
 
@@ -472,14 +500,14 @@ export class DvtTestmanagedProxyService extends BaseService {
     }
   }
 
-  private async recvPacketFragments(channel: number, signal?: AbortSignal): Promise<Buffer> {
+  private async recvPacketFragments(channel: number, signal?: AbortSignal, filter?: MessageFilter): Promise<Buffer> {
     while (true) {
       const fragmenter = this.channelMessages.get(channel);
       if (!fragmenter) {
         throw new Error(`No fragmenter for channel ${channel}`);
       }
 
-      const message = fragmenter.get();
+      const message = fragmenter.get(filter);
       if (message) {
         return message;
       }

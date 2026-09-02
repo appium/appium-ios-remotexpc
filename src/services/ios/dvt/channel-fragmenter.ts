@@ -9,6 +9,14 @@ interface QueuedMessage {
 export type MessageFilter = (header: DTXMessageHeader) => boolean;
 
 /**
+ * Matches the reply to one request. DTX replies echo the request's identifier
+ * with a non-zero conversation index; device-initiated callbacks use index 0.
+ */
+export function isReplyTo(identifier: number): MessageFilter {
+  return (header) => header.conversationIndex > 0 && header.identifier === identifier;
+}
+
+/**
  * Handles message fragmentation for DTX channels
  * Assembles fragmented messages and queues complete messages for retrieval
  */

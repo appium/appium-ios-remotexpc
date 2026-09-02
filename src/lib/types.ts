@@ -2040,7 +2040,7 @@ export interface TestmanagerdService extends BaseService {
    * @param selector The ObjectiveC method selector
    * @param options Optional message options
    */
-  sendMessage(channel: number, selector: string | null, options?: SendMessageOptions): Promise<void>;
+  sendMessage(channel: number, selector: string | null, options?: SendMessageOptions): Promise<number>;
 
   /**
    * Receive a plist message from a channel
