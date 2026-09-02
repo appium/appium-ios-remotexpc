@@ -7,7 +7,7 @@ import {Http2Constants} from './constants.js';
 import {DataFrame} from './handshake-frames.js';
 import Handshake from './handshake.js';
 import {Http2FrameParser, buildWindowUpdateFrames} from './http2-frame-parser.js';
-import {decodeMessage, probeXpcFraming} from './xpc-protocol.js';
+import {decodeMessage, probeXpcFraming, XPC_WRAPPER_HEADER_SIZE} from './xpc-protocol.js';
 
 const log = getLogger('RemoteXpcFramedTransport');
 
@@ -19,6 +19,13 @@ export interface RemoteXpcFramedTransportConnectOptions {
   handshakeDelayMs?: number;
 }
 
+/** Owned copies of one in-flight XPC message's chunks; `byteLength` is unset until the header is readable. */
+interface PendingXpcMessage {
+  chunks: Buffer[];
+  length: number;
+  byteLength?: number;
+}
+
 /**
  * Shared RemoteXPC transport: owns TCP socket lifecycle, HTTP/2/XPC handshake,
  * DATA frame parsing, window updates, and XPC message reassembly.
@@ -27,7 +34,7 @@ export class RemoteXpcFramedTransport extends EventEmitter {
   private readonly address: [string, number];
   private socket: net.Socket | null = null;
   private frameParser = new Http2FrameParser();
-  private pendingXpcData = new Map<number, Buffer>();
+  private pendingXpcData = new Map<number, PendingXpcMessage>();
   private connected = false;
   private closing = false;
   private desynced = false;
@@ -283,33 +290,63 @@ export class RemoteXpcFramedTransport extends EventEmitter {
   }
 
   /**
-   * Reassembles XPC messages for one HTTP/2 stream; streams buffer separately so
-   * interleaving cannot fabricate a desync. Framed-but-undecodable messages are
-   * skipped, and a retained tail is copied so it cannot pin the parser's buffer.
+   * Accumulates one XPC message per HTTP/2 stream as a chunk list, joined once when
+   * complete. Retained chunks are copied so a stalled stream cannot pin the frame
+   * parser's buffer; the header is probed from at most its first 24 bytes.
    */
   private ingestXpcData(streamId: number, chunk: Buffer): void {
-    if (this.desynced) {
+    if (this.desynced || chunk.length === 0) {
       return;
     }
 
-    const buffered = this.pendingXpcData.get(streamId);
-    let pending = buffered ? Buffer.concat([buffered, chunk]) : chunk;
-    this.pendingXpcData.delete(streamId);
+    const pending = this.pendingXpcData.get(streamId) ?? {chunks: [], length: 0};
+    const length = pending.length + chunk.length;
 
-    while (pending.length > 0) {
-      const framing = probeXpcFraming(pending);
-      if (framing.status === 'incomplete') {
-        this.pendingXpcData.set(streamId, Buffer.from(pending));
-        return;
-      }
+    if (pending.byteLength === undefined) {
+      const head = Buffer.concat([...pending.chunks, chunk], Math.min(length, XPC_WRAPPER_HEADER_SIZE));
+      const framing = probeXpcFraming(head);
       if (framing.status === 'desynced') {
         this.handleDesync(framing.reason);
         return;
       }
+      pending.byteLength = framing.byteLength;
+    }
+    if (pending.byteLength === undefined || length < pending.byteLength) {
+      pending.chunks.push(Buffer.from(chunk));
+      pending.length = length;
+      this.pendingXpcData.set(streamId, pending);
+      return;
+    }
 
-      const message = pending.subarray(0, framing.byteLength);
-      pending = pending.subarray(framing.byteLength);
-      this.decodeAndEmit(message);
+    this.pendingXpcData.delete(streamId);
+    this.drainXpcMessages(
+      streamId,
+      pending.chunks.length === 0 ? chunk : Buffer.concat([...pending.chunks, chunk], length),
+    );
+  }
+
+  /**
+   * Emits every complete message at the front of `buffer`; an incomplete remainder
+   * is re-queued as a copy so it cannot pin the buffer it was sliced from.
+   */
+  private drainXpcMessages(streamId: number, buffer: Buffer): void {
+    let rest = buffer;
+    while (rest.length > 0) {
+      const framing = probeXpcFraming(rest);
+      if (framing.status === 'desynced') {
+        this.handleDesync(framing.reason);
+        return;
+      }
+      if (framing.status === 'incomplete') {
+        this.pendingXpcData.set(streamId, {
+          chunks: [Buffer.from(rest)],
+          length: rest.length,
+          byteLength: framing.byteLength,
+        });
+        return;
+      }
+      this.decodeAndEmit(rest.subarray(0, framing.byteLength));
+      rest = rest.subarray(framing.byteLength);
     }
   }
 
