@@ -1,3 +1,9 @@
+## [5.18.5](https://github.com/appium/appium-ios-remotexpc/compare/v5.18.4...v5.18.5) (2026-09-02)
+
+### Bug Fixes
+
+* **dvt:** correlate DTX replies so device callbacks don't desync request/reply ([#315](https://github.com/appium/appium-ios-remotexpc/issues/315)) ([0d683b4](https://github.com/appium/appium-ios-remotexpc/commit/0d683b40d5b1d05308771ca3234309523a371367))
+
 ## [5.18.4](https://github.com/appium/appium-ios-remotexpc/compare/v5.18.3...v5.18.4) (2026-09-02)
 
 ### Bug Fixes
