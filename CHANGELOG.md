@@ -1,3 +1,9 @@
+## [5.18.4](https://github.com/appium/appium-ios-remotexpc/compare/v5.18.3...v5.18.4) (2026-09-02)
+
+### Bug Fixes
+
+* **remote-xpc:** reassemble inbound XPC messages in linear time ([#317](https://github.com/appium/appium-ios-remotexpc/issues/317)) ([b98cffb](https://github.com/appium/appium-ios-remotexpc/commit/b98cffb7b87f184527e1d164e58d6241a9db8843))
+
 ## [5.18.3](https://github.com/appium/appium-ios-remotexpc/compare/v5.18.2...v5.18.3) (2026-09-02)
 
 ### Bug Fixes
