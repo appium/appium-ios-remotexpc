@@ -7,10 +7,13 @@ import type {MessageAux} from './dtx-message.js';
  */
 export interface DTXServiceProvider {
   recvPlist(channel: number, signal?: AbortSignal): Promise<[any, any[]]>;
-  sendMessage(channel: number, selector: string | null, options?: SendMessageOptions): Promise<void>;
+  /** Resolves to the message identifier, for correlating the reply. */
+  sendMessage(channel: number, selector: string | null, options?: SendMessageOptions): Promise<number>;
+  recvReplyPlist(channel: number, identifier: number, signal?: AbortSignal): Promise<[any, any[]]>;
 }
 
-export type ChannelMethodCall = (args?: MessageAux, expectsReply?: boolean) => Promise<void>;
+/** Sends the message and resolves to its identifier, for {@link Channel.receiveReply}. */
+export type ChannelMethodCall = (args?: MessageAux, expectsReply?: boolean) => Promise<number>;
 
 /**
  * Represents a DTX communication channel for a specific instrument service
@@ -38,6 +41,20 @@ export class Channel {
   }
 
   /**
+   * Receive the reply to one request, matched on the identifier {@link call}
+   * returned. Prefer this over {@link receivePlist} for request/reply, which
+   * takes whichever message arrives first and so can pick up a callback, or a
+   * reply meant for another caller.
+   *
+   * @param identifier The value the matching {@link call} resolved to
+   * @param signal Optional AbortSignal for cancellation
+   */
+  async receiveReply(identifier: number, signal?: AbortSignal): Promise<any> {
+    const [data] = await this.service.recvReplyPlist(this.channelCode, identifier, signal);
+    return data;
+  }
+
+  /**
    * Receive a plist response from the channel with auxiliaries
    * @param signal Optional AbortSignal for cancellation
    * @returns Tuple of [selector, auxiliaries]
@@ -59,12 +76,11 @@ export class Channel {
    */
   call(methodName: string): ChannelMethodCall {
     const selector = this.convertToSelector(methodName);
-    return (async (args, expectsReply = true) => {
+    return (async (args, expectsReply = true) =>
       await this.service.sendMessage(this.channelCode, selector, {
         args,
         expectsReply,
-      });
-    }) as ChannelMethodCall;
+      })) as ChannelMethodCall;
   }
 
   /**

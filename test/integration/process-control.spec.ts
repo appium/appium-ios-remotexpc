@@ -33,16 +33,17 @@ describe('ProcessControl Service', {timeout: 60000}, function () {
   });
 
   it('should get process identifier for system app (Settings)', async function () {
-    // com.apple.Preferences is the bundle ID for Settings
-    try {
-      const pid = await dvtServiceConnection!.processControl.getPidForBundleIdentifier('com.apple.Preferences');
-      assert.ok(typeof pid === 'number');
-      assert.ok(pid > 0);
-      log.debug(`Settings PID: ${pid}`);
-    } catch (error) {
-      log.error('Failed to get PID:', error);
-      throw error;
-    }
+    // Look-ups report 0 for an app that is not running, so launch Settings
+    // rather than depend on what is already open.
+    const launchedPid = await dvtServiceConnection!.processControl.launch({
+      bundleId: 'com.apple.Preferences',
+      killExisting: true,
+    });
+
+    const pid = await dvtServiceConnection!.processControl.getPidForBundleIdentifier('com.apple.Preferences');
+    assert.ok(typeof pid === 'number');
+    assert.strictEqual(pid, launchedPid);
+    log.debug(`Settings PID: ${pid}`);
   });
 
   it('should return 0 for non-existent bundle identifier', async function () {

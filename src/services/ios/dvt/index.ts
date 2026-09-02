@@ -5,9 +5,9 @@ import {createBinaryPlist, parseBinaryPlist} from '../../../lib/plist/index.js';
 import type {PlistDictionary, SendMessageOptions} from '../../../lib/types.js';
 import {type ServiceConnection} from '../../../service-connection.js';
 import {BaseService, stripSSL} from '../base-service.js';
-import {ChannelFragmenter} from './channel-fragmenter.js';
+import {ChannelFragmenter, type MessageFilter, isReplyTo} from './channel-fragmenter.js';
 import {Channel} from './channel.js';
-import {DTXMessage, DTX_CONSTANTS, MessageAux} from './dtx-message.js';
+import {type DTXMessageHeader, DTXMessage, DTX_CONSTANTS, MessageAux} from './dtx-message.js';
 import {decodeNSKeyedArchiver} from './nskeyedarchiver-decoder.js';
 import {NSKeyedArchiverEncoder} from './nskeyedarchiver-encoder.js';
 import {
@@ -27,6 +27,8 @@ interface ChannelWaiter {
   reject: (err: Error) => void;
   signal?: AbortSignal;
   onAbort?: () => void;
+  /** When set, only messages whose header matches may satisfy this waiter. */
+  filter?: MessageFilter;
 }
 
 /**
@@ -128,13 +130,18 @@ export class DVTSecureSocketProxyService extends BaseService {
    * @param selector The ObjectiveC method selector
    * @param options Optional message options
    */
-  async sendMessage(channel: number, selector: string | null = null, options: SendMessageOptions = {}): Promise<void> {
+  async sendMessage(
+    channel: number,
+    selector: string | null = null,
+    options: SendMessageOptions = {},
+  ): Promise<number> {
     const {args = null, expectsReply = true} = options;
     if (!this.socket) {
       throw new Error('Not connected to DVT service');
     }
 
     this.curMessageId++;
+    const identifier = this.curMessageId;
 
     const auxBuffer = args ? this.buildAuxiliaryData(args) : Buffer.alloc(0);
     const selectorBuffer = selector ? this.archiveSelector(selector) : Buffer.alloc(0);
@@ -156,7 +163,7 @@ export class DVTSecureSocketProxyService extends BaseService {
       fragmentId: 0,
       fragmentCount: 1,
       length: DTX_CONSTANTS.PAYLOAD_HEADER_SIZE + auxBuffer.length + selectorBuffer.length,
-      identifier: this.curMessageId,
+      identifier,
       conversationIndex: 0,
       channelCode: channel,
       expectsReply: expectsReply ? 1 : 0,
@@ -177,6 +184,8 @@ export class DVTSecureSocketProxyService extends BaseService {
         }
       });
     });
+
+    return identifier;
   }
 
   /**
@@ -188,7 +197,29 @@ export class DVTSecureSocketProxyService extends BaseService {
     channel: number = DVTSecureSocketProxyService.BROADCAST_CHANNEL,
     signal?: AbortSignal,
   ): Promise<[any, any[]]> {
-    const [data, aux] = await this.recvMessage(channel, signal);
+    return await this.recvPlistFiltered(channel, signal);
+  }
+
+  /**
+   * Receive the reply to one request, matched on the identifier `sendMessage`
+   * returned. Without that correlation any other read on the channel — a
+   * stream reader such as `ProcessControl.outputEvents()`, or a second
+   * in-flight request — could take this reply instead.
+   *
+   * @param channel The channel to receive from
+   * @param identifier The value returned by the `sendMessage` being answered
+   * @param signal Optional AbortSignal for cancellation
+   */
+  async recvReplyPlist(channel: number, identifier: number, signal?: AbortSignal): Promise<[any, any[]]> {
+    return await this.recvPlistFiltered(channel, signal, isReplyTo(identifier));
+  }
+
+  private async recvPlistFiltered(
+    channel: number,
+    signal?: AbortSignal,
+    filter?: MessageFilter,
+  ): Promise<[any, any[]]> {
+    const [data, aux] = await this.recvMessage(channel, signal, filter);
 
     let decodedData = null;
     if (data?.length) {
@@ -212,8 +243,9 @@ export class DVTSecureSocketProxyService extends BaseService {
   async recvMessage(
     channel: number = DVTSecureSocketProxyService.BROADCAST_CHANNEL,
     signal?: AbortSignal,
+    filter?: MessageFilter,
   ): Promise<[Buffer | null, any[]]> {
-    const packetData = await this.recvPacketFragments(channel, signal);
+    const packetData = await this.recvPacketFragments(channel, signal, filter);
 
     const payloadHeader = DTXMessage.parsePayloadHeader(packetData);
 
@@ -459,13 +491,13 @@ export class DVTSecureSocketProxyService extends BaseService {
   /**
    * Receive packet fragments until a complete message is available for the specified channel
    */
-  private async recvPacketFragments(channel: number, signal?: AbortSignal): Promise<Buffer> {
+  private async recvPacketFragments(channel: number, signal?: AbortSignal, filter?: MessageFilter): Promise<Buffer> {
     const fragmenter = this.channelMessages.get(channel);
     if (!fragmenter) {
       throw new Error(`No fragmenter for channel ${channel}`);
     }
 
-    const queued = fragmenter.get();
+    const queued = fragmenter.get(filter ?? ((header) => !this.isClaimed(channel, header)));
     if (queued) {
       return queued;
     }
@@ -473,7 +505,7 @@ export class DVTSecureSocketProxyService extends BaseService {
     signal?.throwIfAborted();
 
     const promise = new Promise<Buffer>((resolve, reject) => {
-      const waiter: ChannelWaiter = {resolve, reject, signal};
+      const waiter: ChannelWaiter = {resolve, reject, signal, filter};
       if (signal) {
         const onAbort = () => {
           const waiters = this.channelWaiters.get(channel);
@@ -552,19 +584,51 @@ export class DVTSecureSocketProxyService extends BaseService {
       }
       targetFragmenter.addFragment(header, messageData);
 
-      const waiters = this.channelWaiters.get(receivedChannel);
-      if (waiters && waiters.length > 0) {
-        const completedMessage = targetFragmenter.get();
-        if (completedMessage) {
-          const waiter = waiters.shift();
-          if (waiter) {
-            if (waiter.signal && waiter.onAbort) {
-              waiter.signal.removeEventListener('abort', waiter.onAbort);
-            }
-            waiter.resolve(completedMessage);
-          }
-        }
+      this.deliverQueuedMessages(receivedChannel);
+    }
+  }
+
+  /**
+   * Hand queued messages to the waiters that accept them.
+   *
+   * Correlated waiters are served first, and an unfiltered reader may not take
+   * a message some correlated waiter is still waiting for — otherwise it would
+   * swallow that reply and leave the requester pending forever. A waiter that
+   * matches nothing stays pending so the pump keeps reading.
+   */
+  private deliverQueuedMessages(channel: number): void {
+    const waiters = this.channelWaiters.get(channel);
+    const fragmenter = this.channelMessages.get(channel);
+    if (!waiters?.length || !fragmenter) {
+      return;
+    }
+
+    this.drainTo(waiters, (waiter) => (waiter.filter ? fragmenter.get(waiter.filter) : null));
+    this.drainTo(waiters, (waiter) =>
+      waiter.filter ? null : fragmenter.get((header) => !this.isClaimed(channel, header)),
+    );
+  }
+
+  /** Whether a waiter on this channel is correlated to `header` and still pending. */
+  private isClaimed(channel: number, header: DTXMessageHeader): boolean {
+    return this.channelWaiters.get(channel)?.some((waiter) => waiter.filter?.(header) === true) ?? false;
+  }
+
+  /** Settles every waiter `take` can supply a message for, removing it from `waiters`. */
+  private drainTo(waiters: ChannelWaiter[], take: (waiter: ChannelWaiter) => Buffer | null): void {
+    let i = 0;
+    while (i < waiters.length) {
+      const waiter = waiters[i];
+      const message = take(waiter);
+      if (!message) {
+        i++;
+        continue;
       }
+      waiters.splice(i, 1);
+      if (waiter.signal && waiter.onAbort) {
+        waiter.signal.removeEventListener('abort', waiter.onAbort);
+      }
+      waiter.resolve(message);
     }
   }
 
