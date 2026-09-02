@@ -38,7 +38,7 @@ export interface DecodedXpcMessage {
 
 /** Framing state of the wrapper at the front of a buffer. `desynced` is unrecoverable. */
 export type XpcFramingProbe =
-  | {status: 'incomplete'}
+  | {status: 'incomplete'; byteLength?: number}
   | {status: 'desynced'; reason: string}
   | {status: 'ok'; byteLength: number};
 
@@ -187,7 +187,7 @@ export function encodeMessage(message: XPCMessage): Buffer {
   return writer.concat();
 }
 
-const XPC_WRAPPER_HEADER_SIZE = 24;
+export const XPC_WRAPPER_HEADER_SIZE = 24;
 /**
  * Upper bound on a declared body length: the initial receive window, which the peer
  * cannot exceed on a stream because WINDOW_UPDATEs go out only for even streams and
@@ -234,7 +234,7 @@ export function probeXpcFraming(buffer: Buffer): XpcFramingProbe {
   }
   const byteLength = XPC_WRAPPER_HEADER_SIZE + Number(bodyLength);
   if (buffer.length < byteLength) {
-    return {status: 'incomplete'};
+    return {status: 'incomplete', byteLength};
   }
   return {status: 'ok', byteLength};
 }

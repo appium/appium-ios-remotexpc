@@ -10,6 +10,11 @@ import {MAX_XPC_BODY_SIZE, probeXpcFraming} from '../../../src/lib/remote-xpc/xp
 import type {XPCDictionary} from '../../../src/lib/types.js';
 import {buildMessage, buildUndecodableMessage, toDataFrame} from './xpc-fixtures.js';
 
+interface PendingXpcEntry {
+  chunks: Buffer[];
+  length: number;
+}
+
 interface IngestHarness {
   ingest: (chunk: Buffer) => void;
   ingestOn: (streamId: number, chunk: Buffer) => void;
@@ -17,13 +22,14 @@ interface IngestHarness {
   errors: Error[];
   decodeErrors: Error[];
   pendingLength: () => number;
+  pendingEntries: () => PendingXpcEntry[];
 }
 
 function createIngestHarness(): IngestHarness {
   const transport = new RemoteXpcFramedTransport(['::1', 1]);
   const internals = transport as unknown as {
     ingestXpcData: (streamId: number, chunk: Buffer) => void;
-    pendingXpcData: Map<number, Buffer>;
+    pendingXpcData: Map<number, PendingXpcEntry>;
   };
   const messages: XPCDictionary[] = [];
   const errors: Error[] = [];
@@ -40,6 +46,7 @@ function createIngestHarness(): IngestHarness {
     errors,
     decodeErrors,
     pendingLength: () => [...internals.pendingXpcData.values()].reduce((total, buf) => total + buf.length, 0),
+    pendingEntries: () => [...internals.pendingXpcData.values()],
   };
 }
 
@@ -218,6 +225,47 @@ describe('RemoteXpcFramedTransport', function () {
       assert.strictEqual(harness.pendingLength(), 0);
     });
 
+    it('joins a large message once instead of re-copying the buffered bytes on every frame', function (t) {
+      const harness = createIngestHarness();
+      const payload = buildMessage({blob: 'x'.repeat(1 << 20)});
+      const frameSize = Http2Constants.DEFAULT_PEER_MAX_FRAME_SIZE;
+      const concat = t.mock.method(Buffer, 'concat');
+
+      for (let offset = 0; offset < payload.length; offset += frameSize) {
+        harness.ingest(payload.subarray(offset, offset + frameSize));
+      }
+
+      const copied = concat.mock.calls.reduce((total, call) => total + (call.result?.length ?? 0), 0);
+      assert.strictEqual(harness.messages.length, 1);
+      assert.strictEqual(harness.pendingLength(), 0);
+      assert.ok(
+        copied < payload.length + frameSize,
+        `copied ${copied} bytes to reassemble a ${payload.length} byte message`,
+      );
+    });
+
+    it('does not retain an empty DATA frame', function () {
+      const harness = createIngestHarness();
+
+      harness.ingest(Buffer.alloc(0));
+      harness.ingest(buildMessage({n: 1}).subarray(0, 10));
+      harness.ingest(Buffer.alloc(0));
+
+      assert.strictEqual(harness.pendingEntries().length, 1);
+      assert.strictEqual(harness.pendingEntries()[0].chunks.length, 1);
+    });
+
+    it('copies a retained partial chunk so it cannot pin the buffer it was sliced from', function () {
+      const harness = createIngestHarness();
+      const parent = Buffer.alloc(4096);
+      buildMessage({n: 1}).copy(parent, 0);
+
+      harness.ingest(parent.subarray(0, 10));
+
+      const [retained] = harness.pendingEntries()[0].chunks;
+      assert.notStrictEqual(retained.buffer, parent.buffer);
+    });
+
     it('emits every message when several arrive in one chunk', function () {
       const harness = createIngestHarness();
 
@@ -382,7 +430,10 @@ describe('RemoteXpcFramedTransport', function () {
     });
 
     it('waits for a body declared exactly at the size cap', function () {
-      assert.deepStrictEqual(probeXpcFraming(buildWrapperHeader(MAX_XPC_BODY_SIZE)), {status: 'incomplete'});
+      assert.deepStrictEqual(probeXpcFraming(buildWrapperHeader(MAX_XPC_BODY_SIZE)), {
+        status: 'incomplete',
+        byteLength: 24 + Number(MAX_XPC_BODY_SIZE),
+      });
     });
 
     it('rejects a body declared one byte past the size cap', function () {
