@@ -11,8 +11,7 @@ export type MessageId = number;
 class Handshake {
   private _socket: Socket;
   private readonly _nextMessageId: Record<ChannelId, MessageId>;
-  /** DATA payload bytes sent per stream, so the transport can debit its send windows. */
-  readonly dataBytesSent: Record<ChannelId, number>;
+  private readonly _dataBytesSent: Record<ChannelId, number>;
 
   constructor(socket: Socket) {
     this._socket = socket;
@@ -20,10 +19,15 @@ class Handshake {
       [Http2Constants.ROOT_CHANNEL]: 0,
       [Http2Constants.REPLY_CHANNEL]: 0,
     };
-    this.dataBytesSent = {
+    this._dataBytesSent = {
       [Http2Constants.ROOT_CHANNEL]: 0,
       [Http2Constants.REPLY_CHANNEL]: 0,
     };
+  }
+
+  /** DATA payload bytes sent per stream, so the transport can debit its send windows. */
+  get dataBytesSent(): Readonly<Record<ChannelId, number>> {
+    return this._dataBytesSent;
   }
 
   async sendFrame(frame: Buffer): Promise<void> {
@@ -56,7 +60,7 @@ class Handshake {
 
   private async sendData(streamId: ChannelId, message: XPCMessage): Promise<void> {
     const encoded: Buffer = encodeMessage(message);
-    this.dataBytesSent[streamId] += encoded.length;
+    this._dataBytesSent[streamId] += encoded.length;
     await this.sendFrame(new DataFrame(streamId, encoded, []).serialize());
   }
 

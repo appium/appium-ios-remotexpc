@@ -35,7 +35,7 @@ export class RemoteXpcFramedTransport extends EventEmitter {
   private peerInitialWindowSize: number = Http2Constants.DEFAULT_PEER_WINDOW_SIZE;
   private connectionSendWindow: number = Http2Constants.DEFAULT_PEER_WINDOW_SIZE;
   private streamSendWindows = new Map<number, number>();
-  private pendingSends: {streamId: number; payload: Buffer}[] = [];
+  private sendQueue: {streamId: number; payload: Buffer}[] = [];
 
   constructor(address: [string, number]) {
     super();
@@ -98,7 +98,7 @@ export class RemoteXpcFramedTransport extends EventEmitter {
     if (!this.socket?.writable) {
       throw new Error('RemoteXPC socket is not writable');
     }
-    this.pendingSends.push({streamId, payload});
+    this.sendQueue.push({streamId, payload});
     this.flushPendingSends();
   }
 
@@ -108,8 +108,8 @@ export class RemoteXpcFramedTransport extends EventEmitter {
    */
   private flushPendingSends(): void {
     const socket = this.socket;
-    while (socket?.writable && this.pendingSends.length > 0) {
-      const send = this.pendingSends[0];
+    while (socket?.writable && this.sendQueue.length > 0) {
+      const send = this.sendQueue[0];
       const size = Math.min(
         send.payload.length,
         this.peerMaxFrameSize,
@@ -122,7 +122,7 @@ export class RemoteXpcFramedTransport extends EventEmitter {
       socket.write(new DataFrame(send.streamId, send.payload.subarray(0, size), []).serialize());
       this.consumeSendWindow(send.streamId, size);
       if (size === send.payload.length) {
-        this.pendingSends.shift();
+        this.sendQueue.shift();
       } else {
         send.payload = send.payload.subarray(size);
       }
@@ -398,6 +398,6 @@ export class RemoteXpcFramedTransport extends EventEmitter {
     this.peerInitialWindowSize = Http2Constants.DEFAULT_PEER_WINDOW_SIZE;
     this.connectionSendWindow = Http2Constants.DEFAULT_PEER_WINDOW_SIZE;
     this.streamSendWindows.clear();
-    this.pendingSends = [];
+    this.sendQueue = [];
   }
 }

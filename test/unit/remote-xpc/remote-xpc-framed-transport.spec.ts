@@ -99,10 +99,6 @@ async function withConnectedTransport(
   }
 }
 
-/** RFC 7540 defaults the peer has not overridden: SETTINGS_MAX_FRAME_SIZE and the initial flow-control window. */
-const DEFAULT_MAX_FRAME_SIZE = 16384;
-const DEFAULT_INITIAL_WINDOW_SIZE = 65535;
-const SETTINGS_MAX_FRAME_SIZE = 0x05;
 /** First byte of every test payload, so handshake DATA frames (XPC magic) are filtered out on the peer. */
 const OUTBOUND_MARKER = 0xaa;
 
@@ -418,7 +414,11 @@ describe('RemoteXpcFramedTransport', function () {
 
         assert.deepStrictEqual(
           sentFrames().map((frame) => frame.bodyLen),
-          [DEFAULT_MAX_FRAME_SIZE, DEFAULT_MAX_FRAME_SIZE, 40000 - 2 * DEFAULT_MAX_FRAME_SIZE],
+          [
+            Http2Constants.DEFAULT_PEER_MAX_FRAME_SIZE,
+            Http2Constants.DEFAULT_PEER_MAX_FRAME_SIZE,
+            40000 - 2 * Http2Constants.DEFAULT_PEER_MAX_FRAME_SIZE,
+          ],
         );
         assert.deepStrictEqual(Buffer.concat(sentFrames().map((frame) => frame.data)), payload);
       });
@@ -426,8 +426,8 @@ describe('RemoteXpcFramedTransport', function () {
 
     it('honours a larger max frame size advertised in the peer SETTINGS', async function () {
       await withPeer(async ({transport, peer, sentFrames}) => {
-        const advertised = 2 * DEFAULT_MAX_FRAME_SIZE;
-        peer.write(new SettingsFrame(0, {[SETTINGS_MAX_FRAME_SIZE]: advertised}).serialize());
+        const advertised = 2 * Http2Constants.DEFAULT_PEER_MAX_FRAME_SIZE;
+        peer.write(new SettingsFrame(0, {[Http2Constants.SETTINGS_MAX_FRAME_SIZE]: advertised}).serialize());
         await settle();
         const payload = Buffer.alloc(40000, OUTBOUND_MARKER);
 
@@ -449,14 +449,14 @@ describe('RemoteXpcFramedTransport', function () {
         await settle();
 
         assert.ok(
-          sentBytes(sentFrames()) <= DEFAULT_INITIAL_WINDOW_SIZE,
-          `sent ${sentBytes(sentFrames())} bytes into a ${DEFAULT_INITIAL_WINDOW_SIZE}-byte window without a WINDOW_UPDATE`,
+          sentBytes(sentFrames()) <= Http2Constants.DEFAULT_PEER_WINDOW_SIZE,
+          `sent ${sentBytes(sentFrames())} bytes into a ${Http2Constants.DEFAULT_PEER_WINDOW_SIZE}-byte window without a WINDOW_UPDATE`,
         );
 
         peer.write(
           Buffer.concat([
-            new WindowUpdateFrame(0, DEFAULT_INITIAL_WINDOW_SIZE).serialize(),
-            new WindowUpdateFrame(Http2Constants.ROOT_CHANNEL, DEFAULT_INITIAL_WINDOW_SIZE).serialize(),
+            new WindowUpdateFrame(0, Http2Constants.DEFAULT_PEER_WINDOW_SIZE).serialize(),
+            new WindowUpdateFrame(Http2Constants.ROOT_CHANNEL, Http2Constants.DEFAULT_PEER_WINDOW_SIZE).serialize(),
           ]),
         );
         await waitFor(() => sentBytes(sentFrames()) >= payload.length);
