@@ -83,11 +83,12 @@ function parseFrame(buffer: Buffer): ParsedFrame {
 
 /** SETTINGS body is a list of 16-bit identifier / 32-bit value pairs (RFC 7540 §6.5.1). */
 function parseSettings(body: Buffer): Record<number, number> {
-  const settings: Record<number, number> = {};
-  for (let offset = 0; offset + SETTINGS_ENTRY_SIZE <= body.length; offset += SETTINGS_ENTRY_SIZE) {
-    settings[body.readUInt16BE(offset)] = body.readUInt32BE(offset + 2);
-  }
-  return settings;
+  return Object.fromEntries(
+    Array.from({length: Math.floor(body.length / SETTINGS_ENTRY_SIZE)}, (_, i) => {
+      const offset = i * SETTINGS_ENTRY_SIZE;
+      return [body.readUInt16BE(offset), body.readUInt32BE(offset + 2)];
+    }),
+  );
 }
 
 /**

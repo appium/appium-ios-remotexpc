@@ -27,7 +27,7 @@ class Handshake {
 
   /** DATA payload bytes sent per stream, so the transport can debit its send windows. */
   get dataBytesSent(): Readonly<Record<ChannelId, number>> {
-    return this._dataBytesSent;
+    return {...this._dataBytesSent};
   }
 
   async sendFrame(frame: Buffer): Promise<void> {
