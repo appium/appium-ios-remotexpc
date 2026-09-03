@@ -249,7 +249,7 @@ export class DeviceInfo extends BaseInstrument {
     const call = channel.call(selectorName);
     const args = arg !== undefined ? new MessageAux().appendObj(arg) : undefined;
 
-    await call(args);
-    return channel.receivePlist();
+    const messageId = await call(args);
+    return channel.receiveReply(messageId);
   }
 }

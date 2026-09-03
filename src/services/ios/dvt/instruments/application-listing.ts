@@ -58,9 +58,9 @@ export class ApplicationListing extends BaseInstrument {
 
     const args = new MessageAux().appendObj(null).appendObj(null);
 
-    await channel.call('installedApplicationsMatching_registerUpdateToken_')(args);
+    const messageId = await channel.call('installedApplicationsMatching_registerUpdateToken_')(args);
 
-    const result = await channel.receivePlist();
+    const result = await channel.receiveReply(messageId);
 
     if (!result) {
       log.warn('Received null/undefined response from installedApplicationsMatching');

@@ -20,8 +20,8 @@ export class ConditionInducer extends BaseInstrument {
     await this.initialize();
     const channel = this.requireChannel();
 
-    await channel.call('availableConditionInducers')();
-    const result = await channel.receivePlist();
+    const messageId = await channel.call('availableConditionInducers')();
+    const result = await channel.receiveReply(messageId);
 
     // Handle different response formats
     if (!result) {
@@ -61,10 +61,10 @@ export class ConditionInducer extends BaseInstrument {
 
         const args = new MessageAux().appendObj(group.identifier).appendObj(profile.identifier);
 
-        await channel.call('enableConditionWithIdentifier_profileIdentifier_')(args);
+        const messageId = await channel.call('enableConditionWithIdentifier_profileIdentifier_')(args);
 
         // Wait for response which may be a raised NSError
-        await channel.receivePlist();
+        await channel.receiveReply(messageId);
 
         log.info(`Successfully enabled condition profile: ${profileIdentifier}`);
         return;
@@ -88,8 +88,8 @@ export class ConditionInducer extends BaseInstrument {
     await this.initialize();
     const channel = this.requireChannel();
 
-    await channel.call('disableActiveCondition')();
-    const response = await channel.receivePlist();
+    const messageId = await channel.call('disableActiveCondition')();
+    const response = await channel.receiveReply(messageId);
 
     // Response can be:
     // - true (successfully disabled condition)

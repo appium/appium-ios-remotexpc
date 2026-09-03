@@ -108,10 +108,10 @@ export class ActivityTraceTap extends BaseInstrument {
       ur: 500,
     };
     const channel = this.requireChannel();
-    await channel.call('setConfig_')(new MessageAux().appendObj(config), true);
-    await channel.receivePlist(); // consume setConfig_ ack
-    await channel.call('start')(undefined, true);
-    await channel.receivePlist(); // consume start ack
+    const configId = await channel.call('setConfig_')(new MessageAux().appendObj(config), true);
+    await channel.receiveReply(configId);
+    const startId = await channel.call('start')(undefined, true);
+    await channel.receiveReply(startId);
     this.started = true;
     this.stopRequested = false;
     log.debug('ActivityTraceTap started');
