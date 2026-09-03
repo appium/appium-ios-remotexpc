@@ -328,18 +328,26 @@ class MobileImageMounterService extends BaseService implements MobileImageMounte
   }
 
   private async sendRequest(request: PlistDictionary, timeout?: number): Promise<PlistDictionary> {
+    try {
+      const res = await this.exchange(request, timeout);
+      if (res?.Error) {
+        this.closeConnection();
+      }
+      return res;
+    } catch (error) {
+      this.closeConnection();
+      throw error;
+    }
+  }
+
+  private async exchange(request: PlistDictionary, timeout?: number): Promise<PlistDictionary> {
     const isNewConnection = !this.connection || this.isConnectionDestroyed();
     const conn = await this.connectToMobileImageMounterService();
-    let res = await conn.sendPlistRequest(request, timeout);
+    const res = await conn.sendPlistRequest(request, timeout);
 
     if (isNewConnection && res?.Request === 'StartService') {
-      res = await conn.receive();
+      return await conn.receive();
     }
-
-    if (res?.Error) {
-      this.closeConnection();
-    }
-
     return res;
   }
 
