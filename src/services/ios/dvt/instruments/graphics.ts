@@ -12,8 +12,8 @@ export class Graphics extends BaseInstrument {
     const channel = this.requireChannel();
 
     const args = new MessageAux().appendObj(0.0);
-    await channel.call('startSamplingAtTimeInterval_')(args);
-    await channel.receivePlist();
+    const messageId = await channel.call('startSamplingAtTimeInterval_')(args);
+    await channel.receiveReply(messageId);
   }
 
   async stop(): Promise<void> {

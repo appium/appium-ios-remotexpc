@@ -14,8 +14,8 @@ export class Screenshot extends BaseInstrument {
     await this.initialize();
     const channel = this.requireChannel();
 
-    await channel.call('takeScreenshot')();
-    const result = await channel.receivePlist();
+    const messageId = await channel.call('takeScreenshot')();
+    const result = await channel.receiveReply(messageId);
 
     if (!result) {
       throw new Error('Failed to capture screenshot: received null response');

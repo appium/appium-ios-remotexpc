@@ -28,8 +28,8 @@ export class LocationSimulation extends BaseInstrument {
 
     const args = new MessageAux().appendObj(coordinates.latitude).appendObj(coordinates.longitude);
 
-    await channel.call('simulateLocationWithLatitude_longitude_')(args);
-    await channel.receivePlist();
+    const messageId = await channel.call('simulateLocationWithLatitude_longitude_')(args);
+    await channel.receiveReply(messageId);
 
     log.info(`Location set to: ${coordinates.latitude}, ${coordinates.longitude}`);
   }
