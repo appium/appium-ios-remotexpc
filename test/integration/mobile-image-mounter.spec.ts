@@ -47,7 +47,9 @@ describe('MobileImageMounterService Integration', {timeout: 40000}, function () 
     mobileImageMounterService = await Services.startMobileImageMounterService(testUdid);
   });
 
-  after(async function () {});
+  after(async function () {
+    await mobileImageMounterService?.cleanup();
+  });
 
   describe('Service Connection', () => {
     it('should connect to mobile image mounter service', async function () {
