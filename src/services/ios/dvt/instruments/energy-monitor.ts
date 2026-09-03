@@ -140,8 +140,8 @@ export class EnergyMonitor extends BaseInstrument {
 
   private async sampleOnce(pids: number[], signal?: AbortSignal): Promise<EnergyMonitorSample> {
     const channel = this.requireChannel();
-    await channel.call('sampleAttributes_forPIDs_')(new MessageAux().appendObj({}).appendObj(pids));
-    return await channel.receivePlist(signal);
+    const messageId = await channel.call('sampleAttributes_forPIDs_')(new MessageAux().appendObj({}).appendObj(pids));
+    return await channel.receiveReply(messageId, signal);
   }
 
   private isAbortError(err: unknown): boolean {

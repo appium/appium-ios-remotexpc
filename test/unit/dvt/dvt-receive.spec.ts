@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {Duplex, PassThrough} from 'node:stream';
 import {describe, it} from 'node:test';
 
-import {ChannelFragmenter} from '../../../src/services/ios/dvt/channel-fragmenter.js';
+import {ChannelFragmenter, isReplyTo} from '../../../src/services/ios/dvt/channel-fragmenter.js';
 import {DTX_CONSTANTS} from '../../../src/services/ios/dvt/dtx-message.js';
 import {DVTSecureSocketProxyService} from '../../../src/services/ios/dvt/index.js';
 
@@ -31,6 +31,10 @@ class TestableDVTService extends DVTSecureSocketProxyService {
 
   public receiveReply(channel: number, identifier: number): Promise<[unknown, unknown[]]> {
     return this.recvReplyPlist(channel, identifier);
+  }
+
+  public receiveReplyRaw(channel: number, identifier: number): Promise<[Buffer | null, unknown[]]> {
+    return this.recvMessage(channel, undefined, isReplyTo(identifier));
   }
 }
 
@@ -105,6 +109,28 @@ describe('DVTSecureSocketProxyService receive path', function () {
 
     const [streamData] = await streamPromise;
     assert.strictEqual(streamData?.length, 12, 'stream reader should get the callback, not the reply');
+  });
+
+  it('should route out-of-order replies to their own callers', async function () {
+    const service = new TestableDVTService('test-udid');
+    const socket = new PassThrough();
+    service.attachSocket(socket, [1]);
+
+    // Two requests in flight on one channel; the device answers the second first.
+    const first = service.receiveReplyRaw(1, 10);
+    const second = service.receiveReplyRaw(1, 11);
+    await tick();
+
+    socket.write(buildCorrelatedMessage(64, 1, 11, 1));
+    socket.write(buildCorrelatedMessage(32, 1, 10, 1));
+    await tick();
+    await tick();
+
+    // A FIFO queue would hand the id-11 reply to the id-10 caller.
+    const [firstData] = await first;
+    const [secondData] = await second;
+    assert.strictEqual(firstData?.length, 32, 'id 10 must get its own 32-byte reply');
+    assert.strictEqual(secondData?.length, 64, 'id 11 must get its own 64-byte reply');
   });
 
   it('should not hand a reply to a mismatched identifier', async function () {
