@@ -1,3 +1,9 @@
+## [5.18.6](https://github.com/appium/appium-ios-remotexpc/compare/v5.18.5...v5.18.6) (2026-09-03)
+
+### Bug Fixes
+
+* **mobile-image-mounter:** handle connection errors and cleanup service after tests ([#319](https://github.com/appium/appium-ios-remotexpc/issues/319)) ([48b17a1](https://github.com/appium/appium-ios-remotexpc/commit/48b17a192b9f0b7421b46f8bce3eea00203b8cb4))
+
 ## [5.18.5](https://github.com/appium/appium-ios-remotexpc/compare/v5.18.4...v5.18.5) (2026-09-02)
 
 ### Bug Fixes
