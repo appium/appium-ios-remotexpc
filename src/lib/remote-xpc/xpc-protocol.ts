@@ -6,6 +6,8 @@ import {XPCUUID} from './xpc-uuid.js';
 const BODY_VERSION: number = 0x00000005;
 const WRAPPER_MAGIC: number = 0x29b00b92;
 const OBJECT_MAGIC: number = 0x42133742;
+const MAX_SAFE_BIGINT = BigInt(Number.MAX_SAFE_INTEGER);
+const MIN_SAFE_BIGINT = BigInt(Number.MIN_SAFE_INTEGER);
 
 export const XPC_TYPES: {[key: string]: number} = {
   null: 0x00001000,
@@ -407,6 +409,11 @@ function encodeObject(writer: Writer, value: XPCValue): void {
   throw new TypeError('Unsupported type: ' + typeof value);
 }
 
+/** Returns a number when the value fits the safe-integer range, else the bigint unchanged. */
+function toSafeInteger(value: bigint): number | bigint {
+  return value >= MIN_SAFE_BIGINT && value <= MAX_SAFE_BIGINT ? Number(value) : value;
+}
+
 /**
  * Decodes an XPC object from the provided reader.
  */
@@ -421,9 +428,9 @@ function decodeObject(reader: Reader): XPCValue {
       return Boolean(b);
     }
     case XPC_TYPES.int64:
-      return Number(reader.readBigInt64LE());
+      return toSafeInteger(reader.readBigInt64LE());
     case XPC_TYPES.uint64:
-      return Number(reader.readBigUInt64LE());
+      return toSafeInteger(reader.readBigUInt64LE());
     case XPC_TYPES.double:
       return reader.readDoubleLE();
     case XPC_TYPES.date: {
