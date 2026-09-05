@@ -1,3 +1,9 @@
+## [5.18.7](https://github.com/appium/appium-ios-remotexpc/compare/v5.18.6...v5.18.7) (2026-09-05)
+
+### Bug Fixes
+
+* **remote-xpc:** decode int64/uint64 losslessly instead of rounding through Number ([#321](https://github.com/appium/appium-ios-remotexpc/issues/321)) ([f87bfe6](https://github.com/appium/appium-ios-remotexpc/commit/f87bfe6da51ef917e21b659e8ab58e674127ea4c))
+
 ## [5.18.6](https://github.com/appium/appium-ios-remotexpc/compare/v5.18.5...v5.18.6) (2026-09-03)
 
 ### Bug Fixes
