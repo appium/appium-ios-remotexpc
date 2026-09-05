@@ -507,7 +507,7 @@ function readDictionaryKey(reader: Reader): string {
     bytes.push(b);
   }
   const key = Buffer.from(bytes).toString('utf8');
-  const pad = calcPadding(key.length + 1);
+  const pad = calcPadding(bytes.length + 1);
   reader.skip(pad);
   return key;
 }
