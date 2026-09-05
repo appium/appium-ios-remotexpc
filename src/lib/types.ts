@@ -2,10 +2,12 @@
  * Common type definitions for the appium-ios-remotexpc library
  */
 import {type EventEmitter} from 'node:events';
+import type {Socket} from 'node:net';
 
 import type {ServiceConnection} from '../service-connection.js';
 import type AfcService from '../services/ios/afc/index.js';
 import type {BaseService, Service} from '../services/ios/base-service.js';
+import type {CompanionDeviceEvent, StartForwardingOptions} from '../services/ios/companion-proxy/index.js';
 import type {iOSApplication} from '../services/ios/dvt/instruments/application-listing.js';
 import type {LocationCoordinates} from '../services/ios/dvt/instruments/location-simulation.js';
 import type {NotificationMessage} from '../services/ios/dvt/instruments/notifications.js';
@@ -386,6 +388,57 @@ export interface NotificationProxyService extends BaseService {
   expectNotification(timeout?: number): Promise<PlistMessage>;
   /**
    * Close the notification proxy service connection
+   */
+  close(): void;
+}
+
+/**
+ * Represents the instance side of CompanionProxyService (paired Apple Watch access via the phone)
+ */
+export interface CompanionProxyService extends BaseService {
+  /**
+   * List the UDIDs of the watches paired with this phone
+   * @returns Paired watch UDIDs; empty when none are paired
+   * @throws {CompanionProxyError} On any other daemon `Error` reply
+   */
+  list(): Promise<string[]>;
+  /**
+   * Stream watch pair/unpair/attach/detach events on a dedicated connection that is
+   * closed when the consumer stops iterating, on error, or on `close()`
+   * @param timeout Milliseconds to wait for each event
+   * @throws {CompanionProxyError} On a daemon `Error` reply or a frame that is not a companion event
+   * @throws {Error} When no event arrives within `timeout` or the connection is closed
+   */
+  listen(timeout?: number): AsyncGenerator<CompanionDeviceEvent>;
+  /**
+   * Read one registry value for a paired watch
+   * @param companionUdid Watch UDID
+   * @param key Registry key, e.g. `DeviceName`
+   * @throws {CompanionProxyError} On a daemon `Error` reply or a reply without `RetrievedValueDictionary`
+   */
+  getValue(companionUdid: string, key: string): Promise<PlistValue>;
+  /**
+   * Forward a watch TCP port through the phone
+   * @param watchPort TCP port on the watch
+   * @returns Ephemeral phone port proxying to the watch port
+   * @throws {TypeError} When `watchPort` is not an integer in 1..65535
+   * @throws {CompanionProxyError} On a daemon `Error` reply or a reply without `CompanionProxyServicePort`
+   */
+  startForwardingServicePort(watchPort: number, options?: StartForwardingOptions): Promise<number>;
+  /**
+   * Stop forwarding a watch TCP port
+   * @param watchPort TCP port on the watch
+   * @throws {TypeError} When `watchPort` is not an integer in 1..65535
+   * @throws {CompanionProxyError} On a daemon `Error` reply or a reply that is not a success
+   */
+  stopForwardingServicePort(watchPort: number): Promise<void>;
+  /**
+   * Open a raw TCP socket to a phone port returned by startForwardingServicePort
+   * @param companionPort Phone port
+   */
+  connectToForwardedPort(companionPort: number): Promise<Socket>;
+  /**
+   * Close every open listen() stream
    */
   close(): void;
 }
