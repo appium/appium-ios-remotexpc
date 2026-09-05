@@ -67,10 +67,15 @@ function isCompanionDeviceEvent(frame: PlistDictionary): frame is CompanionDevic
   return typeof frame?.Command === 'string' && typeof frame.GizmoUDIDKey === 'string';
 }
 
-function assertGizmoPort(port: number): void {
+/**
+ * Validate a watch TCP port and pass it through
+ * @throws {TypeError} When `port` is not an integer in 1..65535
+ */
+function assertWatchPort(port: number): number {
   if (!Number.isInteger(port) || port < 1 || port > MAX_PORT) {
-    throw new TypeError(`gizmoPort must be an integer in 1..${MAX_PORT}, got ${port}`);
+    throw new TypeError(`watchPort must be an integer in 1..${MAX_PORT}, got ${port}`);
   }
+  return port;
 }
 
 /**
@@ -79,10 +84,10 @@ function assertGizmoPort(port: number): void {
  * - Read per-watch registry values
  * - Forward a watch TCP port through the phone and connect to it
  */
-class CompanionProxyService extends BaseService implements CompanionProxyServiceInterface {
+export class CompanionProxyService extends BaseService implements CompanionProxyServiceInterface {
   static readonly RSD_SERVICE_NAME = 'com.apple.companion_proxy.shim.remote';
   private readonly timeout: number;
-  private _listenConn: ServiceConnection | null = null;
+  private readonly _listenConns = new Set<ServiceConnection>();
 
   constructor(udid: string, timeout: number = DEFAULT_TIMEOUT_MS) {
     super(udid);
@@ -92,6 +97,7 @@ class CompanionProxyService extends BaseService implements CompanionProxyService
   /**
    * List the UDIDs of the watches paired with this phone
    * @returns Paired watch UDIDs; empty when the daemon reports `NoPairedWatches`
+   * @throws {CompanionProxyError} On any other daemon `Error` reply
    */
   async list(): Promise<string[]> {
     const response = await this.sendCommand({Command: 'GetDeviceRegistry'});
@@ -104,23 +110,30 @@ class CompanionProxyService extends BaseService implements CompanionProxyService
   }
 
   /**
-   * Stream watch pair/unpair/attach/detach events on a dedicated persistent connection.
+   * Stream watch pair/unpair/attach/detach events on a dedicated connection that is closed
+   * when the consumer stops iterating, on error, or on `close()`.
    * The daemon cancels the stream on any further input, so nothing else is ever sent on it.
    * @param timeout Milliseconds to wait for each event
+   * @throws {CompanionProxyError} On a daemon `Error` reply or a frame that is not a companion event
+   * @throws {Error} When no event arrives within `timeout` or the connection is closed
    */
   async *listen(timeout: number = DEFAULT_EVENT_TIMEOUT_MS): AsyncGenerator<CompanionDeviceEvent> {
-    if (!this._listenConn) {
-      this._listenConn = await this.connectToCompanionProxyService();
-      this._listenConn.sendPlist({Command: 'StartListeningForDevices'});
-    }
-    const conn = this._listenConn;
-    while (true) {
-      const frame = await conn.receive(timeout);
-      this.throwOnError(frame, 'StartListeningForDevices');
-      if (!isCompanionDeviceEvent(frame)) {
-        throw new CompanionProxyError(`Unexpected companion event frame: ${JSON.stringify(frame)}`);
+    const conn = await this.connectToCompanionProxyService();
+    this._listenConns.add(conn);
+    try {
+      conn.sendPlist({Command: 'StartListeningForDevices'});
+      while (true) {
+        const frame = await conn.receive(timeout);
+        this.throwOnError(frame, 'StartListeningForDevices');
+        if (!isCompanionDeviceEvent(frame)) {
+          throw new CompanionProxyError(`Unexpected companion event frame: ${JSON.stringify(frame)}`);
+        }
+        yield frame;
       }
-      yield frame;
+    } finally {
+      if (this._listenConns.delete(conn)) {
+        this.closeListenConnection(conn);
+      }
     }
   }
 
@@ -128,6 +141,7 @@ class CompanionProxyService extends BaseService implements CompanionProxyService
    * Read one registry value for a paired watch
    * @param companionUdid Watch UDID from `list()`
    * @param key Registry key, e.g. `DeviceName`, `ProductVersion`, `BatteryCurrentCapacity`
+   * @throws {CompanionProxyError} On a daemon `Error` reply or a reply without `RetrievedValueDictionary`
    */
   async getValue(companionUdid: string, key: string): Promise<PlistValue> {
     const response = await this.sendCommand(this.buildGetValueRequest(companionUdid, key));
@@ -142,11 +156,13 @@ class CompanionProxyService extends BaseService implements CompanionProxyService
   /**
    * Ask the phone to forward a watch TCP port; the listener survives until
    * `stopForwardingServicePort()`. Reach it with `connectToForwardedPort()`.
-   * @param gizmoPort TCP port on the watch
-   * @returns Ephemeral port on the phone proxying to `gizmoPort`
+   * @param watchPort TCP port on the watch
+   * @returns Ephemeral port on the phone proxying to `watchPort`
+   * @throws {TypeError} When `watchPort` is not an integer in 1..65535
+   * @throws {CompanionProxyError} On a daemon `Error` reply or a reply without `CompanionProxyServicePort`
    */
-  async startForwardingServicePort(gizmoPort: number, options?: StartForwardingOptions): Promise<number> {
-    const response = await this.sendCommand(this.buildStartForwardingRequest(gizmoPort, options));
+  async startForwardingServicePort(watchPort: number, options?: StartForwardingOptions): Promise<number> {
+    const response = await this.sendCommand(this.buildStartForwardingRequest(watchPort, options));
     this.throwOnError(response, 'StartForwardingServicePort');
     const port = response.CompanionProxyServicePort;
     if (typeof port !== 'number') {
@@ -158,10 +174,12 @@ class CompanionProxyService extends BaseService implements CompanionProxyService
   /**
    * Stop forwarding a watch port started with `startForwardingServicePort()`.
    * Accepts Apple's misspelled `ComandSuccess` reply as well as `CommandSuccess`.
-   * @param gizmoPort TCP port on the watch (not the phone port returned earlier)
+   * @param watchPort TCP port on the watch (not the phone port returned earlier)
+   * @throws {TypeError} When `watchPort` is not an integer in 1..65535
+   * @throws {CompanionProxyError} On a daemon `Error` reply or a reply that is not a success
    */
-  async stopForwardingServicePort(gizmoPort: number): Promise<void> {
-    const response = await this.sendCommand(this.buildStopForwardingRequest(gizmoPort));
+  async stopForwardingServicePort(watchPort: number): Promise<void> {
+    const response = await this.sendCommand(this.buildStopForwardingRequest(watchPort));
     this.throwOnError(response, 'StopForwardingServicePort');
     if (response.Command !== 'ComandSuccess' && response.Command !== 'CommandSuccess') {
       throw new CompanionProxyError(`Unexpected StopForwardingServicePort reply: ${JSON.stringify(response)}`);
@@ -178,16 +196,13 @@ class CompanionProxyService extends BaseService implements CompanionProxyService
   }
 
   /**
-   * Close the persistent `listen()` connection, if any
+   * Close every open `listen()` stream; their pending receives reject and the generators exit
    */
   close(): void {
-    try {
-      this._listenConn?.close();
-    } catch (error) {
-      log.error('Error closing companion proxy connection:', error);
-    } finally {
-      this._listenConn = null;
+    for (const conn of this._listenConns) {
+      this.closeListenConnection(conn);
     }
+    this._listenConns.clear();
   }
 
   /**
@@ -223,6 +238,14 @@ class CompanionProxyService extends BaseService implements CompanionProxyService
     }
   }
 
+  private closeListenConnection(conn: ServiceConnection): void {
+    try {
+      conn.close();
+    } catch (error) {
+      log.error('Error closing companion proxy connection:', error);
+    }
+  }
+
   private throwOnError(response: PlistDictionary, command: string): void {
     if (!response?.Error) {
       return;
@@ -241,13 +264,12 @@ class CompanionProxyService extends BaseService implements CompanionProxyService
   }
 
   private buildStartForwardingRequest(
-    gizmoPort: number,
+    watchPort: number,
     {serviceName, isServiceLowPriority = false, preferWifi = false, ...options}: StartForwardingOptions = {},
   ): StartForwardingServicePortRequest {
-    assertGizmoPort(gizmoPort);
     return {
       Command: 'StartForwardingServicePort',
-      GizmoRemotePortNumber: gizmoPort,
+      GizmoRemotePortNumber: assertWatchPort(watchPort),
       IsServiceLowPriority: isServiceLowPriority,
       PreferWifi: preferWifi,
       ...(serviceName === undefined ? {} : {ForwardedServiceName: serviceName}),
@@ -255,13 +277,10 @@ class CompanionProxyService extends BaseService implements CompanionProxyService
     };
   }
 
-  private buildStopForwardingRequest(gizmoPort: number): StopForwardingServicePortRequest {
-    assertGizmoPort(gizmoPort);
+  private buildStopForwardingRequest(watchPort: number): StopForwardingServicePortRequest {
     return {
       Command: 'StopForwardingServicePort',
-      GizmoRemotePortNumber: gizmoPort,
+      GizmoRemotePortNumber: assertWatchPort(watchPort),
     };
   }
 }
-
-export {CompanionProxyService};

@@ -11,6 +11,12 @@ const UDID = 'phone-udid';
 const WATCH_UDID = 'watch-udid';
 const RSD_SERVICE_NAME = 'com.apple.companion_proxy.shim.remote';
 const GREETING: PlistDictionary = {Request: 'StartService', Service: RSD_SERVICE_NAME, Port: 49152};
+const attach: CompanionDeviceEvent = {
+  Command: 'GizmoAttach',
+  GizmoUDIDKey: WATCH_UDID,
+  CompanionLockdownProxyPort: 62078,
+};
+const detach: CompanionDeviceEvent = {Command: 'GizmoDetach', GizmoUDIDKey: WATCH_UDID};
 
 interface FakeConnection {
   sentRequests: PlistDictionary[];
@@ -182,7 +188,7 @@ describe('CompanionProxyService', function () {
       });
     });
 
-    it('rejects a gizmoPort outside 1..65535 or non-integer', function () {
+    it('rejects a watchPort outside 1..65535 or non-integer', function () {
       for (const port of [0, 65536, 1.5, -1, Number.NaN]) {
         assert.throws(() => builders.buildStartForwardingRequest(port), TypeError, `start ${port}`);
         assert.throws(() => builders.buildStopForwardingRequest(port), TypeError, `stop ${port}`);
@@ -349,7 +355,7 @@ describe('CompanionProxyService', function () {
       await assert.rejects(service.startForwardingServicePort(62078), CompanionProxyError);
     });
 
-    it('rejects an invalid gizmoPort before opening a connection', async function (t) {
+    it('rejects an invalid watchPort before opening a connection', async function (t) {
       const {service, startedServices} = await createService(t, []);
 
       await assert.rejects(service.startForwardingServicePort(0), TypeError);
@@ -389,14 +395,7 @@ describe('CompanionProxyService', function () {
   });
 
   describe('listen', function () {
-    const attach: CompanionDeviceEvent = {
-      Command: 'GizmoAttach',
-      GizmoUDIDKey: WATCH_UDID,
-      CompanionLockdownProxyPort: 62078,
-    };
-    const detach: CompanionDeviceEvent = {Command: 'GizmoDetach', GizmoUDIDKey: WATCH_UDID};
-
-    it('fires StartListeningForDevices once without awaiting a reply and yields typed events in order', async function (t) {
+    it('fires StartListeningForDevices once, yields typed events in order, and closes when the consumer stops', async function (t) {
       const conn = createFakeConnection([GREETING, attach, detach]);
       const {service} = await createService(t, [conn], 1234);
 
@@ -406,7 +405,7 @@ describe('CompanionProxyService', function () {
       assert.deepStrictEqual(conn.sentMessages, [{Command: 'StartListeningForDevices'}]);
       assert.deepStrictEqual(conn.sentRequests, []);
       assert.deepStrictEqual(conn.timeouts, [1234, 777, 777]);
-      assert.strictEqual(conn.closeCount, 0);
+      assert.strictEqual(conn.closeCount, 1);
     });
 
     it('throws with the daemon code when the stream answers NoSocket', async function (t) {
@@ -423,41 +422,41 @@ describe('CompanionProxyService', function () {
       await assert.rejects(take(service.listen(), 1), CompanionProxyError);
     });
 
-    it('propagates receive errors to the consumer', async function (t) {
+    it('propagates receive errors to the consumer and closes the connection', async function (t) {
       const conn = createFakeConnection([GREETING, new Error('socket lost')]);
       const {service} = await createService(t, [conn]);
 
       await assert.rejects(take(service.listen(), 1), /socket lost/);
+
+      assert.strictEqual(conn.closeCount, 1);
     });
 
-    it('reuses the persistent connection until close(), then reconnects', async function (t) {
-      const first = createFakeConnection([GREETING, attach, detach]);
-      const second = createFakeConnection([GREETING, attach]);
+    it('opens a dedicated connection per listen() call and closes it when iteration ends', async function (t) {
+      const first = createFakeConnection([GREETING, attach]);
+      const second = createFakeConnection([GREETING, detach]);
       const {service, startedServices} = await createService(t, [first, second]);
 
       assert.deepStrictEqual(await take(service.listen(), 1), [attach]);
-      assert.deepStrictEqual(await take(service.listen(), 1), [detach]);
-      assert.deepStrictEqual(startedServices, [RSD_SERVICE_NAME]);
-      assert.deepStrictEqual(first.sentMessages, [{Command: 'StartListeningForDevices'}]);
-
-      service.close();
       assert.strictEqual(first.closeCount, 1);
+      assert.deepStrictEqual(await take(service.listen(), 1), [detach]);
+      assert.strictEqual(second.closeCount, 1);
 
-      assert.deepStrictEqual(await take(service.listen(), 1), [attach]);
       assert.deepStrictEqual(startedServices, [RSD_SERVICE_NAME, RSD_SERVICE_NAME]);
+      assert.deepStrictEqual(first.sentMessages, [{Command: 'StartListeningForDevices'}]);
       assert.deepStrictEqual(second.sentMessages, [{Command: 'StartListeningForDevices'}]);
     });
 
-    it('keeps the listen connection open across per-command calls', async function (t) {
-      const listenConn = createFakeConnection([GREETING, attach]);
-      const commandConn = createFakeConnection([GREETING, {PairedDevicesArray: [WATCH_UDID]}]);
-      const {service} = await createService(t, [listenConn, commandConn]);
+    it('does not share a connection between concurrent listeners', async function (t) {
+      const first = createFakeConnection([GREETING, attach]);
+      const second = createFakeConnection([GREETING, detach]);
+      const {service, startedServices} = await createService(t, [first, second]);
 
-      await take(service.listen(), 1);
-      await service.list();
+      const events = await Promise.all([take(service.listen(), 1), take(service.listen(), 1)]);
 
-      assert.strictEqual(listenConn.closeCount, 0);
-      assert.strictEqual(commandConn.closeCount, 1);
+      assert.deepStrictEqual(events, [[attach], [detach]]);
+      assert.deepStrictEqual(startedServices, [RSD_SERVICE_NAME, RSD_SERVICE_NAME]);
+      assert.strictEqual(first.closeCount, 1);
+      assert.strictEqual(second.closeCount, 1);
     });
   });
 
@@ -481,15 +480,36 @@ describe('CompanionProxyService', function () {
       assert.deepStrictEqual(startedServices, []);
     });
 
+    it('closes every active listen() connection exactly once', async function (t) {
+      const first = createFakeConnection([GREETING, attach, detach]);
+      const second = createFakeConnection([GREETING, attach, detach]);
+      const {service} = await createService(t, [first, second]);
+      const firstEvents = service.listen();
+      const secondEvents = service.listen();
+      await firstEvents.next();
+      await secondEvents.next();
+
+      service.close();
+
+      assert.strictEqual(first.closeCount, 1);
+      assert.strictEqual(second.closeCount, 1);
+      await firstEvents.return(undefined);
+      await secondEvents.return(undefined);
+      assert.strictEqual(first.closeCount, 1);
+      assert.strictEqual(second.closeCount, 1);
+    });
+
     it('swallows errors thrown by the underlying connection close', async function (t) {
       const conn = createFakeConnection([GREETING, {Command: 'GizmoPaired', GizmoUDIDKey: WATCH_UDID}]);
       conn.close = () => {
         throw new Error('already closed');
       };
       const {service} = await createService(t, [conn]);
-      await take(service.listen(), 1);
+      const events = service.listen();
+      await events.next();
 
       service.close();
+      await events.return(undefined);
     });
   });
 });
