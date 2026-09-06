@@ -1,3 +1,9 @@
+## [5.18.8](https://github.com/appium/appium-ios-remotexpc/compare/v5.18.7...v5.18.8) (2026-09-06)
+
+### Bug Fixes
+
+* **remote-xpc:** pad dictionary keys on UTF-8 byte length ([#322](https://github.com/appium/appium-ios-remotexpc/issues/322)) ([6fa489d](https://github.com/appium/appium-ios-remotexpc/commit/6fa489d977879276578924a4edcca233be7dee5a))
+
 ## [5.18.7](https://github.com/appium/appium-ios-remotexpc/compare/v5.18.6...v5.18.7) (2026-09-05)
 
 ### Bug Fixes
