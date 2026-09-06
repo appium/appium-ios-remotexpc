@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
+import {EventEmitter} from 'node:events';
 import type {Socket} from 'node:net';
 import {type TestContext, describe, it} from 'node:test';
+import {setImmediate as nextTick} from 'node:timers/promises';
 
 import type {PlistDictionary} from '../../../src/lib/types.js';
 import {CompanionProxyError} from '../../../src/services/ios/companion-proxy/errors.js';
@@ -17,15 +19,20 @@ const attach: CompanionDeviceEvent = {
   CompanionLockdownProxyPort: 62078,
 };
 const detach: CompanionDeviceEvent = {Command: 'GizmoDetach', GizmoUDIDKey: WATCH_UDID};
+/** Inbound marker: `receive()` stays pending until `close()` rejects it, like the real PlistService */
+const PENDING = Symbol('pending');
 
 interface FakeConnection {
   sentRequests: PlistDictionary[];
   sentMessages: PlistDictionary[];
   timeouts: Array<number | undefined>;
   closeCount: number;
+  socket: EventEmitter;
+  pendingRejects: Array<(error: Error) => void>;
   sendPlistRequest(request: PlistDictionary, timeout?: number): Promise<PlistDictionary>;
   sendPlist(message: PlistDictionary): void;
   receive(timeout?: number): Promise<PlistDictionary>;
+  getSocket(): EventEmitter;
   close(): void;
 }
 
@@ -33,13 +40,15 @@ interface FakeConnection {
  * Fake ServiceConnection whose inbound frames are served in order to both
  * `receive()` and `sendPlistRequest()` (which the real class implements as send + receive).
  */
-function createFakeConnection(inbound: Array<PlistDictionary | Error>): FakeConnection {
+function createFakeConnection(inbound: Array<PlistDictionary | Error | typeof PENDING>): FakeConnection {
   const frames = [...inbound];
   const conn: FakeConnection = {
     sentRequests: [],
     sentMessages: [],
     timeouts: [],
     closeCount: 0,
+    socket: new EventEmitter(),
+    pendingRejects: [],
     async sendPlistRequest(request, timeout) {
       conn.sentRequests.push(request);
       return await conn.receive(timeout);
@@ -53,13 +62,22 @@ function createFakeConnection(inbound: Array<PlistDictionary | Error>): FakeConn
       if (frame === undefined) {
         throw new Error('fake connection has no more inbound frames');
       }
+      if (frame === PENDING) {
+        return await new Promise<PlistDictionary>((_, reject) => conn.pendingRejects.push(reject));
+      }
       if (frame instanceof Error) {
         throw frame;
       }
       return frame;
     },
+    getSocket() {
+      return conn.socket;
+    },
     close() {
       conn.closeCount++;
+      for (const reject of conn.pendingRejects.splice(0)) {
+        reject(new Error('Connection closed while waiting for plist response'));
+      }
     },
   };
   return conn;
@@ -444,6 +462,20 @@ describe('CompanionProxyService', function () {
       assert.deepStrictEqual(startedServices, [RSD_SERVICE_NAME, RSD_SERVICE_NAME]);
       assert.deepStrictEqual(first.sentMessages, [{Command: 'StartListeningForDevices'}]);
       assert.deepStrictEqual(second.sentMessages, [{Command: 'StartListeningForDevices'}]);
+    });
+
+    it('exits when the daemon closes the socket instead of waiting out the event timeout', async function (t) {
+      const conn = createFakeConnection([GREETING, PENDING]);
+      const {service} = await createService(t, [conn]);
+
+      const consumed = take(service.listen(), 1);
+      while (conn.pendingRejects.length === 0) {
+        await nextTick();
+      }
+      conn.socket.emit('close');
+
+      await assert.rejects(consumed, /Connection closed/);
+      assert.strictEqual(conn.closeCount, 1);
     });
 
     it('does not share a connection between concurrent listeners', async function (t) {

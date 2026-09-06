@@ -104,36 +104,33 @@ export class CompanionProxyService extends BaseService implements CompanionProxy
     if (response.Error === 'NoPairedWatches') {
       return [];
     }
-    this.throwOnError(response, 'GetDeviceRegistry');
-    const udids = response.PairedDevicesArray;
+    const udids = this.throwOnError(response, 'GetDeviceRegistry').PairedDevicesArray;
     return Array.isArray(udids) ? udids.map(String) : [];
   }
 
   /**
    * Stream watch pair/unpair/attach/detach events on a dedicated connection that is closed
-   * when the consumer stops iterating, on error, or on `close()`.
+   * when the consumer stops iterating, on error, on `close()`, or when the daemon hangs up.
    * The daemon cancels the stream on any further input, so nothing else is ever sent on it.
    * @param timeout Milliseconds to wait for each event
    * @throws {CompanionProxyError} On a daemon `Error` reply or a frame that is not a companion event
-   * @throws {Error} When no event arrives within `timeout` or the connection is closed
+   * @throws {Error} When no event arrives within `timeout` or the connection is closed by either side
    */
   async *listen(timeout: number = DEFAULT_EVENT_TIMEOUT_MS): AsyncGenerator<CompanionDeviceEvent> {
     const conn = await this.connectToCompanionProxyService();
     this._listenConns.add(conn);
+    conn.getSocket().once('close', () => this.releaseListenConnection(conn));
     try {
       conn.sendPlist({Command: 'StartListeningForDevices'});
       while (true) {
-        const frame = await conn.receive(timeout);
-        this.throwOnError(frame, 'StartListeningForDevices');
+        const frame = this.throwOnError(await conn.receive(timeout), 'StartListeningForDevices');
         if (!isCompanionDeviceEvent(frame)) {
           throw new CompanionProxyError(`Unexpected companion event frame: ${JSON.stringify(frame)}`);
         }
         yield frame;
       }
     } finally {
-      if (this._listenConns.delete(conn)) {
-        this.closeListenConnection(conn);
-      }
+      this.releaseListenConnection(conn);
     }
   }
 
@@ -144,8 +141,10 @@ export class CompanionProxyService extends BaseService implements CompanionProxy
    * @throws {CompanionProxyError} On a daemon `Error` reply or a reply without `RetrievedValueDictionary`
    */
   async getValue(companionUdid: string, key: string): Promise<PlistValue> {
-    const response = await this.sendCommand(this.buildGetValueRequest(companionUdid, key));
-    this.throwOnError(response, 'GetValueFromRegistry');
+    const response = this.throwOnError(
+      await this.sendCommand(this.buildGetValueRequest(companionUdid, key)),
+      'GetValueFromRegistry',
+    );
     const values = response.RetrievedValueDictionary;
     if (!isPlistDictionary(values)) {
       throw new CompanionProxyError(`Unexpected GetValueFromRegistry reply: ${JSON.stringify(response)}`);
@@ -162,8 +161,10 @@ export class CompanionProxyService extends BaseService implements CompanionProxy
    * @throws {CompanionProxyError} On a daemon `Error` reply or a reply without `CompanionProxyServicePort`
    */
   async startForwardingServicePort(watchPort: number, options?: StartForwardingOptions): Promise<number> {
-    const response = await this.sendCommand(this.buildStartForwardingRequest(watchPort, options));
-    this.throwOnError(response, 'StartForwardingServicePort');
+    const response = this.throwOnError(
+      await this.sendCommand(this.buildStartForwardingRequest(watchPort, options)),
+      'StartForwardingServicePort',
+    );
     const port = response.CompanionProxyServicePort;
     if (typeof port !== 'number') {
       throw new CompanionProxyError(`Unexpected StartForwardingServicePort reply: ${JSON.stringify(response)}`);
@@ -179,8 +180,10 @@ export class CompanionProxyService extends BaseService implements CompanionProxy
    * @throws {CompanionProxyError} On a daemon `Error` reply or a reply that is not a success
    */
   async stopForwardingServicePort(watchPort: number): Promise<void> {
-    const response = await this.sendCommand(this.buildStopForwardingRequest(watchPort));
-    this.throwOnError(response, 'StopForwardingServicePort');
+    const response = this.throwOnError(
+      await this.sendCommand(this.buildStopForwardingRequest(watchPort)),
+      'StopForwardingServicePort',
+    );
     if (response.Command !== 'ComandSuccess' && response.Command !== 'CommandSuccess') {
       throw new CompanionProxyError(`Unexpected StopForwardingServicePort reply: ${JSON.stringify(response)}`);
     }
@@ -214,8 +217,7 @@ export class CompanionProxyService extends BaseService implements CompanionProxy
       createConnectionTimeout: this.timeout,
     });
     try {
-      const greeting = await conn.receive(this.timeout);
-      this.throwOnError(greeting, 'StartService');
+      const greeting = this.throwOnError(await conn.receive(this.timeout), 'StartService');
       if (greeting?.Request !== 'StartService') {
         throw new CompanionProxyError(`Expected StartService greeting, got: ${JSON.stringify(greeting)}`);
       }
@@ -246,9 +248,22 @@ export class CompanionProxyService extends BaseService implements CompanionProxy
     }
   }
 
-  private throwOnError(response: PlistDictionary, command: string): void {
+  /**
+   * Close a `listen()` connection exactly once; rejects its pending receive so the generator exits
+   */
+  private releaseListenConnection(conn: ServiceConnection): void {
+    if (this._listenConns.delete(conn)) {
+      this.closeListenConnection(conn);
+    }
+  }
+
+  /**
+   * Throw on a daemon `Error` reply, otherwise pass the response through
+   * @throws {CompanionProxyError} Carrying the daemon `Error` code
+   */
+  private throwOnError<T extends PlistDictionary>(response: T, command: string): T {
     if (!response?.Error) {
-      return;
+      return response;
     }
     const code = String(response.Error);
     const description = response.ErrorDescription ? ` - ${String(response.ErrorDescription)}` : '';
