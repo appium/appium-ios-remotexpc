@@ -6,7 +6,7 @@ import type {XPCDictionary} from '../types.js';
 import {Http2Constants} from './constants.js';
 import {DataFrame} from './handshake-frames.js';
 import Handshake from './handshake.js';
-import {Http2FrameParser, buildWindowUpdateFrames} from './http2-frame-parser.js';
+import {Http2FrameParser, type PeerTeardownFrame, buildWindowUpdateFrames} from './http2-frame-parser.js';
 import {decodeMessage, probeXpcFraming, XPC_WRAPPER_HEADER_SIZE} from './xpc-protocol.js';
 
 const log = getLogger('RemoteXpcFramedTransport');
@@ -272,6 +272,10 @@ export class RemoteXpcFramedTransport extends EventEmitter {
         this.flushPendingSends();
         continue;
       }
+      if (frame.type === 'rstStream' || frame.type === 'goAway') {
+        this.handlePeerTeardown(frame);
+        return;
+      }
       if (frame.type !== 'data') {
         continue;
       }
@@ -356,10 +360,26 @@ export class RemoteXpcFramedTransport extends EventEmitter {
    * emit so a listener that reconnects synchronously keeps its new socket.
    */
   private handleDesync(reason: string): void {
+    this.failConnection(reason);
+  }
+
+  /**
+   * RST_STREAM and GOAWAY are fatal: the peer is closing the channel or the
+   * connection, and nothing usable follows either frame.
+   */
+  private handlePeerTeardown(frame: PeerTeardownFrame): void {
+    this.failConnection(
+      frame.type === 'rstStream'
+        ? `Peer sent RST_STREAM on stream ${frame.streamId} with error code ${frame.errorCode}`
+        : `Peer sent GOAWAY (last stream ${frame.lastStreamId}) with error code ${frame.errorCode}`,
+    );
+  }
+
+  private failConnection(reason: string): void {
     this.desynced = true;
     this.connected = false;
     this.close().catch((error: unknown) => {
-      log.debug(`Failed to close a desynced RemoteXPC transport: ${error}`);
+      log.debug(`Failed to close a failed RemoteXPC transport: ${error}`);
     });
     this.emit('error', new Error(reason));
   }
