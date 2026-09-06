@@ -3,7 +3,9 @@ import {InvalidDataError, WindowUpdateFrame} from './handshake-frames.js';
 
 const FRAME_HEADER_SIZE = 9;
 const FRAME_TYPE_DATA = 0x00;
+const FRAME_TYPE_RST_STREAM = 0x03;
 const FRAME_TYPE_SETTINGS = 0x04;
+const FRAME_TYPE_GOAWAY = 0x07;
 const FRAME_TYPE_WINDOW_UPDATE = 0x08;
 const FLAG_PADDED = 0x08;
 const SETTINGS_ENTRY_SIZE = 6;
@@ -18,7 +20,11 @@ export type ParsedFrame =
   | {readonly type: 'data'; readonly frame: ParsedDataFrame}
   | {readonly type: 'settings'; readonly settings: Record<number, number>}
   | {readonly type: 'windowUpdate'; readonly streamId: number; readonly increment: number}
+  | {readonly type: 'rstStream'; readonly streamId: number; readonly errorCode: number}
+  | {readonly type: 'goAway'; readonly lastStreamId: number; readonly errorCode: number}
   | {readonly type: 'other'};
+
+export type PeerTeardownFrame = Extract<ParsedFrame, {type: 'rstStream' | 'goAway'}>;
 
 /**
  * Incrementally parse HTTP/2 frames from a byte stream (RFC 7540).
@@ -68,6 +74,12 @@ function parseFrame(buffer: Buffer): ParsedFrame {
   }
   if (type === FRAME_TYPE_WINDOW_UPDATE) {
     return {type: 'windowUpdate', streamId, increment: body.readUInt32BE(0) & 0x7fffffff};
+  }
+  if (type === FRAME_TYPE_RST_STREAM) {
+    return {type: 'rstStream', streamId, errorCode: body.readUInt32BE(0)};
+  }
+  if (type === FRAME_TYPE_GOAWAY) {
+    return {type: 'goAway', lastStreamId: body.readUInt32BE(0) & 0x7fffffff, errorCode: body.readUInt32BE(4)};
   }
   if (type !== FRAME_TYPE_DATA) {
     return {type: 'other'};

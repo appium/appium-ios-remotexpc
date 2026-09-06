@@ -3,7 +3,13 @@ import * as net from 'node:net';
 import {describe, it} from 'node:test';
 
 import {RsdServiceCatalogClient} from '../../../src/lib/remote-xpc/rsd-service-catalog-client.js';
-import {buildCatalogMessage, buildUndecodableMessage, toDataFrame} from './xpc-fixtures.js';
+import {
+  buildCatalogMessage,
+  buildUndecodableMessage,
+  toDataFrame,
+  toGoAwayFrame,
+  toRstStreamFrame,
+} from './xpc-fixtures.js';
 
 /** Exceeds the client's internal handshake delay so teardown cannot race it. */
 const HANDSHAKE_DRAIN_MS = 200;
@@ -70,6 +76,26 @@ describe('RsdServiceCatalogClient', function () {
   it('fails the connect attempt when the stream desyncs', async function () {
     await withScriptedRsd([toDataFrame(Buffer.alloc(64, 0xab))], async (client): Promise<void> => {
       await assert.rejects(client.connect({timeoutMs: 5000}), /Invalid XPC wrapper magic/);
+    });
+  });
+
+  it('fails the connect attempt as soon as the peer resets the root channel during check-in', async function () {
+    await withScriptedRsd([toRstStreamFrame(1, 5)], async (client): Promise<void> => {
+      const started = Date.now();
+
+      await assert.rejects(client.connect({timeoutMs: 5000}), /RST_STREAM/);
+
+      assert.ok(Date.now() - started < 2000, 'a reset must not sit out the post-handshake service timeout');
+    });
+  });
+
+  it('fails the connect attempt as soon as the peer sends GOAWAY during check-in', async function () {
+    await withScriptedRsd([toGoAwayFrame(1, 1)], async (client): Promise<void> => {
+      const started = Date.now();
+
+      await assert.rejects(client.connect({timeoutMs: 5000}), /GOAWAY/);
+
+      assert.ok(Date.now() - started < 2000, 'GOAWAY must not sit out the post-handshake service timeout');
     });
   });
 });
