@@ -269,11 +269,12 @@ export class RemoteXpcFramedTransport extends EventEmitter {
     for (const frame of frames) {
       switch (frame.type) {
         case 'settings':
-          this.applyPeerSettings(frame.settings);
-          this.flushPendingSends();
-          break;
         case 'windowUpdate':
-          this.adjustSendWindow(frame.streamId, frame.increment);
+          if (frame.type === 'settings') {
+            this.applyPeerSettings(frame.settings);
+          } else {
+            this.adjustSendWindow(frame.streamId, frame.increment);
+          }
           this.flushPendingSends();
           break;
         case 'rstStream':
@@ -387,6 +388,10 @@ export class RemoteXpcFramedTransport extends EventEmitter {
       case 'goAway':
         this.failConnection(`Peer sent GOAWAY (last stream ${frame.lastStreamId}) with error code ${frame.errorCode}`);
         return;
+      default: {
+        const unhandled: never = frame;
+        throw new Error(`Unhandled peer teardown frame: ${JSON.stringify(unhandled)}`);
+      }
     }
   }
 
