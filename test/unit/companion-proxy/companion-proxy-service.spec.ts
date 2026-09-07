@@ -490,6 +490,53 @@ describe('CompanionProxyService', function () {
       assert.strictEqual(first.closeCount, 1);
       assert.strictEqual(second.closeCount, 1);
     });
+
+    it('settles a pending iteration with AbortError and closes only its own connection when the signal aborts', async function (t) {
+      const aborted = createFakeConnection([GREETING, PENDING]);
+      const untouched = createFakeConnection([GREETING, PENDING, attach]);
+      const {service} = await createService(t, [aborted, untouched]);
+      const controller = new AbortController();
+      const consumed = take(service.listen(undefined, controller.signal), 1);
+      const other = service.listen(undefined, new AbortController().signal);
+      const otherNext = other.next();
+      while (aborted.pendingRejects.length === 0 || untouched.pendingRejects.length === 0) {
+        await nextTick();
+      }
+
+      controller.abort();
+
+      await assert.rejects(consumed, {name: 'AbortError'});
+      assert.strictEqual(aborted.closeCount, 1);
+      assert.strictEqual(untouched.closeCount, 0);
+      untouched.pendingRejects.splice(0).forEach((reject) => reject(new Error('unblock')));
+      await assert.rejects(otherNext, /unblock/);
+      assert.strictEqual(untouched.closeCount, 1);
+    });
+
+    it('settles the next pull with AbortError and skips another receive when aborted between events', async function (t) {
+      const conn = createFakeConnection([GREETING, attach, PENDING]);
+      const {service} = await createService(t, [conn]);
+      const controller = new AbortController();
+      const events = service.listen(undefined, controller.signal);
+      assert.deepStrictEqual(await events.next(), {value: attach, done: false});
+
+      controller.abort();
+
+      await assert.rejects(events.next(), {name: 'AbortError'});
+      assert.strictEqual(conn.timeouts.length, 2);
+      assert.strictEqual(conn.closeCount, 1);
+    });
+
+    it('throws the abort reason without streaming when the signal is already aborted', async function (t) {
+      const conn = createFakeConnection([GREETING]);
+      const {service} = await createService(t, [conn]);
+      const reason = new Error('caller gave up');
+
+      await assert.rejects(take(service.listen(undefined, AbortSignal.abort(reason)), 1), reason);
+
+      assert.deepStrictEqual(conn.sentMessages, []);
+      assert.strictEqual(conn.closeCount, 1);
+    });
   });
 
   describe('connectToForwardedPort', function () {

@@ -110,17 +110,25 @@ export class CompanionProxyService extends BaseService implements CompanionProxy
 
   /**
    * Stream watch pair/unpair/attach/detach events on a dedicated connection that is closed
-   * when the consumer stops iterating, on error, on `close()`, or when the daemon hangs up.
+   * when the consumer stops iterating, on error, on abort, on `close()`, or when the daemon hangs up.
    * The daemon cancels the stream on any further input, so nothing else is ever sent on it.
    * @param timeout Milliseconds to wait for each event
+   * @param signal Aborting it stops this stream only, settling a pending iteration with the abort reason
    * @throws {CompanionProxyError} On a daemon `Error` reply or a frame that is not a companion event
    * @throws {Error} When no event arrives within `timeout` or the connection is closed by either side
+   * @throws {DOMException} The `AbortError` (or `signal.reason`) once `signal` aborts
    */
-  async *listen(timeout: number = DEFAULT_EVENT_TIMEOUT_MS): AsyncGenerator<CompanionDeviceEvent> {
+  async *listen(
+    timeout: number = DEFAULT_EVENT_TIMEOUT_MS,
+    signal?: AbortSignal,
+  ): AsyncGenerator<CompanionDeviceEvent> {
     const conn = await this.connectToCompanionProxyService();
     this._listenConns.add(conn);
-    conn.getSocket().once('close', () => this.releaseListenConnection(conn));
+    const release = (): void => this.releaseListenConnection(conn);
+    conn.getSocket().once('close', release);
+    signal?.addEventListener('abort', release, {once: true});
     try {
+      signal?.throwIfAborted();
       conn.sendPlist({Command: 'StartListeningForDevices'});
       while (true) {
         const frame = this.throwOnError(await conn.receive(timeout), 'StartListeningForDevices');
@@ -128,9 +136,13 @@ export class CompanionProxyService extends BaseService implements CompanionProxy
           throw new CompanionProxyError(`Unexpected companion event frame: ${JSON.stringify(frame)}`);
         }
         yield frame;
+        signal?.throwIfAborted();
       }
+    } catch (error) {
+      throw signal?.aborted ? signal.reason : error;
     } finally {
-      this.releaseListenConnection(conn);
+      signal?.removeEventListener('abort', release);
+      release();
     }
   }
 

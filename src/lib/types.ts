@@ -404,12 +404,14 @@ export interface CompanionProxyService extends BaseService {
   list(): Promise<string[]>;
   /**
    * Stream watch pair/unpair/attach/detach events on a dedicated connection that is
-   * closed when the consumer stops iterating, on error, or on `close()`
+   * closed when the consumer stops iterating, on error, on abort, or on `close()`
    * @param timeout Milliseconds to wait for each event
+   * @param signal Aborting it stops this stream only, settling a pending iteration with the abort reason
    * @throws {CompanionProxyError} On a daemon `Error` reply or a frame that is not a companion event
    * @throws {Error} When no event arrives within `timeout` or the connection is closed
+   * @throws {DOMException} The `AbortError` (or `signal.reason`) once `signal` aborts
    */
-  listen(timeout?: number): AsyncGenerator<CompanionDeviceEvent>;
+  listen(timeout?: number, signal?: AbortSignal): AsyncGenerator<CompanionDeviceEvent>;
   /**
    * Read one registry value for a paired watch
    * @param companionUdid Watch UDID
