@@ -8,7 +8,14 @@ import {Http2FrameParser, type ParsedDataFrame} from '../../../src/lib/remote-xp
 import {RemoteXpcFramedTransport} from '../../../src/lib/remote-xpc/remote-xpc-framed-transport.js';
 import {MAX_XPC_BODY_SIZE, probeXpcFraming} from '../../../src/lib/remote-xpc/xpc-protocol.js';
 import type {XPCDictionary} from '../../../src/lib/types.js';
-import {buildMessage, buildUndecodableMessage, toDataFrame} from './xpc-fixtures.js';
+import {
+  buildMessage,
+  buildUndecodableMessage,
+  toDataFrame,
+  toGoAwayFrame,
+  toPingFrame,
+  toRstStreamFrame,
+} from './xpc-fixtures.js';
 
 interface PendingXpcEntry {
   chunks: Buffer[];
@@ -513,6 +520,57 @@ describe('RemoteXpcFramedTransport', function () {
         await waitFor(() => sentBytes(sentFrames()) >= payload.length);
 
         assert.deepStrictEqual(Buffer.concat(sentFrames().map((frame) => frame.data)), payload);
+      });
+    });
+  });
+
+  describe('peer-initiated teardown', function () {
+    /** Resolves with the next 'error', or undefined once teardown time has passed without one. */
+    function nextErrorOrTimeout(transport: RemoteXpcFramedTransport): Promise<Error | undefined> {
+      return Promise.race([
+        new Promise<Error>((resolve) => transport.once('error', resolve)),
+        settle(SOCKET_TEARDOWN_MS).then((): undefined => undefined),
+      ]);
+    }
+
+    it('emits a diagnosable error when the peer resets the root channel with RST_STREAM', async function () {
+      await withPeer(async ({transport, peer}) => {
+        const failed = nextErrorOrTimeout(transport);
+
+        peer.write(toRstStreamFrame(Http2Constants.ROOT_CHANNEL, 5));
+
+        const error = await failed;
+        assert.ok(error, 'RST_STREAM was silently dropped instead of failing the transport');
+        assert.match(error.message, /RST_STREAM/);
+        assert.match(error.message, /\b5\b/, 'the error code must be reported so the reset is diagnosable');
+      });
+    });
+
+    it('emits an error and disconnects when the peer sends GOAWAY', async function () {
+      await withPeer(async ({transport, peer}) => {
+        const failed = nextErrorOrTimeout(transport);
+
+        peer.write(toGoAwayFrame(Http2Constants.ROOT_CHANNEL, 1));
+
+        const error = await failed;
+        assert.ok(error, 'GOAWAY was silently dropped instead of failing the transport');
+        assert.match(error.message, /GOAWAY/);
+        assert.strictEqual(transport.isConnected, false, 'GOAWAY ends the whole connection');
+      });
+    });
+
+    it('still tolerates a PING and delivers the DATA behind it', async function () {
+      await withPeer(async ({transport, peer}) => {
+        const messages: XPCDictionary[] = [];
+        const errors: Error[] = [];
+        transport.on('message', (body: XPCDictionary) => messages.push(body));
+        transport.on('error', (error: Error) => errors.push(error));
+
+        peer.write(Buffer.concat([toPingFrame(), toDataFrame(buildMessage({n: 1}))]));
+        await waitFor(() => messages.length > 0);
+
+        assert.deepStrictEqual(messages, [{n: 1}]);
+        assert.deepStrictEqual(errors, [], 'only RST_STREAM and GOAWAY are fatal, not every non-DATA frame');
       });
     });
   });
