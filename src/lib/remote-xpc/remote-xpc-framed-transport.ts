@@ -6,7 +6,12 @@ import type {XPCDictionary} from '../types.js';
 import {Http2Constants} from './constants.js';
 import {DataFrame} from './handshake-frames.js';
 import Handshake from './handshake.js';
-import {Http2FrameParser, type PeerTeardownFrame, buildWindowUpdateFrames} from './http2-frame-parser.js';
+import {
+  Http2FrameParser,
+  type ParsedDataFrame,
+  type PeerTeardownFrame,
+  buildWindowUpdateFrames,
+} from './http2-frame-parser.js';
 import {decodeMessage, probeXpcFraming, XPC_WRAPPER_HEADER_SIZE} from './xpc-protocol.js';
 
 const log = getLogger('RemoteXpcFramedTransport');
@@ -262,35 +267,42 @@ export class RemoteXpcFramedTransport extends EventEmitter {
     }
 
     for (const frame of frames) {
-      if (frame.type === 'settings') {
-        this.applyPeerSettings(frame.settings);
-        this.flushPendingSends();
-        continue;
+      switch (frame.type) {
+        case 'settings':
+          this.applyPeerSettings(frame.settings);
+          this.flushPendingSends();
+          break;
+        case 'windowUpdate':
+          this.adjustSendWindow(frame.streamId, frame.increment);
+          this.flushPendingSends();
+          break;
+        case 'rstStream':
+        case 'goAway':
+          this.handlePeerTeardown(frame);
+          return;
+        case 'data':
+          if (!this.handleDataFrame(frame.frame)) {
+            return;
+          }
+          break;
+        default:
+          break;
       }
-      if (frame.type === 'windowUpdate') {
-        this.adjustSendWindow(frame.streamId, frame.increment);
-        this.flushPendingSends();
-        continue;
-      }
-      if (frame.type === 'rstStream' || frame.type === 'goAway') {
-        this.handlePeerTeardown(frame);
-        return;
-      }
-      if (frame.type !== 'data') {
-        continue;
-      }
-
-      const socket = this.socket;
-      if (this.desynced || !socket) {
-        return;
-      }
-
-      const {streamId, data, bodyLen} = frame.frame;
-      for (const windowUpdate of buildWindowUpdateFrames(streamId, bodyLen)) {
-        socket.write(windowUpdate);
-      }
-      this.ingestXpcData(streamId, data);
     }
+  }
+
+  /** Returns false once the connection is desynced or closed, so callers stop feeding it frames. */
+  private handleDataFrame({streamId, data, bodyLen}: ParsedDataFrame): boolean {
+    const socket = this.socket;
+    if (this.desynced || !socket) {
+      return false;
+    }
+
+    for (const windowUpdate of buildWindowUpdateFrames(streamId, bodyLen)) {
+      socket.write(windowUpdate);
+    }
+    this.ingestXpcData(streamId, data);
+    return true;
   }
 
   /**
@@ -368,11 +380,14 @@ export class RemoteXpcFramedTransport extends EventEmitter {
    * connection, and nothing usable follows either frame.
    */
   private handlePeerTeardown(frame: PeerTeardownFrame): void {
-    this.failConnection(
-      frame.type === 'rstStream'
-        ? `Peer sent RST_STREAM on stream ${frame.streamId} with error code ${frame.errorCode}`
-        : `Peer sent GOAWAY (last stream ${frame.lastStreamId}) with error code ${frame.errorCode}`,
-    );
+    switch (frame.type) {
+      case 'rstStream':
+        this.failConnection(`Peer sent RST_STREAM on stream ${frame.streamId} with error code ${frame.errorCode}`);
+        return;
+      case 'goAway':
+        this.failConnection(`Peer sent GOAWAY (last stream ${frame.lastStreamId}) with error code ${frame.errorCode}`);
+        return;
+    }
   }
 
   private failConnection(reason: string): void {
