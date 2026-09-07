@@ -1,3 +1,9 @@
+## [5.18.9](https://github.com/appium/appium-ios-remotexpc/compare/v5.18.8...v5.18.9) (2026-09-07)
+
+### Bug Fixes
+
+* **remote-xpc:** treat RST_STREAM and GOAWAY as fatal instead of ignoring them ([#323](https://github.com/appium/appium-ios-remotexpc/issues/323)) ([e317558](https://github.com/appium/appium-ios-remotexpc/commit/e317558eaa1da74fe886908957d3a4be6281c075))
+
 ## [5.18.8](https://github.com/appium/appium-ios-remotexpc/compare/v5.18.7...v5.18.8) (2026-09-06)
 
 ### Bug Fixes
