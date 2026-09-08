@@ -1,3 +1,9 @@
+## [5.19.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.18.9...v5.19.0) (2026-09-08)
+
+### Features
+
+* **companion-proxy:** add CompanionProxyService for paired Apple Watch access ([#320](https://github.com/appium/appium-ios-remotexpc/issues/320)) ([453b35b](https://github.com/appium/appium-ios-remotexpc/commit/453b35b0fcb444818b1bcde28b680f06dab2a0d8))
+
 ## [5.18.9](https://github.com/appium/appium-ios-remotexpc/compare/v5.18.8...v5.18.9) (2026-09-07)
 
 ### Bug Fixes
