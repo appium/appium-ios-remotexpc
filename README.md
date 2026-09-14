@@ -102,7 +102,7 @@ The `appium-ios-tuntap (previously tuntap-bridge)` module plays a crucial role i
 5. **Service Access**: Enables access to iOS shim services through the tunnel
 
 **Technical Details:**
-- **Platform Support**: Works on both macOS and Linux
+- **Platform Support**: Works on macOS, Linux, and Windows (Windows uses WinTun and requires an elevated shell)
 - **IPv6 Support**: Creates IPv6 tunnels for modern iOS communication
 - **Packet Handling**: Manages packet routing between virtual interface and device
 - **Automatic Cleanup**: Properly closes tunnels and cleans up interfaces
