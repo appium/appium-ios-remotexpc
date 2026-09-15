@@ -1,3 +1,9 @@
+## [5.19.1](https://github.com/appium/appium-ios-remotexpc/compare/v5.19.0...v5.19.1) (2026-09-15)
+
+### Bug Fixes
+
+* **test:** stop registry server spec from overwriting the persisted tunnel port ([#326](https://github.com/appium/appium-ios-remotexpc/issues/326)) ([0b62a88](https://github.com/appium/appium-ios-remotexpc/commit/0b62a8889dfd1f9ac7c09fc7d5eeb7c3935a6d8e))
+
 ## [5.19.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.18.9...v5.19.0) (2026-09-08)
 
 ### Features
