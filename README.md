@@ -102,7 +102,7 @@ The `appium-ios-tuntap (previously tuntap-bridge)` module plays a crucial role i
 5. **Service Access**: Enables access to iOS shim services through the tunnel
 
 **Technical Details:**
-- **Platform Support**: Works on both macOS and Linux
+- **Platform Support**: Works on macOS, Linux, and Windows (Windows uses WinTun and requires an elevated shell)
 - **IPv6 Support**: Creates IPv6 tunnels for modern iOS communication
 - **Packet Handling**: Manages packet routing between virtual interface and device
 - **Automatic Cleanup**: Properly closes tunnels and cleans up interfaces
@@ -118,7 +118,7 @@ The `appium-ios-tuntap (previously tuntap-bridge)` module plays a crucial role i
 ```typescript
 import {
   createLockdownServiceByUDID,
-  rsdSessionLockKey,
+  discoverServices,
   startCoreDeviceProxyTcp,
   TunnelManager,
 } from 'appium-ios-remotexpc';
@@ -137,21 +137,13 @@ const { socket, cert, key } = await startCoreDeviceProxyTcp(
 const tunnel = await TunnelManager.getTunnel(socket, { cert, key });
 console.log(`Tunnel created at ${tunnel.Address} with RSD port ${tunnel.RsdPort}`);
 
-// Discover RSD services (serialized per tunnel; closed before return)
-await TunnelManager.runSerializedRsdSession(
-  rsdSessionLockKey(tunnel.Address, tunnel.RsdPort),
-  async () => {
-    const remoteXPC = await TunnelManager.connectRemoteXPCUnlocked(
-      tunnel.Address,
-      tunnel.RsdPort,
-    );
-    try {
-      console.log(remoteXPC.getServices());
-    } finally {
-      await remoteXPC.close();
-    }
-  },
-);
+// Discover RSD services (concurrent calls for the same device are coalesced;
+// the RSD connection is closed before the promise resolves)
+if (!tunnel.RsdPort) {
+  throw new Error('Tunnel did not report an RSD port');
+}
+const services = await discoverServices(udid, tunnel.Address, tunnel.RsdPort);
+console.log(services);
 ```
 
 ### iPhone / iPad over WiFi (usbmuxd “network” devices)
@@ -166,7 +158,7 @@ There is no separate “WiFi API” in this library: call `createUsbmux()` → `
 2. Allow the device to connect over WiFi (e.g. in Finder under the device, enable **Show this [device] when on WiFi**, or use Xcode **Devices and Simulators** with the equivalent option so lockdown can reach the device without USB).
 3. Confirm **usbmuxd** reports the device with **`ConnectionType: Network`**—for example by logging the result of `listDevices()` from this library, or by checking another usbmuxd client’s device list while the device is on the same network and not on USB.
 
-For an end-to-end tunnel smoke test with the tunnel registry HTTP API, use `npm run tunnel-creation` or `npm run test:tunnel-creation` (see `scripts/test-tunnel-creation.ts`), usually with **sudo** for TUN/TAP.
+For an end-to-end tunnel smoke test with the tunnel registry HTTP API, use `npm run tunnel-creation` (see `scripts/tunnel-creation.mjs`), usually with **sudo** for TUN/TAP.
 
 ### Apple TV / tvOS over WiFi
 
@@ -219,12 +211,13 @@ All pull requests must pass these checks before merging. The workflows are defin
 - `npm run lint` - Run lint
 - `npm run format` - Run format
 - `npm run lint:fix` - Run lint with auto-fix
-- `npm test` - Run tests (requires sudo privileges for tunneling)
+- `npm test` - Run unit tests
+- `npm run test:all` - Run unit and integration tests (see [Testing](#testing) for integration test requirements)
 
 CLI helpers under `scripts/` are ESM (`.mjs`) and load the library via the package entrypoint. Run `npm run build` before using them so `appium-ios-remotexpc` resolves to `build/`.
 
-- `npm run tunnel-creation` / `npm run test:tunnel-creation` — Create USB tunnels and start the tunnel registry HTTP API (requires `sudo`)
-- `npm run test:tunnel-creation:lsof` — Same as above with `--keep-open` (for inspecting open sockets)
+- `npm run tunnel-creation` — Create USB tunnels and start the tunnel registry HTTP API (requires `sudo`)
+- `npm run tunnel-creation -- --keep-open` — Same as above with `--keep-open` (for inspecting open sockets)
 - `npm run pair-appletv` — Pair an Apple TV over WiFi for Remote XPC (requires `sudo`)
 - `npm run start-appletv-tunnel` — Start an Apple TV WiFi tunnel and tunnel registry (requires `sudo`)
 
@@ -250,8 +243,11 @@ Pass `--help` after `--` to any of these npm scripts to see CLI flags (for examp
 ## Testing
 
 ```bash
-# Run all tests
+# Run unit tests
 npm test
+
+# Run unit and integration tests
+npm run test:all
 ```
 
 Note: Integration tests require:
