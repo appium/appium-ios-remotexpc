@@ -464,6 +464,47 @@ export interface PowerAssertionService extends BaseService {
 }
 
 /**
+ * Represents the instance side of AmfiService, which controls Developer Mode (iOS 16+)
+ * through the Apple Mobile File Integrity lockdown shim
+ * @remarks
+ * Developer Mode gates dev-signed app launch, debugger attachment, testmanagerd/XCTest,
+ * WebDriverAgent and Developer Disk Image use. Read the current state with
+ * {@link MobileImageMounterService.queryDeveloperModeStatus}.
+ */
+export interface AmfiService extends BaseService {
+  /**
+   * Read the current Developer Mode state through the mobile image mounter shim.
+   * Unlike {@link MobileImageMounterService.queryDeveloperModeStatus}, a failed read throws
+   * instead of reporting "enabled".
+   */
+  isDeveloperModeEnabled(): Promise<boolean>;
+  /**
+   * Make the Developer Mode toggle visible under Settings > Privacy & Security.
+   * Does not change the Developer Mode state.
+   */
+  revealDeveloperModeOption(): Promise<void>;
+  /**
+   * Turn Developer Mode on. Idempotent: when Developer Mode is already on nothing is sent and the
+   * device is left untouched. AMFI itself would accept the action in that state, reboot, and leave
+   * Developer Mode OFF until the prompt is accepted, so the status is always read first.
+   *
+   * Otherwise the device reboots within seconds, which tears down the tunnel; after it comes back a
+   * "Turn on Developer Mode?" alert is shown until acceptDeveloperModePrompt() answers it.
+   * @throws DeviceHasPasscodeSetError when the device has a passcode set
+   * @throws AmfiError for any other rejection reported by the daemon, or when the status read fails
+   */
+  enableDeveloperMode(): Promise<void>;
+  /**
+   * Answer the post-reboot "Turn on Developer Mode?" prompt so the flow can run unattended.
+   * Idempotent: when Developer Mode is already on nothing is sent. During the real post-reboot window
+   * the status still reads off, so the prompt is answered as expected.
+   * @throws AmfiError with code `An unknown error has occured` when Developer Mode is off and no prompt
+   *   is pending on a device without a passcode
+   */
+  acceptDeveloperModePrompt(): Promise<void>;
+}
+
+/**
  * Represents the static side of MobileConfigService
  */
 export interface MobileConfigService extends BaseService {

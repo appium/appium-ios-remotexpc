@@ -6,6 +6,7 @@ import {
 import type {DVTInstruments, SyslogService as SyslogServiceType, XCTestServices} from './lib/types.js';
 import {AccessibilityAuditService} from './services/ios/accessibility-audit/index.js';
 import AfcService from './services/ios/afc/index.js';
+import {AmfiService} from './services/ios/amfi/index.js';
 import {AppService} from './services/ios/app-service/index.js';
 import {type Service} from './services/ios/base-service.js';
 import {ConfigurationService} from './services/ios/configuration/index.js';
@@ -100,6 +101,14 @@ export async function startMisagentService(udid: string): Promise<MisagentServic
 export async function startPowerAssertionService(udid: string): Promise<PowerAssertionService> {
   await requireCatalogService(udid, PowerAssertionService.RSD_SERVICE_NAME);
   return new PowerAssertionService(udid);
+}
+
+/**
+ * Start the AMFI service (Developer Mode control) for the given device UDID.
+ */
+export async function startAmfiService(udid: string): Promise<AmfiService> {
+  await requireCatalogService(udid, AmfiService.RSD_SERVICE_NAME);
+  return new AmfiService(udid);
 }
 
 /**

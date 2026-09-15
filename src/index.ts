@@ -192,6 +192,7 @@ export type {
   SpringboardService,
   WebInspectorService,
   MisagentService,
+  AmfiService,
   SyslogService,
   HouseArrestService,
   DVTSecureSocketProxyService,
@@ -229,6 +230,8 @@ export type {
   SysmonSystemInfo,
 } from './lib/types.js';
 export {PowerAssertionType} from './lib/types.js';
+export {AmfiError, DeviceHasPasscodeSetError} from './services/ios/amfi/errors.js';
+export {DeveloperModeAction} from './services/ios/amfi/index.js';
 export {NetworkMessageType} from './services/ios/dvt/instruments/network-monitor.js';
 export type {EnergyMetrics, EnergyMonitorSample} from './services/ios/dvt/instruments/energy-monitor.js';
 export {ActivityTraceTap} from './services/ios/dvt/instruments/activity-trace-tap.js';
