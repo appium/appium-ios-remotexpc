@@ -3,11 +3,25 @@ import * as net from 'node:net';
 import * as os from 'node:os';
 import {afterEach, beforeEach, describe, it} from 'node:test';
 
-import {type TunnelRegistryServer, startTunnelRegistryServer} from '../../../src/lib/tunnel/tunnel-registry-server.js';
+import type * as TunnelRegistryServerModule from '../../../src/lib/tunnel/tunnel-registry-server.js';
 import type {TunnelRegistry, TunnelRegistryEntry} from '../../../src/lib/types.js';
+import {mockImport} from '../../helpers/mock-module.js';
+
+type TunnelRegistryServer = TunnelRegistryServerModule.TunnelRegistryServer;
+
+// Keeps the test from persisting its port to the real strongbox file that live tunnels write.
+const STRONGBOX_MOCK = {
+  '@appium/strongbox': {
+    strongbox: () => ({}),
+    BaseItem: class {
+      async write() {}
+    },
+  },
+};
 
 describe('TunnelRegistryServer', function () {
   let server: TunnelRegistryServer;
+  let startTunnelRegistryServer: typeof TunnelRegistryServerModule.startTunnelRegistryServer;
   const testPort = 4724;
 
   // Test data
@@ -35,7 +49,16 @@ describe('TunnelRegistryServer', function () {
     },
   };
 
-  beforeEach(async function () {
+  beforeEach(async function (t) {
+    if (!('mock' in t)) {
+      throw new Error('beforeEach hook did not receive a TestContext');
+    }
+    ({startTunnelRegistryServer} = await mockImport<typeof TunnelRegistryServerModule>(
+      t,
+      '../../../src/lib/tunnel/tunnel-registry-server.js',
+      import.meta.url,
+      STRONGBOX_MOCK,
+    ));
     server = await startTunnelRegistryServer(testRegistry, testPort);
   });
 
