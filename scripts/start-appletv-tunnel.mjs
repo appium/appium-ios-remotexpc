@@ -21,6 +21,7 @@ import {Command} from 'commander';
 import {DEFAULT_TUNNEL_REGISTRY_PORT, DEFAULT_WIRELESS_APPLETV_DISCOVERY_TIMEOUT_MS} from './lib/constants.mjs';
 import {parseNonNegativeIntegerOption, parsePortOption, parsePositiveIntegerOption} from './lib/options.mjs';
 import {startTimeoutProgressLogger} from './lib/progress.mjs';
+import {resolveAvailableRegistryPort} from './lib/registry-port.mjs';
 import {assertRoot} from './lib/root.mjs';
 import {sleep} from './lib/timers.mjs';
 import {
@@ -432,7 +433,8 @@ async function main() {
   program.parse(process.argv);
   const options = program.opts();
   const deviceIdentifier = program.args[0];
-  const registryPort = options.tunnelRegistryPort ?? DEFAULT_TUNNEL_REGISTRY_PORT;
+  const registryPort =
+    options.tunnelRegistryPort ?? (await resolveAvailableRegistryPort(DEFAULT_TUNNEL_REGISTRY_PORT, log));
 
   await assertRoot(path.join('scripts', path.basename(fileURLToPath(import.meta.url))));
 
