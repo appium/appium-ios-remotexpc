@@ -108,6 +108,7 @@ export async function startPowerAssertionService(udid: string): Promise<PowerAss
  */
 export async function startAmfiService(udid: string): Promise<AmfiService> {
   await requireCatalogService(udid, AmfiService.RSD_SERVICE_NAME);
+  await requireCatalogService(udid, MobileImageMounterService.RSD_SERVICE_NAME);
   return new AmfiService(udid);
 }
 

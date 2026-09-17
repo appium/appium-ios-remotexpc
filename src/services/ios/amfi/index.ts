@@ -2,13 +2,12 @@ import {getLogger} from '../../../lib/logger.js';
 import type {AmfiService as AmfiServiceInterface, PlistDictionary, PlistValue} from '../../../lib/types.js';
 import type {ServiceConnection} from '../../../service-connection.js';
 import {BaseService} from '../base-service.js';
+import {MobileImageMounterService} from '../mobile-image-mounter/index.js';
 import {AmfiError, DeviceHasPasscodeSetError} from './errors.js';
 
 const log = getLogger('AmfiService');
 
 const DEFAULT_TIMEOUT_MS = 10000;
-/** Shim that answers `QueryDeveloperModeStatus`; read before enabling so enable stays idempotent */
-const MOBILE_IMAGE_MOUNTER_SERVICE_NAME = 'com.apple.mobile.mobile_image_mounter.shim.remote';
 
 /**
  * Developer Mode actions understood by `com.apple.amfi.lockdown`
@@ -63,7 +62,9 @@ class AmfiService extends BaseService implements AmfiServiceInterface {
    * reporting "enabled", so `enableDeveloperMode()` never skips on a transport error.
    */
   async isDeveloperModeEnabled(): Promise<boolean> {
-    const response = await this.exchange(MOBILE_IMAGE_MOUNTER_SERVICE_NAME, {Command: 'QueryDeveloperModeStatus'});
+    const response = await this.exchange(MobileImageMounterService.RSD_SERVICE_NAME, {
+      Command: 'QueryDeveloperModeStatus',
+    });
     this.throwOnError(response, 'QueryDeveloperModeStatus');
     const enabled = asFlag(response.DeveloperModeStatus);
     if (enabled === undefined) {
