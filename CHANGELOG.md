@@ -1,3 +1,9 @@
+## [5.19.2](https://github.com/appium/appium-ios-remotexpc/compare/v5.19.1...v5.19.2) (2026-09-16)
+
+### Bug Fixes
+
+* **scripts:** fall back to a free registry port when starting the Apple TV tunnel ([#327](https://github.com/appium/appium-ios-remotexpc/issues/327)) ([84dccad](https://github.com/appium/appium-ios-remotexpc/commit/84dccad88e3f52effc54f62130f33ab400f146de))
+
 ## [5.19.1](https://github.com/appium/appium-ios-remotexpc/compare/v5.19.0...v5.19.1) (2026-09-15)
 
 ### Bug Fixes
