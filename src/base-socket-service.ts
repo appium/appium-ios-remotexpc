@@ -25,8 +25,12 @@ class BaseSocketService extends EventEmitter {
     }
 
     // setup basic error handling
+    // Only re-emit if someone is listening, otherwise this throws (unhandled 'error') instead of
+    // just leaving the error on the underlying socket, which callers may still listen to directly.
     this._socketClient.on('error', (err) => {
-      this.emit('error', err);
+      if (this.listenerCount('error') > 0) {
+        this.emit('error', err);
+      }
     });
 
     this._socketClient.on('close', () => {
