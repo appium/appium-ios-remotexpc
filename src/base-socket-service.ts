@@ -2,6 +2,10 @@ import {EventEmitter} from 'node:events';
 import {Socket} from 'node:net';
 import {type Readable} from 'node:stream';
 
+import {getLogger} from './lib/logger.js';
+
+const log = getLogger('BaseSocketService');
+
 class BaseSocketService extends EventEmitter {
   protected _socketClient: Socket;
   protected _isConnected: boolean = false;
@@ -26,10 +30,12 @@ class BaseSocketService extends EventEmitter {
 
     // setup basic error handling
     // Only re-emit if someone is listening, otherwise this throws (unhandled 'error') instead of
-    // just leaving the error on the underlying socket, which callers may still listen to directly.
+    // just leaving the error on the underlying socket. Log it so it isn't silently dropped.
     this._socketClient.on('error', (err) => {
       if (this.listenerCount('error') > 0) {
         this.emit('error', err);
+      } else {
+        log.error(`Unhandled socket error: ${err}`);
       }
     });
 
