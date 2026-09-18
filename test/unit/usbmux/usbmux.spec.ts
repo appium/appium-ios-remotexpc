@@ -102,6 +102,17 @@ describe('usbmux', function () {
     }
   });
 
+  it('should find a device whose udid differs only by letter case', async function () {
+    ({server, socket} = await getServerWithFixtures(fixtures.DEVICE_LIST));
+    usbmux = new Usbmux(socket);
+
+    const device = await usbmux.findDevice(UDID.toUpperCase());
+    assert.notStrictEqual(device, undefined);
+    if (device) {
+      assert.strictEqual(device.Properties.SerialNumber, UDID);
+    }
+  });
+
   it('should preserve remainder bytes in decoder buffer when partial chunk arrives', function () {
     const decoder = new UsbmuxDecoder();
     const chunk = Buffer.from([0x05, 0x00, 0x00, 0x00]);

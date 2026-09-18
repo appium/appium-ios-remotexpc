@@ -193,7 +193,7 @@ export class Usbmux extends BaseSocketService {
    */
   async findDevice(udid: string, timeout = 5000): Promise<Device | undefined> {
     const devices = await this.listDevices(timeout);
-    return devices.find((device) => device.Properties.SerialNumber === udid);
+    return devices.find((device) => device.Properties.SerialNumber.toLowerCase() === udid.toLowerCase());
   }
 
   /**

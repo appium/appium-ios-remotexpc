@@ -156,7 +156,7 @@ class DeviceManager {
       throw new LockdownError('No devices connected');
     }
 
-    const device = devices.find((d) => d.Properties.SerialNumber === udid);
+    const device = devices.find((d) => d.Properties.SerialNumber.toLowerCase() === udid.toLowerCase());
     if (!device) {
       throw new DeviceNotFoundError(udid);
     }
