@@ -218,11 +218,11 @@ class BinaryPlistCreator {
       buffer = Buffer.alloc(2);
       buffer.writeUInt8(BPLIST_TYPE.INT | 0, 0);
       buffer.writeUInt8(value, 1);
-    } else if (value >= 0 && value <= 0xffff) {
+    } else if (value > 0xff && value <= 0xffff) {
       buffer = Buffer.alloc(3);
       buffer.writeUInt8(BPLIST_TYPE.INT | 1, 0);
       buffer.writeUInt16BE(value, 1);
-    } else if (value >= 0 && value <= 0xffffffff) {
+    } else if (value > 0xffff && value <= 0xffffffff) {
       buffer = Buffer.alloc(5);
       buffer.writeUInt8(BPLIST_TYPE.INT | 2, 0);
       buffer.writeUInt32BE(value, 1);
