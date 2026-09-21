@@ -165,6 +165,52 @@ describe('Plist Module', function () {
     });
   });
 
+  describe('Binary Plist Integer Signedness', function () {
+    /** Dict holding `value` as a 2-byte integer. */
+    function buildTwoByteIntPlist(value: number): Buffer {
+      const header = Buffer.from('bplist00', 'ascii');
+      const key = Buffer.concat([Buffer.from([0x51]), Buffer.from('v', 'ascii')]);
+      const intBytes = Buffer.alloc(2);
+      intBytes.writeUInt16BE(value);
+      const objects = [Buffer.from([0xd1, 0x01, 0x02]), key, Buffer.concat([Buffer.from([0x11]), intBytes])];
+      const offsets: number[] = [];
+      let offset = header.length;
+      for (const object of objects) {
+        offsets.push(offset);
+        offset += object.length;
+      }
+      const trailer = Buffer.alloc(32);
+      trailer.writeUInt8(1, 6);
+      trailer.writeUInt8(1, 7);
+      trailer.writeBigUInt64BE(BigInt(objects.length), 8);
+      trailer.writeBigUInt64BE(0n, 16);
+      trailer.writeBigUInt64BE(BigInt(offset), 24);
+      return Buffer.concat([header, ...objects, Buffer.from(offsets), trailer]);
+    }
+
+    it('should parse 2-byte integers above 32767 as unsigned', function () {
+      // Ephemeral ports land in this range.
+      for (const value of [8080, 32767, 32768, 54584, 62078, 65535]) {
+        const parsed = parseBinaryPlist(buildTwoByteIntPlist(value)) as PlistDictionary;
+        assert.strictEqual(parsed.v, value);
+      }
+    });
+
+    it('should round-trip negative integers', function () {
+      for (const value of [-1, -42, -100, -128, -200, -30000, -32768, -70000, -2147483649]) {
+        const parsed = parseBinaryPlist(createBinaryPlist({value})) as PlistDictionary;
+        assert.strictEqual(parsed.value, value);
+      }
+    });
+
+    it('should round-trip non-negative integers across width boundaries', function () {
+      for (const value of [0, 1, 127, 128, 255, 256, 32767, 32768, 54584, 65535, 65536, 4294967295, 4294967296]) {
+        const parsed = parseBinaryPlist(createBinaryPlist({value})) as PlistDictionary;
+        assert.strictEqual(parsed.value, value);
+      }
+    });
+  });
+
   describe('Unified Plist Functions', function () {
     it('should auto-detect and parse both XML and binary plists', function () {
       // XML parsing

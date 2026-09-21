@@ -147,7 +147,7 @@ class BinaryPlistParser {
   }
 
   /**
-   * Parses an integer value from the buffer
+   * Parses an integer. Only the 8-byte form is signed.
    * @param startOffset - The offset to start reading from
    * @param intByteCount - The number of bytes to read
    * @returns The parsed integer value (number or bigint)
@@ -156,11 +156,11 @@ class BinaryPlistParser {
     // Handle different integer sizes
     switch (intByteCount) {
       case 1:
-        return this._buffer.readInt8(startOffset);
+        return this._buffer.readUInt8(startOffset);
       case 2:
-        return this._buffer.readInt16BE(startOffset);
+        return this._buffer.readUInt16BE(startOffset);
       case 4:
-        return this._buffer.readInt32BE(startOffset);
+        return this._buffer.readUInt32BE(startOffset);
       case 8: {
         // For 64-bit integers, we need to handle potential precision loss
         const bigInt = this._buffer.readBigInt64BE(startOffset);
