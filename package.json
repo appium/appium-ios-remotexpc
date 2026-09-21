@@ -48,6 +48,7 @@
     "test:all": "node --enable-source-maps --experimental-test-module-mocks --test --test-timeout=60000 \"build/test/unit/**/*.spec.js\" \"build/test/integration/**/*.spec.js\"",
     "test:app-service": "node --enable-source-maps --test --test-timeout=60000 \"build/test/integration/app-service.spec.js\"",
     "test:accessibility-audit": "node --enable-source-maps --test --test-timeout=300000 \"build/test/integration/accessibility-audit.spec.js\"",
+    "test:companion-proxy": "node --enable-source-maps --test --test-timeout=60000 \"build/test/integration/companion-proxy.spec.js\"",
     "test:coredevice-device-info": "node --enable-source-maps --test --test-timeout=60000 \"build/test/integration/device-info-coredevice.spec.js\"",
     "test:device-control": "node --enable-source-maps --test --test-timeout=60000 \"build/test/integration/device-control.spec.js\"",
     "test:configuration": "node --enable-source-maps --test --test-timeout=60000 \"build/test/integration/configuration.spec.js\"",

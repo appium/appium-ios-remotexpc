@@ -9,6 +9,7 @@ import AfcService from './services/ios/afc/index.js';
 import {AmfiService} from './services/ios/amfi/index.js';
 import {AppService} from './services/ios/app-service/index.js';
 import {type Service} from './services/ios/base-service.js';
+import {CompanionProxyService} from './services/ios/companion-proxy/index.js';
 import {ConfigurationService} from './services/ios/configuration/index.js';
 import {CrashReportsService} from './services/ios/crash-reports/index.js';
 import {DeviceControlService} from './services/ios/device-control/index.js';
@@ -53,6 +54,14 @@ const SERVICE_WAIT_MS = DEFAULT_TUNNEL_SERVICE_WAIT_MS;
 export async function startDiagnosticsService(udid: string): Promise<DiagnosticsService> {
   await requireCatalogService(udid, DiagnosticsService.RSD_SERVICE_NAME);
   return new DiagnosticsService(udid);
+}
+
+/**
+ * Start the companion proxy service for the given device UDID.
+ */
+export async function startCompanionProxyService(udid: string): Promise<CompanionProxyService> {
+  await requireCatalogService(udid, CompanionProxyService.RSD_SERVICE_NAME);
+  return new CompanionProxyService(udid);
 }
 
 /**
