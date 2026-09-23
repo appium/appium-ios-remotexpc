@@ -242,10 +242,10 @@ export class Usbmux extends BaseSocketService {
     const stream = new UsbmuxDeviceEventStream((s) => {
       delete this._responseCallbacks[tag];
       this._eventStreams.delete(s);
-      void this.close().catch(() => {});
+      this._closeAfterListen();
     }, opts.signal);
     if (stream.stopped) {
-      void this.close().catch(() => {});
+      this._closeAfterListen();
       return stream;
     }
     this._eventStreams.add(stream);
@@ -381,6 +381,17 @@ export class Usbmux extends BaseSocketService {
           : {type: 'detach', deviceId: payload.DeviceID as number};
       this._forEachEventStream((stream) => stream.push(event));
     }
+  }
+
+  /**
+   * Closes the connection once a listen() stream stops, since usbmuxd cannot unsubscribe it.
+   * Runs in the background, so a failure is logged rather than thrown.
+   * @private
+   */
+  private _closeAfterListen(): void {
+    this.close().catch((err: Error) => {
+      log.warn(`Failed to close usbmux connection after listen() stopped: ${err.message}`);
+    });
   }
 
   /**
