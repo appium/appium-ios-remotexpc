@@ -30,12 +30,13 @@ export type UsbmuxDeviceEventStreamStopHandler = (stream: UsbmuxDeviceEventStrea
  *
  * The owning {@link Usbmux} instance feeds it via {@link push} / {@link fail}; consumers
  * drain it with `for await`. Events that arrive while no consumer is waiting are buffered.
- * Iteration ends once {@link stop} is called (directly, via `return()`/`break`, or through
- * the abort signal), after any already-buffered events have been delivered.
+ * Once the stream stops (via {@link stop}, {@link fail} or the abort signal), already-buffered
+ * events are still delivered first; only then does iteration end, or reject after `fail()`.
+ * `return()` (e.g. `break` in `for await`) ends iteration immediately and discards the buffer.
  */
 export class UsbmuxDeviceEventStream implements AsyncIterableIterator<UsbmuxDeviceEvent> {
   private readonly queue: UsbmuxDeviceEvent[] = [];
-  private wake: (() => void) | null = null;
+  private readonly waiters: (() => void)[] = [];
   private isStopped = false;
   private failure: Error | null = null;
   private readonly onAbort = () => this.stop();
@@ -71,7 +72,7 @@ export class UsbmuxDeviceEventStream implements AsyncIterableIterator<UsbmuxDevi
       return;
     }
     this.queue.push(event);
-    this.notifyWaiter();
+    this.notifyWaiters();
   }
 
   /**
@@ -96,27 +97,31 @@ export class UsbmuxDeviceEventStream implements AsyncIterableIterator<UsbmuxDevi
     this.isStopped = true;
     this.signal?.removeEventListener('abort', this.onAbort);
     this.onStop(this);
-    this.notifyWaiter();
+    this.notifyWaiters();
   }
 
   /**
-   * Resolves with the next buffered event, waiting for one if necessary.
+   * Resolves with the next buffered event, waiting for one if necessary. Concurrent calls are
+   * each resolved in turn.
    * @returns The next event, or `done` once the stream has stopped and drained
-   * @throws The error passed to {@link fail}, once
+   * @throws The error passed to {@link fail}, once all buffered events have been delivered
    */
   async next(): Promise<IteratorResult<UsbmuxDeviceEvent>> {
     while (this.queue.length === 0 && !this.isStopped) {
       await new Promise<void>((resolve) => {
-        this.wake = resolve;
+        this.waiters.push(resolve);
       });
+    }
+    const event = this.queue.shift();
+    if (event) {
+      return {done: false, value: event};
     }
     if (this.failure) {
       const err = this.failure;
       this.failure = null;
       throw err;
     }
-    const event = this.queue.shift();
-    return event ? {done: false, value: event} : {done: true, value: undefined};
+    return {done: true, value: undefined};
   }
 
   /**
@@ -126,6 +131,7 @@ export class UsbmuxDeviceEventStream implements AsyncIterableIterator<UsbmuxDevi
   async return(): Promise<IteratorResult<UsbmuxDeviceEvent>> {
     this.stop();
     this.queue.length = 0;
+    this.failure = null;
     return {done: true, value: undefined};
   }
 
@@ -136,9 +142,9 @@ export class UsbmuxDeviceEventStream implements AsyncIterableIterator<UsbmuxDevi
     return this;
   }
 
-  private notifyWaiter(): void {
-    const wake = this.wake;
-    this.wake = null;
-    wake?.();
+  private notifyWaiters(): void {
+    for (const wake of this.waiters.splice(0)) {
+      wake();
+    }
   }
 }

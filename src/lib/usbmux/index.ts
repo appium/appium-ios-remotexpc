@@ -83,6 +83,7 @@ export class Usbmux extends BaseSocketService {
   private _tag: number;
   private readonly _responseCallbacks: Record<number, (data: DecodedUsbmux) => void>;
   private readonly _eventStreams = new Set<UsbmuxDeviceEventStream>();
+  private _closePromise: Promise<void> | null = null;
 
   /**
    * Creates a new usbmux instance
@@ -219,20 +220,32 @@ export class Usbmux extends BaseSocketService {
    * attach/detach for as long as this connection stays open. usbmuxd immediately reports
    * every already-connected device as an attach event once the request is acknowledged.
    *
-   * Stop iterating (`break`, `return`, an aborted `signal`, or calling {@link close}) to
-   * unsubscribe. If the connection drops (e.g. usbmuxd restarts), iteration rejects so the
-   * caller can resubscribe on a new connection. Use a dedicated connection for listening.
+   * usbmuxd has no way to unsubscribe, so listening takes over the connection: only one
+   * listen() is allowed per connection, and the connection is closed once iteration stops
+   * (`break`, `return`, an aborted `signal`, or calling {@link close}). If the connection drops
+   * (e.g. usbmuxd restarts), iteration rejects after delivering any already-received events,
+   * so the caller can resubscribe on a new connection.
    *
    * @param opts.signal - When aborted, ends the iteration
    * @returns Async iterable of attach/detach events
+   * @throws If the connection is already closed or already has an active listen()
    */
   listen(opts: {signal?: AbortSignal} = {}): AsyncIterableIterator<UsbmuxDeviceEvent> {
+    if (this._closePromise || this._socketClient.destroyed || this._socketClient.writableEnded) {
+      throw new Error('Cannot listen on a closed usbmuxd connection');
+    }
+    if (this._eventStreams.size > 0) {
+      throw new Error('listen() is already active on this usbmuxd connection; use a separate connection');
+    }
+
     const tag = this._tag++;
     const stream = new UsbmuxDeviceEventStream((s) => {
       delete this._responseCallbacks[tag];
       this._eventStreams.delete(s);
+      void this.close().catch(() => {});
     }, opts.signal);
     if (stream.stopped) {
+      void this.close().catch(() => {});
       return stream;
     }
     this._eventStreams.add(stream);
@@ -314,6 +327,13 @@ export class Usbmux extends BaseSocketService {
    * @returns Promise that resolves when the socket is closed.
    */
   close(): Promise<void> {
+    // Memoized: a stopping listen() stream also closes the connection, and ending the socket
+    // twice would fail the second caller
+    this._closePromise ??= this._closeSocket();
+    return this._closePromise;
+  }
+
+  private _closeSocket(): Promise<void> {
     this._forEachEventStream((stream) => stream.stop());
 
     return new Promise((resolve, reject) => {
@@ -349,9 +369,10 @@ export class Usbmux extends BaseSocketService {
       return;
     }
 
-    // Listen notifications arrive unsolicited with tag 0, not the Listen request's tag. Only
-    // frames no pending request is waiting for are treated as such, so a ListDevices reply
-    // (whose entries also carry MessageType 'Attached') is never mistaken for one.
+    // Listen notifications arrive unsolicited with tag 0, not the Listen request's tag, so only
+    // frames no pending request is waiting for are treated as such. (Before the plist parser fix
+    // in v5.14.5, a ListDevices reply also exposed its entries' MessageType 'Attached' at the top
+    // level; checking pending requests first keeps replies from ever being mistaken for events.)
     const payload = asPlistDictionary(data.payload);
     if (payload?.MessageType === 'Attached' || payload?.MessageType === 'Detached') {
       const event: UsbmuxDeviceEvent =

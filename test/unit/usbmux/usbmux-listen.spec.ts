@@ -303,4 +303,81 @@ describe('usbmux listen', function () {
     const result = await usbmux.listen({signal: AbortSignal.abort()}).next();
     assert.strictEqual(result.done, true);
   });
+
+  it('throws when listen() is already active on the connection', async function () {
+    mock = await createMockUsbmuxd();
+    usbmux = new Usbmux(mock.socket);
+
+    const iterator = usbmux.listen();
+    assert.throws(() => usbmux!.listen(), /already active/);
+
+    await iterator.return();
+  });
+
+  it('closes the connection once iteration stops', async function () {
+    mock = await createMockUsbmuxd();
+    usbmux = new Usbmux(mock.socket);
+
+    const serverSideClosed = new Promise<void>((resolve) => mock!.serverSockets[0].once('close', () => resolve()));
+    const iterator = usbmux.listen();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    mock.respond({MessageType: 'Result', Number: 0});
+
+    mock.notify({MessageType: 'Detached', DeviceID: 1});
+    for await (const event of iterator) {
+      assert.strictEqual(event.type, 'detach');
+      break;
+    }
+
+    await serverSideClosed;
+    assert.ok(mock.socket.destroyed);
+    assert.throws(() => usbmux!.listen(), /closed usbmuxd connection/);
+  });
+
+  it('delivers already-received events before rejecting on a dropped connection', async function () {
+    mock = await createMockUsbmuxd();
+    usbmux = new Usbmux(mock.socket);
+
+    const iterator = usbmux.listen();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    mock.respond({MessageType: 'Result', Number: 0});
+    mock.notify({MessageType: 'Detached', DeviceID: 4});
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    const clientClosed = new Promise<void>((resolve) => mock!.socket.once('close', () => resolve()));
+    for (const serverSocket of mock.serverSockets) {
+      serverSocket.destroy();
+    }
+    await clientClosed;
+
+    assert.deepStrictEqual((await iterator.next()).value, {type: 'detach', deviceId: 4});
+    await assert.rejects(iterator.next(), /usbmuxd connection closed/);
+  });
+
+  it('resolves concurrent next() calls in order', async function () {
+    mock = await createMockUsbmuxd();
+    usbmux = new Usbmux(mock.socket);
+
+    const iterator = usbmux.listen();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    mock.respond({MessageType: 'Result', Number: 0});
+
+    const first = iterator.next();
+    const second = iterator.next();
+    mock.notify({MessageType: 'Detached', DeviceID: 1});
+    mock.notify({MessageType: 'Detached', DeviceID: 2});
+
+    assert.deepStrictEqual((await first).value, {type: 'detach', deviceId: 1});
+    assert.deepStrictEqual((await second).value, {type: 'detach', deviceId: 2});
+
+    await iterator.return();
+  });
+
+  it('throws when listening on an already-closed connection', async function () {
+    mock = await createMockUsbmuxd();
+    usbmux = new Usbmux(mock.socket);
+
+    await usbmux.close();
+    assert.throws(() => usbmux!.listen(), /closed usbmuxd connection/);
+  });
 });
