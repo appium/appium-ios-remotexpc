@@ -1,3 +1,9 @@
+## [5.22.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.21.0...v5.22.0) (2026-09-23)
+
+### Features
+
+* **usbmux:** add listen() for device attach/detach notifications ([#336](https://github.com/appium/appium-ios-remotexpc/issues/336)) ([ea86788](https://github.com/appium/appium-ios-remotexpc/commit/ea867884097ca444c3dee40f2ae8dc99e010dd21)), closes [Usbmux#_eventStreams](https://github.com/appium/Usbmux/issues/_eventStreams)
+
 ## [5.21.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.20.4...v5.21.0) (2026-09-21)
 
 ### Features
