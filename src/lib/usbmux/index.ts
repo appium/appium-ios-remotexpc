@@ -10,6 +10,7 @@ import {parsePlist} from '../plist/index.js';
 import type {PlistDictionary} from '../types.js';
 import {type DecodedUsbmux, UsbmuxDecoder} from '../usbmux/usbmux-decoder.js';
 import {UsbmuxEncoder} from '../usbmux/usbmux-encoder.js';
+import {type UsbmuxDeviceEvent, UsbmuxDeviceEventStream} from './device-event-stream.js';
 import {prioritizeUsbOverNetworkForDuplicateUdids} from './utils.js';
 
 /**
@@ -33,6 +34,8 @@ export interface Device {
   MessageType: string;
   Properties: DeviceProperties;
 }
+
+export type {UsbmuxAttachEvent, UsbmuxDetachEvent, UsbmuxDeviceEvent} from './device-event-stream.js';
 
 const log = getLogger('Usbmux');
 
@@ -70,6 +73,7 @@ export class Usbmux extends BaseSocketService {
   private readonly _encoder: UsbmuxEncoder;
   private _tag: number;
   private readonly _responseCallbacks: Record<number, (data: DecodedUsbmux) => void>;
+  private readonly _eventStreams: Set<UsbmuxDeviceEventStream>;
 
   /**
    * Creates a new usbmux instance
@@ -90,6 +94,7 @@ export class Usbmux extends BaseSocketService {
 
     this._tag = 0;
     this._responseCallbacks = {};
+    this._eventStreams = new Set();
     this._decoder.on('data', this._handleData.bind(this));
 
     this.on('error', (err: Error) => {
@@ -197,6 +202,47 @@ export class Usbmux extends BaseSocketService {
   }
 
   /**
+   * Subscribes to usbmuxd's `Listen` notifications, yielding one event per device
+   * attach/detach for as long as this connection stays open. usbmuxd immediately reports
+   * every already-connected device as an attach event once the request is acknowledged.
+   *
+   * Stop iterating (`break`, `return`, an aborted `signal`, or calling {@link close}) to
+   * unsubscribe. Use a dedicated connection for listening.
+   *
+   * @param opts.signal - When aborted, ends the iteration
+   * @returns Async iterable of attach/detach events
+   */
+  listen(opts: {signal?: AbortSignal} = {}): AsyncIterableIterator<UsbmuxDeviceEvent> {
+    const tag = this._tag++;
+    const stream = new UsbmuxDeviceEventStream((s) => {
+      delete this._responseCallbacks[tag];
+      this._eventStreams.delete(s);
+    }, opts.signal);
+    if (stream.stopped) {
+      return stream;
+    }
+    this._eventStreams.add(stream);
+
+    this._responseCallbacks[tag] = (data) => {
+      delete this._responseCallbacks[tag];
+      if (data.payload.MessageType !== 'Result' || data.payload.Number !== USBMUX_RESULT.OK) {
+        stream.fail(new Error(`Listen request failed: ${JSON.stringify(data.payload)}`));
+      }
+    };
+
+    this._sendPlist({
+      tag,
+      payload: {
+        MessageType: 'Listen',
+        ProgName: PROG_NAME,
+        ClientVersionString: CLIENT_VERSION_STRING,
+      },
+    });
+
+    return stream;
+  }
+
+  /**
    * Connects to a certain port on the device
    * @param deviceID - Device ID
    * @param port - Port to connect to
@@ -253,6 +299,10 @@ export class Usbmux extends BaseSocketService {
    * @returns Promise that resolves when the socket is closed.
    */
   close(): Promise<void> {
+    for (const stream of [...this._eventStreams]) {
+      stream.stop();
+    }
+
     return new Promise((resolve, reject) => {
       // If the socket is still open, end it gracefully.
       if (!this._socketClient.destroyed) {
@@ -280,6 +330,19 @@ export class Usbmux extends BaseSocketService {
    * @private
    */
   private _handleData(data: DecodedUsbmux): void {
+    // usbmuxd sends Listen notifications unsolicited with tag 0, not the Listen request's tag
+    const {MessageType} = data.payload;
+    if (MessageType === 'Attached' || MessageType === 'Detached') {
+      const event: UsbmuxDeviceEvent =
+        MessageType === 'Attached'
+          ? {type: 'attach', device: data.payload as unknown as Device}
+          : {type: 'detach', deviceId: data.payload.DeviceID as number};
+      for (const stream of this._eventStreams) {
+        stream.push(event);
+      }
+      return;
+    }
+
     const handler = this._responseCallbacks[data.header.tag];
     if (handler) {
       handler(data);

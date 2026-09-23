@@ -16,6 +16,7 @@ import * as Services from './services.js';
 import {startCoreDeviceProxyTcp} from './services/ios/tunnel-service/index.js';
 
 export type {Device as UsbmuxDevice} from './lib/usbmux/index.js';
+export type {UsbmuxAttachEvent, UsbmuxDetachEvent, UsbmuxDeviceEvent} from './lib/usbmux/index.js';
 export type {
   DevicePortForwarderEvents,
   DevicePortForwarderOptions,
