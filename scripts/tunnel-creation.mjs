@@ -527,7 +527,7 @@ async function watchDevices({devicesByUdid, initialDevices, specificUdid, reconn
     try {
       listed = new Set((await lister.listDevices()).map((device) => device.Properties.SerialNumber));
     } finally {
-      await lister.close().catch(() => {});
+      await lister.close().catch((err) => log.warn(`Failed to close usbmux listing connection: ${err}`));
     }
     for (const udid of [...devicesByUdid.keys()]) {
       if (!listed.has(udid)) {
@@ -562,7 +562,7 @@ async function watchDevices({devicesByUdid, initialDevices, specificUdid, reconn
         log.warn(`Device watch interrupted (${err}); resubscribing in ${backoffMs}ms`);
       }
     } finally {
-      await usbmux?.close().catch(() => {});
+      await usbmux?.close().catch((err) => log.warn(`Failed to close usbmux watch connection: ${err}`));
     }
     if (signal.aborted) {
       break;
