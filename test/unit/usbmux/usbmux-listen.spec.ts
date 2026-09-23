@@ -247,6 +247,22 @@ describe('usbmux listen', function () {
     await iterator.return?.();
   });
 
+  it('ignores unsolicited frames whose plist root is not a dictionary', async function () {
+    mock = await createMockUsbmuxd();
+    usbmux = new Usbmux(mock.socket);
+
+    const iterator = usbmux.listen()[Symbol.asyncIterator]();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    mock.respond({MessageType: 'Result', Number: 0});
+    mock.notify(['not', 'a', 'dictionary'] as unknown as Record<string, unknown>);
+    mock.notify({MessageType: 'Detached', DeviceID: 9});
+
+    const result = await iterator.next();
+    assert.deepStrictEqual(result.value, {type: 'detach', deviceId: 9});
+
+    await iterator.return?.();
+  });
+
   it('ends iteration when the connection is closed', async function () {
     mock = await createMockUsbmuxd();
     usbmux = new Usbmux(mock.socket);

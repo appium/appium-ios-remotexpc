@@ -66,6 +66,15 @@ export interface SocketOptions {
 }
 
 /**
+ * The decoder only casts the parsed plist, so its root is not guaranteed to be a dictionary.
+ */
+function asPlistDictionary(value: unknown): PlistDictionary | null {
+  return value && typeof value === 'object' && !Array.isArray(value) && !Buffer.isBuffer(value)
+    ? (value as PlistDictionary)
+    : null;
+}
+
+/**
  * usbmux class for communicating with usbmuxd
  */
 export class Usbmux extends BaseSocketService {
@@ -73,7 +82,7 @@ export class Usbmux extends BaseSocketService {
   private readonly _encoder: UsbmuxEncoder;
   private _tag: number;
   private readonly _responseCallbacks: Record<number, (data: DecodedUsbmux) => void>;
-  private readonly _eventStreams: Set<UsbmuxDeviceEventStream>;
+  private readonly _eventStreams = new Set<UsbmuxDeviceEventStream>();
 
   /**
    * Creates a new usbmux instance
@@ -94,7 +103,6 @@ export class Usbmux extends BaseSocketService {
 
     this._tag = 0;
     this._responseCallbacks = {};
-    this._eventStreams = new Set();
     this._decoder.on('data', this._handleData.bind(this));
     // Unless close() already stopped them, surface a dropped connection (e.g. usbmuxd restarting)
     // to listen() consumers instead of leaving them waiting forever
@@ -233,7 +241,8 @@ export class Usbmux extends BaseSocketService {
 
     this._responseCallbacks[tag] = (data) => {
       delete this._responseCallbacks[tag];
-      if (data.payload.MessageType !== 'Result' || data.payload.Number !== USBMUX_RESULT.OK) {
+      const payload = asPlistDictionary(data.payload);
+      if (payload?.MessageType !== 'Result' || payload.Number !== USBMUX_RESULT.OK) {
         stream.fail(new Error(`Listen request failed: ${JSON.stringify(data.payload)}`));
       }
     };
@@ -347,12 +356,12 @@ export class Usbmux extends BaseSocketService {
     // Listen notifications arrive unsolicited with tag 0, not the Listen request's tag. Only
     // frames no pending request is waiting for are treated as such, so a ListDevices reply
     // (whose entries also carry MessageType 'Attached') is never mistaken for one.
-    const {MessageType} = data.payload;
-    if (MessageType === 'Attached' || MessageType === 'Detached') {
+    const payload = asPlistDictionary(data.payload);
+    if (payload?.MessageType === 'Attached' || payload?.MessageType === 'Detached') {
       const event: UsbmuxDeviceEvent =
-        MessageType === 'Attached'
-          ? {type: 'attach', device: data.payload as unknown as Device}
-          : {type: 'detach', deviceId: data.payload.DeviceID as number};
+        payload.MessageType === 'Attached'
+          ? {type: 'attach', device: payload as unknown as Device}
+          : {type: 'detach', deviceId: payload.DeviceID as number};
       for (const stream of this._eventStreams) {
         stream.push(event);
       }
