@@ -440,7 +440,8 @@ async function removeDetachedDevice(udid) {
 /**
  * Keeps following usbmuxd attach/detach notifications after the initial batch (`--watch-devices`),
  * so devices plugged in or re-trusted later get a tunnel and registry entry without a restart.
- * Only covers devices visible to usbmuxd. Returns once the watch is aborted or usbmuxd goes away.
+ * Only covers devices visible to usbmuxd. Resubscribes if the usbmuxd connection drops (e.g. usbmuxd
+ * restarts) and returns once the watch is aborted.
  *
  * Shares state with the reconnect path: an attach is ignored while a tunnel exists or a reconnect
  * is in flight for that UDID, and a detach removes the UDID from `devicesByUdid`, which stops any
@@ -460,68 +461,117 @@ async function watchDevices({devicesByUdid, initialDevices, specificUdid, reconn
   const attachedEntriesFor = (udid) =>
     [...attachedByDeviceId.values()].filter((device) => device.Properties.SerialNumber === udid);
 
-  deviceWatchAbortController = new AbortController();
-  const {signal} = deviceWatchAbortController;
-  const usbmux = await createUsbmux();
-  log.info('Watching usbmuxd for device attach/detach events...');
+  /**
+   * @param {import('appium-ios-remotexpc').UsbmuxDeviceEvent} event
+   * @returns {Promise<void>}
+   */
+  const handleEvent = async (event) => {
+    if (event.type === 'attach') {
+      const {device} = event;
+      const udid = device.Properties.SerialNumber;
+      if (specificUdid && udid !== specificUdid) {
+        return;
+      }
+      attachedByDeviceId.set(device.DeviceID, device);
+      const [preferred] = dedupeDevicesByUdid(attachedEntriesFor(udid));
+      devicesByUdid.set(udid, preferred);
 
-  try {
-    for await (const event of usbmux.listen({signal})) {
-      if (event.type === 'attach') {
-        const {device} = event;
-        const udid = device.Properties.SerialNumber;
-        if (specificUdid && udid !== specificUdid) {
-          continue;
-        }
-        attachedByDeviceId.set(device.DeviceID, device);
-        const [preferred] = dedupeDevicesByUdid(attachedEntriesFor(udid));
-        devicesByUdid.set(udid, preferred);
+      if (establishedTunnelsByUdid.has(udid) || reconnectingByUdid.has(udid)) {
+        log.debug(`Ignoring attach of ${udid} (${device.Properties.ConnectionType}): tunnel already managed`);
+        return;
+      }
 
-        if (establishedTunnelsByUdid.has(udid) || reconnectingByUdid.has(udid)) {
-          log.debug(`Ignoring attach of ${udid} (${device.Properties.ConnectionType}): tunnel already managed`);
-          continue;
-        }
+      log.info(`\n🔌 Device attached: ${udid}`);
+      const result = await createTunnelForDevice(preferred);
+      if (!result.success) {
+        return;
+      }
+      attachTunnelRegistryLifecycleWatch(registryServer.getRegistry(), [result], {
+        onTunnelDead: async ({udid: droppedUdid}) => {
+          await reconnectTunnelByUdid(droppedUdid);
+        },
+      });
+      await publishDiscoveredTunnelEntry(result);
+    } else {
+      const device = attachedByDeviceId.get(event.deviceId);
+      if (!device) {
+        return;
+      }
+      attachedByDeviceId.delete(event.deviceId);
+      const udid = device.Properties.SerialNumber;
 
-        log.info(`\n🔌 Device attached: ${udid}`);
-        const result = await createTunnelForDevice(preferred);
-        if (!result.success) {
-          continue;
-        }
-        attachTunnelRegistryLifecycleWatch(registryServer.getRegistry(), [result], {
-          onTunnelDead: async ({udid: droppedUdid}) => {
-            await reconnectTunnelByUdid(droppedUdid);
-          },
-        });
-        await publishDiscoveredTunnelEntry(result);
-      } else {
-        const device = attachedByDeviceId.get(event.deviceId);
-        if (!device) {
-          continue;
-        }
-        attachedByDeviceId.delete(event.deviceId);
-        const udid = device.Properties.SerialNumber;
+      const [remaining] = dedupeDevicesByUdid(attachedEntriesFor(udid));
+      if (remaining) {
+        // e.g. USB unplugged while still reachable over Network; the lifecycle watch handles the drop
+        log.info(
+          `Device ${udid} lost its ${device.Properties.ConnectionType} connection, still attached via ${remaining.Properties.ConnectionType}`,
+        );
+        devicesByUdid.set(udid, remaining);
+        return;
+      }
 
-        const [remaining] = dedupeDevicesByUdid(attachedEntriesFor(udid));
-        if (remaining) {
-          // e.g. USB unplugged while still reachable over Network; the lifecycle watch handles the drop
-          log.info(
-            `Device ${udid} lost its ${device.Properties.ConnectionType} connection, still attached via ${remaining.Properties.ConnectionType}`,
-          );
-          devicesByUdid.set(udid, remaining);
-          continue;
-        }
+      log.info(`\n🔌 Device detached: ${udid}`);
+      devicesByUdid.delete(udid);
+      await removeDetachedDevice(udid);
+    }
+  };
 
-        log.info(`\n🔌 Device detached: ${udid}`);
+  /**
+   * After usbmuxd restarts, devices unplugged in the meantime are never reported as detached.
+   *
+   * @returns {Promise<void>}
+   */
+  const detachDevicesMissingFromUsbmux = async () => {
+    const lister = await createUsbmux();
+    let listed;
+    try {
+      listed = new Set((await lister.listDevices()).map((device) => device.Properties.SerialNumber));
+    } finally {
+      await lister.close().catch(() => {});
+    }
+    for (const udid of [...devicesByUdid.keys()]) {
+      if (!listed.has(udid)) {
+        log.info(`\n🔌 Device detached while usbmuxd was unavailable: ${udid}`);
         devicesByUdid.delete(udid);
         await removeDetachedDevice(udid);
       }
     }
-  } catch (err) {
-    if (!signal.aborted) {
-      log.error(`Device watch ended unexpectedly: ${err}`);
+  };
+
+  deviceWatchAbortController = new AbortController();
+  const {signal} = deviceWatchAbortController;
+  let resubscribing = false;
+  let backoffMs = 1000;
+
+  while (!signal.aborted) {
+    /** @type {import('appium-ios-remotexpc').Usbmux | null} */
+    let usbmux = null;
+    try {
+      usbmux = await createUsbmux();
+      const events = usbmux.listen({signal});
+      log.info('Watching usbmuxd for device attach/detach events...');
+      if (resubscribing) {
+        await detachDevicesMissingFromUsbmux();
+      }
+      for await (const event of events) {
+        backoffMs = 1000;
+        await handleEvent(event);
+      }
+    } catch (err) {
+      if (!signal.aborted) {
+        log.warn(`Device watch interrupted (${err}); resubscribing in ${backoffMs}ms`);
+      }
+    } finally {
+      await usbmux?.close().catch(() => {});
     }
-  } finally {
-    await usbmux.close().catch(() => {});
+    if (signal.aborted) {
+      break;
+    }
+    // usbmuxd reassigns DeviceIDs when it restarts and re-reports every attached device on Listen
+    attachedByDeviceId.clear();
+    resubscribing = true;
+    await sleep(backoffMs);
+    backoffMs = Math.min(backoffMs * 2, 30000);
   }
 }
 
