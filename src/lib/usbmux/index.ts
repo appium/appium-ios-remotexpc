@@ -107,9 +107,7 @@ export class Usbmux extends BaseSocketService {
     // Unless close() already stopped them, surface a dropped connection (e.g. usbmuxd restarting)
     // to listen() consumers instead of leaving them waiting forever
     this._socketClient.on('close', () => {
-      for (const stream of [...this._eventStreams]) {
-        stream.fail(new Error('usbmuxd connection closed'));
-      }
+      this._forEachEventStream((stream) => stream.fail(new Error('usbmuxd connection closed')));
     });
 
     this.on('error', (err: Error) => {
@@ -316,9 +314,7 @@ export class Usbmux extends BaseSocketService {
    * @returns Promise that resolves when the socket is closed.
    */
   close(): Promise<void> {
-    for (const stream of [...this._eventStreams]) {
-      stream.stop();
-    }
+    this._forEachEventStream((stream) => stream.stop());
 
     return new Promise((resolve, reject) => {
       // If the socket is still open, end it gracefully.
@@ -362,9 +358,19 @@ export class Usbmux extends BaseSocketService {
         payload.MessageType === 'Attached'
           ? {type: 'attach', device: payload as unknown as Device}
           : {type: 'detach', deviceId: payload.DeviceID as number};
-      for (const stream of this._eventStreams) {
-        stream.push(event);
-      }
+      this._forEachEventStream((stream) => stream.push(event));
+    }
+  }
+
+  /**
+   * Runs `fn` for every active listen() stream. Iterates over a snapshot, since stopping a
+   * stream removes it from the set.
+   * @param fn - Callback invoked with each stream
+   * @private
+   */
+  private _forEachEventStream(fn: (stream: UsbmuxDeviceEventStream) => void): void {
+    for (const stream of [...this._eventStreams]) {
+      fn(stream);
     }
   }
 
