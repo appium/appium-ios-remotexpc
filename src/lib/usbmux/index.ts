@@ -96,6 +96,13 @@ export class Usbmux extends BaseSocketService {
     this._responseCallbacks = {};
     this._eventStreams = new Set();
     this._decoder.on('data', this._handleData.bind(this));
+    // Unless close() already stopped them, surface a dropped connection (e.g. usbmuxd restarting)
+    // to listen() consumers instead of leaving them waiting forever
+    this._socketClient.on('close', () => {
+      for (const stream of [...this._eventStreams]) {
+        stream.fail(new Error('usbmuxd connection closed'));
+      }
+    });
 
     this.on('error', (err: Error) => {
       log.error(`Usbmux socket error: ${err.message}`);
@@ -207,7 +214,8 @@ export class Usbmux extends BaseSocketService {
    * every already-connected device as an attach event once the request is acknowledged.
    *
    * Stop iterating (`break`, `return`, an aborted `signal`, or calling {@link close}) to
-   * unsubscribe. Use a dedicated connection for listening.
+   * unsubscribe. If the connection drops (e.g. usbmuxd restarts), iteration rejects so the
+   * caller can resubscribe on a new connection. Use a dedicated connection for listening.
    *
    * @param opts.signal - When aborted, ends the iteration
    * @returns Async iterable of attach/detach events

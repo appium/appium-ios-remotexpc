@@ -8,6 +8,7 @@ import {UsbmuxEncoder} from '../../../src/lib/usbmux/usbmux-encoder.js';
 interface MockUsbmuxd {
   server: Server;
   socket: Socket;
+  serverSockets: Socket[];
   /** Writes a plist response frame using the tag of the most recently received client request. */
   respond(payload: Record<string, unknown>): void;
   /** Writes an unsolicited notification frame with tag 0, as real usbmuxd does for Attached/Detached. */
@@ -33,10 +34,12 @@ async function createMockUsbmuxd(): Promise<MockUsbmuxd> {
   socket.on('error', () => {});
   let lastTag = 0;
   let serverSideEncoder: UsbmuxEncoder | null = null;
+  const serverSockets: Socket[] = [];
 
   await new Promise<void>((resolve) => {
     server.on('connection', (serverSocket) => {
       serverSocket.on('error', () => {});
+      serverSockets.push(serverSocket);
       const encoder = new UsbmuxEncoder();
       encoder.pipe(serverSocket);
       serverSideEncoder = encoder;
@@ -55,6 +58,7 @@ async function createMockUsbmuxd(): Promise<MockUsbmuxd> {
   return {
     server,
     socket,
+    serverSockets,
     respond(payload) {
       if (!serverSideEncoder) {
         throw new Error('Server has not accepted a connection yet');
@@ -236,6 +240,23 @@ describe('usbmux listen', function () {
 
     const result = await pendingNext;
     assert.strictEqual(result.done, true);
+  });
+
+  it('rejects when usbmuxd drops the connection', async function () {
+    mock = await createMockUsbmuxd();
+    usbmux = new Usbmux(mock.socket);
+
+    const iterator = usbmux.listen()[Symbol.asyncIterator]();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    mock.respond({MessageType: 'Result', Number: 0});
+
+    const pendingNext = iterator.next();
+    mock.server.close();
+    for (const serverSocket of mock.serverSockets) {
+      serverSocket.destroy();
+    }
+
+    await assert.rejects(pendingNext, /usbmuxd connection closed/);
   });
 
   it('ends immediately when given an already-aborted signal', async function () {
