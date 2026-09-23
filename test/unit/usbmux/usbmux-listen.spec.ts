@@ -226,6 +226,27 @@ describe('usbmux listen', function () {
     await iterator.return?.();
   });
 
+  it('delivers a reply carrying MessageType Attached to its pending request, not to listeners', async function () {
+    mock = await createMockUsbmuxd();
+    usbmux = new Usbmux(mock.socket);
+
+    const iterator = usbmux.listen()[Symbol.asyncIterator]();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    mock.respond({MessageType: 'Result', Number: 0});
+
+    const buidPromise = usbmux.readBUID();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    // Older plist parsers flatten nested DeviceList entries, so replies can carry this top-level key
+    mock.respond({BUID: 'host-buid', MessageType: 'Attached'});
+    assert.strictEqual(await buidPromise, 'host-buid');
+
+    mock.notify({MessageType: 'Detached', DeviceID: 5});
+    const result = await iterator.next();
+    assert.deepStrictEqual(result.value, {type: 'detach', deviceId: 5});
+
+    await iterator.return?.();
+  });
+
   it('ends iteration when the connection is closed', async function () {
     mock = await createMockUsbmuxd();
     usbmux = new Usbmux(mock.socket);

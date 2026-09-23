@@ -338,7 +338,15 @@ export class Usbmux extends BaseSocketService {
    * @private
    */
   private _handleData(data: DecodedUsbmux): void {
-    // usbmuxd sends Listen notifications unsolicited with tag 0, not the Listen request's tag
+    const handler = this._responseCallbacks[data.header.tag];
+    if (handler) {
+      handler(data);
+      return;
+    }
+
+    // Listen notifications arrive unsolicited with tag 0, not the Listen request's tag. Only
+    // frames no pending request is waiting for are treated as such, so a ListDevices reply
+    // (whose entries also carry MessageType 'Attached') is never mistaken for one.
     const {MessageType} = data.payload;
     if (MessageType === 'Attached' || MessageType === 'Detached') {
       const event: UsbmuxDeviceEvent =
@@ -348,12 +356,6 @@ export class Usbmux extends BaseSocketService {
       for (const stream of this._eventStreams) {
         stream.push(event);
       }
-      return;
-    }
-
-    const handler = this._responseCallbacks[data.header.tag];
-    if (handler) {
-      handler(data);
     }
   }
 
