@@ -30,7 +30,11 @@ export type UserInterfaceStyle = 'dark' | 'light' | (string & {});
 
 /**
  * Dynamic Type content-size names accepted by the daemon's `setdevicetextsize`
- * action. These are the seven standard sizes.
+ * action, from smallest to largest: the seven standard sizes followed by the five
+ * accessibility sizes. The daemon only accepts an accessibility size while
+ * Settings > Accessibility > Display & Text Size > Larger Text >
+ * "Larger Accessibility Sizes" is enabled on the device, and fails with
+ * `CoreDeviceError 21063` otherwise.
  */
 const DEVICE_TEXT_SIZES = [
   'extraSmall',
@@ -40,6 +44,11 @@ const DEVICE_TEXT_SIZES = [
   'extraLarge',
   'extraExtraLarge',
   'extraExtraExtraLarge',
+  'accessibilityMedium',
+  'accessibilityLarge',
+  'accessibilityExtraLarge',
+  'accessibilityExtraExtraLarge',
+  'accessibilityExtraExtraExtraLarge',
 ] as const;
 
 /** A valid Dynamic Type content-size name. See {@link DEVICE_TEXT_SIZES}. */
