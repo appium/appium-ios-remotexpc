@@ -80,6 +80,16 @@ export class LengthBasedSplitter extends Transform {
     this.removeAllListeners();
   }
 
+  /**
+   * Returns the bytes received but not yet emitted as a complete frame, and
+   * forgets them.
+   */
+  takeBufferedData(): Buffer {
+    const data = this.buffer;
+    this.buffer = Buffer.alloc(0);
+    return data;
+  }
+
   _transform(chunk: Buffer, encoding: BufferEncoding, callback: TransformCallback): void {
     try {
       // Add the new chunk to our buffer

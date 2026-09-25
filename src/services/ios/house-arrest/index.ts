@@ -77,7 +77,9 @@ export class HouseArrestService extends BaseService {
 
       log.debug(`Successfully vended into ${bundleId}`);
 
-      return AfcService.fromSocket(connection.getSocket());
+      // The plist layer must let go of the socket: otherwise it keeps consuming the AFC
+      // replies, and once its buffer fills up it pauses the socket and AFC reads stall.
+      return AfcService.fromSocket(connection.detachSocket());
     } catch (error) {
       try {
         connection.close();
