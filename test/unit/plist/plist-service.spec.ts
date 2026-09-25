@@ -6,6 +6,7 @@ import {describe, it} from 'node:test';
 import {createPlist} from '../../../src/lib/plist/plist-creator.js';
 import {PlistService} from '../../../src/lib/plist/plist-service.js';
 import type {PlistDictionary} from '../../../src/lib/types.js';
+import {readExact} from '../../../src/services/ios/afc/codec.js';
 
 function framePlist(data: PlistDictionary): Buffer {
   const xml = createPlist(data);
@@ -106,6 +107,7 @@ describe('PlistService.detachSocket', function () {
   function collect(socket: Readable): Buffer[] {
     const chunks: Buffer[] = [];
     socket.on('data', (chunk: Buffer) => chunks.push(chunk));
+    socket.resume();
     return chunks;
   }
 
@@ -143,11 +145,28 @@ describe('PlistService.detachSocket', function () {
     await new Promise((r) => setImmediate(r));
 
     const detached = service.detachSocket();
+    await new Promise((r) => setImmediate(r));
     const chunks = collect(detached);
     socket.write(Buffer.from([4, 5]));
     await new Promise((r) => setImmediate(r));
 
     assert.deepStrictEqual(Buffer.concat(chunks), Buffer.concat([partial, Buffer.from([4, 5])]));
+  });
+
+  it('keeps the data for an AFC reader attached on a later tick', async function () {
+    const socket = new PassThrough();
+    const service = new PlistService(socket as any);
+    const partial = Buffer.from([0, 0, 0, 100, 1, 2, 3]);
+    socket.write(partial);
+    await new Promise((r) => setImmediate(r));
+
+    const detached = service.detachSocket();
+    await new Promise((r) => setImmediate(r));
+    socket.write(Buffer.from([4, 5]));
+    await new Promise((r) => setImmediate(r));
+
+    const data = await readExact(detached as any, partial.length + 2, 1000);
+    assert.deepStrictEqual(data, Buffer.concat([partial, Buffer.from([4, 5])]));
   });
 
   it('rejects receives that are still waiting', async function () {

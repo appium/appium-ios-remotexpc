@@ -167,10 +167,12 @@ export class PlistService {
    *
    * The socket is unpiped from the plist transformers, so they no longer
    * consume its data, and any bytes they buffered are put back into it. Pending
-   * receives are rejected. The socket is left flowing: `unpipe()` pauses it,
-   * and adding a `'data'` listener does not resume an explicitly paused stream.
+   * receives are rejected. The socket is returned paused, so no data is lost
+   * before the new owner attaches its reader; the new owner must `resume()` it
+   * after that, since adding a `'data'` listener does not resume an explicitly
+   * paused stream.
    *
-   * @returns The socket, ready to be read by the new owner
+   * @returns The paused socket, ready to be read by the new owner
    */
   public detachSocket(): Socket | TLSSocket {
     // Unpipe before removing listeners: the pipes' own 'unpipe' handlers take
@@ -192,7 +194,6 @@ export class PlistService {
     if (bufferedData.length > 0) {
       this._socket.unshift(bufferedData);
     }
-    this._socket.resume();
     return this._socket;
   }
 

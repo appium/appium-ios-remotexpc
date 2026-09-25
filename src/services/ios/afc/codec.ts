@@ -513,5 +513,8 @@ function ensureSocketState(socket: net.Socket): SocketState {
   socket.once('close', state.onClose);
   socket.once('end', state.onClose);
   SOCKET_STATES.set(socket, state);
+  // A socket handed over by another protocol (e.g. House Arrest) arrives paused,
+  // and a 'data' listener alone does not resume an explicitly paused stream
+  socket.resume();
   return state;
 }

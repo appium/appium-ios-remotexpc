@@ -41,6 +41,8 @@ export interface LengthBasedSplitterOptions {
  * Splits incoming data into length-prefixed chunks
  */
 export class LengthBasedSplitter extends Transform {
+  private static readonly EMPTY = Buffer.alloc(0);
+
   private buffer: Buffer;
   private readonly littleEndian: boolean;
   private readonly maxFrameLength: number;
@@ -55,7 +57,7 @@ export class LengthBasedSplitter extends Transform {
    */
   constructor(options: LengthBasedSplitterOptions = {}) {
     super();
-    this.buffer = Buffer.alloc(0);
+    this.buffer = LengthBasedSplitter.EMPTY;
     this.littleEndian = options.littleEndian ?? false;
     this.maxFrameLength = options.maxFrameLength ?? DEFAULT_MAX_FRAME_LENGTH;
     this.lengthFieldOffset = options.lengthFieldOffset ?? DEFAULT_LENGTH_FIELD_OFFSET;
@@ -73,7 +75,7 @@ export class LengthBasedSplitter extends Transform {
    */
   shutdown(): void {
     // Reset internal state
-    this.buffer = Buffer.alloc(0);
+    this.buffer = LengthBasedSplitter.EMPTY;
     this.isXmlMode = false;
 
     // Remove all listeners
@@ -86,7 +88,7 @@ export class LengthBasedSplitter extends Transform {
    */
   takeBufferedData(): Buffer {
     const data = this.buffer;
-    this.buffer = Buffer.alloc(0);
+    this.buffer = LengthBasedSplitter.EMPTY;
     return data;
   }
 
