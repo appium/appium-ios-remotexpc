@@ -218,7 +218,7 @@ CLI helpers under `scripts/` are ESM (`.mjs`) and load the library via the packa
 
 - `npm run tunnel-creation` — Create USB tunnels and start the tunnel registry HTTP API (requires `sudo`)
 - `npm run tunnel-creation -- --keep-open` — Same as above with `--keep-open` (for inspecting open sockets)
-- `npm run tunnel-creation -- --watch-devices` — Keep running after startup, creating tunnels for devices attached later and removing detached ones (usbmux-visible devices only)
+- `npm run tunnel-creation -- --watch-devices` — Keep running after startup, creating tunnels for devices attached later and removing detached ones (usbmux-visible devices only). Combine with `--udid` to watch a single device — startup then waits for it instead of requiring it to already be connected. Devices attached while watching use the same `--reconnect-retries` policy as devices found at startup; `--keep-open` applies independently.
 - `npm run pair-appletv` — Pair an Apple TV over WiFi for Remote XPC (requires `sudo`)
 - `npm run start-appletv-tunnel` — Start an Apple TV WiFi tunnel and tunnel registry (requires `sudo`)
 

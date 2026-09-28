@@ -33,8 +33,8 @@ const log = logger.getLogger('TunnelCreation');
 /** @type {import('appium-ios-remotexpc').TunnelRegistryServer | null} */
 let registryServer = null;
 
-/** @type {AbortController | null} */
-let deviceWatchAbortController = null;
+/** @type {DeviceWatcher | null} */
+let deviceWatcher = null;
 
 /** @type {Map<string, TunnelCreationSuccessResult>} */
 const establishedTunnelsByUdid = new Map();
@@ -208,14 +208,21 @@ function attachTunnelRegistryLifecycleWatch(registry, successful, callbacks = {}
  * @param {number} opts.maxRetries
  * @param {import('appium-ios-remotexpc').UsbmuxDevice} opts.device
  * @param {Map<string, import('appium-ios-remotexpc').UsbmuxDevice>} opts.devicesByUdid
+ * @param {boolean} opts.watchDevicesEnabled - Only `--watch-devices` ever removes entries from `devicesByUdid`; without it the map is static and this check would never fire
  * @param {function(string): Promise<void>} opts.reconnectTunnelByUdid
  * @returns {Promise<void>}
  */
-async function runReconnectAttempts({udid, maxRetries, device, devicesByUdid, reconnectTunnelByUdid}) {
+async function runReconnectAttempts({
+  udid,
+  maxRetries,
+  device,
+  devicesByUdid,
+  watchDevicesEnabled,
+  reconnectTunnelByUdid,
+}) {
   let attempt = 0;
   while (maxRetries === 0 || attempt < maxRetries) {
-    // Only --watch-devices ever removes entries: stop retrying once usbmuxd reports the device gone
-    if (!devicesByUdid.has(udid)) {
+    if (watchDevicesEnabled && !devicesByUdid.has(udid)) {
       log.info(`Stopped reconnecting ${udid}: device detached`);
       return;
     }
@@ -250,9 +257,10 @@ async function runReconnectAttempts({udid, maxRetries, device, devicesByUdid, re
  * @param {object} opts
  * @param {number} opts.reconnectRetries
  * @param {Map<string, import('appium-ios-remotexpc').UsbmuxDevice>} opts.devicesByUdid
+ * @param {boolean} opts.watchDevicesEnabled
  * @returns {function(string): Promise<void>}
  */
-function createReconnectTunnelByUdid({reconnectRetries, devicesByUdid}) {
+function createReconnectTunnelByUdid({reconnectRetries, devicesByUdid, watchDevicesEnabled}) {
   return async function reconnectTunnelByUdid(udid) {
     if (typeof reconnectRetries !== 'number') {
       return;
@@ -272,6 +280,7 @@ function createReconnectTunnelByUdid({reconnectRetries, devicesByUdid}) {
       maxRetries: reconnectRetries,
       device,
       devicesByUdid,
+      watchDevicesEnabled,
       reconnectTunnelByUdid,
     });
 
@@ -295,7 +304,7 @@ function setupCleanupHandlers() {
   const cleanup = async (signal) => {
     log.warn(`\nCleaning up (${signal})...`);
 
-    deviceWatchAbortController?.abort();
+    deviceWatcher?.stop();
 
     while (registryWatcherStops.length > 0) {
       const stop = registryWatcherStops.pop();
@@ -438,90 +447,121 @@ async function removeDetachedDevice(udid) {
 }
 
 /**
- * Keeps following usbmuxd attach/detach notifications after the initial batch (`--watch-devices`),
- * so devices plugged in or re-trusted later get a tunnel and registry entry without a restart.
- * Only covers devices visible to usbmuxd. Resubscribes if the usbmuxd connection drops (e.g. usbmuxd
- * restarts) and returns once the watch is aborted.
+ * Follows usbmuxd attach/detach notifications after the initial batch (`--watch-devices`), so
+ * devices plugged in or re-trusted later get a tunnel and registry entry without a restart. Only
+ * covers devices visible to usbmuxd. Resubscribes if the usbmuxd connection drops (e.g. usbmuxd
+ * restarts) and stops once `stop()` is called.
  *
  * Shares state with the reconnect path: an attach is ignored while a tunnel exists or a reconnect
  * is in flight for that UDID, and a detach removes the UDID from `devicesByUdid`, which stops any
  * pending reconnect attempts for it.
- *
- * @param {object} opts
- * @param {Map<string, import('appium-ios-remotexpc').UsbmuxDevice>} opts.devicesByUdid - Preferred usbmux entry per tracked UDID
- * @param {import('appium-ios-remotexpc').UsbmuxDevice[]} opts.initialDevices - usbmux entries from the startup listing
- * @param {string | undefined} opts.specificUdid - When set, events for other UDIDs are ignored
- * @param {function(string): Promise<void>} opts.reconnectTunnelByUdid
- * @returns {Promise<void>}
  */
-async function watchDevices({devicesByUdid, initialDevices, specificUdid, reconnectTunnelByUdid}) {
-  /** @type {Map<number, import('appium-ios-remotexpc').UsbmuxDevice>} */
-  const attachedByDeviceId = new Map(initialDevices.map((device) => [device.DeviceID, device]));
-  /** @param {string} udid */
-  const attachedEntriesFor = (udid) =>
-    [...attachedByDeviceId.values()].filter((device) => device.Properties.SerialNumber === udid);
+class DeviceWatcher {
+  /**
+   * @param {object} opts
+   * @param {Map<string, import('appium-ios-remotexpc').UsbmuxDevice>} opts.devicesByUdid - Preferred usbmux entry per tracked UDID
+   * @param {import('appium-ios-remotexpc').UsbmuxDevice[]} opts.initialDevices - usbmux entries from the startup listing
+   * @param {string | undefined} opts.specificUdid - When set, events for other UDIDs are ignored
+   * @param {function(string): Promise<void>} opts.reconnectTunnelByUdid
+   */
+  constructor({devicesByUdid, initialDevices, specificUdid, reconnectTunnelByUdid}) {
+    this.devicesByUdid = devicesByUdid;
+    this.specificUdid = specificUdid;
+    this.reconnectTunnelByUdid = reconnectTunnelByUdid;
+    /** @type {Map<number, import('appium-ios-remotexpc').UsbmuxDevice>} */
+    this.attachedByDeviceId = new Map(initialDevices.map((device) => [device.DeviceID, device]));
+    this.abortController = new AbortController();
+  }
+
+  /**
+   * @param {string} udid
+   * @returns {import('appium-ios-remotexpc').UsbmuxDevice[]}
+   */
+  attachedEntriesFor(udid) {
+    return [...this.attachedByDeviceId.values()].filter((device) => device.Properties.SerialNumber === udid);
+  }
+
+  /** @returns {void} */
+  stop() {
+    this.abortController.abort();
+  }
 
   /**
    * @param {import('appium-ios-remotexpc').UsbmuxDeviceEvent} event
    * @returns {Promise<void>}
    */
-  const handleEvent = async (event) => {
+  async handleEvent(event) {
     if (event.type === 'attach') {
-      const {device} = event;
-      const udid = device.Properties.SerialNumber;
-      if (specificUdid && udid !== specificUdid) {
-        return;
-      }
-      attachedByDeviceId.set(device.DeviceID, device);
-      const [preferred] = dedupeDevicesByUdid(attachedEntriesFor(udid));
-      devicesByUdid.set(udid, preferred);
-
-      if (establishedTunnelsByUdid.has(udid) || reconnectingByUdid.has(udid)) {
-        log.debug(`Ignoring attach of ${udid} (${device.Properties.ConnectionType}): tunnel already managed`);
-        return;
-      }
-
-      log.info(`\n🔌 Device attached: ${udid}`);
-      const result = await createTunnelForDevice(preferred);
-      if (!result.success) {
-        return;
-      }
-      attachTunnelRegistryLifecycleWatch(registryServer.getRegistry(), [result], {
-        onTunnelDead: async ({udid: droppedUdid}) => {
-          await reconnectTunnelByUdid(droppedUdid);
-        },
-      });
-      await publishDiscoveredTunnelEntry(result);
+      await this.handleAttach(event.device);
     } else {
-      const device = attachedByDeviceId.get(event.deviceId);
-      if (!device) {
-        return;
-      }
-      attachedByDeviceId.delete(event.deviceId);
-      const udid = device.Properties.SerialNumber;
-
-      const [remaining] = dedupeDevicesByUdid(attachedEntriesFor(udid));
-      if (remaining) {
-        // e.g. USB unplugged while still reachable over Network; the lifecycle watch handles the drop
-        log.info(
-          `Device ${udid} lost its ${device.Properties.ConnectionType} connection, still attached via ${remaining.Properties.ConnectionType}`,
-        );
-        devicesByUdid.set(udid, remaining);
-        return;
-      }
-
-      log.info(`\n🔌 Device detached: ${udid}`);
-      devicesByUdid.delete(udid);
-      await removeDetachedDevice(udid);
+      await this.handleDetach(event.deviceId);
     }
-  };
+  }
+
+  /**
+   * @param {import('appium-ios-remotexpc').UsbmuxDevice} device
+   * @returns {Promise<void>}
+   */
+  async handleAttach(device) {
+    const udid = device.Properties.SerialNumber;
+    if (this.specificUdid && udid !== this.specificUdid) {
+      return;
+    }
+    this.attachedByDeviceId.set(device.DeviceID, device);
+    const [preferred] = dedupeDevicesByUdid(this.attachedEntriesFor(udid));
+    this.devicesByUdid.set(udid, preferred);
+
+    if (establishedTunnelsByUdid.has(udid) || reconnectingByUdid.has(udid)) {
+      log.debug(`Ignoring attach of ${udid} (${device.Properties.ConnectionType}): tunnel already managed`);
+      return;
+    }
+
+    log.info(`\n🔌 Device attached: ${udid}`);
+    const result = await createTunnelForDevice(preferred);
+    if (!result.success) {
+      return;
+    }
+    attachTunnelRegistryLifecycleWatch(registryServer.getRegistry(), [result], {
+      onTunnelDead: async ({udid: droppedUdid}) => {
+        await this.reconnectTunnelByUdid(droppedUdid);
+      },
+    });
+    await publishDiscoveredTunnelEntry(result);
+  }
+
+  /**
+   * @param {number} deviceId
+   * @returns {Promise<void>}
+   */
+  async handleDetach(deviceId) {
+    const device = this.attachedByDeviceId.get(deviceId);
+    if (!device) {
+      return;
+    }
+    this.attachedByDeviceId.delete(deviceId);
+    const udid = device.Properties.SerialNumber;
+
+    const [remaining] = dedupeDevicesByUdid(this.attachedEntriesFor(udid));
+    if (remaining) {
+      // e.g. USB unplugged while still reachable over Network; the lifecycle watch handles the drop
+      log.info(
+        `Device ${udid} lost its ${device.Properties.ConnectionType} connection, still attached via ${remaining.Properties.ConnectionType}`,
+      );
+      this.devicesByUdid.set(udid, remaining);
+      return;
+    }
+
+    log.info(`\n🔌 Device detached: ${udid}`);
+    this.devicesByUdid.delete(udid);
+    await removeDetachedDevice(udid);
+  }
 
   /**
    * After usbmuxd restarts, devices unplugged in the meantime are never reported as detached.
    *
    * @returns {Promise<void>}
    */
-  const detachDevicesMissingFromUsbmux = async () => {
+  async detachDevicesMissingFromUsbmux() {
     const lister = await createUsbmux();
     let listed;
     try {
@@ -529,49 +569,55 @@ async function watchDevices({devicesByUdid, initialDevices, specificUdid, reconn
     } finally {
       await lister.close().catch((err) => log.warn(`Failed to close usbmux listing connection: ${err}`));
     }
-    for (const udid of [...devicesByUdid.keys()]) {
+    for (const udid of [...this.devicesByUdid.keys()]) {
       if (!listed.has(udid)) {
         log.info(`\n🔌 Device detached while usbmuxd was unavailable: ${udid}`);
-        devicesByUdid.delete(udid);
+        this.devicesByUdid.delete(udid);
         await removeDetachedDevice(udid);
       }
     }
-  };
+  }
 
-  deviceWatchAbortController = new AbortController();
-  const {signal} = deviceWatchAbortController;
-  let resubscribing = false;
-  let backoffMs = 1000;
+  /**
+   * Runs the subscribe/handle/resubscribe loop until `stop()` is called.
+   *
+   * @returns {Promise<void>}
+   */
+  async run() {
+    const {signal} = this.abortController;
+    let resubscribing = false;
+    let backoffMs = 1000;
 
-  while (!signal.aborted) {
-    /** @type {import('appium-ios-remotexpc').Usbmux | null} */
-    let usbmux = null;
-    try {
-      usbmux = await createUsbmux();
-      const events = usbmux.listen({signal});
-      log.info('Watching usbmuxd for device attach/detach events...');
-      if (resubscribing) {
-        await detachDevicesMissingFromUsbmux();
+    while (!signal.aborted) {
+      /** @type {import('appium-ios-remotexpc').Usbmux | null} */
+      let usbmux = null;
+      try {
+        usbmux = await createUsbmux();
+        const events = usbmux.listen({signal});
+        log.info('Watching usbmuxd for device attach/detach events...');
+        if (resubscribing) {
+          await this.detachDevicesMissingFromUsbmux();
+        }
+        for await (const event of events) {
+          backoffMs = 1000;
+          await this.handleEvent(event);
+        }
+      } catch (err) {
+        if (!signal.aborted) {
+          log.warn(`Device watch interrupted (${err}); resubscribing in ${backoffMs}ms`);
+        }
+      } finally {
+        await usbmux?.close().catch((err) => log.warn(`Failed to close usbmux watch connection: ${err}`));
       }
-      for await (const event of events) {
-        backoffMs = 1000;
-        await handleEvent(event);
+      if (signal.aborted) {
+        break;
       }
-    } catch (err) {
-      if (!signal.aborted) {
-        log.warn(`Device watch interrupted (${err}); resubscribing in ${backoffMs}ms`);
-      }
-    } finally {
-      await usbmux?.close().catch((err) => log.warn(`Failed to close usbmux watch connection: ${err}`));
+      // usbmuxd reassigns DeviceIDs when it restarts and re-reports every attached device on Listen
+      this.attachedByDeviceId.clear();
+      resubscribing = true;
+      await sleep(backoffMs);
+      backoffMs = Math.min(backoffMs * 2, 30000);
     }
-    if (signal.aborted) {
-      break;
-    }
-    // usbmuxd reassigns DeviceIDs when it restarts and re-reports every attached device on Listen
-    attachedByDeviceId.clear();
-    resubscribing = true;
-    await sleep(backoffMs);
-    backoffMs = Math.min(backoffMs * 2, 30000);
   }
 }
 
@@ -598,7 +644,9 @@ async function main() {
     )
     .option(
       '--watch-devices',
-      'Keep watching usbmuxd after startup: create tunnels for newly attached devices and remove detached ones (usbmux-visible devices only)',
+      'Keep watching usbmuxd after startup: create tunnels for newly attached devices and remove detached ones (usbmux-visible devices only). ' +
+        'With --udid, only that UDID is watched, and startup no longer requires it to already be connected. ' +
+        'Tunnels created after startup use the same --reconnect-retries policy as the initial ones. Independent of --keep-open.',
     );
 
   program.parse(process.argv);
@@ -680,6 +728,7 @@ async function main() {
     const reconnectTunnelByUdid = createReconnectTunnelByUdid({
       reconnectRetries,
       devicesByUdid,
+      watchDevicesEnabled: Boolean(options.watchDevices),
     });
 
     const results = [];
@@ -736,7 +785,7 @@ async function main() {
     }
 
     if (options.watchDevices) {
-      await watchDevices({
+      deviceWatcher = new DeviceWatcher({
         devicesByUdid,
         initialDevices: specificUdid
           ? devices.filter((device) => device.Properties.SerialNumber === specificUdid)
@@ -744,6 +793,7 @@ async function main() {
         specificUdid,
         reconnectTunnelByUdid,
       });
+      await deviceWatcher.run();
     }
   } catch (error) {
     log.error(`Error during tunnel creation test: ${error}`);
