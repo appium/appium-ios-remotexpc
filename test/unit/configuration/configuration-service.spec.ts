@@ -164,6 +164,15 @@ describe('ConfigurationService', function () {
     assert.deepStrictEqual(input(fake.sentBodies[0]), {textSize: {size: {extraLarge: {}}}});
   });
 
+  it('setDeviceTextSize accepts accessibility sizes', async function () {
+    const fake = new FakeTransport(() => reply({}));
+    const service = new TestConfigurationService(fake);
+
+    await service.setDeviceTextSize('accessibilityExtraExtraExtraLarge');
+
+    assert.deepStrictEqual(input(fake.sentBodies[0]), {textSize: {size: {accessibilityExtraExtraExtraLarge: {}}}});
+  });
+
   it('setDeviceTextSize rejects an unknown size without sending a message', async function () {
     const fake = new FakeTransport(() => reply({}));
     const service = new TestConfigurationService(fake);

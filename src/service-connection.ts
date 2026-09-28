@@ -72,6 +72,14 @@ export class ServiceConnection extends BasePlistService {
   }
 
   /**
+   * Stops exchanging plist messages and returns the socket for another protocol
+   * to take over (see {@link PlistService.detachSocket}).
+   */
+  detachSocket(): net.Socket {
+    return this.getPlistService().detachSocket() as net.Socket;
+  }
+
+  /**
    * Closes the connection
    */
   close(): void {

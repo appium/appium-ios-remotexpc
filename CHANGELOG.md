@@ -1,3 +1,9 @@
+## [5.22.1](https://github.com/appium/appium-ios-remotexpc/compare/v5.22.0...v5.22.1) (2026-09-25)
+
+### Bug Fixes
+
+* **house-arrest:** detach the plist pipeline before handing the socket to AFC ([#339](https://github.com/appium/appium-ios-remotexpc/issues/339)) ([df9d605](https://github.com/appium/appium-ios-remotexpc/commit/df9d6055cd33d5c7ad24db61c91ba341e52bf93e))
+
 ## [5.22.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.21.0...v5.22.0) (2026-09-23)
 
 ### Features

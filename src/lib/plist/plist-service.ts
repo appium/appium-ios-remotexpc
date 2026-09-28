@@ -161,6 +161,43 @@ export class PlistService {
   }
 
   /**
+   * Stops exchanging plist messages on the socket and returns it, so another
+   * protocol can take over the same connection (e.g. AFC after a House Arrest
+   * vend).
+   *
+   * The socket is unpiped from the plist transformers, so they no longer
+   * consume its data, and any bytes they buffered are put back into it. Pending
+   * receives are rejected. The socket is returned paused, so no data is lost
+   * before the new owner attaches its reader; the new owner must `resume()` it
+   * after that, since adding a `'data'` listener does not resume an explicitly
+   * paused stream.
+   *
+   * @returns The paused socket, ready to be read by the new owner
+   */
+  public detachSocket(): Socket | TLSSocket {
+    // Unpipe before removing listeners: the pipes' own 'unpipe' handlers take
+    // their 'data' listener off the socket, which would otherwise keep feeding
+    // every byte into the splitter
+    this._socket.unpipe(this._splitter);
+    this._splitter.unpipe(this._decoder);
+    this._encoder.unpipe(this._socket);
+    this._splitter.removeAllListeners();
+    this._decoder.removeAllListeners();
+
+    this._messageQueue = [];
+    for (const waiter of this._waiters.splice(0)) {
+      clearTimeout(waiter.timeoutId);
+      waiter.reject(new Error('The socket was detached while waiting for a plist response'));
+    }
+
+    const bufferedData = this._splitter.takeBufferedData();
+    if (bufferedData.length > 0) {
+      this._socket.unshift(bufferedData);
+    }
+    return this._socket;
+  }
+
+  /**
    * Close the connection and clean up resources
    */
   public close(): void {
