@@ -219,6 +219,19 @@ CLI helpers under `scripts/` are ESM (`.mjs`) and load the library via the packa
 - `npm run tunnel-creation` — Create USB tunnels and start the tunnel registry HTTP API (requires `sudo`)
 - `npm run tunnel-creation -- --keep-open` — Same as above with `--keep-open` (for inspecting open sockets)
 - `npm run tunnel-creation -- --watch-devices` — Keep running after startup, creating tunnels for devices attached later and removing detached ones (usbmux-visible devices only). Combine with `--udid` to watch a single device — startup then waits for it instead of requiring it to already be connected. Devices attached while watching use the same `--reconnect-retries` policy as devices found at startup; `--keep-open` applies independently.
+
+  `--watch-devices` combined with the other `tunnel-creation` flags:
+
+  | `--watch-devices` | `--reconnect-retries` | `--udid` | Behavior |
+  | ----------------- | --------------------- | -------- | -------- |
+  | off | off | any | Unchanged: devices are listed once at startup. A device attached later, or one whose tunnel drops, is not picked up until the script restarts. With `--udid`, exits with an error if that device isn't connected. |
+  | off | on | any | Unchanged: a dropped tunnel is retried up to N times (0 = unlimited). Detaching a device does not stop the retries. |
+  | on | off | none | Tunnels for all devices at startup, then for every device attached later. Detached devices lose their tunnel and registry entry. A dropped tunnel is not retried; unplugging and re-plugging the device creates a new one. |
+  | on | on | none | As above, and dropped tunnels are retried. Retries for a device stop as soon as it detaches. An attach during a retry is ignored; the retry loop picks the device up on its next attempt. |
+  | on | off | set | As "on / off / none", but only that UDID is watched (matched case-insensitively). Startup waits for it to attach instead of exiting if it isn't connected. |
+  | on | on | set | As "on / on / none", restricted to that UDID, with the same wait-at-startup behavior. |
+
+  In every `--watch-devices` row, if usbmuxd restarts the watcher resubscribes and removes devices that were unplugged in the meantime. `--keep-open` applies independently.
 - `npm run pair-appletv` — Pair an Apple TV over WiFi for Remote XPC (requires `sudo`)
 - `npm run start-appletv-tunnel` — Start an Apple TV WiFi tunnel and tunnel registry (requires `sudo`)
 

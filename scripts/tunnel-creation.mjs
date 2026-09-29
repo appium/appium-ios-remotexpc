@@ -97,6 +97,18 @@ function connectionTypeRank(connectionType) {
 }
 
 /**
+ * UDID comparison used elsewhere in the library (`Usbmux.findDevice`, lockdown) is case-insensitive,
+ * so a user-supplied `--udid` must match the same way.
+ *
+ * @param {string} a
+ * @param {string} b
+ * @returns {boolean}
+ */
+function isSameUdid(a, b) {
+  return a.toLowerCase() === b.toLowerCase();
+}
+
+/**
  * usbmux may list the same UDID twice (USB + Network). Prefer USB for tunneling.
  *
  * @param {import('appium-ios-remotexpc').UsbmuxDevice[]} devices
@@ -207,22 +219,15 @@ function attachTunnelRegistryLifecycleWatch(registry, successful, callbacks = {}
  * @param {string} opts.udid
  * @param {number} opts.maxRetries
  * @param {import('appium-ios-remotexpc').UsbmuxDevice} opts.device
- * @param {Map<string, import('appium-ios-remotexpc').UsbmuxDevice>} opts.devicesByUdid
- * @param {boolean} opts.watchDevicesEnabled - Only `--watch-devices` ever removes entries from `devicesByUdid`; without it the map is static and this check would never fire
+ * @param {Set<string>} [opts.watchedUdids] - UDIDs currently attached; only defined with `--watch-devices`.
+ *   Retrying stops once the UDID is no longer in the set. Without it, retries are never cut short by detach.
  * @param {function(string): Promise<void>} opts.reconnectTunnelByUdid
  * @returns {Promise<void>}
  */
-async function runReconnectAttempts({
-  udid,
-  maxRetries,
-  device,
-  devicesByUdid,
-  watchDevicesEnabled,
-  reconnectTunnelByUdid,
-}) {
+async function runReconnectAttempts({udid, maxRetries, device, watchedUdids, reconnectTunnelByUdid}) {
   let attempt = 0;
   while (maxRetries === 0 || attempt < maxRetries) {
-    if (watchDevicesEnabled && !devicesByUdid.has(udid)) {
+    if (watchedUdids && !watchedUdids.has(udid)) {
       log.info(`Stopped reconnecting ${udid}: device detached`);
       return;
     }
@@ -257,10 +262,10 @@ async function runReconnectAttempts({
  * @param {object} opts
  * @param {number} opts.reconnectRetries
  * @param {Map<string, import('appium-ios-remotexpc').UsbmuxDevice>} opts.devicesByUdid
- * @param {boolean} opts.watchDevicesEnabled
+ * @param {Set<string>} [opts.watchedUdids] - See {@link runReconnectAttempts}
  * @returns {function(string): Promise<void>}
  */
-function createReconnectTunnelByUdid({reconnectRetries, devicesByUdid, watchDevicesEnabled}) {
+function createReconnectTunnelByUdid({reconnectRetries, devicesByUdid, watchedUdids}) {
   return async function reconnectTunnelByUdid(udid) {
     if (typeof reconnectRetries !== 'number') {
       return;
@@ -279,8 +284,7 @@ function createReconnectTunnelByUdid({reconnectRetries, devicesByUdid, watchDevi
       udid,
       maxRetries: reconnectRetries,
       device,
-      devicesByUdid,
-      watchDevicesEnabled,
+      watchedUdids,
       reconnectTunnelByUdid,
     });
 
@@ -453,19 +457,21 @@ async function removeDetachedDevice(udid) {
  * restarts) and stops once `stop()` is called.
  *
  * Shares state with the reconnect path: an attach is ignored while a tunnel exists or a reconnect
- * is in flight for that UDID, and a detach removes the UDID from `devicesByUdid`, which stops any
+ * is in flight for that UDID, and a detach removes the UDID from `watchedUdids`, which stops any
  * pending reconnect attempts for it.
  */
 class DeviceWatcher {
   /**
    * @param {object} opts
-   * @param {Map<string, import('appium-ios-remotexpc').UsbmuxDevice>} opts.devicesByUdid - Preferred usbmux entry per tracked UDID
+   * @param {Map<string, import('appium-ios-remotexpc').UsbmuxDevice>} opts.devicesByUdid - Preferred usbmux entry per tracked UDID, used as device context by reconnects
+   * @param {Set<string>} opts.watchedUdids - UDIDs currently attached; shared with the reconnect path
    * @param {import('appium-ios-remotexpc').UsbmuxDevice[]} opts.initialDevices - usbmux entries from the startup listing
    * @param {string | undefined} opts.specificUdid - When set, events for other UDIDs are ignored
    * @param {function(string): Promise<void>} opts.reconnectTunnelByUdid
    */
-  constructor({devicesByUdid, initialDevices, specificUdid, reconnectTunnelByUdid}) {
+  constructor({devicesByUdid, watchedUdids, initialDevices, specificUdid, reconnectTunnelByUdid}) {
     this.devicesByUdid = devicesByUdid;
+    this.watchedUdids = watchedUdids;
     this.specificUdid = specificUdid;
     this.reconnectTunnelByUdid = reconnectTunnelByUdid;
     /** @type {Map<number, import('appium-ios-remotexpc').UsbmuxDevice>} */
@@ -481,6 +487,15 @@ class DeviceWatcher {
     return [...this.attachedByDeviceId.values()].filter((device) => device.Properties.SerialNumber === udid);
   }
 
+  /**
+   * @param {string} udid
+   * @returns {void}
+   */
+  forget(udid) {
+    this.devicesByUdid.delete(udid);
+    this.watchedUdids.delete(udid);
+  }
+
   /** @returns {void} */
   stop() {
     this.abortController.abort();
@@ -493,8 +508,10 @@ class DeviceWatcher {
   async handleEvent(event) {
     if (event.type === 'attach') {
       await this.handleAttach(event.device);
-    } else {
+    } else if (event.type === 'detach') {
       await this.handleDetach(event.deviceId);
+    } else {
+      log.debug(`Ignoring unknown usbmux event: ${JSON.stringify(event)}`);
     }
   }
 
@@ -504,12 +521,13 @@ class DeviceWatcher {
    */
   async handleAttach(device) {
     const udid = device.Properties.SerialNumber;
-    if (this.specificUdid && udid !== this.specificUdid) {
+    if (this.specificUdid && !isSameUdid(udid, this.specificUdid)) {
       return;
     }
     this.attachedByDeviceId.set(device.DeviceID, device);
     const [preferred] = dedupeDevicesByUdid(this.attachedEntriesFor(udid));
     this.devicesByUdid.set(udid, preferred);
+    this.watchedUdids.add(udid);
 
     if (establishedTunnelsByUdid.has(udid) || reconnectingByUdid.has(udid)) {
       log.debug(`Ignoring attach of ${udid} (${device.Properties.ConnectionType}): tunnel already managed`);
@@ -552,7 +570,7 @@ class DeviceWatcher {
     }
 
     log.info(`\n🔌 Device detached: ${udid}`);
-    this.devicesByUdid.delete(udid);
+    this.forget(udid);
     await removeDetachedDevice(udid);
   }
 
@@ -569,10 +587,10 @@ class DeviceWatcher {
     } finally {
       await lister.close().catch((err) => log.warn(`Failed to close usbmux listing connection: ${err}`));
     }
-    for (const udid of [...this.devicesByUdid.keys()]) {
+    for (const udid of [...this.watchedUdids]) {
       if (!listed.has(udid)) {
         log.info(`\n🔌 Device detached while usbmuxd was unavailable: ${udid}`);
-        this.devicesByUdid.delete(udid);
+        this.forget(udid);
         await removeDetachedDevice(udid);
       }
     }
@@ -691,7 +709,7 @@ async function main() {
 
     let devicesToProcess = devices;
     if (specificUdid) {
-      devicesToProcess = devices.filter((device) => device.Properties.SerialNumber === specificUdid);
+      devicesToProcess = devices.filter((device) => isSameUdid(device.Properties.SerialNumber, specificUdid));
 
       if (devicesToProcess.length === 0 && options.watchDevices) {
         log.warn(`Device with UDID ${specificUdid} is not connected yet; waiting for it to attach.`);
@@ -725,10 +743,11 @@ async function main() {
 
     const reconnectRetries = options.reconnectRetries;
     const devicesByUdid = new Map(devicesToProcess.map((device) => [device.Properties.SerialNumber, device]));
+    const watchedUdids = options.watchDevices ? new Set(devicesByUdid.keys()) : undefined;
     const reconnectTunnelByUdid = createReconnectTunnelByUdid({
       reconnectRetries,
       devicesByUdid,
-      watchDevicesEnabled: Boolean(options.watchDevices),
+      watchedUdids,
     });
 
     const results = [];
@@ -787,8 +806,9 @@ async function main() {
     if (options.watchDevices) {
       deviceWatcher = new DeviceWatcher({
         devicesByUdid,
+        watchedUdids,
         initialDevices: specificUdid
-          ? devices.filter((device) => device.Properties.SerialNumber === specificUdid)
+          ? devices.filter((device) => isSameUdid(device.Properties.SerialNumber, specificUdid))
           : devices,
         specificUdid,
         reconnectTunnelByUdid,
