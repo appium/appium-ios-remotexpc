@@ -82,6 +82,19 @@ function registerEstablishedTunnel(result) {
 }
 
 /**
+ * Drops the bookkeeping entry of a tunnel that died, unless a newer tunnel has replaced it already.
+ *
+ * @param {string} udid
+ * @param {string} deadAddress
+ * @returns {void}
+ */
+function forgetEstablishedTunnel(udid, deadAddress) {
+  if (establishedTunnelsByUdid.get(udid)?.tunnel.Address === deadAddress) {
+    establishedTunnelsByUdid.delete(udid);
+  }
+}
+
+/**
  *
  * @param {string} connectionType
  * @returns {number}
@@ -201,6 +214,8 @@ function attachTunnelRegistryLifecycleWatch(registry, successful, callbacks = {}
       },
       onTunnelDead: async ({udid: droppedUdid, address}) => {
         await TunnelManager.closeTunnelByAddress(address).catch(() => {});
+        // A dead tunnel must not keep blocking later attaches of this UDID, whether or not a reconnect follows
+        forgetEstablishedTunnel(droppedUdid, address);
         if (callbacks.onTunnelDead) {
           await callbacks.onTunnelDead({udid: droppedUdid, address});
         }
@@ -465,17 +480,16 @@ class DeviceWatcher {
    * @param {object} opts
    * @param {Map<string, import('appium-ios-remotexpc').UsbmuxDevice>} opts.devicesByUdid - Preferred usbmux entry per tracked UDID, used as device context by reconnects
    * @param {Set<string>} opts.watchedUdids - UDIDs currently attached; shared with the reconnect path
-   * @param {import('appium-ios-remotexpc').UsbmuxDevice[]} opts.initialDevices - usbmux entries from the startup listing
    * @param {string | undefined} opts.specificUdid - When set, events for other UDIDs are ignored
    * @param {function(string): Promise<void>} opts.reconnectTunnelByUdid
    */
-  constructor({devicesByUdid, watchedUdids, initialDevices, specificUdid, reconnectTunnelByUdid}) {
+  constructor({devicesByUdid, watchedUdids, specificUdid, reconnectTunnelByUdid}) {
     this.devicesByUdid = devicesByUdid;
     this.watchedUdids = watchedUdids;
     this.specificUdid = specificUdid;
     this.reconnectTunnelByUdid = reconnectTunnelByUdid;
     /** @type {Map<number, import('appium-ios-remotexpc').UsbmuxDevice>} */
-    this.attachedByDeviceId = new Map(initialDevices.map((device) => [device.DeviceID, device]));
+    this.attachedByDeviceId = new Map();
     this.abortController = new AbortController();
   }
 
@@ -506,12 +520,15 @@ class DeviceWatcher {
    * @returns {Promise<void>}
    */
   async handleEvent(event) {
-    if (event.type === 'attach') {
-      await this.handleAttach(event.device);
-    } else if (event.type === 'detach') {
-      await this.handleDetach(event.deviceId);
-    } else {
-      log.debug(`Ignoring unknown usbmux event: ${JSON.stringify(event)}`);
+    switch (event.type) {
+      case 'attach':
+        await this.handleAttach(event.device);
+        break;
+      case 'detach':
+        await this.handleDetach(event.deviceId);
+        break;
+      default:
+        log.debug(`Ignoring unknown usbmux event: ${JSON.stringify(event)}`);
     }
   }
 
@@ -544,7 +561,16 @@ class DeviceWatcher {
         await this.reconnectTunnelByUdid(droppedUdid);
       },
     });
-    await publishDiscoveredTunnelEntry(result);
+    let published = false;
+    try {
+      published = await publishDiscoveredTunnelEntry(result);
+    } catch (err) {
+      log.warn(`Failed to publish tunnel for ${udid}: ${err}`);
+    }
+    if (!published) {
+      // Otherwise the live but unpublished tunnel would make every later attach of this UDID a no-op
+      await removeDetachedDevice(udid);
+    }
   }
 
   /**
@@ -575,7 +601,8 @@ class DeviceWatcher {
   }
 
   /**
-   * After usbmuxd restarts, devices unplugged in the meantime are never reported as detached.
+   * Devices unplugged while no subscription was active (during startup, or while usbmuxd was down)
+   * are never reported as detached.
    *
    * @returns {Promise<void>}
    */
@@ -603,7 +630,6 @@ class DeviceWatcher {
    */
   async run() {
     const {signal} = this.abortController;
-    let resubscribing = false;
     let backoffMs = 1000;
 
     while (!signal.aborted) {
@@ -611,14 +637,20 @@ class DeviceWatcher {
       let usbmux = null;
       try {
         usbmux = await createUsbmux();
+        // Listen re-reports every attached device, possibly under new DeviceIDs (e.g. replugged while
+        // startup was still creating tunnels, or usbmuxd restarted), so entries from before are stale
+        this.attachedByDeviceId.clear();
         const events = usbmux.listen({signal});
         log.info('Watching usbmuxd for device attach/detach events...');
-        if (resubscribing) {
-          await this.detachDevicesMissingFromUsbmux();
-        }
+        await this.detachDevicesMissingFromUsbmux();
         for await (const event of events) {
           backoffMs = 1000;
-          await this.handleEvent(event);
+          try {
+            await this.handleEvent(event);
+          } catch (err) {
+            // One failed event must not end the subscription
+            log.warn(`Failed to handle usbmux ${event.type} event: ${err}`);
+          }
         }
       } catch (err) {
         if (!signal.aborted) {
@@ -630,9 +662,6 @@ class DeviceWatcher {
       if (signal.aborted) {
         break;
       }
-      // usbmuxd reassigns DeviceIDs when it restarts and re-reports every attached device on Listen
-      this.attachedByDeviceId.clear();
-      resubscribing = true;
       await sleep(backoffMs);
       backoffMs = Math.min(backoffMs * 2, 30000);
     }
@@ -807,9 +836,6 @@ async function main() {
       deviceWatcher = new DeviceWatcher({
         devicesByUdid,
         watchedUdids,
-        initialDevices: specificUdid
-          ? devices.filter((device) => isSameUdid(device.Properties.SerialNumber, specificUdid))
-          : devices,
         specificUdid,
         reconnectTunnelByUdid,
       });
