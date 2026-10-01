@@ -1,5 +1,8 @@
 # appium-ios-remotexpc
 
+> **This repository has moved.** Development now continues in the [appium-ios monorepo](https://github.com/appium/appium-ios/tree/main/packages/remotexpc).
+
+
 A Node.js library for interacting with iOS devices
 through Appium using remote XPC services.
 This library enables communication with iOS devices
