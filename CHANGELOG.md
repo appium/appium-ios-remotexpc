@@ -1,3 +1,9 @@
+## [5.23.0](https://github.com/appium/appium-ios-remotexpc/compare/v5.22.1...v5.23.0) (2026-10-01)
+
+### Features
+
+* **tunnel-creation:** add opt-in --watch-devices hot-plug handling ([#337](https://github.com/appium/appium-ios-remotexpc/issues/337)) ([eb7c885](https://github.com/appium/appium-ios-remotexpc/commit/eb7c885adaea2c7dc37f56b7a9151ac06541a298)), closes [Usbmux#_eventStreams](https://github.com/appium/Usbmux/issues/_eventStreams)
+
 ## [5.22.1](https://github.com/appium/appium-ios-remotexpc/compare/v5.22.0...v5.22.1) (2026-09-25)
 
 ### Bug Fixes
