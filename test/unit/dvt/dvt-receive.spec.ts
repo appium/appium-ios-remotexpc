@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {Duplex, PassThrough} from 'node:stream';
 import {describe, it} from 'node:test';
 
+import {ServiceConnection} from '../../../src/service-connection.js';
 import {ChannelFragmenter, isReplyTo} from '../../../src/services/ios/dvt/channel-fragmenter.js';
 import {DTX_CONSTANTS} from '../../../src/services/ios/dvt/dtx-message.js';
 import {DVTSecureSocketProxyService} from '../../../src/services/ios/dvt/index.js';
@@ -258,5 +259,19 @@ describe('DVTSecureSocketProxyService receive path', function () {
     socket.write(buildDtxMessage(10, 1));
     const [data] = await subsequentPromise;
     assert.strictEqual(data?.length, 10);
+  });
+
+  it('detaches the plist pipeline from the socket during connect()', async function () {
+    const socket = new PassThrough();
+    const connection = new ServiceConnection(socket as any);
+    const service = new TestableDVTService('test-udid');
+    (service as any).startLockdownWithoutCheckin = async () => connection;
+    (service as any).performHandshake = async () => {};
+
+    await service.connect();
+
+    // Only DVTSecureSocketProxyService's own listener should remain attached
+    assert.strictEqual(socket.listenerCount('data'), 1);
+    await service.close();
   });
 });

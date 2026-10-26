@@ -66,12 +66,10 @@ class SyslogService extends EventEmitter implements SyslogServiceInterface {
     try {
       this.connection = await this.baseService.startLockdownService(service.serviceName);
 
-      const socket = this.connection.getSocket();
-
       if (textMode) {
         // syslog_relay.shim.remote: after RSDCheckin the device immediately
         // streams \n\x00-delimited plain-text log lines. No further request.
-        socket.unpipe();
+        const socket = this.connection.detachSocket();
         let textBuf = Buffer.alloc(0);
         this.rawDataHandler = (data: Buffer) => {
           if (!this.isCapturing) {
@@ -103,7 +101,7 @@ class SyslogService extends EventEmitter implements SyslogServiceInterface {
         throw new Error(`StartActivity failed: ${JSON.stringify(response)}`);
       }
 
-      socket.unpipe();
+      const socket = this.connection.detachSocket();
       this.rawDataHandler = (data: Buffer) => {
         if (!this.isCapturing) {
           return;
@@ -116,6 +114,7 @@ class SyslogService extends EventEmitter implements SyslogServiceInterface {
       log.info(`Syslog capture started: ${JSON.stringify(response)}`);
       this.emit('start', response);
     } catch (error) {
+      this.closeConnection();
       this.isCapturing = false;
       throw error;
     }
@@ -159,14 +158,17 @@ class SyslogService extends EventEmitter implements SyslogServiceInterface {
    * @param service Service information
    */
   async restart(service: Service): Promise<void> {
+    let conn: ServiceConnection | undefined;
     try {
-      const conn = await this.baseService.startLockdownService(service.serviceName);
+      conn = await this.baseService.startLockdownService(service.serviceName);
       const request = {Request: 'Restart'};
       const res = await conn.sendPlistRequest(request);
       log.info(`Restart response: ${res}`);
     } catch (error) {
       log.error(`Error during restart: ${error}`);
       throw error;
+    } finally {
+      conn?.close();
     }
   }
 

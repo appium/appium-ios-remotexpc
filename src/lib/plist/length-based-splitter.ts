@@ -193,24 +193,19 @@ export class LengthBasedSplitter extends Transform {
       messageLength += this.lengthAdjustment;
 
       // Check if the extracted message length seems suspicious
-      if (messageLength < 0 || messageLength > this.maxFrameLength) {
-        let alternateLength: number;
+      if (messageLength <= 0 || messageLength > this.maxFrameLength) {
         if (this.lengthFieldLength === LENGTH_FIELD_4_BYTES) {
-          alternateLength = this.littleEndian
+          const alternateLength = this.littleEndian
             ? this.buffer.readUInt32BE(this.lengthFieldOffset)
             : this.buffer.readUInt32LE(this.lengthFieldOffset);
 
           if (alternateLength > 0 && alternateLength <= this.maxFrameLength) {
             messageLength = alternateLength;
           } else {
-            // Invalid length - skip one byte and try again
-            this.buffer = this.buffer.slice(1);
-            continue;
+            break;
           }
         } else {
-          // Invalid length - skip one byte and try again
-          this.buffer = this.buffer.slice(1);
-          continue;
+          break;
         }
       }
 

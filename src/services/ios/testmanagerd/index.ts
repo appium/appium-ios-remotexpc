@@ -76,7 +76,7 @@ export class DvtTestmanagedProxyService extends BaseService {
 
     // testmanagerd uses DTX binary protocol, connect without plist-based RSDCheckin
     this.connection = await this.startLockdownWithoutCheckin(DvtTestmanagedProxyService.RSD_SERVICE_NAME);
-    this.socket = this.connection.getSocket();
+    this.socket = this.connection.detachSocket();
     stripSSL(this.socket);
 
     // Persistent handlers capture socket death between readExact() calls.
@@ -586,6 +586,7 @@ export class DvtTestmanagedProxyService extends BaseService {
           socket.off('error', onError);
           socket.off('close', onClose);
           signal?.removeEventListener('abort', onAbort);
+          socket.pause();
         };
 
         const onData = (data: Buffer) => {
@@ -613,6 +614,7 @@ export class DvtTestmanagedProxyService extends BaseService {
         socket.once('error', onError);
         socket.once('close', onClose);
         signal?.addEventListener('abort', onAbort, {once: true});
+        socket.resume();
       });
 
       this.readBuffer = Buffer.concat([this.readBuffer, chunk]);

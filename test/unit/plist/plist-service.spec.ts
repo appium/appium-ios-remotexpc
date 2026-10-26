@@ -169,6 +169,21 @@ describe('PlistService.detachSocket', function () {
     assert.deepStrictEqual(data, Buffer.concat([partial, Buffer.from([4, 5])]));
   });
 
+  it('preserves trailing AFC magic bytes coalesced in the same chunk as the final plist response', async function () {
+    const socket = new PassThrough();
+    const service = new PlistService(socket as any);
+    const afcPacket = afcLikePacket(32);
+
+    socket.write(Buffer.concat([framePlist({Status: 'Complete'}), afcPacket]));
+    assert.deepStrictEqual(await service.receivePlist(1000), {Status: 'Complete'});
+
+    const detached = service.detachSocket();
+    const chunks = collect(detached);
+    await new Promise((r) => setImmediate(r));
+
+    assert.deepStrictEqual(Buffer.concat(chunks), afcPacket);
+  });
+
   it('rejects receives that are still waiting', async function () {
     const socket = new PassThrough();
     const service = new PlistService(socket as any);

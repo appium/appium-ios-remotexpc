@@ -475,7 +475,10 @@ export class LockdownService extends BasePlistService {
       key: HostPrivateKey,
     };
 
-    const tlsSocket = await this.tlsManager.upgradeSocketToTLS(this.getSocket() as Socket, tlsConfig);
+    const tlsSocket = await this.tlsManager.upgradeSocketToTLS(
+      this.getPlistService().detachSocket() as Socket,
+      tlsConfig,
+    );
 
     this.tlsService = new PlistService(tlsSocket);
     this.isTLS = true;
@@ -545,7 +548,7 @@ export async function createLockdownServiceForTunnel(udid: string): Promise<Lock
 
   const conn = await ServiceConnection.createUsingTCP(host, String(lockdownPort));
   await rsdHandshakeLockdownPlistService(conn);
-  return new LockdownService(conn.getSocket(), udid, false);
+  return new LockdownService(conn.detachSocket(), udid, false);
 }
 
 /**

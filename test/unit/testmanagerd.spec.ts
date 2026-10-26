@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
+import {PassThrough} from 'node:stream';
 import {beforeEach, describe, it} from 'node:test';
 
 import {PlistUID, createBinaryPlist} from '../../src/lib/plist/index.js';
+import {ServiceConnection} from '../../src/service-connection.js';
 import {DTX_CONSTANTS, MessageAux} from '../../src/services/ios/dvt/dtx-message.js';
 import {
   DvtTestmanagedProxyService,
@@ -358,5 +360,29 @@ describe('XCTestRunner', function () {
     assert.strictEqual(launchCalls.length, 1);
     assert.strictEqual(launchCalls[0].bundleId, runnerBundleId);
     assert.strictEqual(launchCalls[0].extraOptions?.ActivateSuspended, true);
+  });
+
+  it('detaches the plist pipeline on connect() and preserves data written between readExact() calls', async function () {
+    const socket = new PassThrough();
+    const connection = new ServiceConnection(socket as any);
+    const service = new TestableDvtTestmanagedProxyService('test-udid');
+    (service as any).startLockdownWithoutCheckin = async () => connection;
+    (service as any).performHandshake = async () => {};
+
+    await service.connect();
+
+    assert.strictEqual(socket.listenerCount('data'), 0);
+
+    const firstRead = (service as any).readExact(4);
+    socket.write(Buffer.from([1, 2, 3, 4]));
+    assert.deepStrictEqual(await firstRead, Buffer.from([1, 2, 3, 4]));
+
+    // Write while no readExact() call is active; paused socket retains the chunk
+    socket.write(Buffer.from([5, 6, 7, 8]));
+    await new Promise((resolve) => setImmediate(resolve));
+
+    const secondRead = await (service as any).readExact(4);
+    assert.deepStrictEqual(secondRead, Buffer.from([5, 6, 7, 8]));
+    await service.close();
   });
 });
